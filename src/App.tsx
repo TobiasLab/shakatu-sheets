@@ -14,6 +14,16 @@ import {
 import "./App.css";
 
 type DatabaseStatus = "loading" | "ready" | "saving" | "error";
+type MarketPriceSnapshot = {
+    itemId: number;
+    subId: number;
+    basePrice: number;
+    fetchedAt: number;
+};
+
+const marketItemIds = sycraiaLower.drops
+    .map((drop) => drop.marketItemId)
+    .filter((itemId): itemId is number => itemId !== undefined);
 
 function formatSilver(value: number, compact = false) {
     if (compact) {
@@ -29,6 +39,10 @@ function formatDuration(milliseconds: number) {
     return [hours, minutes, seconds % 60].map((part) => String(part).padStart(2, "0")).join(":");
 }
 
+function formatTimestamp(timestamp: number) {
+    return new Intl.DateTimeFormat("en", { dateStyle: "medium", timeStyle: "short" }).format(timestamp);
+}
+
 export function App() {
     const [session, dispatch] = useReducer(reduceSession, undefined, () => createSession());
     const [now, setNow] = useState(Date.now());
@@ -36,6 +50,9 @@ export function App() {
     const [databaseStatus, setDatabaseStatus] = useState<DatabaseStatus>("loading");
     const [databaseError, setDatabaseError] = useState("");
     const persistenceQueue = useRef(Promise.resolve());
+    const [marketPrices, setMarketPrices] = useState<MarketPriceSnapshot[] | null>(null);
+    const [marketError, setMarketError] = useState("");
+    const [fetchingPrices, setFetchingPrices] = useState(false);
     const [selectedDrop, setSelectedDrop] = useState<DropTemplate>(sycraiaLower.trash);
     const [quantity, setQuantity] = useState("1");
     const [unitPrice, setUnitPrice] = useState(String(sycraiaLower.trash.unitPrice));
@@ -81,6 +98,32 @@ export function App() {
     }, [session]);
 
     useEffect(() => {
+        if (!databaseLoaded) return;
+
+        let cancelled = false;
+        setMarketPrices(null);
+        setMarketError("");
+        invoke<MarketPriceSnapshot[]>("load_market_prices", { region: session.region })
+            .then((snapshots) => {
+                if (!cancelled) setMarketPrices(snapshots);
+            })
+            .catch((error: unknown) => {
+                if (cancelled) return;
+                setMarketPrices([]);
+                setMarketError(`Could not read saved prices: ${String(error)}`);
+            });
+        return () => {
+            cancelled = true;
+        };
+    }, [databaseLoaded, session.region]);
+
+    useEffect(() => {
+        if (marketPrices === null || selectedDrop.marketItemId === undefined) return;
+        const snapshot = marketPrices.find((price) => price.itemId === selectedDrop.marketItemId);
+        setUnitPrice(snapshot ? String(snapshot.basePrice) : "");
+    }, [marketPrices, selectedDrop]);
+
+    useEffect(() => {
         if (session.status !== "running") return;
         const timer = window.setInterval(() => setNow(Date.now()), 250);
         return () => window.clearInterval(timer);
@@ -89,13 +132,40 @@ export function App() {
     const elapsedMs = getElapsedMs(session, now);
     const totals = calculateTotals(session.entries, elapsedMs);
     const editingDisabled = !databaseLoaded || session.status === "finished";
+    const currentMarketPrices = (marketPrices ?? []).filter((price) => marketItemIds.includes(price.itemId));
+    const lastPriceFetch = currentMarketPrices.reduce((latest, price) => Math.max(latest, price.fetchedAt), 0);
 
     function chooseDrop(drop: DropTemplate) {
         setSelectedDrop(drop);
         setCustomName(drop.name);
         setValuation(drop.valuation);
-        setUnitPrice(drop.unitPrice === null ? "" : String(drop.unitPrice));
+        const savedPrice = marketPrices?.find((price) => price.itemId === drop.marketItemId)?.basePrice;
+        setUnitPrice(
+            savedPrice === undefined ? (drop.unitPrice === null ? "" : String(drop.unitPrice)) : String(savedPrice),
+        );
         setQuantity("1");
+    }
+
+    async function fetchMarketPrices() {
+        setFetchingPrices(true);
+        setMarketError("");
+        try {
+            const snapshots = await invoke<MarketPriceSnapshot[]>("fetch_market_prices", {
+                region: session.region,
+                itemIds: marketItemIds,
+            });
+            setMarketPrices(snapshots);
+        } catch (error) {
+            setMarketError(String(error));
+        } finally {
+            setFetchingPrices(false);
+        }
+    }
+
+    function changeRegion(region: SessionState["region"]) {
+        setMarketPrices(null);
+        if (selectedDrop.marketItemId !== undefined) setUnitPrice("");
+        dispatch({ type: "set-region", region });
     }
 
     function addEntry(event: FormEvent) {
@@ -157,10 +227,8 @@ export function App() {
                             Region
                             <select
                                 value={session.region}
-                                disabled={editingDisabled}
-                                onChange={(event) =>
-                                    dispatch({ type: "set-region", region: event.target.value as "eu" | "na" })
-                                }
+                                disabled={editingDisabled || fetchingPrices}
+                                onChange={(event) => changeRegion(event.target.value as SessionState["region"])}
                             >
                                 <option value="eu">EU</option>
                                 <option value="na">NA</option>
@@ -240,6 +308,42 @@ export function App() {
                             </button>
                         )}
                     </div>
+                </section>
+
+                <section className="market-snapshot" aria-live="polite">
+                    <div>
+                        <p className="eyebrow">Manual market snapshot</p>
+                        {marketPrices === null ? (
+                            <strong>Reading saved {session.region.toUpperCase()} prices...</strong>
+                        ) : currentMarketPrices.length === 0 ? (
+                            <>
+                                <strong>No {session.region.toUpperCase()} prices saved</strong>
+                                <span>Fetch once from Arsha, or continue with manual unit prices.</span>
+                            </>
+                        ) : (
+                            <>
+                                <strong>
+                                    {session.region.toUpperCase()} prices from {formatTimestamp(lastPriceFetch)}
+                                </strong>
+                                <span>
+                                    {currentMarketPrices.length} of {marketItemIds.length} profile items saved locally.
+                                </span>
+                            </>
+                        )}
+                        {marketError && <span className="market-error">{marketError}</span>}
+                    </div>
+                    <button
+                        className="button"
+                        type="button"
+                        disabled={!databaseLoaded || fetchingPrices || marketPrices === null}
+                        onClick={fetchMarketPrices}
+                    >
+                        {fetchingPrices
+                            ? "Fetching..."
+                            : currentMarketPrices.length === 0
+                              ? "Fetch from Arsha"
+                              : "Refresh prices"}
+                    </button>
                 </section>
 
                 <div className="content-grid">
@@ -377,8 +481,8 @@ export function App() {
                             </button>
                         </form>
                         <p className="data-note">
-                            Market prices are editable until the Arsha provider is connected. No estimated values are
-                            silently applied.
+                            Saved market prices change only when you fetch them. Unit prices remain editable, and
+                            entries keep the price used when they were added.
                         </p>
                     </aside>
                 </div>

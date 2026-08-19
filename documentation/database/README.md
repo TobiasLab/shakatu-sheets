@@ -13,7 +13,7 @@ Migration 1 creates:
 - `sessions`: timer state and session metadata.
 - `session_entries`: loot and expense rows owned by a session.
 - `schema_migrations`: applied migration versions.
-- `price_snapshots`: reserved for market-price integration; currently unused.
+- `price_snapshots`: user-triggered regional market-price imports.
 - `settings`: reserved for persisted settings; currently unused.
 
 Migration 1 has run on development machines and must not be rewritten. Future schema changes require a new ordered
@@ -26,3 +26,6 @@ migration with its own literal version number.
 - Session entries are replaced inside the same transaction as the session update.
 - Finished sessions are immutable.
 - Money is stored as integer silver values and time as integer milliseconds.
+- Market snapshots are never refreshed automatically or expired based on age.
+- The latest saved row for each region, item, and enhancement level supplies prices for new entries.
+- Session entries retain their own unit price and are not changed by later market imports.

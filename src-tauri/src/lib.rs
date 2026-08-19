@@ -22,11 +22,14 @@ pub fn run() {
         })
         .invoke_handler(tauri::generate_handler![
             database::load_active_session,
-            database::save_session
+            database::load_market_prices,
+            database::save_session,
+            market::fetch_market_prices
         ])
         .run(tauri::generate_context!())
         .expect("error while running Shakatu Sheets");
 }
 mod database;
+mod market;
 
 use tauri::Manager;

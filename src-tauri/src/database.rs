@@ -15,6 +15,24 @@ pub enum Region {
     Na,
 }
 
+impl Region {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::Eu => "eu",
+            Self::Na => "na",
+        }
+    }
+}
+
+#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct MarketPriceSnapshot {
+    pub item_id: i64,
+    pub sub_id: i64,
+    pub base_price: i64,
+    pub fetched_at: i64,
+}
+
 #[derive(Clone, Copy, Debug, Deserialize, PartialEq, Serialize)]
 #[serde(rename_all = "lowercase")]
 pub enum SessionStatus {
@@ -419,7 +437,82 @@ fn load_active_session_record(connection: &Connection) -> Result<Option<SessionR
     id.map_or(Ok(None), |id| load_session_by_id(connection, &id))
 }
 
-fn timestamp_ms() -> i64 {
+fn load_market_price_records(
+    connection: &Connection,
+    region: Region,
+) -> Result<Vec<MarketPriceSnapshot>, String> {
+    let mut statement = connection
+        .prepare(
+            "SELECT item_id, sub_id, base_price, fetched_at
+             FROM price_snapshots
+             WHERE id IN (
+                 SELECT MAX(id)
+                 FROM price_snapshots
+                 WHERE session_id IS NULL AND region = ?1
+                 GROUP BY item_id, sub_id
+             )
+             ORDER BY item_id, sub_id",
+        )
+        .map_err(|error| error.to_string())?;
+    let rows = statement
+        .query_map([region.as_str()], |row| {
+            Ok(MarketPriceSnapshot {
+                item_id: row.get(0)?,
+                sub_id: row.get(1)?,
+                base_price: row.get(2)?,
+                fetched_at: row.get(3)?,
+            })
+        })
+        .map_err(|error| error.to_string())?;
+
+    rows.collect::<Result<Vec<_>, _>>()
+        .map_err(|error| error.to_string())
+}
+
+pub(crate) fn save_market_price_records(
+    path: &PathBuf,
+    region: Region,
+    snapshots: &[MarketPriceSnapshot],
+) -> Result<(), String> {
+    if snapshots.is_empty()
+        || snapshots.iter().any(|snapshot| {
+            snapshot.item_id <= 0
+                || snapshot.sub_id < 0
+                || snapshot.base_price < 0
+                || snapshot.fetched_at <= 0
+        })
+    {
+        return Err("market price snapshots are invalid".into());
+    }
+
+    let mut connection = open_database(path)?;
+    let transaction = connection
+        .transaction()
+        .map_err(|error| error.to_string())?;
+    {
+        let mut statement = transaction
+            .prepare(
+                "INSERT INTO price_snapshots (
+                    session_id, region, item_id, sub_id, base_price, fetched_at
+                 ) VALUES (NULL, ?1, ?2, ?3, ?4, ?5)",
+            )
+            .map_err(|error| error.to_string())?;
+        for snapshot in snapshots {
+            statement
+                .execute(params![
+                    region.as_str(),
+                    snapshot.item_id,
+                    snapshot.sub_id,
+                    snapshot.base_price,
+                    snapshot.fetched_at,
+                ])
+                .map_err(|error| error.to_string())?;
+        }
+    }
+    transaction.commit().map_err(|error| error.to_string())
+}
+
+pub(crate) fn timestamp_ms() -> i64 {
     std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
         .map_or(0, |duration| duration.as_millis() as i64)
@@ -437,6 +530,15 @@ pub fn load_active_session(
 pub fn save_session(session: SessionRecord, state: State<'_, DatabasePath>) -> Result<(), String> {
     let mut connection = open_database(&state.0)?;
     save_session_record(&mut connection, &session)
+}
+
+#[tauri::command]
+pub fn load_market_prices(
+    region: Region,
+    state: State<'_, DatabasePath>,
+) -> Result<Vec<MarketPriceSnapshot>, String> {
+    let connection = open_database(&state.0)?;
+    load_market_price_records(&connection, region)
 }
 
 #[cfg(test)]
@@ -512,6 +614,34 @@ mod tests {
         assert_eq!(
             save_session_record(&mut connection, &invalid).unwrap_err(),
             "only running sessions may have a start timestamp"
+        );
+    }
+
+    #[test]
+    fn loads_the_latest_market_prices_for_each_region() {
+        let connection = database();
+        connection
+            .execute(
+                "INSERT INTO price_snapshots (region, item_id, sub_id, base_price, fetched_at)
+                 VALUES ('eu', 16001, 0, 100000, 1000),
+                        ('eu', 16001, 0, 129000, 2000),
+                        ('na', 16001, 0, 218000, 3000)",
+                [],
+            )
+            .unwrap();
+
+        assert_eq!(
+            load_market_price_records(&connection, Region::Eu).unwrap(),
+            vec![MarketPriceSnapshot {
+                item_id: 16_001,
+                sub_id: 0,
+                base_price: 129_000,
+                fetched_at: 2_000,
+            }]
+        );
+        assert_eq!(
+            load_market_price_records(&connection, Region::Na).unwrap()[0].base_price,
+            218_000
         );
     }
 }

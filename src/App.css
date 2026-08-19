@@ -262,6 +262,31 @@ input:focus {
     display: flex;
     gap: 8px;
 }
+.market-snapshot {
+    margin-bottom: 13px;
+    padding: 16px 20px;
+    border: 1px solid #29413b;
+    background: linear-gradient(110deg, #0d211c, #091613);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 20px;
+}
+.market-snapshot strong,
+.market-snapshot span {
+    display: block;
+}
+.market-snapshot strong {
+    font-size: 13px;
+}
+.market-snapshot span {
+    margin-top: 4px;
+    color: var(--muted);
+    font-size: 10px;
+}
+.market-snapshot .market-error {
+    color: #e08c72;
+}
 .button {
     border: 1px solid #355047;
     background: #10211d;
@@ -501,6 +526,13 @@ form select {
         align-items: flex-start;
         gap: 15px;
         flex-direction: column;
+    }
+    .market-snapshot {
+        align-items: flex-start;
+        flex-direction: column;
+    }
+    .market-snapshot .button {
+        width: 100%;
     }
     .clock-actions {
         width: 100%;
