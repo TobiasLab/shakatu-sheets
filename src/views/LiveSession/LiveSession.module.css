@@ -1,0 +1,194 @@
+.SessionMeta {
+    display: flex;
+    align-items: flex-end;
+    gap: 12px;
+}
+
+.SessionMeta label {
+    font-size: 10px;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+}
+
+.SessionMeta select {
+    display: block;
+    margin-top: 5px;
+    padding: 8px 32px 8px 10px;
+}
+
+.SessionState {
+    padding: 8px 11px;
+    border: 1px solid var(--line);
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 10px;
+    text-transform: uppercase;
+    color: var(--muted);
+}
+
+.SessionState.running {
+    color: var(--mint);
+    border-color: #315948;
+}
+
+.SessionState.paused {
+    color: var(--gold);
+}
+
+.MetricsGrid {
+    display: grid;
+    grid-template-columns: 1.25fr repeat(3, 1fr);
+    border: 1px solid var(--line);
+    background: var(--surface);
+}
+
+.Metric {
+    min-width: 0;
+    padding: 20px 22px;
+    border-right: 1px solid var(--line);
+    display: grid;
+    gap: 5px;
+}
+
+.Metric:last-child {
+    border: 0;
+}
+
+.Metric.Primary {
+    background: linear-gradient(120deg, #112922, #0d1f1b);
+}
+
+.Metric span,
+.SessionClock span {
+    color: var(--muted);
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+}
+
+.Metric strong {
+    font:
+        500 clamp(22px, 3vw, 34px) / 1 "IBM Plex Mono",
+        monospace;
+    letter-spacing: -0.05em;
+}
+
+.Metric.Primary strong {
+    color: var(--mint);
+}
+
+.Metric small {
+    color: #536761;
+    font-size: 10px;
+}
+
+.SessionClock {
+    margin: 13px 0;
+    padding: 17px 20px;
+    border: 1px solid var(--line);
+    background: #081512;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.SessionClock time {
+    display: block;
+    font:
+        500 25px "IBM Plex Mono",
+        monospace;
+    margin-top: 3px;
+    letter-spacing: 0.06em;
+}
+
+.ClockActions {
+    display: flex;
+    gap: 8px;
+}
+
+.MarketSnapshot {
+    margin-bottom: 13px;
+    padding: 16px 20px;
+    border: 1px solid #29413b;
+    background: linear-gradient(110deg, #0d211c, #091613);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 20px;
+}
+
+.MarketSnapshot strong,
+.MarketSnapshot span {
+    display: block;
+}
+
+.MarketSnapshot strong {
+    font-size: 13px;
+}
+
+.MarketSnapshot span {
+    margin-top: 4px;
+    color: var(--muted);
+    font-size: 10px;
+}
+
+.MarketSnapshot .MarketError {
+    color: #e08c72;
+}
+
+.ContentGrid {
+    display: grid;
+    grid-template-columns: minmax(0, 1.65fr) minmax(280px, 0.75fr);
+    gap: 13px;
+}
+
+@media (max-width: 1050px) {
+    .MetricsGrid {
+        grid-template-columns: 1fr 1fr;
+    }
+
+    .Metric:nth-child(2) {
+        border-right: 0;
+    }
+
+    .Metric:nth-child(-n + 2) {
+        border-bottom: 1px solid var(--line);
+    }
+
+    .ContentGrid {
+        grid-template-columns: 1fr;
+    }
+}
+
+@media (max-width: 760px) {
+    .MetricsGrid {
+        grid-template-columns: 1fr 1fr;
+    }
+
+    .Metric {
+        padding: 16px;
+    }
+
+    .SessionClock {
+        align-items: flex-start;
+        gap: 15px;
+        flex-direction: column;
+    }
+
+    .MarketSnapshot {
+        align-items: flex-start;
+        flex-direction: column;
+    }
+
+    .MarketSnapshot :global(.button) {
+        width: 100%;
+    }
+
+    .ClockActions {
+        width: 100%;
+    }
+
+    .ClockActions :global(.button) {
+        flex: 1;
+    }
+}

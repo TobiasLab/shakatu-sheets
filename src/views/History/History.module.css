@@ -1,0 +1,172 @@
+.HistoryGrid {
+    display: grid;
+    grid-template-columns: minmax(260px, 0.72fr) minmax(0, 1.45fr);
+    gap: 13px;
+}
+
+.HistoryList {
+    max-height: 615px;
+    overflow: auto;
+}
+
+.HistoryList button {
+    width: 100%;
+    border: 0;
+    border-bottom: 1px solid #142723;
+    background: transparent;
+    color: inherit;
+    padding: 14px 17px;
+    display: flex;
+    justify-content: space-between;
+    gap: 15px;
+    text-align: left;
+    cursor: pointer;
+}
+
+.HistoryList button:hover,
+.HistoryList button.Selected {
+    background: #0e211c;
+}
+
+.HistoryList button.Selected {
+    box-shadow: inset 2px 0 var(--mint);
+}
+
+.HistoryList span,
+.HistoryList strong,
+.HistoryList small {
+    display: block;
+}
+
+.HistoryList strong {
+    font-size: 11px;
+}
+
+.HistoryList small {
+    margin-top: 4px;
+    color: var(--muted);
+    font-size: 9px;
+}
+
+.HistoryValue {
+    flex: 0 0 auto;
+    text-align: right;
+    font-family: "IBM Plex Mono", monospace;
+}
+
+.HistoryValue strong {
+    color: var(--mint);
+}
+
+.HistorySummary {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    border-bottom: 1px solid var(--line);
+}
+
+.HistorySummary > div {
+    padding: 17px 19px;
+    border-right: 1px solid var(--line);
+}
+
+.HistorySummary > div:last-child {
+    border: 0;
+}
+
+.HistorySummary span,
+.HistorySummary strong {
+    display: block;
+}
+
+.HistorySummary span {
+    color: var(--muted);
+    font-size: 9px;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+}
+
+.HistorySummary strong {
+    margin-top: 5px;
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 15px;
+}
+
+.HistoryEntries {
+    max-height: 500px;
+    overflow: auto;
+}
+
+.HistoryEntry {
+    display: grid;
+    grid-template-columns: 31px minmax(0, 1fr) auto;
+    gap: 11px;
+    align-items: center;
+    padding: 12px 18px;
+    border-bottom: 1px solid #142723;
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 11px;
+}
+
+.HistoryEntry span,
+.HistoryEntry span strong,
+.HistoryEntry span small {
+    display: block;
+    min-width: 0;
+}
+
+.HistoryEntry span strong {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-family: "Inter", "Avenir Next", system-ui, sans-serif;
+    font-size: 12px;
+}
+
+.HistoryEntry span small {
+    margin-top: 3px;
+    color: var(--muted);
+    font-size: 9px;
+}
+
+.HistoryMessage {
+    min-height: 360px;
+    display: grid;
+    place-content: center;
+    padding: 25px;
+    text-align: center;
+    color: var(--muted);
+}
+
+.HistoryMessage p {
+    max-width: 640px;
+    font-size: 11px;
+}
+
+.ErrorMessage strong {
+    color: #e08c72;
+}
+
+.HistoryEntriesEmpty {
+    min-height: 250px;
+}
+
+@media (max-width: 1050px) {
+    .HistoryGrid {
+        grid-template-columns: 1fr;
+    }
+
+    .HistoryList {
+        max-height: 300px;
+    }
+}
+
+@media (max-width: 760px) {
+    .HistorySummary {
+        grid-template-columns: 1fr;
+    }
+
+    .HistorySummary > div {
+        border-right: 0;
+        border-bottom: 1px solid var(--line);
+    }
+}

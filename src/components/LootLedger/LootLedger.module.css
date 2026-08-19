@@ -1,0 +1,61 @@
+.LedgerList {
+    max-height: 470px;
+    overflow: auto;
+}
+
+.LedgerRow {
+    display: grid;
+    grid-template-columns: 31px minmax(130px, 1fr) 70px 80px 25px;
+    gap: 11px;
+    align-items: center;
+    padding: 12px 18px;
+    border-bottom: 1px solid #142723;
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 11px;
+}
+
+.ItemName strong,
+.ItemName span {
+    display: block;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.ItemName strong {
+    font-family: "Inter", "Avenir Next", system-ui, sans-serif;
+    font-size: 12px;
+}
+
+.ItemName span {
+    color: var(--muted);
+    font-size: 9px;
+    margin-top: 2px;
+}
+
+.Quantity {
+    color: var(--muted);
+}
+
+.RemoveButton {
+    border: 0;
+    background: transparent;
+    color: #586b65;
+    cursor: pointer;
+}
+
+.RemoveButton:hover {
+    color: #e08c72;
+}
+
+.RemoveButton:disabled {
+    cursor: default;
+    opacity: 0.45;
+}
+
+@media (max-width: 760px) {
+    .LedgerRow {
+        grid-template-columns: 30px 1fr 52px 60px 20px;
+        padding-inline: 10px;
+    }
+}

@@ -1,0 +1,172 @@
+.AppShell {
+    display: grid;
+    grid-template-columns: 230px minmax(0, 1fr);
+    min-height: 100vh;
+}
+
+.Sidebar {
+    border-right: 1px solid var(--line);
+    padding: 28px 20px;
+    background: rgba(5, 15, 14, 0.88);
+    display: flex;
+    flex-direction: column;
+}
+
+.Brand {
+    display: flex;
+    gap: 12px;
+    align-items: center;
+    padding: 0 8px 38px;
+}
+
+.BrandMark {
+    width: 42px;
+    height: 42px;
+    border: 1px solid #3d6558;
+    display: grid;
+    place-items: center;
+    color: var(--mint);
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 13px;
+    transform: rotate(-3deg);
+}
+
+.Brand strong,
+.Brand span {
+    display: block;
+    line-height: 1.05;
+}
+
+.Brand strong {
+    font-size: 17px;
+}
+
+.Brand span {
+    color: var(--muted);
+    font-size: 13px;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+}
+
+.ViewNavigation {
+    display: grid;
+    gap: 5px;
+}
+
+.ViewNavigation button {
+    border: 1px solid transparent;
+    background: transparent;
+    color: var(--muted);
+    padding: 10px 12px;
+    text-align: left;
+    cursor: pointer;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+}
+
+.ViewNavigation button:hover {
+    color: #c6d6d0;
+    border-color: var(--line);
+}
+
+.ViewNavigation button.Active {
+    color: var(--mint);
+    border-color: #315948;
+    background: #0d201b;
+}
+
+.MobileNavigation {
+    display: none;
+}
+
+.DatabaseState {
+    margin-top: auto;
+    padding: 15px;
+    border: 1px solid var(--line);
+    background: linear-gradient(145deg, #0b1a17, #091411);
+    display: grid;
+    gap: 5px;
+}
+
+.DatabaseState strong {
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 12px;
+    text-transform: uppercase;
+}
+
+.DatabaseState small {
+    color: var(--muted);
+    font-size: 9px;
+    line-height: 1.4;
+}
+
+.DatabaseState.ready .StatusDot {
+    background: var(--mint);
+    box-shadow: 0 0 10px #8ee0b788;
+}
+
+.DatabaseState.error .StatusDot {
+    background: #e08c72;
+    box-shadow: 0 0 10px #e08c7288;
+}
+
+.StatusHeading {
+    font-size: 10px;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    margin-bottom: 6px;
+}
+
+.StatusDot {
+    display: inline-block;
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--gold);
+    margin-right: 7px;
+    box-shadow: 0 0 10px #d9ae5f88;
+}
+
+.LicenseNote {
+    display: flex;
+    justify-content: space-between;
+    color: #52655f;
+    font-size: 10px;
+    padding: 18px 3px 0;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+}
+
+.Workspace {
+    padding: 34px clamp(24px, 4vw, 58px) 50px;
+    min-width: 0;
+}
+
+@media (max-width: 760px) {
+    .AppShell {
+        display: block;
+    }
+
+    .Sidebar {
+        display: none;
+    }
+
+    .Workspace {
+        padding: 22px 14px 35px;
+    }
+
+    .MobileNavigation {
+        display: block;
+        margin-bottom: 22px;
+    }
+
+    .MobileNavigation .ViewNavigation {
+        grid-template-columns: 1fr 1fr;
+    }
+
+    .MobileNavigation .ViewNavigation button {
+        text-align: center;
+    }
+}
