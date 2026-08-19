@@ -21,6 +21,7 @@ pub fn run() {
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
+            database::list_finished_sessions,
             database::load_active_session,
             database::load_market_prices,
             database::save_session,

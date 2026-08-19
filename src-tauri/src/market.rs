@@ -8,6 +8,7 @@ use crate::database::{
 };
 
 const ARSHA_API_URL: &str = "https://api.arsha.io";
+const MAX_FETCH_ATTEMPTS: usize = 3;
 
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -63,6 +64,61 @@ fn parse_market_prices(
     Ok(snapshots)
 }
 
+fn arsha_error(status: reqwest::StatusCode, body: &str) -> String {
+    let message = serde_json::from_str::<ArshaError>(body)
+        .map(|error| error.message)
+        .unwrap_or_else(|_| "request failed".into());
+    format!("Arsha returned {status}: {message}")
+}
+
+async fn request_market_prices(
+    client: &reqwest::Client,
+    region: Region,
+    ids: &str,
+) -> Result<String, String> {
+    let mut last_error = String::new();
+
+    for attempt in 0..MAX_FETCH_ATTEMPTS {
+        if attempt > 0 {
+            tokio::time::sleep(Duration::from_secs(attempt as u64)).await;
+        }
+
+        match client
+            .get(format!("{ARSHA_API_URL}/v2/{}/search", region.as_str()))
+            .query(&[("ids", ids), ("lang", "en")])
+            .send()
+            .await
+        {
+            Ok(response) => {
+                let status = response.status();
+                let body = match response.text().await {
+                    Ok(body) => body,
+                    Err(error) => {
+                        last_error = format!("could not read the Arsha response: {error}");
+                        continue;
+                    }
+                };
+
+                if status.is_success() {
+                    return Ok(body);
+                }
+
+                last_error = arsha_error(status, &body);
+                if !status.is_server_error() {
+                    return Err(last_error);
+                }
+            }
+            Err(error) => {
+                last_error = format!("could not reach Arsha: {error}");
+            }
+        }
+    }
+
+    Err(format!(
+        "Arsha is temporarily unavailable after {MAX_FETCH_ATTEMPTS} attempts. {last_error}"
+    ))
+}
+
 #[tauri::command]
 pub async fn fetch_market_prices(
     region: Region,
@@ -81,24 +137,7 @@ pub async fn fetch_market_prices(
         .user_agent(concat!("shakatu-sheets/", env!("CARGO_PKG_VERSION")))
         .build()
         .map_err(|error| error.to_string())?;
-    let response = client
-        .get(format!("{ARSHA_API_URL}/v2/{}/search", region.as_str()))
-        .query(&[("ids", ids.as_str()), ("lang", "en")])
-        .send()
-        .await
-        .map_err(|error| format!("could not reach Arsha: {error}"))?;
-    let status = response.status();
-    let body = response
-        .text()
-        .await
-        .map_err(|error| format!("could not read the Arsha response: {error}"))?;
-
-    if !status.is_success() {
-        let message = serde_json::from_str::<ArshaError>(&body)
-            .map(|error| error.message)
-            .unwrap_or_else(|_| "request failed".into());
-        return Err(format!("Arsha returned {status}: {message}"));
-    }
+    let body = request_market_prices(&client, region, &ids).await?;
 
     let snapshots = parse_market_prices(&body, &item_ids, timestamp_ms())?;
     save_market_price_records(&database_path, region, &snapshots)?;

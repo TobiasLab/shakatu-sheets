@@ -9,6 +9,9 @@ Shakatu Sheets has three current boundaries:
 The frontend sends the complete session snapshot after each meaningful state change. Saves are queued in order. Rust
 validates the snapshot and replaces the session entries in one transaction.
 
+The history view requests the 20 newest finished sessions from SQLite and calculates display totals with the same pure
+frontend function as the live view. History is read-only; the backend continues to reject changes to finished sessions.
+
 Saved market prices are read from SQLite when the selected region changes. The frontend only invokes the Arsha network
 request after the user presses the fetch or refresh button. Successful complete responses are written as a new set of
 price snapshots; failed responses do not change saved data.

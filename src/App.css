@@ -73,6 +73,33 @@ button {
     letter-spacing: 0.15em;
     text-transform: uppercase;
 }
+.view-navigation {
+    display: grid;
+    gap: 5px;
+}
+.view-navigation button {
+    border: 1px solid transparent;
+    background: transparent;
+    color: var(--muted);
+    padding: 10px 12px;
+    text-align: left;
+    cursor: pointer;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+}
+.view-navigation button:hover {
+    color: #c6d6d0;
+    border-color: var(--line);
+}
+.view-navigation button.active {
+    color: var(--mint);
+    border-color: #315948;
+    background: #0d201b;
+}
+.mobile-navigation {
+    display: none;
+}
 .database-state {
     margin-top: auto;
     padding: 15px;
@@ -175,6 +202,20 @@ input {
     color: #e1ece8;
     border-radius: 3px;
     outline: 0;
+}
+select {
+    color-scheme: dark;
+    -webkit-text-fill-color: #e1ece8;
+}
+select option {
+    background: #081512;
+    color: #e1ece8;
+    -webkit-text-fill-color: #e1ece8;
+}
+select:disabled {
+    color: var(--muted);
+    opacity: 1;
+    -webkit-text-fill-color: var(--muted);
 }
 select:focus,
 input:focus {
@@ -489,6 +530,134 @@ form select {
     line-height: 1.55;
 }
 
+.history-grid {
+    display: grid;
+    grid-template-columns: minmax(260px, 0.72fr) minmax(0, 1.45fr);
+    gap: 13px;
+}
+.history-list {
+    max-height: 615px;
+    overflow: auto;
+}
+.history-list button {
+    width: 100%;
+    border: 0;
+    border-bottom: 1px solid #142723;
+    background: transparent;
+    color: inherit;
+    padding: 14px 17px;
+    display: flex;
+    justify-content: space-between;
+    gap: 15px;
+    text-align: left;
+    cursor: pointer;
+}
+.history-list button:hover,
+.history-list button.selected {
+    background: #0e211c;
+}
+.history-list button.selected {
+    box-shadow: inset 2px 0 var(--mint);
+}
+.history-list span,
+.history-list strong,
+.history-list small {
+    display: block;
+}
+.history-list strong {
+    font-size: 11px;
+}
+.history-list small {
+    margin-top: 4px;
+    color: var(--muted);
+    font-size: 9px;
+}
+.history-value {
+    flex: 0 0 auto;
+    text-align: right;
+    font-family: "IBM Plex Mono", monospace;
+}
+.history-value strong {
+    color: var(--mint);
+}
+.history-summary {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    border-bottom: 1px solid var(--line);
+}
+.history-summary > div {
+    padding: 17px 19px;
+    border-right: 1px solid var(--line);
+}
+.history-summary > div:last-child {
+    border: 0;
+}
+.history-summary span,
+.history-summary strong {
+    display: block;
+}
+.history-summary span {
+    color: var(--muted);
+    font-size: 9px;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+}
+.history-summary strong {
+    margin-top: 5px;
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 15px;
+}
+.history-entries {
+    max-height: 500px;
+    overflow: auto;
+}
+.history-entry {
+    display: grid;
+    grid-template-columns: 31px minmax(0, 1fr) auto;
+    gap: 11px;
+    align-items: center;
+    padding: 12px 18px;
+    border-bottom: 1px solid #142723;
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 11px;
+}
+.history-entry span,
+.history-entry span strong,
+.history-entry span small {
+    display: block;
+    min-width: 0;
+}
+.history-entry span strong {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-family: "Inter", "Avenir Next", system-ui, sans-serif;
+    font-size: 12px;
+}
+.history-entry span small {
+    margin-top: 3px;
+    color: var(--muted);
+    font-size: 9px;
+}
+.history-message {
+    min-height: 360px;
+    display: grid;
+    place-content: center;
+    padding: 25px;
+    text-align: center;
+    color: var(--muted);
+}
+.history-message p {
+    max-width: 640px;
+    font-size: 11px;
+}
+.error-message strong {
+    color: #e08c72;
+}
+.history-entries-empty {
+    min-height: 250px;
+}
+
 @media (max-width: 1050px) {
     .metrics-grid {
         grid-template-columns: 1fr 1fr;
@@ -502,6 +671,12 @@ form select {
     .content-grid {
         grid-template-columns: 1fr;
     }
+    .history-grid {
+        grid-template-columns: 1fr;
+    }
+    .history-list {
+        max-height: 300px;
+    }
 }
 @media (max-width: 760px) {
     .app-shell {
@@ -512,6 +687,16 @@ form select {
     }
     .workspace {
         padding: 22px 14px 35px;
+    }
+    .mobile-navigation {
+        display: block;
+        margin-bottom: 22px;
+    }
+    .mobile-navigation .view-navigation {
+        grid-template-columns: 1fr 1fr;
+    }
+    .mobile-navigation .view-navigation button {
+        text-align: center;
     }
     .topbar {
         align-items: flex-start;
@@ -543,5 +728,12 @@ form select {
     .ledger-row {
         grid-template-columns: 30px 1fr 52px 60px 20px;
         padding-inline: 10px;
+    }
+    .history-summary {
+        grid-template-columns: 1fr;
+    }
+    .history-summary > div {
+        border-right: 0;
+        border-bottom: 1px solid var(--line);
     }
 }

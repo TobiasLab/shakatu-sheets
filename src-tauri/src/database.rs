@@ -74,6 +74,13 @@ pub struct SessionRecord {
     pub entries: Vec<SessionEntry>,
 }
 
+#[derive(Clone, Debug, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct FinishedSessionRecord {
+    pub session: SessionRecord,
+    pub finished_at: i64,
+}
+
 pub fn initialize_database(app: &AppHandle) -> Result<PathBuf, String> {
     let app_data_dir = app
         .path()
@@ -437,6 +444,40 @@ fn load_active_session_record(connection: &Connection) -> Result<Option<SessionR
     id.map_or(Ok(None), |id| load_session_by_id(connection, &id))
 }
 
+fn list_finished_session_records(
+    connection: &Connection,
+) -> Result<Vec<FinishedSessionRecord>, String> {
+    let mut statement = connection
+        .prepare(
+            "SELECT id, COALESCE(finished_at, updated_at)
+             FROM sessions
+             WHERE status = 'finished'
+             ORDER BY COALESCE(finished_at, updated_at) DESC, id
+             LIMIT 20",
+        )
+        .map_err(|error| error.to_string())?;
+    let rows = statement
+        .query_map([], |row| {
+            Ok((row.get::<_, String>(0)?, row.get::<_, i64>(1)?))
+        })
+        .map_err(|error| error.to_string())?;
+    let sessions = rows
+        .collect::<Result<Vec<_>, _>>()
+        .map_err(|error| error.to_string())?;
+
+    sessions
+        .into_iter()
+        .map(|(id, finished_at)| {
+            let session = load_session_by_id(connection, &id)?
+                .ok_or_else(|| format!("finished session {id} disappeared"))?;
+            Ok(FinishedSessionRecord {
+                session,
+                finished_at,
+            })
+        })
+        .collect()
+}
+
 fn load_market_price_records(
     connection: &Connection,
     region: Region,
@@ -541,6 +582,14 @@ pub fn load_market_prices(
     load_market_price_records(&connection, region)
 }
 
+#[tauri::command]
+pub fn list_finished_sessions(
+    state: State<'_, DatabasePath>,
+) -> Result<Vec<FinishedSessionRecord>, String> {
+    let connection = open_database(&state.0)?;
+    list_finished_session_records(&connection)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -643,5 +692,18 @@ mod tests {
             load_market_price_records(&connection, Region::Na).unwrap()[0].base_price,
             218_000
         );
+    }
+
+    #[test]
+    fn lists_finished_sessions_with_their_timestamps() {
+        let mut connection = database();
+        let finished = session(SessionStatus::Finished);
+        save_session_record(&mut connection, &finished).unwrap();
+
+        let records = list_finished_session_records(&connection).unwrap();
+
+        assert_eq!(records.len(), 1);
+        assert_eq!(records[0].session, finished);
+        assert!(records[0].finished_at > 0);
     }
 }
