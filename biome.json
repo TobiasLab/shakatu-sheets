@@ -1,0 +1,88 @@
+{
+    "$schema": "./node_modules/@biomejs/biome/configuration_schema.json",
+    "files": {
+        "includes": ["biome.json", "package.json", "tsconfig.json", "tsconfig.node.json", "vite.config.ts", "src/**"]
+    },
+    "assist": {
+        "actions": {
+            "source": {
+                "organizeImports": "on"
+            }
+        }
+    },
+    "formatter": {
+        "enabled": true,
+        "indentStyle": "space",
+        "indentWidth": 4,
+        "lineWidth": 120
+    },
+    "css": {
+        "linter": {
+            "enabled": true
+        },
+        "parser": {
+            "cssModules": true
+        },
+        "formatter": {
+            "enabled": true,
+            "indentWidth": 4,
+            "indentStyle": "space",
+            "lineWidth": 120,
+            "quoteStyle": "double"
+        }
+    },
+    "linter": {
+        "enabled": true,
+        "rules": {
+            "preset": "recommended",
+            "correctness": {
+                "useExhaustiveDependencies": "off"
+            },
+            "a11y": {
+                "useKeyWithClickEvents": "warn",
+                "noLabelWithoutControl": "warn",
+                "useSemanticElements": "warn"
+            },
+            "suspicious": {
+                "noArrayIndexKey": "warn",
+                "noConsole": {
+                    "level": "error",
+                    "options": {
+                        "allow": ["error", "info", "warn"]
+                    }
+                }
+            },
+            "style": {
+                "noDefaultExport": "error",
+                "useDefaultSwitchClause": "warn",
+                "noDescendingSpecificity": "off"
+            },
+            "performance": {
+                "noBarrelFile": "error"
+            },
+            "complexity": {
+                "noImportantStyles": "off"
+            }
+        }
+    },
+    "overrides": [
+        {
+            "includes": ["**/tsconfig*.json"],
+            "json": {
+                "parser": {
+                    "allowComments": true
+                }
+            }
+        },
+        {
+            "includes": ["**/*.config.ts", "**/*.config.js", "commitlint.config.mjs"],
+            "linter": {
+                "rules": {
+                    "style": {
+                        "noDefaultExport": "off"
+                    }
+                }
+            }
+        }
+    ]
+}
