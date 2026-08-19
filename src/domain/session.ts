@@ -8,11 +8,11 @@ export type SessionEntry = {
     unitPrice: number;
     valuation: Valuation;
     saleMultiplier: number;
-    source: "manual" | "recognition";
     createdAt: number;
 };
 
 export type SessionState = {
+    id: string;
     status: SessionStatus;
     region: "eu" | "na";
     grindSpotId: string;
@@ -27,34 +27,39 @@ export type SessionAction =
     | { type: "resume"; now: number }
     | { type: "finish"; now: number }
     | { type: "reset" }
+    | { type: "hydrate"; session: SessionState }
     | { type: "set-region"; region: SessionState["region"] }
     | { type: "add-entry"; entry: SessionEntry }
     | { type: "remove-entry"; id: string };
 
-export const initialSession: SessionState = {
-    status: "idle",
-    region: "eu",
-    grindSpotId: "sycraia-lower-revamp",
-    startedAt: null,
-    elapsedMs: 0,
-    entries: [],
-};
+export function createSession(region: SessionState["region"] = "eu"): SessionState {
+    return {
+        id: crypto.randomUUID(),
+        status: "idle",
+        region,
+        grindSpotId: "sycraia-lower-revamp",
+        startedAt: null,
+        elapsedMs: 0,
+        entries: [],
+    };
+}
 
 export function reduceSession(state: SessionState, action: SessionAction): SessionState {
     switch (action.type) {
         case "start":
-            return { ...state, status: "running", startedAt: action.now };
+            return state.status === "idle" ? { ...state, status: "running", startedAt: action.now } : state;
         case "pause":
             if (state.status !== "running" || state.startedAt === null) return state;
             return {
                 ...state,
                 status: "paused",
-                elapsedMs: state.elapsedMs + action.now - state.startedAt,
+                elapsedMs: getElapsedMs(state, action.now),
                 startedAt: null,
             };
         case "resume":
             return state.status === "paused" ? { ...state, status: "running", startedAt: action.now } : state;
         case "finish":
+            if (state.status !== "running" && state.status !== "paused") return state;
             return {
                 ...state,
                 status: "finished",
@@ -62,37 +67,50 @@ export function reduceSession(state: SessionState, action: SessionAction): Sessi
                 startedAt: null,
             };
         case "reset":
-            return { ...initialSession, region: state.region };
+            return state.status === "finished" ? createSession(state.region) : state;
+        case "hydrate":
+            return action.session;
         case "set-region":
-            return { ...state, region: action.region };
+            return state.status === "finished" ? state : { ...state, region: action.region };
         case "add-entry":
-            return { ...state, entries: [...state.entries, action.entry] };
+            return state.status === "finished" ? state : { ...state, entries: [...state.entries, action.entry] };
         case "remove-entry":
-            return { ...state, entries: state.entries.filter((entry) => entry.id !== action.id) };
+            return state.status === "finished"
+                ? state
+                : { ...state, entries: state.entries.filter((entry) => entry.id !== action.id) };
         default:
             return state;
     }
 }
 
+export function pauseRestoredSession(session: SessionState, now: number): SessionState {
+    if (session.status !== "running" || session.startedAt === null) return session;
+    return {
+        ...session,
+        status: "paused",
+        elapsedMs: getElapsedMs(session, now),
+        startedAt: null,
+    };
+}
+
 export function getElapsedMs(state: SessionState, now: number): number {
     if (state.status !== "running" || state.startedAt === null) return state.elapsedMs;
-    return state.elapsedMs + now - state.startedAt;
+    return state.elapsedMs + Math.max(0, now - state.startedAt);
 }
 
 export function calculateTotals(entries: SessionEntry[], elapsedMs: number) {
-    const gross = entries.reduce(
-        (total, entry) => total + (entry.valuation === "expense" ? 0 : entry.quantity * entry.unitPrice),
-        0,
-    );
-    const expenses = entries.reduce(
-        (total, entry) => total + (entry.valuation === "expense" ? entry.quantity * entry.unitPrice : 0),
-        0,
-    );
-    const netRevenue = entries.reduce(
-        (total, entry) =>
-            total + (entry.valuation === "expense" ? 0 : entry.quantity * entry.unitPrice * entry.saleMultiplier),
-        0,
-    );
+    let gross = 0;
+    let expenses = 0;
+    let netRevenue = 0;
+    for (const entry of entries) {
+        const value = entry.quantity * entry.unitPrice;
+        if (entry.valuation === "expense") {
+            expenses += value;
+        } else {
+            gross += value;
+            netRevenue += value * entry.saleMultiplier;
+        }
+    }
     const net = netRevenue - expenses;
     const hours = elapsedMs / 3_600_000;
 
@@ -112,7 +130,6 @@ export function createEntry(name: string, quantity: number, unitPrice: number, v
         unitPrice,
         valuation,
         saleMultiplier: valuation === "market" ? 0.845 : 1,
-        source: "manual",
         createdAt: Date.now(),
     };
 }

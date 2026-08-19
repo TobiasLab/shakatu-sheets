@@ -1,36 +1,19 @@
-import { type FormEvent, useEffect, useReducer, useState } from "react";
-import { type DropTemplate, initialCaptureProfile, sycraiaLower } from "./data/grindSpots";
+import { invoke } from "@tauri-apps/api/core";
+import { type FormEvent, useEffect, useReducer, useRef, useState } from "react";
+import { type DropTemplate, sycraiaLower } from "./data/grindSpots";
 import {
     calculateTotals,
     createEntry,
+    createSession,
     getElapsedMs,
-    initialSession,
+    pauseRestoredSession,
     reduceSession,
     type SessionState,
     type Valuation,
 } from "./domain/session";
 import "./App.css";
 
-const STORAGE_KEY = "shakatu-sheets.current-session.v1";
-
-function restoreSession(): SessionState {
-    try {
-        const stored = localStorage.getItem(STORAGE_KEY);
-        if (!stored) return initialSession;
-
-        const saved = { ...initialSession, ...JSON.parse(stored) } as SessionState;
-        if (saved.status !== "running" || saved.startedAt === null) return saved;
-
-        return {
-            ...saved,
-            status: "paused",
-            elapsedMs: saved.elapsedMs + Date.now() - saved.startedAt,
-            startedAt: null,
-        };
-    } catch {
-        return initialSession;
-    }
-}
+type DatabaseStatus = "loading" | "ready" | "saving" | "error";
 
 function formatSilver(value: number, compact = false) {
     if (compact) {
@@ -47,8 +30,12 @@ function formatDuration(milliseconds: number) {
 }
 
 export function App() {
-    const [session, dispatch] = useReducer(reduceSession, undefined, restoreSession);
+    const [session, dispatch] = useReducer(reduceSession, undefined, () => createSession());
     const [now, setNow] = useState(Date.now());
+    const [databaseLoaded, setDatabaseLoaded] = useState(false);
+    const [databaseStatus, setDatabaseStatus] = useState<DatabaseStatus>("loading");
+    const [databaseError, setDatabaseError] = useState("");
+    const persistenceQueue = useRef(Promise.resolve());
     const [selectedDrop, setSelectedDrop] = useState<DropTemplate>(sycraiaLower.trash);
     const [quantity, setQuantity] = useState("1");
     const [unitPrice, setUnitPrice] = useState(String(sycraiaLower.trash.unitPrice));
@@ -56,7 +43,41 @@ export function App() {
     const [valuation, setValuation] = useState<Valuation>("vendor");
 
     useEffect(() => {
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(session));
+        let cancelled = false;
+        invoke<SessionState | null>("load_active_session")
+            .then((storedSession) => {
+                if (cancelled) return;
+                const restoredSession = storedSession
+                    ? pauseRestoredSession(storedSession, Date.now())
+                    : createSession();
+                dispatch({ type: "hydrate", session: restoredSession });
+                setDatabaseLoaded(true);
+                setDatabaseStatus("ready");
+            })
+            .catch((error: unknown) => {
+                if (cancelled) return;
+                setDatabaseError(String(error));
+                setDatabaseStatus("error");
+            });
+        return () => {
+            cancelled = true;
+        };
+    }, []);
+
+    useEffect(() => {
+        if (!databaseLoaded) return;
+
+        persistenceQueue.current = persistenceQueue.current
+            .then(async () => {
+                setDatabaseStatus("saving");
+                await invoke("save_session", { session });
+                setDatabaseError("");
+                setDatabaseStatus("ready");
+            })
+            .catch((error: unknown) => {
+                setDatabaseError(String(error));
+                setDatabaseStatus("error");
+            });
     }, [session]);
 
     useEffect(() => {
@@ -67,6 +88,7 @@ export function App() {
 
     const elapsedMs = getElapsedMs(session, now);
     const totals = calculateTotals(session.entries, elapsedMs);
+    const editingDisabled = !databaseLoaded || session.status === "finished";
 
     function chooseDrop(drop: DropTemplate) {
         setSelectedDrop(drop);
@@ -78,17 +100,28 @@ export function App() {
 
     function addEntry(event: FormEvent) {
         event.preventDefault();
+        if (session.status === "finished") return;
         const name = customName.trim() || selectedDrop.name;
         const parsedQuantity = Number(quantity);
         const parsedPrice = Number(unitPrice);
-        if (!name || parsedQuantity <= 0 || parsedPrice < 0 || !Number.isFinite(parsedPrice)) return;
+        if (
+            !name ||
+            unitPrice.trim() === "" ||
+            !Number.isSafeInteger(parsedQuantity) ||
+            parsedQuantity <= 0 ||
+            parsedPrice < 0 ||
+            !Number.isSafeInteger(parsedPrice) ||
+            !Number.isFinite(parsedQuantity)
+        )
+            return;
         dispatch({ type: "add-entry", entry: createEntry(name, parsedQuantity, parsedPrice, valuation) });
         setQuantity("1");
     }
 
     function startOrResume() {
-        setNow(Date.now());
-        dispatch({ type: session.status === "paused" ? "resume" : "start", now: Date.now() });
+        const timestamp = Date.now();
+        setNow(timestamp);
+        dispatch({ type: session.status === "paused" ? "resume" : "start", now: timestamp });
     }
 
     return (
@@ -101,28 +134,12 @@ export function App() {
                         <span>Sheets</span>
                     </div>
                 </div>
-                <nav aria-label="Primary navigation">
-                    <button className="nav-item active" type="button">
-                        <span>01</span> Live session
-                    </button>
-                    <button className="nav-item" type="button" disabled>
-                        <span>02</span> History
-                    </button>
-                    <button className="nav-item" type="button" disabled>
-                        <span>03</span> Settings
-                    </button>
-                </nav>
-                <div className="capture-card">
-                    <div className="capture-heading">
-                        <span className="status-dot" /> Recognition profile
+                <div className={`database-state ${databaseStatus}`}>
+                    <div className="status-heading">
+                        <span className="status-dot" /> Local database
                     </div>
-                    <strong>
-                        {initialCaptureProfile.sourceWidth} x {initialCaptureProfile.sourceHeight}
-                    </strong>
-                    <span>
-                        {initialCaptureProfile.locale.toUpperCase()} / {initialCaptureProfile.uiScale * 100}% UI scale
-                    </span>
-                    <small>Crop calibration pending</small>
+                    <strong>{databaseStatus}</strong>
+                    <small>{databaseError || "Session data stored on this device"}</small>
                 </div>
                 <div className="license-note">
                     Local only <span>AGPL-3.0</span>
@@ -140,6 +157,7 @@ export function App() {
                             Region
                             <select
                                 value={session.region}
+                                disabled={editingDisabled}
                                 onChange={(event) =>
                                     dispatch({ type: "set-region", region: event.target.value as "eu" | "na" })
                                 }
@@ -182,7 +200,12 @@ export function App() {
                     </div>
                     <div className="clock-actions">
                         {session.status !== "running" && session.status !== "finished" && (
-                            <button className="button primary-button" type="button" onClick={startOrResume}>
+                            <button
+                                className="button primary-button"
+                                type="button"
+                                disabled={!databaseLoaded}
+                                onClick={startOrResume}
+                            >
                                 {session.status === "paused" ? "Resume" : "Start session"}
                             </button>
                         )}
@@ -190,6 +213,7 @@ export function App() {
                             <button
                                 className="button"
                                 type="button"
+                                disabled={!databaseLoaded}
                                 onClick={() => dispatch({ type: "pause", now: Date.now() })}
                             >
                                 Pause
@@ -199,13 +223,19 @@ export function App() {
                             <button
                                 className="button subtle"
                                 type="button"
+                                disabled={!databaseLoaded}
                                 onClick={() => dispatch({ type: "finish", now: Date.now() })}
                             >
                                 Finish
                             </button>
                         )}
                         {session.status === "finished" && (
-                            <button className="button" type="button" onClick={() => dispatch({ type: "reset" })}>
+                            <button
+                                className="button"
+                                type="button"
+                                disabled={!databaseLoaded}
+                                onClick={() => dispatch({ type: "reset" })}
+                            >
                                 New session
                             </button>
                         )}
@@ -213,7 +243,7 @@ export function App() {
                 </section>
 
                 <div className="content-grid">
-                    <section className="panel ledger-panel">
+                    <section className="panel">
                         <div className="panel-heading">
                             <div>
                                 <p className="eyebrow">Session entries</p>
@@ -239,9 +269,7 @@ export function App() {
                                             </div>
                                             <div className="item-name">
                                                 <strong>{entry.name}</strong>
-                                                <span>
-                                                    {entry.source} / {entry.valuation}
-                                                </span>
+                                                <span>{entry.valuation}</span>
                                             </div>
                                             <span className="quantity">x{formatSilver(entry.quantity)}</span>
                                             <strong className={entry.valuation === "expense" ? "negative" : ""}>
@@ -251,6 +279,7 @@ export function App() {
                                             <button
                                                 className="remove-button"
                                                 type="button"
+                                                disabled={editingDisabled}
                                                 aria-label={`Remove ${entry.name}`}
                                                 onClick={() => dispatch({ type: "remove-entry", id: entry.id })}
                                             >
@@ -273,6 +302,7 @@ export function App() {
                             <button
                                 className={selectedDrop.name === sycraiaLower.trash.name ? "selected" : ""}
                                 type="button"
+                                disabled={editingDisabled}
                                 onClick={() => chooseDrop(sycraiaLower.trash)}
                             >
                                 {sycraiaLower.trash.name}
@@ -282,6 +312,7 @@ export function App() {
                                     key={drop.name}
                                     className={selectedDrop.name === drop.name ? "selected" : ""}
                                     type="button"
+                                    disabled={editingDisabled}
                                     onClick={() => chooseDrop(drop)}
                                 >
                                     {drop.name}
@@ -293,6 +324,7 @@ export function App() {
                                 Item or expense
                                 <input
                                     value={customName}
+                                    disabled={editingDisabled}
                                     placeholder={selectedDrop.name}
                                     onChange={(event) => setCustomName(event.target.value)}
                                 />
@@ -304,7 +336,9 @@ export function App() {
                                         type="number"
                                         min="0"
                                         step="1"
+                                        required
                                         value={quantity}
+                                        disabled={editingDisabled}
                                         onChange={(event) => setQuantity(event.target.value)}
                                     />
                                 </label>
@@ -314,7 +348,9 @@ export function App() {
                                         type="number"
                                         min="0"
                                         step="1"
+                                        required
                                         value={unitPrice}
+                                        disabled={editingDisabled}
                                         placeholder="Required"
                                         onChange={(event) => setUnitPrice(event.target.value)}
                                     />
@@ -324,6 +360,7 @@ export function App() {
                                 Valuation
                                 <select
                                     value={valuation}
+                                    disabled={editingDisabled}
                                     onChange={(event) => setValuation(event.target.value as Valuation)}
                                 >
                                     <option value="market">Market (84.5%)</option>
@@ -331,7 +368,11 @@ export function App() {
                                     <option value="expense">Expense</option>
                                 </select>
                             </label>
-                            <button className="button primary-button add-button" type="submit">
+                            <button
+                                className="button primary-button add-button"
+                                type="submit"
+                                disabled={editingDisabled}
+                            >
                                 Add entry
                             </button>
                         </form>

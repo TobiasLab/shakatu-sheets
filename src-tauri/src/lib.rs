@@ -14,7 +14,19 @@ pub fn run() {
     configure_linux_webview();
 
     tauri::Builder::default()
-        .plugin(tauri_plugin_opener::init())
+        .setup(|app| {
+            let database_path =
+                database::initialize_database(app.handle()).map_err(std::io::Error::other)?;
+            app.manage(database::DatabasePath(database_path));
+            Ok(())
+        })
+        .invoke_handler(tauri::generate_handler![
+            database::load_active_session,
+            database::save_session
+        ])
         .run(tauri::generate_context!())
         .expect("error while running Shakatu Sheets");
 }
+mod database;
+
+use tauri::Manager;

@@ -7,7 +7,7 @@ Shakatu Sheets is a local-first, open-source silver-per-hour tracker for Black D
 - Manual live session tracking
 - Sycraia Ruins Lower Level as the first grind-spot profile
 - English at 2560x1440 and 80% BDO UI scale as the first recognition target
-- Local browser storage while the SQLite persistence layer is being built
+- Local SQLite persistence with startup migrations
 
 ## Development
 

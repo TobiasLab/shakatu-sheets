@@ -73,34 +73,7 @@ button {
     letter-spacing: 0.15em;
     text-transform: uppercase;
 }
-nav {
-    display: grid;
-    gap: 5px;
-}
-.nav-item {
-    border: 0;
-    background: transparent;
-    text-align: left;
-    padding: 12px;
-    color: var(--muted);
-    border-radius: 5px;
-    cursor: pointer;
-}
-.nav-item span {
-    font-family: "IBM Plex Mono", monospace;
-    font-size: 10px;
-    margin-right: 12px;
-    color: #4f655e;
-}
-.nav-item.active {
-    background: #10231f;
-    color: #f0f7f4;
-}
-.nav-item:disabled {
-    opacity: 0.45;
-    cursor: default;
-}
-.capture-card {
+.database-state {
     margin-top: auto;
     padding: 15px;
     border: 1px solid var(--line);
@@ -108,7 +81,25 @@ nav {
     display: grid;
     gap: 5px;
 }
-.capture-heading {
+.database-state strong {
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 12px;
+    text-transform: uppercase;
+}
+.database-state small {
+    color: var(--muted);
+    font-size: 9px;
+    line-height: 1.4;
+}
+.database-state.ready .status-dot {
+    background: var(--mint);
+    box-shadow: 0 0 10px #8ee0b788;
+}
+.database-state.error .status-dot {
+    background: #e08c72;
+    box-shadow: 0 0 10px #e08c7288;
+}
+.status-heading {
     font-size: 10px;
     color: var(--muted);
     text-transform: uppercase;
@@ -123,18 +114,6 @@ nav {
     background: var(--gold);
     margin-right: 7px;
     box-shadow: 0 0 10px #d9ae5f88;
-}
-.capture-card strong {
-    font-family: "IBM Plex Mono", monospace;
-    font-size: 13px;
-}
-.capture-card span {
-    font-size: 11px;
-    color: var(--muted);
-}
-.capture-card small {
-    color: var(--gold);
-    margin-top: 5px;
 }
 .license-note {
     display: flex;
@@ -413,6 +392,12 @@ input:focus {
 }
 .remove-button:hover {
     color: #e08c72;
+}
+.remove-button:disabled,
+.quick-items button:disabled,
+.button:disabled {
+    cursor: default;
+    opacity: 0.45;
 }
 .entry-panel {
     padding-bottom: 18px;

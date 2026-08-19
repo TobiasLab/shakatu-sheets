@@ -12,12 +12,10 @@
         "check:write": "biome check --write .",
         "format": "biome format --write .",
         "test": "vitest run",
-        "preview": "vite preview",
         "tauri": "tauri"
     },
     "dependencies": {
         "@tauri-apps/api": "^2",
-        "@tauri-apps/plugin-opener": "^2",
         "react": "^19.1.0",
         "react-dom": "^19.1.0"
     },

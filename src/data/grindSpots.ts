@@ -4,14 +4,10 @@ export type DropTemplate = {
     name: string;
     valuation: Exclude<Valuation, "expense">;
     unitPrice: number | null;
-    note?: string;
 };
 
 export const sycraiaLower = {
-    id: "sycraia-lower-revamp",
     name: "Sycraia Ruins Lower Level",
-    recommendedAp: 395,
-    recommendedDp: 460,
     trash: {
         name: "Ancient Undersea Weapon Power Stone",
         valuation: "vendor" as const,
@@ -25,12 +21,4 @@ export const sycraiaLower = {
         { name: "Refined Origin of Hunger", valuation: "market", unitPrice: null },
         { name: "Black Stone", valuation: "market", unitPrice: null },
     ] satisfies DropTemplate[],
-};
-
-export const initialCaptureProfile = {
-    locale: "en",
-    sourceWidth: 2560,
-    sourceHeight: 1440,
-    uiScale: 0.8,
-    notificationRegion: null,
 };
