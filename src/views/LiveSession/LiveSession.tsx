@@ -164,12 +164,12 @@ export function LiveSessionView({ controller }: { controller: LiveSessionControl
             </section>
 
             <div className={styles.ContentGrid}>
+                <EntryForm {...controller} />
                 <LootLedger
                     entries={session.entries}
                     editingDisabled={editingDisabled}
                     onRemove={(id) => dispatch({ type: "remove-entry", id })}
                 />
-                <EntryForm {...controller} />
             </div>
         </>
     );

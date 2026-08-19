@@ -7,7 +7,7 @@
 .Sidebar {
     border-right: 1px solid var(--line);
     padding: 28px 20px;
-    background: rgba(5, 15, 14, 0.88);
+    background: var(--sidebar);
     display: flex;
     flex-direction: column;
 }
@@ -22,7 +22,7 @@
 .BrandMark {
     width: 42px;
     height: 42px;
-    border: 1px solid #3d6558;
+    border: 1px solid var(--accent-border);
     display: grid;
     place-items: center;
     color: var(--mint);
@@ -66,25 +66,45 @@
 }
 
 .ViewNavigation button:hover {
-    color: #c6d6d0;
+    color: var(--navigation-hover);
     border-color: var(--line);
 }
 
 .ViewNavigation button.Active {
     color: var(--mint);
-    border-color: #315948;
-    background: #0d201b;
+    border-color: var(--accent-border);
+    background: var(--accent-surface);
 }
 
 .MobileNavigation {
     display: none;
 }
 
+.DesktopTheme {
+    margin-top: 22px;
+}
+
+.ThemeSelector {
+    display: grid;
+    gap: 6px;
+    color: var(--muted);
+    font-size: 9px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+}
+
+.ThemeSelector select {
+    padding: 8px 28px 8px 9px;
+    font-size: 10px;
+    text-transform: none;
+    letter-spacing: normal;
+}
+
 .DatabaseState {
     margin-top: auto;
     padding: 15px;
     border: 1px solid var(--line);
-    background: linear-gradient(145deg, #0b1a17, #091411);
+    background: var(--database-gradient);
     display: grid;
     gap: 5px;
 }
@@ -103,12 +123,12 @@
 
 .DatabaseState.ready .StatusDot {
     background: var(--mint);
-    box-shadow: 0 0 10px #8ee0b788;
+    box-shadow: 0 0 10px var(--accent-glow);
 }
 
 .DatabaseState.error .StatusDot {
-    background: #e08c72;
-    box-shadow: 0 0 10px #e08c7288;
+    background: var(--danger);
+    box-shadow: 0 0 10px var(--danger-glow);
 }
 
 .StatusHeading {
@@ -126,13 +146,13 @@
     border-radius: 50%;
     background: var(--gold);
     margin-right: 7px;
-    box-shadow: 0 0 10px #d9ae5f88;
+    box-shadow: 0 0 10px var(--gold-glow);
 }
 
 .LicenseNote {
     display: flex;
     justify-content: space-between;
-    color: #52655f;
+    color: var(--license-text);
     font-size: 10px;
     padding: 18px 3px 0;
     text-transform: uppercase;
@@ -158,7 +178,10 @@
     }
 
     .MobileNavigation {
-        display: block;
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) 92px;
+        gap: 9px;
+        align-items: end;
         margin-bottom: 22px;
     }
 
@@ -168,5 +191,9 @@
 
     .MobileNavigation .ViewNavigation button {
         text-align: center;
+    }
+
+    .DesktopTheme {
+        display: none;
     }
 }

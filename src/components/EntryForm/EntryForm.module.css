@@ -1,51 +1,194 @@
 .EntryPanel {
-    padding-bottom: 18px;
+    overflow: hidden;
 }
 
-.QuickItems {
-    display: flex;
-    gap: 6px;
-    overflow-x: auto;
-    padding: 14px 17px 6px;
+.EntryWorkspace {
+    display: grid;
+    grid-template-columns: minmax(280px, 1.15fr) minmax(245px, 0.85fr);
+    min-width: 0;
+}
+
+.ItemPicker {
+    min-width: 0;
+    border-right: 1px solid var(--line);
+}
+
+.SearchField {
+    display: block;
+    padding: 13px 14px;
+    border-bottom: 1px solid var(--line);
+    background: var(--surface-raised);
+    color: var(--muted);
+    font-size: 9px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+}
+
+.SearchField input {
+    display: block;
+    margin-top: 7px;
+    padding: 10px 11px;
+    font-size: 11px;
+}
+
+.ItemList {
+    max-height: 560px;
+    overflow-y: auto;
     scrollbar-width: thin;
 }
 
-.QuickItems button {
-    flex: 0 0 auto;
-    max-width: 145px;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-    border: 1px solid var(--line);
-    background: #0b1916;
-    color: var(--muted);
-    padding: 7px 9px;
-    font-size: 10px;
+.ItemList > button {
+    display: grid;
+    grid-template-columns: 42px minmax(0, 1fr) 48px;
+    gap: 11px;
+    align-items: center;
+    width: 100%;
+    padding: 9px 12px;
+    border: 0;
+    border-bottom: 1px solid var(--row-line);
+    background: transparent;
+    color: var(--text);
+    text-align: left;
     cursor: pointer;
 }
 
-.QuickItems button.Selected {
-    color: var(--mint);
-    border-color: #3b6556;
-    background: #10231e;
+.ItemList > button:hover {
+    background: var(--quick-item-background);
 }
 
-.QuickItems button:disabled {
+.ItemList > button.Selected {
+    background: var(--quick-item-selected);
+    box-shadow: inset 3px 0 var(--mint);
+}
+
+.ItemList > button:disabled {
     cursor: default;
-    opacity: 0.45;
+    opacity: 0.5;
+}
+
+.ItemIcon,
+.SelectedIcon {
+    display: grid;
+    overflow: hidden;
+    place-items: center;
+    border: 1px solid var(--line-strong);
+    background: var(--input-background);
+}
+
+.ItemIcon {
+    width: 40px;
+    height: 40px;
+}
+
+.ItemIcon img,
+.SelectedIcon img {
+    display: block;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.ItemCopy {
+    min-width: 0;
+}
+
+.ItemCopy strong,
+.ItemCopy small {
+    display: block;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.ItemCopy strong {
+    font-size: 11px;
+    font-weight: 600;
+}
+
+.ItemCopy small {
+    margin-top: 4px;
+    color: var(--muted);
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 8px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+}
+
+.SelectItem {
+    color: var(--muted);
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 8px;
+    text-align: right;
+    text-transform: uppercase;
+    opacity: 0;
+}
+
+.ItemList > button:hover .SelectItem,
+.ItemList > button.Selected .SelectItem {
+    opacity: 1;
+}
+
+.ItemList > button.Selected .SelectItem {
+    color: var(--mint);
+}
+
+.NoResults {
+    display: grid;
+    gap: 5px;
+    padding: 28px 18px;
+    color: var(--muted);
+    font-size: 10px;
+    line-height: 1.5;
+    text-align: center;
+}
+
+.NoResults strong {
+    color: var(--text);
+    font-size: 12px;
 }
 
 .Form {
-    padding: 12px 17px 0;
     display: grid;
+    align-content: start;
+    gap: 14px;
+    padding: 17px;
+    background: var(--surface-raised);
+}
+
+.SelectedDrop {
+    display: flex;
     gap: 12px;
+    align-items: center;
+    min-width: 0;
+    padding: 11px;
+    border: 1px solid var(--line-strong);
+    background: var(--market-gradient);
+}
+
+.SelectedDrop > div {
+    min-width: 0;
+}
+
+.SelectedDrop strong {
+    display: block;
+    overflow: hidden;
+    margin-top: 3px;
+    font-size: 12px;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.SelectedIcon {
+    flex: 0 0 48px;
+    width: 48px;
+    height: 48px;
 }
 
 .Form label {
     color: var(--muted);
-    font-size: 10px;
+    font-size: 9px;
+    letter-spacing: 0.09em;
     text-transform: uppercase;
-    letter-spacing: 0.08em;
 }
 
 .Form input,
@@ -59,20 +202,36 @@
 
 .FormRow {
     display: grid;
-    grid-template-columns: 1fr 1.4fr;
+    grid-template-columns: minmax(80px, 0.8fr) minmax(120px, 1.2fr);
     gap: 9px;
 }
 
 .AddButton {
     width: 100%;
     margin-top: 2px;
+    padding-block: 11px;
 }
 
 .DataNote {
-    margin: 15px 17px 0;
+    margin: 0;
     padding-top: 13px;
     border-top: 1px solid var(--line);
-    color: #687c75;
-    font-size: 10px;
+    color: var(--note-text);
+    font-size: 9px;
     line-height: 1.55;
+}
+
+@media (max-width: 760px) {
+    .EntryWorkspace {
+        grid-template-columns: 1fr;
+    }
+
+    .ItemPicker {
+        border-right: 0;
+        border-bottom: 1px solid var(--line);
+    }
+
+    .ItemList {
+        max-height: 370px;
+    }
 }

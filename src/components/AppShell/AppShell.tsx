@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import type { DatabaseStatus } from "../../hooks/usePersistedSession";
+import type { Theme } from "../../hooks/useTheme";
 import styles from "./AppShell.module.css";
 
 export type AppView = "live" | "history";
@@ -21,15 +22,31 @@ function ViewNavigation({ view, onChange }: { view: AppView; onChange: (view: Ap
     );
 }
 
+function ThemeSelector({ theme, onChange }: { theme: Theme; onChange: (theme: Theme) => void }) {
+    return (
+        <label className={styles.ThemeSelector}>
+            Theme
+            <select value={theme} onChange={(event) => onChange(event.target.value as Theme)}>
+                <option value="light">Light</option>
+                <option value="dark">Dark</option>
+            </select>
+        </label>
+    );
+}
+
 export function AppShell({
     view,
     onViewChange,
+    theme,
+    onThemeChange,
     databaseStatus,
     databaseError,
     children,
 }: {
     view: AppView;
     onViewChange: (view: AppView) => void;
+    theme: Theme;
+    onThemeChange: (theme: Theme) => void;
     databaseStatus: DatabaseStatus;
     databaseError: string;
     children: ReactNode;
@@ -45,6 +62,9 @@ export function AppShell({
                     </div>
                 </div>
                 <ViewNavigation view={view} onChange={onViewChange} />
+                <div className={styles.DesktopTheme}>
+                    <ThemeSelector theme={theme} onChange={onThemeChange} />
+                </div>
                 <div className={`${styles.DatabaseState} ${styles[databaseStatus]}`}>
                     <div className={styles.StatusHeading}>
                         <span className={styles.StatusDot} /> Local database
@@ -60,6 +80,7 @@ export function AppShell({
             <main className={styles.Workspace}>
                 <div className={styles.MobileNavigation}>
                     <ViewNavigation view={view} onChange={onViewChange} />
+                    <ThemeSelector theme={theme} onChange={onThemeChange} />
                 </div>
                 {children}
             </main>

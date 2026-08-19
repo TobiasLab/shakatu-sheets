@@ -28,7 +28,7 @@
 
 .SessionState.running {
     color: var(--mint);
-    border-color: #315948;
+    border-color: var(--accent-border);
 }
 
 .SessionState.paused {
@@ -55,7 +55,7 @@
 }
 
 .Metric.Primary {
-    background: linear-gradient(120deg, #112922, #0d1f1b);
+    background: var(--primary-gradient);
 }
 
 .Metric span,
@@ -78,7 +78,7 @@
 }
 
 .Metric small {
-    color: #536761;
+    color: var(--metric-note);
     font-size: 10px;
 }
 
@@ -86,7 +86,7 @@
     margin: 13px 0;
     padding: 17px 20px;
     border: 1px solid var(--line);
-    background: #081512;
+    background: var(--clock-background);
     display: flex;
     justify-content: space-between;
     align-items: center;
@@ -109,8 +109,8 @@
 .MarketSnapshot {
     margin-bottom: 13px;
     padding: 16px 20px;
-    border: 1px solid #29413b;
-    background: linear-gradient(110deg, #0d211c, #091613);
+    border: 1px solid var(--line-strong);
+    background: var(--market-gradient);
     display: flex;
     align-items: center;
     justify-content: space-between;
@@ -133,12 +133,12 @@
 }
 
 .MarketSnapshot .MarketError {
-    color: #e08c72;
+    color: var(--danger);
 }
 
 .ContentGrid {
     display: grid;
-    grid-template-columns: minmax(0, 1.65fr) minmax(280px, 0.75fr);
+    grid-template-columns: minmax(0, 1.55fr) minmax(280px, 0.7fr);
     gap: 13px;
 }
 
