@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { type FinishedSessionRecord, listFinishedSessions } from "../../api/tauri";
-import { getGrindSpot } from "../../data/grindSpots";
+import { getGrindSpot, grindSpots } from "../../data/grindSpots";
 import { calculateTotals } from "../../domain/session";
 import { formatDuration, formatSilver, formatTimestamp } from "../../format";
 import type { DatabaseStatus } from "../../hooks/usePersistedSession";
@@ -20,6 +20,7 @@ export function HistoryView({
     const [error, setError] = useState("");
     const [reopenError, setReopenError] = useState("");
     const [reopening, setReopening] = useState(false);
+    const [grindSpotFilter, setGrindSpotFilter] = useState("all");
 
     async function loadHistory() {
         setRecords(null);
@@ -40,7 +41,9 @@ export function HistoryView({
         if (databaseLoaded && databaseStatus !== "saving") loadHistory();
     }, [databaseLoaded, databaseStatus]);
 
-    const selected = records?.find((record) => record.session.id === selectedId) ?? records?.[0];
+    const filteredRecords =
+        records?.filter((record) => grindSpotFilter === "all" || record.session.grindSpotId === grindSpotFilter) ?? [];
+    const selected = filteredRecords.find((record) => record.session.id === selectedId) ?? filteredRecords[0];
     const selectedTotals = selected ? calculateTotals(selected.session.entries, selected.session.elapsedMs) : null;
 
     async function reopenSelected() {
@@ -62,9 +65,30 @@ export function HistoryView({
                     <p className="eyebrow">Completed sessions</p>
                     <h1>Session history</h1>
                 </div>
-                <button className="button subtle" type="button" disabled={!databaseLoaded} onClick={loadHistory}>
-                    Reload
-                </button>
+                <div className={styles.HistoryActions}>
+                    <label>
+                        Grind spot
+                        <select
+                            value={grindSpotFilter}
+                            disabled={!databaseLoaded || records === null || records.length === 0}
+                            onChange={(event) => {
+                                setGrindSpotFilter(event.target.value);
+                                setSelectedId(null);
+                                setReopenError("");
+                            }}
+                        >
+                            <option value="all">All grind spots</option>
+                            {grindSpots.map((spot) => (
+                                <option key={spot.id} value={spot.id}>
+                                    {spot.name}
+                                </option>
+                            ))}
+                        </select>
+                    </label>
+                    <button className="button subtle" type="button" disabled={!databaseLoaded} onClick={loadHistory}>
+                        Reload
+                    </button>
+                </div>
             </header>
 
             {!databaseLoaded || records === null ? (
@@ -82,17 +106,25 @@ export function HistoryView({
                     <strong>No completed sessions yet</strong>
                     <p>Finish a live session and it will appear here.</p>
                 </section>
+            ) : filteredRecords.length === 0 ? (
+                <section className={`panel empty-state ${styles.HistoryMessage}`}>
+                    <div className="empty-glyph">0</div>
+                    <strong>No {getGrindSpot(grindSpotFilter).name} sessions</strong>
+                    <p>Choose another grind spot or finish a new session.</p>
+                </section>
             ) : (
                 <div className={styles.HistoryGrid}>
                     <section className="panel">
                         <div className="panel-heading">
                             <div>
                                 <p className="eyebrow">Recent ledger</p>
-                                <h2>Last {records.length} sessions</h2>
+                                <h2>
+                                    {filteredRecords.length} session{filteredRecords.length === 1 ? "" : "s"}
+                                </h2>
                             </div>
                         </div>
                         <div className={styles.HistoryList}>
-                            {records.map((record) => {
+                            {filteredRecords.map((record) => {
                                 const totals = calculateTotals(record.session.entries, record.session.elapsedMs);
                                 return (
                                     <button

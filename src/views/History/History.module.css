@@ -4,6 +4,25 @@
     gap: 13px;
 }
 
+.HistoryActions {
+    display: flex;
+    align-items: flex-end;
+    gap: 8px;
+}
+
+.HistoryActions label {
+    color: var(--muted);
+    font-size: 10px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+}
+
+.HistoryActions select {
+    display: block;
+    margin-top: 5px;
+    padding: 8px 32px 8px 10px;
+}
+
 .HistoryList {
     max-height: 615px;
     overflow: auto;
@@ -181,6 +200,11 @@
 }
 
 @media (max-width: 760px) {
+    .HistoryActions {
+        align-items: stretch;
+        flex-direction: column;
+    }
+
     .HistorySummary {
         grid-template-columns: 1fr;
     }
