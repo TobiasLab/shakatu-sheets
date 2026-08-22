@@ -9,12 +9,14 @@ Shakatu Sheets has three current boundaries:
 The frontend sends the complete session snapshot after each meaningful state change. Saves are queued in order. Rust
 validates the snapshot and replaces the session entries in one transaction.
 
-The history view requests the 20 newest finished sessions from SQLite and calculates display totals with the same pure
-frontend function as the live view. History is read-only; the backend continues to reject changes to finished sessions.
+The history view requests the 20 newest finished sessions from SQLite, filters them by the selected grind-spot profile,
+and calculates display totals with the same pure frontend function as the live view. Normal saves cannot change finished
+sessions. Reopening is a separate backend command that atomically returns one finished session to a paused state without
+replacing an active session that contains progress.
 
-Saved market prices are read from SQLite when the selected region changes. The frontend only invokes the Arsha network
-request after the user presses the fetch or refresh button. Successful complete responses are written as a new set of
-price snapshots; failed responses do not change saved data.
+Saved market prices are read from SQLite when the selected region or grind-spot profile changes. The frontend only
+invokes the Arsha network request after the user presses the fetch or refresh button. Successful complete responses are
+written as a new set of price snapshots; failed responses do not change saved data.
 
 There is no service layer or plugin system. New boundaries should only be added when a feature cannot remain clear within
 the current structure.
