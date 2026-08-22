@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { type FinishedSessionRecord, listFinishedSessions } from "../../api/tauri";
-import { sycraiaLower } from "../../data/grindSpots";
+import { getGrindSpot } from "../../data/grindSpots";
 import { calculateTotals } from "../../domain/session";
 import { formatDuration, formatSilver, formatTimestamp } from "../../format";
 import type { DatabaseStatus } from "../../hooks/usePersistedSession";
@@ -107,6 +107,7 @@ export function HistoryView({
                                         <span>
                                             <strong>{formatTimestamp(record.finishedAt)}</strong>
                                             <small>
+                                                {getGrindSpot(record.session.grindSpotId).name} ·{" "}
                                                 {record.session.region.toUpperCase()} ·{" "}
                                                 {formatDuration(record.session.elapsedMs)}
                                             </small>
@@ -126,7 +127,7 @@ export function HistoryView({
                             <div className="panel-heading">
                                 <div>
                                     <p className="eyebrow">Session detail</p>
-                                    <h2>{sycraiaLower.name}</h2>
+                                    <h2>{getGrindSpot(selected.session.grindSpotId).name}</h2>
                                 </div>
                                 <div className={styles.DetailActions}>
                                     <span>{selected.session.region.toUpperCase()}</span>

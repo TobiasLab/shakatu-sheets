@@ -4,10 +4,11 @@ import {
     loadMarketPrices,
     type MarketPriceSnapshot,
 } from "../api/tauri";
-import { sycraiaMarketItemIds } from "../data/grindSpots";
+import { getMarketItemIds } from "../data/grindSpots";
 import type { SessionState } from "../domain/session";
 
-export function useMarketPrices(databaseLoaded: boolean, region: SessionState["region"]) {
+export function useMarketPrices(databaseLoaded: boolean, region: SessionState["region"], grindSpotId: string) {
+    const marketItemIds = getMarketItemIds(grindSpotId);
     const [marketPrices, setMarketPrices] = useState<MarketPriceSnapshot[] | null>(null);
     const [marketPriceRegion, setMarketPriceRegion] = useState<SessionState["region"] | null>(null);
     const [marketError, setMarketError] = useState("");
@@ -24,7 +25,7 @@ export function useMarketPrices(databaseLoaded: boolean, region: SessionState["r
         async function loadSavedPrices() {
             try {
                 const saved = await loadMarketPrices(region);
-                const profilePrices = saved.filter((price) => sycraiaMarketItemIds.includes(price.itemId));
+                const profilePrices = saved.filter((price) => marketItemIds.includes(price.itemId));
                 if (profilePrices.length > 0) {
                     if (cancelled) return;
                     setMarketPrices(profilePrices);
@@ -34,7 +35,7 @@ export function useMarketPrices(databaseLoaded: boolean, region: SessionState["r
 
                 const fallbackRegion = region === "eu" ? "na" : "eu";
                 const fallbackSaved = await loadMarketPrices(fallbackRegion);
-                const fallbackPrices = fallbackSaved.filter((price) => sycraiaMarketItemIds.includes(price.itemId));
+                const fallbackPrices = fallbackSaved.filter((price) => marketItemIds.includes(price.itemId));
                 if (cancelled) return;
                 setMarketPrices(fallbackPrices);
                 setMarketPriceRegion(fallbackPrices.length > 0 ? fallbackRegion : null);
@@ -50,9 +51,9 @@ export function useMarketPrices(databaseLoaded: boolean, region: SessionState["r
         return () => {
             cancelled = true;
         };
-    }, [databaseLoaded, region]);
+    }, [databaseLoaded, region, grindSpotId]);
 
-    const currentMarketPrices = (marketPrices ?? []).filter((price) => sycraiaMarketItemIds.includes(price.itemId));
+    const currentMarketPrices = (marketPrices ?? []).filter((price) => marketItemIds.includes(price.itemId));
     const lastPriceFetch = currentMarketPrices.reduce((latest, price) => Math.max(latest, price.fetchedAt), 0);
     const usingFallbackPrices = marketPriceRegion !== null && marketPriceRegion !== region;
 
@@ -60,7 +61,7 @@ export function useMarketPrices(databaseLoaded: boolean, region: SessionState["r
         setFetchingPrices(true);
         setMarketError("");
         try {
-            const snapshots = await fetchMarketPriceSnapshots(region, sycraiaMarketItemIds);
+            const snapshots = await fetchMarketPriceSnapshots(region, marketItemIds);
             setMarketPrices(snapshots);
             setMarketPriceRegion(region);
         } catch (error) {

@@ -30,6 +30,7 @@ export type SessionAction =
     | { type: "reset" }
     | { type: "hydrate"; session: SessionState }
     | { type: "set-region"; region: SessionState["region"] }
+    | { type: "set-grind-spot"; grindSpotId: string }
     | { type: "add-entry"; entry: SessionEntry }
     | { type: "update-entry"; id: string; quantity: number; unitPrice: number }
     | { type: "remove-entry"; id: string };
@@ -86,6 +87,10 @@ export function reduceSession(state: SessionState, action: SessionAction): Sessi
             return action.session;
         case "set-region":
             return state.status === "finished" ? state : { ...state, region: action.region };
+        case "set-grind-spot":
+            return state.status === "idle" && state.elapsedMs === 0 && state.entries.length === 0
+                ? { ...state, grindSpotId: action.grindSpotId }
+                : state;
         case "add-entry": {
             if (state.status === "finished") return state;
             const matchingEntries = state.entries.filter(

@@ -1,5 +1,5 @@
 import { type FormEvent, useRef, useState } from "react";
-import { type DropTemplate, sycraiaDrops } from "../../data/grindSpots";
+import type { DropTemplate } from "../../data/grindSpots";
 import type { Valuation } from "../../domain/session";
 import { formatSilver } from "../../format";
 import type { LiveSessionController } from "../../hooks/useLiveSession";
@@ -8,6 +8,8 @@ import styles from "./EntryForm.module.css";
 type EntryFormProps = Pick<
     LiveSessionController,
     | "selectedDrop"
+    | "spot"
+    | "drops"
     | "editingDisabled"
     | "chooseDrop"
     | "addEntry"
@@ -23,6 +25,8 @@ type EntryFormProps = Pick<
 
 export function EntryForm({
     selectedDrop,
+    spot,
+    drops,
     editingDisabled,
     chooseDrop,
     addEntry,
@@ -38,7 +42,7 @@ export function EntryForm({
     const [query, setQuery] = useState("");
     const quantityInput = useRef<HTMLInputElement>(null);
     const normalizedQuery = query.trim().toLocaleLowerCase();
-    const visibleDrops = sycraiaDrops.filter((drop) => drop.name.toLocaleLowerCase().includes(normalizedQuery));
+    const visibleDrops = drops.filter((drop) => drop.name.toLocaleLowerCase().includes(normalizedQuery));
 
     function selectDrop(drop: DropTemplate) {
         chooseDrop(drop);
@@ -68,17 +72,17 @@ export function EntryForm({
                     <p className="eyebrow">Loot catalog</p>
                     <h2>Add to session</h2>
                 </div>
-                <span>{sycraiaDrops.length} items</span>
+                <span>{drops.length} items</span>
             </div>
             <div className={styles.EntryWorkspace}>
-                <section className={styles.ItemPicker} aria-label="Sycraia loot items">
+                <section className={styles.ItemPicker} aria-label={`${spot.name} loot items`}>
                     <label className={styles.SearchField}>
                         Find an item
                         <input
                             type="search"
                             value={query}
                             disabled={editingDisabled}
-                            placeholder="Search Sycraia loot..."
+                            placeholder={`Search ${spot.name} loot...`}
                             onChange={(event) => setQuery(event.target.value)}
                         />
                     </label>

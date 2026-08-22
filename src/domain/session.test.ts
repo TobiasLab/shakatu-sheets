@@ -72,6 +72,17 @@ describe("session timing", () => {
         expect(reduceSession(timed, { type: "set-elapsed", elapsedMs: -1 })).toBe(timed);
         expect(finished).toMatchObject({ status: "finished", elapsedMs: 5_400_000 });
     });
+
+    it("only changes the grind spot on an empty idle session", () => {
+        const idle = createSession();
+        const changed = reduceSession(idle, { type: "set-grind-spot", grindSpotId: "stars-end-revamp" });
+        const timed = { ...idle, elapsedMs: 1 };
+        const looted = { ...idle, entries: [entry({})] };
+
+        expect(changed.grindSpotId).toBe("stars-end-revamp");
+        expect(reduceSession(timed, { type: "set-grind-spot", grindSpotId: "stars-end-revamp" })).toBe(timed);
+        expect(reduceSession(looted, { type: "set-grind-spot", grindSpotId: "stars-end-revamp" })).toBe(looted);
+    });
 });
 
 describe("session totals", () => {

@@ -1,6 +1,6 @@
 import { EntryForm } from "../../components/EntryForm/EntryForm";
 import { LootLedger } from "../../components/LootLedger/LootLedger";
-import { sycraiaLower, sycraiaMarketItemIds } from "../../data/grindSpots";
+import { grindSpots } from "../../data/grindSpots";
 import type { SessionState } from "../../domain/session";
 import { formatDuration, formatSilver, formatTimestamp } from "../../format";
 import type { LiveSessionController } from "../../hooks/useLiveSession";
@@ -14,21 +14,39 @@ export function LiveSessionView({ controller }: { controller: LiveSessionControl
         elapsedMs,
         totals,
         editingDisabled,
+        spot,
+        marketItemIds,
         changeRegion,
+        changeGrindSpot,
         startOrResume,
         setCompletedHours,
         market,
     } = controller;
     const timeEditable = session.status === "idle" || session.status === "paused";
+    const spotEditable = session.status === "idle" && session.elapsedMs === 0 && session.entries.length === 0;
 
     return (
         <>
             <header className="topbar">
                 <div>
                     <p className="eyebrow">Live grind ledger</p>
-                    <h1>{sycraiaLower.name}</h1>
+                    <h1>{spot.name}</h1>
                 </div>
                 <div className={styles.SessionMeta}>
+                    <label>
+                        Grind spot
+                        <select
+                            value={session.grindSpotId}
+                            disabled={!databaseLoaded || !spotEditable || market.fetchingPrices}
+                            onChange={(event) => changeGrindSpot(event.target.value)}
+                        >
+                            {grindSpots.map((grindSpot) => (
+                                <option key={grindSpot.id} value={grindSpot.id}>
+                                    {grindSpot.name}
+                                </option>
+                            ))}
+                        </select>
+                    </label>
                     <label>
                         Region
                         <select
@@ -158,8 +176,8 @@ export function LiveSessionView({ controller }: { controller: LiveSessionControl
                             </strong>
                             <span>
                                 No {session.region.toUpperCase()} snapshot is saved. {market.currentMarketPrices.length}{" "}
-                                of {sycraiaMarketItemIds.length} {market.marketPriceRegion?.toUpperCase()} profile items
-                                are used as fallback.
+                                of {marketItemIds.length} {market.marketPriceRegion?.toUpperCase()} profile items are
+                                used as fallback.
                             </span>
                         </>
                     ) : (
@@ -168,7 +186,7 @@ export function LiveSessionView({ controller }: { controller: LiveSessionControl
                                 {session.region.toUpperCase()} prices from {formatTimestamp(market.lastPriceFetch)}
                             </strong>
                             <span>
-                                {market.currentMarketPrices.length} of {sycraiaMarketItemIds.length} profile items saved
+                                {market.currentMarketPrices.length} of {marketItemIds.length} profile items saved
                                 locally.
                             </span>
                         </>
@@ -193,6 +211,7 @@ export function LiveSessionView({ controller }: { controller: LiveSessionControl
                 <EntryForm {...controller} />
                 <LootLedger
                     entries={session.entries}
+                    grindSpotId={session.grindSpotId}
                     editingDisabled={editingDisabled}
                     onRemove={(id) => dispatch({ type: "remove-entry", id })}
                     onUpdate={(id, quantity, unitPrice) => dispatch({ type: "update-entry", id, quantity, unitPrice })}

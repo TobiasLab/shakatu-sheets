@@ -1,5 +1,5 @@
 import { type Dispatch, type FormEvent, useEffect, useState } from "react";
-import { type DropTemplate, sycraiaLower } from "../data/grindSpots";
+import { type DropTemplate, getGrindSpot, getGrindSpotDrops, getMarketItemIds } from "../data/grindSpots";
 import {
     calculateTotals,
     createEntry,
@@ -11,19 +11,30 @@ import {
 import { useMarketPrices } from "./useMarketPrices";
 
 export function useLiveSession(session: SessionState, dispatch: Dispatch<SessionAction>, databaseLoaded: boolean) {
+    const spot = getGrindSpot(session.grindSpotId);
+    const drops = getGrindSpotDrops(session.grindSpotId);
+    const marketItemIds = getMarketItemIds(session.grindSpotId);
     const [now, setNow] = useState(Date.now());
-    const [selectedDrop, setSelectedDrop] = useState<DropTemplate>(sycraiaLower.trash);
+    const [selectedDrop, setSelectedDrop] = useState<DropTemplate>(spot.trash);
     const [quantity, setQuantity] = useState("1");
-    const [unitPrice, setUnitPrice] = useState(String(sycraiaLower.trash.unitPrice));
+    const [unitPrice, setUnitPrice] = useState(String(spot.trash.unitPrice));
     const [customName, setCustomName] = useState("");
     const [valuation, setValuation] = useState<Valuation>("vendor");
-    const market = useMarketPrices(databaseLoaded, session.region);
+    const market = useMarketPrices(databaseLoaded, session.region, session.grindSpotId);
 
     useEffect(() => {
         if (market.marketPrices === null || selectedDrop.marketItemId === undefined) return;
         const snapshot = market.marketPrices.find((price) => price.itemId === selectedDrop.marketItemId);
         setUnitPrice(snapshot ? String(snapshot.basePrice) : "");
     }, [market.marketPrices, selectedDrop]);
+
+    useEffect(() => {
+        setSelectedDrop(spot.trash);
+        setQuantity("1");
+        setUnitPrice(spot.trash.unitPrice === null ? "" : String(spot.trash.unitPrice));
+        setCustomName("");
+        setValuation(spot.trash.valuation);
+    }, [session.grindSpotId, spot.trash]);
 
     useEffect(() => {
         if (session.status !== "running") return;
@@ -50,6 +61,10 @@ export function useLiveSession(session: SessionState, dispatch: Dispatch<Session
         market.clearMarketPrices();
         if (selectedDrop.marketItemId !== undefined) setUnitPrice("");
         dispatch({ type: "set-region", region });
+    }
+
+    function changeGrindSpot(grindSpotId: string) {
+        dispatch({ type: "set-grind-spot", grindSpotId });
     }
 
     function addEntry(event: FormEvent) {
@@ -92,6 +107,9 @@ export function useLiveSession(session: SessionState, dispatch: Dispatch<Session
         session,
         dispatch,
         databaseLoaded,
+        spot,
+        drops,
+        marketItemIds,
         elapsedMs,
         totals,
         editingDisabled,
@@ -106,6 +124,7 @@ export function useLiveSession(session: SessionState, dispatch: Dispatch<Session
         setValuation,
         chooseDrop,
         changeRegion,
+        changeGrindSpot,
         addEntry,
         startOrResume,
         setCompletedHours,

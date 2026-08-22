@@ -1,23 +1,25 @@
 import { type KeyboardEvent, useEffect, useState } from "react";
-import { getSycraiaDropIcon } from "../../data/grindSpots";
+import { getDropIcon } from "../../data/grindSpots";
 import type { SessionEntry } from "../../domain/session";
 import { formatSilver } from "../../format";
 import styles from "./LootLedger.module.css";
 
 function LedgerEntryRow({
     entry,
+    grindSpotId,
     editingDisabled,
     onRemove,
     onUpdate,
 }: {
     entry: SessionEntry;
+    grindSpotId: string;
     editingDisabled: boolean;
     onRemove: (id: string) => void;
     onUpdate: (id: string, quantity: number, unitPrice: number) => void;
 }) {
     const [quantity, setQuantity] = useState(String(entry.quantity));
     const [unitPrice, setUnitPrice] = useState(String(entry.unitPrice));
-    const icon = getSycraiaDropIcon(entry.name);
+    const icon = getDropIcon(grindSpotId, entry.name);
 
     useEffect(() => {
         setQuantity(String(entry.quantity));
@@ -119,11 +121,13 @@ function LedgerEntryRow({
 
 export function LootLedger({
     entries,
+    grindSpotId,
     editingDisabled,
     onRemove,
     onUpdate,
 }: {
     entries: SessionEntry[];
+    grindSpotId: string;
     editingDisabled: boolean;
     onRemove: (id: string) => void;
     onUpdate: (id: string, quantity: number, unitPrice: number) => void;
@@ -152,6 +156,7 @@ export function LootLedger({
                             <LedgerEntryRow
                                 key={entry.id}
                                 entry={entry}
+                                grindSpotId={grindSpotId}
                                 editingDisabled={editingDisabled}
                                 onRemove={onRemove}
                                 onUpdate={onUpdate}
