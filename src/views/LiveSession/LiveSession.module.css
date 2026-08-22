@@ -101,6 +101,25 @@
     letter-spacing: 0.06em;
 }
 
+.CompletedHours {
+    display: flex;
+    align-items: flex-end;
+    gap: 8px;
+}
+
+.CompletedHours label > span {
+    display: block;
+    margin-bottom: 3px;
+}
+
+.CompletedHours input {
+    width: 110px;
+    padding: 7px 9px;
+    font:
+        500 18px "IBM Plex Mono",
+        monospace;
+}
+
 .ClockActions {
     display: flex;
     gap: 8px;
@@ -185,6 +204,18 @@
     }
 
     .ClockActions {
+        width: 100%;
+    }
+
+    .CompletedHours {
+        width: 100%;
+    }
+
+    .CompletedHours label {
+        flex: 1;
+    }
+
+    .CompletedHours input {
         width: 100%;
     }
 

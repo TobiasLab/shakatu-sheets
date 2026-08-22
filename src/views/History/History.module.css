@@ -58,6 +58,26 @@
     color: var(--mint);
 }
 
+.DetailActions {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.DetailActions > span {
+    color: var(--muted);
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 10px;
+}
+
+.ReopenError {
+    margin: 0;
+    padding: 10px 19px;
+    border-bottom: 1px solid var(--line);
+    color: var(--danger);
+    font-size: 11px;
+}
+
 .HistorySummary {
     display: grid;
     grid-template-columns: repeat(3, 1fr);

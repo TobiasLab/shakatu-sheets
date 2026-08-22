@@ -1,12 +1,14 @@
 import { useLayoutEffect, useState } from "react";
 
-export type Theme = "light" | "dark";
+export type Theme = "light" | "moss" | "dark";
 
-const THEME_STORAGE_KEY = "shakatu-sheets-theme";
+const THEME_STORAGE_KEY = "shakatu-sheets-theme-v2";
+const LEGACY_THEME_STORAGE_KEY = "shakatu-sheets-theme";
 
 function readSavedTheme(): Theme {
     const savedTheme = localStorage.getItem(THEME_STORAGE_KEY);
-    return savedTheme === "light" || savedTheme === "dark" ? savedTheme : "dark";
+    if (savedTheme === "light" || savedTheme === "moss" || savedTheme === "dark") return savedTheme;
+    return localStorage.getItem(LEGACY_THEME_STORAGE_KEY) === "light" ? "light" : "moss";
 }
 
 export function useTheme() {

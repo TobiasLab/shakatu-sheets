@@ -478,6 +478,41 @@ fn list_finished_session_records(
         .collect()
 }
 
+fn reopen_session_record(connection: &mut Connection, id: &str) -> Result<SessionRecord, String> {
+    let transaction = connection
+        .transaction()
+        .map_err(|error| error.to_string())?;
+    let session = load_session_by_id(&transaction, id)?
+        .ok_or_else(|| format!("session {id} was not found"))?;
+    if session.status != SessionStatus::Finished {
+        return Err("only finished sessions can be reopened".into());
+    }
+
+    if let Some(active) = load_active_session_record(&transaction)? {
+        if active.status != SessionStatus::Idle
+            || active.elapsed_ms != 0
+            || !active.entries.is_empty()
+        {
+            return Err("finish the current active session before reopening another one".into());
+        }
+        transaction
+            .execute("DELETE FROM sessions WHERE id = ?1", [&active.id])
+            .map_err(|error| error.to_string())?;
+    }
+
+    transaction
+        .execute(
+            "UPDATE sessions
+             SET status = 'paused', started_at = NULL, updated_at = ?1, finished_at = NULL
+             WHERE id = ?2",
+            params![timestamp_ms(), id],
+        )
+        .map_err(|error| error.to_string())?;
+    transaction.commit().map_err(|error| error.to_string())?;
+
+    load_session_by_id(connection, id)?.ok_or_else(|| format!("session {id} disappeared"))
+}
+
 fn load_market_price_records(
     connection: &Connection,
     region: Region,
@@ -590,6 +625,12 @@ pub fn list_finished_sessions(
     list_finished_session_records(&connection)
 }
 
+#[tauri::command]
+pub fn reopen_session(id: String, state: State<'_, DatabasePath>) -> Result<SessionRecord, String> {
+    let mut connection = open_database(&state.0)?;
+    reopen_session_record(&mut connection, &id)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -651,6 +692,57 @@ mod tests {
         assert_eq!(
             save_session_record(&mut connection, &changed).unwrap_err(),
             "finished sessions are immutable"
+        );
+    }
+
+    #[test]
+    fn reopens_a_finished_session_and_replaces_an_empty_placeholder() {
+        let mut connection = database();
+        let finished = session(SessionStatus::Finished);
+        save_session_record(&mut connection, &finished).unwrap();
+        let mut placeholder = session(SessionStatus::Idle);
+        placeholder.id = "placeholder".into();
+        placeholder.elapsed_ms = 0;
+        placeholder.entries.clear();
+        save_session_record(&mut connection, &placeholder).unwrap();
+
+        let reopened = reopen_session_record(&mut connection, &finished.id).unwrap();
+
+        assert_eq!(reopened.status, SessionStatus::Paused);
+        assert_eq!(
+            load_active_session_record(&connection).unwrap(),
+            Some(reopened)
+        );
+        assert_eq!(
+            load_session_by_id(&connection, &placeholder.id).unwrap(),
+            None
+        );
+        assert!(list_finished_session_records(&connection)
+            .unwrap()
+            .is_empty());
+    }
+
+    #[test]
+    fn refuses_to_replace_an_active_session_with_progress() {
+        let mut connection = database();
+        let finished = session(SessionStatus::Finished);
+        save_session_record(&mut connection, &finished).unwrap();
+        let mut active = session(SessionStatus::Paused);
+        active.id = "active".into();
+        active.entries[0].id = "active-entry".into();
+        save_session_record(&mut connection, &active).unwrap();
+
+        assert_eq!(
+            reopen_session_record(&mut connection, &finished.id).unwrap_err(),
+            "finish the current active session before reopening another one"
+        );
+        assert_eq!(
+            load_active_session_record(&connection).unwrap(),
+            Some(active)
+        );
+        assert_eq!(
+            list_finished_session_records(&connection).unwrap()[0].session,
+            finished
         );
     }
 

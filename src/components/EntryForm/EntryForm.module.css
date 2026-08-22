@@ -204,12 +204,73 @@
     display: grid;
     grid-template-columns: minmax(80px, 0.8fr) minmax(120px, 1.2fr);
     gap: 9px;
+    align-items: start;
+}
+
+.QuantityControl {
+    min-width: 0;
+}
+
+.QuantitySteps {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 3px;
+    margin-top: 5px;
+    padding: 0;
+    border: 0;
+}
+
+.QuantitySteps legend {
+    position: absolute;
+    overflow: hidden;
+    width: 1px;
+    height: 1px;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
+}
+
+.QuantitySteps button {
+    min-width: 0;
+    padding: 5px 2px;
+    border: 1px solid var(--line);
+    background: var(--quick-item-background);
+    color: var(--muted);
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 8px;
+    cursor: pointer;
+}
+
+.QuantitySteps button:hover {
+    border-color: var(--accent-border);
+    color: var(--mint);
+}
+
+.QuantitySteps button:disabled {
+    cursor: default;
+    opacity: 0.45;
 }
 
 .AddButton {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
     width: 100%;
     margin-top: 2px;
     padding-block: 11px;
+}
+
+.AddButton span {
+    flex: 1;
+}
+
+.AddButton kbd {
+    padding: 2px 5px;
+    border: 1px solid currentColor;
+    border-radius: 2px;
+    font:
+        8px "IBM Plex Mono",
+        monospace;
+    opacity: 0.65;
 }
 
 .DataNote {

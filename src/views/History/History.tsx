@@ -9,13 +9,17 @@ import styles from "./History.module.css";
 export function HistoryView({
     databaseLoaded,
     databaseStatus,
+    onReopen,
 }: {
     databaseLoaded: boolean;
     databaseStatus: DatabaseStatus;
+    onReopen: (id: string) => Promise<void>;
 }) {
     const [records, setRecords] = useState<FinishedSessionRecord[] | null>(null);
     const [selectedId, setSelectedId] = useState<string | null>(null);
     const [error, setError] = useState("");
+    const [reopenError, setReopenError] = useState("");
+    const [reopening, setReopening] = useState(false);
 
     async function loadHistory() {
         setRecords(null);
@@ -38,6 +42,18 @@ export function HistoryView({
 
     const selected = records?.find((record) => record.session.id === selectedId) ?? records?.[0];
     const selectedTotals = selected ? calculateTotals(selected.session.entries, selected.session.elapsedMs) : null;
+
+    async function reopenSelected() {
+        if (!selected) return;
+        setReopening(true);
+        setReopenError("");
+        try {
+            await onReopen(selected.session.id);
+        } catch (reopenFailure) {
+            setReopenError(String(reopenFailure));
+            setReopening(false);
+        }
+    }
 
     return (
         <>
@@ -83,7 +99,10 @@ export function HistoryView({
                                         className={record.session.id === selected?.session.id ? styles.Selected : ""}
                                         type="button"
                                         key={record.session.id}
-                                        onClick={() => setSelectedId(record.session.id)}
+                                        onClick={() => {
+                                            setSelectedId(record.session.id);
+                                            setReopenError("");
+                                        }}
                                     >
                                         <span>
                                             <strong>{formatTimestamp(record.finishedAt)}</strong>
@@ -106,11 +125,26 @@ export function HistoryView({
                         <section className="panel">
                             <div className="panel-heading">
                                 <div>
-                                    <p className="eyebrow">Read-only detail</p>
+                                    <p className="eyebrow">Session detail</p>
                                     <h2>{sycraiaLower.name}</h2>
                                 </div>
-                                <span>{selected.session.region.toUpperCase()}</span>
+                                <div className={styles.DetailActions}>
+                                    <span>{selected.session.region.toUpperCase()}</span>
+                                    <button
+                                        className="button"
+                                        type="button"
+                                        disabled={!databaseLoaded || databaseStatus === "saving" || reopening}
+                                        onClick={reopenSelected}
+                                    >
+                                        {reopening ? "Reopening..." : "Reopen"}
+                                    </button>
+                                </div>
                             </div>
+                            {reopenError && (
+                                <p className={styles.ReopenError} role="alert">
+                                    {reopenError}
+                                </p>
+                            )}
                             <div className={styles.HistorySummary}>
                                 <div>
                                     <span>Duration</span>

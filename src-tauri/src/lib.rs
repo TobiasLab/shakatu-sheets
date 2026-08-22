@@ -24,6 +24,7 @@ pub fn run() {
             database::list_finished_sessions,
             database::load_active_session,
             database::load_market_prices,
+            database::reopen_session,
             database::save_session,
             market::fetch_market_prices
         ])

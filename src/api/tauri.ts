@@ -32,3 +32,7 @@ export function fetchMarketPrices(region: SessionState["region"], itemIds: numbe
 export function listFinishedSessions() {
     return invoke<FinishedSessionRecord[]>("list_finished_sessions");
 }
+
+export function reopenSession(id: string) {
+    return invoke<SessionState>("reopen_session", { id });
+}

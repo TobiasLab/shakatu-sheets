@@ -43,8 +43,12 @@ describe("session timing", () => {
     it("does not mutate a finished session", () => {
         const finished = { ...createSession(), status: "finished" as const };
         const changed = reduceSession(finished, { type: "add-entry", entry: entry({}) });
+        const edited = reduceSession(finished, { type: "update-entry", id: "entry", quantity: 2, unitPrice: 200 });
+        const retimed = reduceSession(finished, { type: "set-elapsed", elapsedMs: 3_600_000 });
 
         expect(changed).toBe(finished);
+        expect(edited).toBe(finished);
+        expect(retimed).toBe(finished);
     });
 
     it("ignores clock adjustments that move backwards", () => {
@@ -57,6 +61,16 @@ describe("session timing", () => {
         const running = { ...createSession(), status: "running" as const, startedAt: 1_000 };
 
         expect(reduceSession(running, { type: "reset" })).toBe(running);
+    });
+
+    it("sets completed time and finishes a manually timed session", () => {
+        const idle = createSession();
+        const timed = reduceSession(idle, { type: "set-elapsed", elapsedMs: 5_400_000 });
+        const finished = reduceSession(timed, { type: "finish", now: 10_000 });
+
+        expect(timed.elapsedMs).toBe(5_400_000);
+        expect(reduceSession(timed, { type: "set-elapsed", elapsedMs: -1 })).toBe(timed);
+        expect(finished).toMatchObject({ status: "finished", elapsedMs: 5_400_000 });
     });
 });
 
@@ -79,5 +93,40 @@ describe("session totals", () => {
 
     it("does not produce an hourly value before the timer starts", () => {
         expect(calculateTotals([entry({})], 0).netPerHour).toBe(0);
+    });
+});
+
+describe("session entries", () => {
+    it("aggregates matching entries and moves the updated row to the end", () => {
+        const first = entry({ id: "first", name: "Caphras Stone", quantity: 2, createdAt: 1 });
+        const other = entry({ id: "other", name: "Black Stone" });
+        const session = { ...createSession(), entries: [first, other] };
+
+        const updated = reduceSession(session, {
+            type: "add-entry",
+            entry: entry({ id: "new", name: "Caphras Stone", quantity: 3, createdAt: 2 }),
+        });
+
+        expect(updated.entries).toEqual([other, { ...first, quantity: 5, createdAt: 2 }]);
+    });
+
+    it("keeps entries with different unit prices separate", () => {
+        const session = { ...createSession(), entries: [entry({ unitPrice: 100 })] };
+
+        const updated = reduceSession(session, {
+            type: "add-entry",
+            entry: entry({ id: "new", unitPrice: 200 }),
+        });
+
+        expect(updated.entries).toHaveLength(2);
+    });
+
+    it("updates valid quantities and prices while rejecting invalid edits", () => {
+        const session = { ...createSession(), entries: [entry({})] };
+        const updated = reduceSession(session, { type: "update-entry", id: "entry", quantity: 12, unitPrice: 250 });
+        const rejected = reduceSession(updated, { type: "update-entry", id: "entry", quantity: 0, unitPrice: 250 });
+
+        expect(updated.entries[0]).toMatchObject({ quantity: 12, unitPrice: 250 });
+        expect(rejected).toBe(updated);
     });
 });

@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { reopenSession } from "./api/tauri";
 import { AppShell, type AppView } from "./components/AppShell/AppShell";
 import { useLiveSession } from "./hooks/useLiveSession";
 import { usePersistedSession } from "./hooks/usePersistedSession";
@@ -16,6 +17,12 @@ export function App() {
         persistedSession.databaseLoaded,
     );
 
+    async function reopenFinishedSession(id: string) {
+        const session = await reopenSession(id);
+        persistedSession.dispatch({ type: "hydrate", session });
+        setView("live");
+    }
+
     return (
         <AppShell
             view={view}
@@ -29,6 +36,7 @@ export function App() {
                 <HistoryView
                     databaseLoaded={persistedSession.databaseLoaded}
                     databaseStatus={persistedSession.databaseStatus}
+                    onReopen={reopenFinishedSession}
                 />
             ) : (
                 <LiveSessionView controller={liveSession} />

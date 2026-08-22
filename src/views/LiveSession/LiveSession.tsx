@@ -16,8 +16,10 @@ export function LiveSessionView({ controller }: { controller: LiveSessionControl
         editingDisabled,
         changeRegion,
         startOrResume,
+        setCompletedHours,
         market,
     } = controller;
+    const timeEditable = session.status === "idle" || session.status === "paused";
 
     return (
         <>
@@ -66,10 +68,32 @@ export function LiveSessionView({ controller }: { controller: LiveSessionControl
             </section>
 
             <section className={styles.SessionClock}>
-                <div>
-                    <span>Elapsed session</span>
-                    <time>{formatDuration(elapsedMs)}</time>
-                </div>
+                {timeEditable ? (
+                    <form className={styles.CompletedHours} onSubmit={setCompletedHours}>
+                        <label>
+                            <span>Completed hours</span>
+                            <input
+                                key={session.elapsedMs}
+                                name="completedHours"
+                                type="number"
+                                min="0"
+                                step="0.01"
+                                inputMode="decimal"
+                                required
+                                disabled={!databaseLoaded}
+                                defaultValue={(session.elapsedMs / 3_600_000).toFixed(2)}
+                            />
+                        </label>
+                        <button className="button" type="submit" disabled={!databaseLoaded}>
+                            Save hours
+                        </button>
+                    </form>
+                ) : (
+                    <div>
+                        <span>Elapsed session</span>
+                        <time>{formatDuration(elapsedMs)}</time>
+                    </div>
+                )}
                 <div className={styles.ClockActions}>
                     {session.status !== "running" && session.status !== "finished" && (
                         <button
@@ -91,7 +115,9 @@ export function LiveSessionView({ controller }: { controller: LiveSessionControl
                             Pause
                         </button>
                     )}
-                    {(session.status === "running" || session.status === "paused") && (
+                    {(session.status === "running" ||
+                        session.status === "paused" ||
+                        (session.status === "idle" && session.elapsedMs > 0)) && (
                         <button
                             className="button subtle"
                             type="button"
@@ -169,6 +195,7 @@ export function LiveSessionView({ controller }: { controller: LiveSessionControl
                     entries={session.entries}
                     editingDisabled={editingDisabled}
                     onRemove={(id) => dispatch({ type: "remove-entry", id })}
+                    onUpdate={(id, quantity, unitPrice) => dispatch({ type: "update-entry", id, quantity, unitPrice })}
                 />
             </div>
         </>

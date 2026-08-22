@@ -78,6 +78,16 @@ export function useLiveSession(session: SessionState, dispatch: Dispatch<Session
         dispatch({ type: session.status === "paused" ? "resume" : "start", now: timestamp });
     }
 
+    function setCompletedHours(event: FormEvent<HTMLFormElement>) {
+        event.preventDefault();
+        const value = new FormData(event.currentTarget).get("completedHours");
+        if (typeof value !== "string" || value.trim() === "") return;
+        const hours = Number(value);
+        const elapsedMs = Math.round(hours * 3_600_000);
+        if (!Number.isFinite(hours) || hours < 0 || !Number.isSafeInteger(elapsedMs)) return;
+        dispatch({ type: "set-elapsed", elapsedMs });
+    }
+
     return {
         session,
         dispatch,
@@ -98,6 +108,7 @@ export function useLiveSession(session: SessionState, dispatch: Dispatch<Session
         changeRegion,
         addEntry,
         startOrResume,
+        setCompletedHours,
         market,
     };
 }

@@ -11,9 +11,9 @@
 
 .LedgerRow {
     display: grid;
-    grid-template-columns: 38px minmax(0, 1fr) auto 18px;
+    grid-template-columns: 38px minmax(0, 1fr) 18px;
     gap: 9px;
-    align-items: center;
+    align-items: start;
     padding: 10px 12px;
     border-bottom: 1px solid var(--row-line);
     font-family: "IBM Plex Mono", monospace;
@@ -45,15 +45,20 @@
     height: 36px;
 }
 
-.ItemName,
-.EntryValue {
+.RowContent,
+.ItemName {
     min-width: 0;
 }
 
+.RowHeading {
+    display: flex;
+    gap: 8px;
+    align-items: start;
+    justify-content: space-between;
+}
+
 .ItemName strong,
-.ItemName span,
-.EntryValue strong,
-.EntryValue span {
+.ItemName span {
     display: block;
 }
 
@@ -65,8 +70,7 @@
     white-space: nowrap;
 }
 
-.ItemName span,
-.EntryValue span {
+.ItemName span {
     margin-top: 3px;
     color: var(--muted);
     font-size: 8px;
@@ -74,12 +78,34 @@
 }
 
 .EntryValue {
+    flex: 0 0 auto;
+    font-size: 10px;
     text-align: right;
+    white-space: nowrap;
 }
 
-.EntryValue strong {
-    font-size: 10px;
-    white-space: nowrap;
+.EntryEditor {
+    display: grid;
+    grid-template-columns: minmax(52px, 0.75fr) minmax(78px, 1.25fr);
+    gap: 6px;
+    max-width: 230px;
+    margin-top: 8px;
+}
+
+.EntryEditor label {
+    min-width: 0;
+    color: var(--muted);
+    font-size: 7px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+}
+
+.EntryEditor input {
+    display: block;
+    margin-top: 3px;
+    padding: 6px 7px;
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 9px;
 }
 
 .RemoveButton {

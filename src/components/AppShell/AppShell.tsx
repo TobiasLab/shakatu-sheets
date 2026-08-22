@@ -28,6 +28,7 @@ function ThemeSelector({ theme, onChange }: { theme: Theme; onChange: (theme: Th
             Theme
             <select value={theme} onChange={(event) => onChange(event.target.value as Theme)}>
                 <option value="light">Light</option>
+                <option value="moss">Moss green</option>
                 <option value="dark">Dark</option>
             </select>
         </label>
