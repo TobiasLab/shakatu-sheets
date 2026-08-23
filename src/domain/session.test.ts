@@ -16,6 +16,7 @@ function entry(overrides: Partial<SessionEntry>): SessionEntry {
         unitPrice: 100,
         valuation: "vendor",
         saleMultiplier: 1,
+        source: "manual",
         createdAt: 0,
         ...overrides,
     };
@@ -82,6 +83,22 @@ describe("session timing", () => {
         expect(changed.grindSpotId).toBe("stars-end-revamp");
         expect(reduceSession(timed, { type: "set-grind-spot", grindSpotId: "stars-end-revamp" })).toBe(timed);
         expect(reduceSession(looted, { type: "set-grind-spot", grindSpotId: "stars-end-revamp" })).toBe(looted);
+    });
+
+    it("imports recognized loot only into an empty idle session", () => {
+        const idle = createSession();
+        const recognized = entry({ source: "recognition", quantity: 20_630 });
+        const action = {
+            type: "import-recognition" as const,
+            grindSpotId: "sycraia-lower-revamp",
+            elapsedMs: 3_652_000,
+            entries: [recognized],
+        };
+        const imported = reduceSession(idle, action);
+
+        expect(imported).toMatchObject({ elapsedMs: 3_652_000, entries: [recognized] });
+        expect(reduceSession({ ...idle, elapsedMs: 1 }, action)).toEqual({ ...idle, elapsedMs: 1 });
+        expect(reduceSession(idle, { ...action, entries: [entry({})] })).toBe(idle);
     });
 });
 

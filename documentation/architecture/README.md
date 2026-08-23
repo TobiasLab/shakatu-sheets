@@ -9,6 +9,11 @@ Shakatu Sheets has three current boundaries:
 The frontend sends the complete session snapshot after each meaningful state change. Saves are queued in order. Rust
 validates the snapshot and replaces the session entries in one transaction.
 
+Manual screenshot recognition stays in the frontend. Tesseract.js loads its bundled English model, worker, and WASM core
+from `public/ocr`, while canvas preprocessing and profile icon comparison produce a transient review draft. Confirming a
+valid draft applies one guarded session transition; normal snapshot persistence then stores the imported entries. No
+screenshot bytes or OCR draft data cross the Tauri command boundary.
+
 The history view requests the 20 newest finished sessions from SQLite, filters them by the selected grind-spot profile,
 and calculates display totals with the same pure frontend function as the live view. Normal saves cannot change finished
 sessions. Reopening is a separate backend command that atomically returns one finished session to a paused state without

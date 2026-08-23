@@ -32,3 +32,5 @@ migration with its own literal version number.
 - When the selected region has no saved prices for the active grind-spot profile, the other region's saved prices are
   used locally as a fallback.
 - Session entries retain their own unit price and are not changed by later market imports.
+- Session entry `source` records whether a row was added manually or through reviewed screenshot recognition.
+- Screenshots, OCR output, confidence values, and draft thumbnails are never stored in SQLite.

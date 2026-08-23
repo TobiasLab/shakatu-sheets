@@ -1,0 +1,165 @@
+.ImportPanel {
+    margin-bottom: 13px;
+    border: 1px solid var(--line-strong);
+    background: var(--surface);
+}
+
+.ImportIntro {
+    min-height: 76px;
+    padding: 15px 20px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 20px;
+}
+
+.ImportIntro span,
+.Note,
+.ReviewNote {
+    color: var(--muted);
+    font-size: 10px;
+}
+
+.FileButton {
+    display: inline-block;
+    flex: 0 0 auto;
+}
+
+.FileButton:has(input:disabled) {
+    cursor: default;
+    opacity: 0.45;
+}
+
+.FileButton input {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
+}
+
+.Note,
+.Error {
+    margin: 0;
+    padding: 0 20px 15px;
+}
+
+.Error,
+.Check {
+    color: var(--danger);
+}
+
+.Progress {
+    padding: 0 20px 16px;
+    display: grid;
+    grid-template-columns: minmax(120px, 260px) 1fr;
+    align-items: center;
+    gap: 12px;
+    color: var(--muted);
+    font-size: 10px;
+}
+
+.Progress progress {
+    width: 100%;
+    accent-color: var(--mint);
+}
+
+.Draft {
+    border-top: 1px solid var(--line);
+    padding: 18px 20px 20px;
+}
+
+.DraftMeta {
+    display: grid;
+    grid-template-columns: 1fr 190px;
+    gap: 12px;
+}
+
+.DraftMeta label,
+.Item label {
+    color: var(--muted);
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+}
+
+.DraftMeta select,
+.DraftMeta input,
+.Item select,
+.Item input {
+    margin-top: 5px;
+    padding: 8px 10px;
+}
+
+.ReviewNote {
+    margin: 14px 0 8px;
+}
+
+.Items {
+    border: 1px solid var(--line);
+}
+
+.Item {
+    min-width: 0;
+    padding: 8px 10px;
+    border-bottom: 1px solid var(--row-line);
+    display: grid;
+    grid-template-columns: 44px minmax(180px, 1fr) 110px 48px;
+    align-items: end;
+    gap: 10px;
+}
+
+.Item:last-child {
+    border-bottom: 0;
+}
+
+.Item img {
+    width: 44px;
+    height: 44px;
+    object-fit: cover;
+}
+
+.Ready,
+.Check {
+    align-self: center;
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 9px;
+    text-transform: uppercase;
+}
+
+.Ready {
+    color: var(--mint);
+}
+
+.Actions {
+    margin-top: 14px;
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+}
+
+@media (max-width: 760px) {
+    .ImportIntro {
+        align-items: flex-start;
+        flex-direction: column;
+    }
+
+    .FileButton {
+        width: 100%;
+        text-align: center;
+    }
+
+    .DraftMeta {
+        grid-template-columns: 1fr;
+    }
+
+    .Item {
+        grid-template-columns: 44px minmax(0, 1fr) 72px;
+    }
+
+    .Item > span {
+        grid-column: 2 / -1;
+        justify-self: end;
+    }
+}

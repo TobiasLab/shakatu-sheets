@@ -8,6 +8,7 @@ export type SessionEntry = {
     unitPrice: number;
     valuation: Valuation;
     saleMultiplier: number;
+    source: "manual" | "recognition";
     createdAt: number;
 };
 
@@ -31,6 +32,7 @@ export type SessionAction =
     | { type: "hydrate"; session: SessionState }
     | { type: "set-region"; region: SessionState["region"] }
     | { type: "set-grind-spot"; grindSpotId: string }
+    | { type: "import-recognition"; grindSpotId: string; elapsedMs: number; entries: SessionEntry[] }
     | { type: "add-entry"; entry: SessionEntry }
     | { type: "update-entry"; id: string; quantity: number; unitPrice: number }
     | { type: "remove-entry"; id: string };
@@ -90,6 +92,23 @@ export function reduceSession(state: SessionState, action: SessionAction): Sessi
         case "set-grind-spot":
             return state.status === "idle" && state.elapsedMs === 0 && state.entries.length === 0
                 ? { ...state, grindSpotId: action.grindSpotId }
+                : state;
+        case "import-recognition":
+            return state.status === "idle" &&
+                state.elapsedMs === 0 &&
+                state.entries.length === 0 &&
+                Number.isSafeInteger(action.elapsedMs) &&
+                action.elapsedMs > 0 &&
+                action.entries.length > 0 &&
+                action.entries.every(
+                    (entry) =>
+                        entry.source === "recognition" &&
+                        Number.isSafeInteger(entry.quantity) &&
+                        entry.quantity > 0 &&
+                        Number.isSafeInteger(entry.unitPrice) &&
+                        entry.unitPrice >= 0,
+                )
+                ? { ...state, grindSpotId: action.grindSpotId, elapsedMs: action.elapsedMs, entries: action.entries }
                 : state;
         case "add-entry": {
             if (state.status === "finished") return state;
@@ -190,6 +209,7 @@ export function createEntry(name: string, quantity: number, unitPrice: number, v
         unitPrice,
         valuation,
         saleMultiplier: valuation === "market" ? 0.845 : 1,
+        source: "manual",
         createdAt: Date.now(),
     };
 }

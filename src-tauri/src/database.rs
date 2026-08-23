@@ -50,6 +50,13 @@ pub enum Valuation {
     Expense,
 }
 
+#[derive(Clone, Copy, Debug, Deserialize, PartialEq, Serialize)]
+#[serde(rename_all = "lowercase")]
+pub enum EntrySource {
+    Manual,
+    Recognition,
+}
+
 #[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SessionEntry {
@@ -59,6 +66,7 @@ pub struct SessionEntry {
     pub unit_price: i64,
     pub valuation: Valuation,
     pub sale_multiplier: f64,
+    pub source: EntrySource,
     pub created_at: i64,
 }
 
@@ -257,6 +265,21 @@ fn parse_valuation(value: &str) -> Result<Valuation, String> {
     }
 }
 
+fn source_to_str(source: &EntrySource) -> &'static str {
+    match source {
+        EntrySource::Manual => "manual",
+        EntrySource::Recognition => "recognition",
+    }
+}
+
+fn parse_source(value: &str) -> Result<EntrySource, String> {
+    match value {
+        "manual" => Ok(EntrySource::Manual),
+        "recognition" => Ok(EntrySource::Recognition),
+        _ => Err(format!("unknown entry source: {value}")),
+    }
+}
+
 fn validate_session(session: &SessionRecord) -> Result<(), String> {
     if session.id.trim().is_empty() || session.grind_spot_id.trim().is_empty() {
         return Err("session ID and grind spot ID are required".into());
@@ -341,7 +364,7 @@ fn save_session_record(connection: &mut Connection, session: &SessionRecord) -> 
             .prepare(
                 "INSERT INTO session_entries (
                     id, session_id, name, quantity, unit_price, valuation, sale_multiplier, source, created_at
-                 ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, 'manual', ?8)",
+                 ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)",
             )
             .map_err(|error| error.to_string())?;
         for entry in &session.entries {
@@ -354,6 +377,7 @@ fn save_session_record(connection: &mut Connection, session: &SessionRecord) -> 
                     entry.unit_price,
                     valuation_to_str(&entry.valuation),
                     entry.sale_multiplier,
+                    source_to_str(&entry.source),
                     entry.created_at,
                 ])
                 .map_err(|error| error.to_string())?;
@@ -389,7 +413,7 @@ fn load_session_by_id(connection: &Connection, id: &str) -> Result<Option<Sessio
 
     let mut statement = connection
         .prepare(
-            "SELECT id, name, quantity, unit_price, valuation, sale_multiplier, created_at
+            "SELECT id, name, quantity, unit_price, valuation, sale_multiplier, source, created_at
              FROM session_entries WHERE session_id = ?1 ORDER BY created_at, rowid",
         )
         .map_err(|error| error.to_string())?;
@@ -402,13 +426,14 @@ fn load_session_by_id(connection: &Connection, id: &str) -> Result<Option<Sessio
                 row.get::<_, i64>(3)?,
                 row.get::<_, String>(4)?,
                 row.get::<_, f64>(5)?,
-                row.get::<_, i64>(6)?,
+                row.get::<_, String>(6)?,
+                row.get::<_, i64>(7)?,
             ))
         })
         .map_err(|error| error.to_string())?;
     let mut entries = Vec::new();
     for row in rows {
-        let (id, name, quantity, unit_price, valuation, sale_multiplier, created_at) =
+        let (id, name, quantity, unit_price, valuation, sale_multiplier, source, created_at) =
             row.map_err(|error| error.to_string())?;
         entries.push(SessionEntry {
             id,
@@ -417,6 +442,7 @@ fn load_session_by_id(connection: &Connection, id: &str) -> Result<Option<Sessio
             unit_price,
             valuation: parse_valuation(&valuation)?,
             sale_multiplier,
+            source: parse_source(&source)?,
             created_at,
         });
     }
@@ -650,6 +676,7 @@ mod tests {
                 unit_price: 107_900,
                 valuation: Valuation::Vendor,
                 sale_multiplier: 1.0,
+                source: EntrySource::Manual,
                 created_at: 2_000,
             }],
         }
@@ -665,7 +692,8 @@ mod tests {
     #[test]
     fn migrates_and_round_trips_an_active_session() {
         let mut connection = database();
-        let expected = session(SessionStatus::Running);
+        let mut expected = session(SessionStatus::Running);
+        expected.entries[0].source = EntrySource::Recognition;
 
         save_session_record(&mut connection, &expected).expect("save session");
 

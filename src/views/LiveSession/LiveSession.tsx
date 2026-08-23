@@ -1,5 +1,6 @@
 import { EntryForm } from "../../components/EntryForm/EntryForm";
 import { LootLedger } from "../../components/LootLedger/LootLedger";
+import { MarniImport } from "../../components/MarniImport/MarniImport";
 import { grindSpots } from "../../data/grindSpots";
 import type { SessionState } from "../../domain/session";
 import { formatDuration, formatSilver, formatTimestamp } from "../../format";
@@ -157,6 +158,8 @@ export function LiveSessionView({ controller }: { controller: LiveSessionControl
                     )}
                 </div>
             </section>
+
+            <MarniImport controller={controller} />
 
             <section className={styles.MarketSnapshot} aria-live="polite">
                 <div>
