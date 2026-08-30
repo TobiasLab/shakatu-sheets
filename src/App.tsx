@@ -6,6 +6,7 @@ import { usePersistedSession } from "./hooks/usePersistedSession";
 import { useTheme } from "./hooks/useTheme";
 import { HistoryView } from "./views/History/History";
 import { LiveSessionView } from "./views/LiveSession/LiveSession";
+import { SettingsView } from "./views/Settings/Settings";
 
 export function App() {
     const [view, setView] = useState<AppView>("live");
@@ -37,7 +38,10 @@ export function App() {
                     databaseLoaded={persistedSession.databaseLoaded}
                     databaseStatus={persistedSession.databaseStatus}
                     onReopen={reopenFinishedSession}
+                    onOpenSettings={() => setView("settings")}
                 />
+            ) : view === "settings" ? (
+                <SettingsView />
             ) : (
                 <LiveSessionView controller={liveSession} />
             )}

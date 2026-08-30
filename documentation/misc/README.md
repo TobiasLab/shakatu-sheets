@@ -8,23 +8,27 @@ Current external-service research:
   network error.
 - Garmoth has granted permission to use and publicly document its API endpoints and contracts in this open-source client.
 
-## Next Milestone: Garmoth Integration
+## Garmoth Integration
 
-The next planned feature is direct Garmoth integration through the Rust/Tauri boundary. Each user will supply their own
-revocable Garmoth API key; Shakatu Sheets will not operate a proxy or shared credential.
+The integration runs through the Rust/Tauri boundary. Each user supplies their own revocable Garmoth API key; Shakatu
+Sheets does not operate a proxy or shared credential.
 
-Implementation order:
+Implemented behavior:
 
-1. Document the approved Garmoth endpoints, authentication, payloads, rate limits, and error responses.
-2. Add a Rust API client using the existing HTTP stack and retrieve the official class, grind-spot, and drop metadata.
-3. Map Shakatu grind spots and drops to stable Garmoth identifiers, including enhancement sub-keys. Complete: profiles
-   now retain their persisted internal IDs alongside the official Garmoth spot IDs and exact drop keys.
-4. Add local settings for the user's API key, character class, and specialization without exposing credentials to the
-   frontend or logs.
-5. Add an explicit payload preview and upload action for finished sessions. Uploads must never happen automatically.
-6. Persist successful uploads per session to prevent duplicates. A timed-out upload must be marked unknown and never
-   retried automatically because Garmoth may already have created it.
-7. Cover request mapping and failure handling with mocked API tests, then perform one controlled live upload with a
-   disposable user key.
+1. Rust validates and stores each user's revocable API key locally, then sends it only in Garmoth's `apiKey` header.
+2. Settings fetches validated character summaries from the approved character-build endpoint and persists the selected
+   upload character. Garmoth requires users to provide the numeric Gear Planner character IDs; the approved API does not
+   expose an account-level character-list endpoint.
+3. Grind-spot profiles retain the official spot IDs and exact drop keys, including enhancement sub-keys.
+4. History shows a payload summary before an explicit upload. Unsupported custom revenue rows block the action rather
+   than being silently omitted.
+5. Uploads include integer minutes, net session and hourly income, all profile drop keys, and the selected character's
+   class and specialization. Global-data sharing remains disabled.
+6. Durable per-session upload state prevents duplicate actions. A timed-out, network-failed, or server-failed request is
+   marked unknown and never retried automatically because Garmoth provides no idempotency contract.
+
+The endpoint documentation does not define character-build or upload success response bodies. The client validates the
+documented character fields it consumes and treats any successful upload HTTP status as confirmation. Do not perform a
+live upload during automated testing; use a disposable key and session for controlled integration checks.
 
 Do not document credentials or captured user data in this repository.

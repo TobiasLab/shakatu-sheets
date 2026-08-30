@@ -1,0 +1,64 @@
+.SettingsGrid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 13px;
+}
+
+.SettingsForm {
+    display: grid;
+    gap: 16px;
+    padding: 22px;
+}
+
+.SettingsForm label {
+    display: grid;
+    gap: 7px;
+    color: var(--muted);
+    font-size: 10px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+}
+
+.SettingsForm input,
+.SettingsForm select {
+    padding: 10px;
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 11px;
+    letter-spacing: normal;
+    text-transform: none;
+}
+
+.SettingsForm p {
+    margin: -4px 0 0;
+    color: var(--muted);
+    font-size: 11px;
+    line-height: 1.6;
+}
+
+.SettingsForm code {
+    color: var(--text-soft);
+}
+
+.SettingsForm button {
+    justify-self: start;
+}
+
+.Feedback {
+    margin: 13px 0 0;
+    padding: 13px 16px;
+    border: 1px solid var(--accent-border);
+    background: var(--accent-surface);
+    color: var(--mint);
+    font-size: 11px;
+}
+
+.Feedback.Error {
+    border-color: var(--danger);
+    color: var(--danger);
+}
+
+@media (max-width: 900px) {
+    .SettingsGrid {
+        grid-template-columns: 1fr;
+    }
+}

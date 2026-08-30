@@ -23,5 +23,15 @@ Saved market prices are read from SQLite when the selected region or grind-spot 
 invokes the Arsha network request after the user presses the fetch or refresh button. Successful complete responses are
 written as a new set of price snapshots; failed responses do not change saved data.
 
+Garmoth credentials remain in SQLite and are used only by Rust requests. The frontend receives configured state and
+validated character summaries, never the saved key. Character builds are fetched explicitly using the IDs required by
+Garmoth's approved endpoint. Finished-session upload previews map profile drop names to Garmoth keys and reject
+unmatched revenue rows rather than silently omitting them.
+
+Uploads are explicit and single-shot. Rust reserves a session as `unknown` before sending the create request and changes
+it to `success` only after a successful response. Any non-success response or network failure remains `unknown` because
+Garmoth does not document error semantics or an idempotency contract; the app blocks retries and directs the user to
+check their Garmoth grind tracker. Reserved and uploaded sessions cannot be reopened.
+
 There is no service layer or plugin system. New boundaries should only be added when a feature cannot remain clear within
 the current structure.

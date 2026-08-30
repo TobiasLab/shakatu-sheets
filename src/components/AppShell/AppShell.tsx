@@ -3,7 +3,7 @@ import type { DatabaseStatus } from "../../hooks/usePersistedSession";
 import type { Theme } from "../../hooks/useTheme";
 import styles from "./AppShell.module.css";
 
-export type AppView = "live" | "history";
+export type AppView = "live" | "history" | "settings";
 
 function ViewNavigation({ view, onChange }: { view: AppView; onChange: (view: AppView) => void }) {
     return (
@@ -17,6 +17,13 @@ function ViewNavigation({ view, onChange }: { view: AppView; onChange: (view: Ap
                 onClick={() => onChange("history")}
             >
                 History
+            </button>
+            <button
+                className={view === "settings" ? styles.Active : ""}
+                type="button"
+                onClick={() => onChange("settings")}
+            >
+                Settings
             </button>
         </nav>
     );

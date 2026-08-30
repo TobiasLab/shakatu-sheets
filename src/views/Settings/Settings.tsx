@@ -1,0 +1,187 @@
+import { type FormEvent, useEffect, useState } from "react";
+import {
+    fetchGarmothCharacters,
+    type GarmothSettings,
+    loadGarmothSettings,
+    saveGarmothApiKey,
+    selectGarmothCharacter,
+} from "../../api/tauri";
+import styles from "./Settings.module.css";
+
+export function SettingsView() {
+    const [settings, setSettings] = useState<GarmothSettings | null>(null);
+    const [characterIds, setCharacterIds] = useState("");
+    const [selectedCharacterId, setSelectedCharacterId] = useState("");
+    const [busy, setBusy] = useState<"key" | "characters" | "selection" | null>(null);
+    const [message, setMessage] = useState("");
+    const [error, setError] = useState("");
+
+    async function reloadSettings() {
+        const loaded = await loadGarmothSettings();
+        setSettings(loaded);
+        setCharacterIds(loaded.characterIds.join(", "));
+        setSelectedCharacterId(loaded.selectedCharacterId?.toString() ?? "");
+    }
+
+    useEffect(() => {
+        reloadSettings().catch((failure) => setError(String(failure)));
+    }, []);
+
+    async function saveApiKey(event: FormEvent<HTMLFormElement>) {
+        event.preventDefault();
+        setBusy("key");
+        setError("");
+        setMessage("");
+        const form = event.currentTarget;
+        const apiKey = String(new FormData(form).get("apiKey") ?? "");
+        try {
+            await saveGarmothApiKey(apiKey);
+            form.reset();
+            await reloadSettings();
+            setMessage("API key validated and saved locally. Fetch your character builds next.");
+        } catch (failure) {
+            setError(String(failure));
+        } finally {
+            setBusy(null);
+        }
+    }
+
+    async function fetchCharacters() {
+        setBusy("characters");
+        setError("");
+        setMessage("");
+        try {
+            await fetchGarmothCharacters(characterIds);
+            await reloadSettings();
+            setMessage("Character builds fetched. Choose the character to use for uploads.");
+        } catch (failure) {
+            setError(String(failure));
+        } finally {
+            setBusy(null);
+        }
+    }
+
+    async function saveCharacterSelection() {
+        const id = Number(selectedCharacterId);
+        setBusy("selection");
+        setError("");
+        setMessage("");
+        try {
+            await selectGarmothCharacter(id);
+            await reloadSettings();
+            setMessage("Upload character saved.");
+        } catch (failure) {
+            setError(String(failure));
+        } finally {
+            setBusy(null);
+        }
+    }
+
+    return (
+        <>
+            <header className="topbar">
+                <div>
+                    <p className="eyebrow">Local configuration</p>
+                    <h1>Settings</h1>
+                </div>
+            </header>
+
+            <div className={styles.SettingsGrid}>
+                <section className="panel">
+                    <div className="panel-heading">
+                        <div>
+                            <p className="eyebrow">Garmoth</p>
+                            <h2>API connection</h2>
+                        </div>
+                        <span>{settings?.apiKeyConfigured ? "Configured" : "Not configured"}</span>
+                    </div>
+                    <form className={styles.SettingsForm} onSubmit={saveApiKey}>
+                        <label>
+                            API key
+                            <input
+                                name="apiKey"
+                                type="password"
+                                required
+                                maxLength={512}
+                                autoComplete="off"
+                                spellCheck={false}
+                                placeholder={settings?.apiKeyConfigured ? "Enter a replacement key" : "Garmoth API key"}
+                            />
+                        </label>
+                        <p>
+                            The key is sent only to the Rust backend, stored in this app&apos;s local SQLite database,
+                            and used in Garmoth&apos;s <code>apiKey</code> header. It is never displayed again.
+                        </p>
+                        <button className="button primary-button" type="submit" disabled={busy !== null}>
+                            {busy === "key" ? "Validating..." : "Validate and save key"}
+                        </button>
+                    </form>
+                </section>
+
+                <section className="panel">
+                    <div className="panel-heading">
+                        <div>
+                            <p className="eyebrow">Upload identity</p>
+                            <h2>Character build</h2>
+                        </div>
+                    </div>
+                    <div className={styles.SettingsForm}>
+                        <label>
+                            Gear Planner character IDs
+                            <input
+                                value={characterIds}
+                                disabled={!settings?.apiKeyConfigured || busy !== null}
+                                onChange={(event) => setCharacterIds(event.target.value)}
+                                placeholder="12345, 67890"
+                                inputMode="numeric"
+                            />
+                        </label>
+                        <p>
+                            Garmoth&apos;s approved character-build endpoint requires the numeric IDs from your Gear
+                            Planner character URLs. Enter up to 20 comma-separated IDs.
+                        </p>
+                        <button
+                            className="button"
+                            type="button"
+                            disabled={!settings?.apiKeyConfigured || busy !== null || characterIds.trim() === ""}
+                            onClick={fetchCharacters}
+                        >
+                            {busy === "characters" ? "Fetching..." : "Fetch characters"}
+                        </button>
+
+                        <label>
+                            Character used for uploads
+                            <select
+                                value={selectedCharacterId}
+                                disabled={!settings?.characters.length || busy !== null}
+                                onChange={(event) => setSelectedCharacterId(event.target.value)}
+                            >
+                                <option value="">Select a character</option>
+                                {settings?.characters.map((character) => (
+                                    <option key={character.id} value={character.id}>
+                                        {character.name} · class {character.classId}
+                                        {character.spec ? ` · ${character.spec}` : ""}
+                                    </option>
+                                ))}
+                            </select>
+                        </label>
+                        <button
+                            className="button primary-button"
+                            type="button"
+                            disabled={!selectedCharacterId || busy !== null}
+                            onClick={saveCharacterSelection}
+                        >
+                            {busy === "selection" ? "Saving..." : "Save upload character"}
+                        </button>
+                    </div>
+                </section>
+            </div>
+
+            {(message || error) && (
+                <p className={`${styles.Feedback} ${error ? styles.Error : ""}`} role={error ? "alert" : "status"}>
+                    {error || message}
+                </p>
+            )}
+        </>
+    );
+}

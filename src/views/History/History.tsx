@@ -1,8 +1,15 @@
 import { useEffect, useState } from "react";
-import { type FinishedSessionRecord, listFinishedSessions } from "../../api/tauri";
+import {
+    type FinishedSessionRecord,
+    type GarmothSettings,
+    listFinishedSessions,
+    loadGarmothSettings,
+    uploadGarmothSession,
+} from "../../api/tauri";
 import { getGrindSpot, grindSpots } from "../../data/grindSpots";
 import { calculateTotals } from "../../domain/session";
 import { formatDuration, formatSilver, formatTimestamp } from "../../format";
+import { buildGarmothUpload, type GarmothUploadPreview } from "../../garmoth";
 import type { DatabaseStatus } from "../../hooks/usePersistedSession";
 import styles from "./History.module.css";
 
@@ -10,10 +17,12 @@ export function HistoryView({
     databaseLoaded,
     databaseStatus,
     onReopen,
+    onOpenSettings,
 }: {
     databaseLoaded: boolean;
     databaseStatus: DatabaseStatus;
     onReopen: (id: string) => Promise<void>;
+    onOpenSettings: () => void;
 }) {
     const [records, setRecords] = useState<FinishedSessionRecord[] | null>(null);
     const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -21,6 +30,11 @@ export function HistoryView({
     const [reopenError, setReopenError] = useState("");
     const [reopening, setReopening] = useState(false);
     const [grindSpotFilter, setGrindSpotFilter] = useState("all");
+    const [garmothSettings, setGarmothSettings] = useState<GarmothSettings | null>(null);
+    const [uploading, setUploading] = useState(false);
+    const [uploadMessage, setUploadMessage] = useState("");
+    const [uploadError, setUploadError] = useState("");
+    const [settingsError, setSettingsError] = useState("");
 
     async function loadHistory() {
         setRecords(null);
@@ -41,10 +55,35 @@ export function HistoryView({
         if (databaseLoaded && databaseStatus !== "saving") loadHistory();
     }, [databaseLoaded, databaseStatus]);
 
+    useEffect(() => {
+        if (databaseLoaded)
+            loadGarmothSettings()
+                .then((loaded) => {
+                    setGarmothSettings(loaded);
+                    setSettingsError("");
+                })
+                .catch((failure) => {
+                    setGarmothSettings(null);
+                    setSettingsError(String(failure));
+                });
+    }, [databaseLoaded]);
+
     const filteredRecords =
         records?.filter((record) => grindSpotFilter === "all" || record.session.grindSpotId === grindSpotFilter) ?? [];
     const selected = filteredRecords.find((record) => record.session.id === selectedId) ?? filteredRecords[0];
     const selectedTotals = selected ? calculateTotals(selected.session.entries, selected.session.elapsedMs) : null;
+    let uploadPreview: GarmothUploadPreview | null = null;
+    let uploadPreviewError = "";
+    if (selected) {
+        try {
+            uploadPreview = buildGarmothUpload(selected.session);
+        } catch (previewFailure) {
+            uploadPreviewError = String(previewFailure);
+        }
+    }
+    const uploadCharacter = garmothSettings?.characters.find(
+        (character) => character.id === garmothSettings.selectedCharacterId,
+    );
 
     async function reopenSelected() {
         if (!selected) return;
@@ -55,6 +94,30 @@ export function HistoryView({
         } catch (reopenFailure) {
             setReopenError(String(reopenFailure));
             setReopening(false);
+        }
+    }
+
+    async function uploadSelected() {
+        if (!selected || !uploadPreview || uploadPreview.unmatchedEntries.length > 0) return;
+        setUploading(true);
+        setUploadMessage("");
+        setUploadError("");
+        try {
+            const result = await uploadGarmothSession(uploadPreview.input);
+            setRecords(
+                (current) =>
+                    current?.map((record) =>
+                        record.session.id === selected.session.id
+                            ? { ...record, garmothUploadStatus: result.status }
+                            : record,
+                    ) ?? null,
+            );
+            if (result.status === "success") setUploadMessage(result.message);
+            else setUploadError(result.message);
+        } catch (uploadFailure) {
+            setUploadError(String(uploadFailure));
+        } finally {
+            setUploading(false);
         }
     }
 
@@ -70,7 +133,7 @@ export function HistoryView({
                         Grind spot
                         <select
                             value={grindSpotFilter}
-                            disabled={!databaseLoaded || records === null || records.length === 0}
+                            disabled={!databaseLoaded || records === null || records.length === 0 || uploading}
                             onChange={(event) => {
                                 setGrindSpotFilter(event.target.value);
                                 setSelectedId(null);
@@ -85,7 +148,12 @@ export function HistoryView({
                             ))}
                         </select>
                     </label>
-                    <button className="button subtle" type="button" disabled={!databaseLoaded} onClick={loadHistory}>
+                    <button
+                        className="button subtle"
+                        type="button"
+                        disabled={!databaseLoaded || uploading}
+                        onClick={loadHistory}
+                    >
                         Reload
                     </button>
                 </div>
@@ -131,9 +199,12 @@ export function HistoryView({
                                         className={record.session.id === selected?.session.id ? styles.Selected : ""}
                                         type="button"
                                         key={record.session.id}
+                                        disabled={uploading}
                                         onClick={() => {
                                             setSelectedId(record.session.id);
                                             setReopenError("");
+                                            setUploadMessage("");
+                                            setUploadError("");
                                         }}
                                     >
                                         <span>
@@ -166,7 +237,13 @@ export function HistoryView({
                                     <button
                                         className="button"
                                         type="button"
-                                        disabled={!databaseLoaded || databaseStatus === "saving" || reopening}
+                                        disabled={
+                                            !databaseLoaded ||
+                                            databaseStatus === "saving" ||
+                                            reopening ||
+                                            uploading ||
+                                            selected.garmothUploadStatus !== null
+                                        }
                                         onClick={reopenSelected}
                                     >
                                         {reopening ? "Reopening..." : "Reopen"}
@@ -191,6 +268,85 @@ export function HistoryView({
                                     <span>Net / hour</span>
                                     <strong>{formatSilver(selectedTotals.netPerHour, true)}</strong>
                                 </div>
+                            </div>
+                            <div className={styles.GarmothUpload}>
+                                <div className={styles.UploadHeading}>
+                                    <div>
+                                        <span>Garmoth upload</span>
+                                        <strong>
+                                            {selected.garmothUploadStatus === "success"
+                                                ? "Uploaded"
+                                                : selected.garmothUploadStatus === "unknown"
+                                                  ? "Confirmation unknown"
+                                                  : "Ready for review"}
+                                        </strong>
+                                    </div>
+                                    {!uploadCharacter ? (
+                                        <button className="button subtle" type="button" onClick={onOpenSettings}>
+                                            Open Settings
+                                        </button>
+                                    ) : (
+                                        <button
+                                            className="button primary-button"
+                                            type="button"
+                                            disabled={
+                                                uploading ||
+                                                selected.garmothUploadStatus !== null ||
+                                                !uploadPreview ||
+                                                uploadPreview.unmatchedEntries.length > 0
+                                            }
+                                            onClick={uploadSelected}
+                                        >
+                                            {uploading ? "Uploading..." : "Upload to Garmoth"}
+                                        </button>
+                                    )}
+                                </div>
+                                {uploadPreview && (
+                                    <div className={styles.UploadPreview}>
+                                        <span>{uploadPreview.input.minutes} minutes</span>
+                                        <span>{formatSilver(uploadPreview.input.total, true)} total</span>
+                                        <span>{formatSilver(uploadPreview.input.hourly, true)}/h</span>
+                                        <span>{uploadPreview.mappedDropCount} recorded drops</span>
+                                        {uploadCharacter && <span>{uploadCharacter.name}</span>}
+                                    </div>
+                                )}
+                                {!uploadCharacter && (
+                                    <p>Save an API key and upload character in Settings before uploading.</p>
+                                )}
+                                {settingsError && (
+                                    <p className={styles.UploadError} role="alert">
+                                        Could not read Garmoth settings: {settingsError}
+                                    </p>
+                                )}
+                                {uploadPreview?.unmatchedEntries.length ? (
+                                    <p className={styles.UploadError} role="alert">
+                                        These revenue entries have no Garmoth drop mapping:{" "}
+                                        {uploadPreview.unmatchedEntries.join(", ")}. Reopen the session and remove or
+                                        rename them before uploading.
+                                    </p>
+                                ) : null}
+                                {uploadPreviewError && (
+                                    <p className={styles.UploadError} role="alert">
+                                        {uploadPreviewError}
+                                    </p>
+                                )}
+                                {selected.garmothUploadStatus === "unknown" && (
+                                    <p className={styles.UploadError} role="alert">
+                                        Garmoth did not confirm this upload. Check your Garmoth grind tracker; automatic
+                                        and manual retries are blocked to avoid a duplicate.
+                                    </p>
+                                )}
+                                {selected.garmothUploadStatus === "success" && (
+                                    <p className={styles.UploadSuccess}>This session is recorded as uploaded.</p>
+                                )}
+                                {(uploadMessage || uploadError) && (
+                                    <p
+                                        className={uploadError ? styles.UploadError : styles.UploadSuccess}
+                                        role={uploadError ? "alert" : "status"}
+                                    >
+                                        {uploadError || uploadMessage}
+                                    </p>
+                                )}
                             </div>
                             {selected.session.entries.length === 0 ? (
                                 <div className={`empty-state ${styles.HistoryEntriesEmpty}`}>
