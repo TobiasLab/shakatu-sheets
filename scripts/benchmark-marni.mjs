@@ -1,12 +1,14 @@
 import { spawn } from "node:child_process";
 import { once } from "node:events";
 import { readFile, readdir, mkdtemp, rm } from "node:fs/promises";
-import { homedir, tmpdir } from "node:os";
+import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
-const dataset = resolve(process.env.MARNI_BENCHMARK_DIR ?? join(homedir(), "Pictures", "shakatu_sheets_pics"));
+const datasetPath = process.argv[2] ?? process.env.MARNI_BENCHMARK_DIR;
+if (!datasetPath) throw new Error("Pass a dataset directory or set MARNI_BENCHMARK_DIR.");
+const dataset = resolve(datasetPath);
 const examples = JSON.parse(await readFile(join(dataset, "manifest.json"), "utf8"));
 const runDirectory = await mkdtemp(join(tmpdir(), "shakatu-sheets-benchmark-"));
 const server = spawn(process.execPath, ["node_modules/vite/bin/vite.js", "--host", "127.0.0.1", "--port", "1422"], {
