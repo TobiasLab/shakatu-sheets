@@ -6,8 +6,12 @@ use tauri::State;
 
 use crate::database::{
     claim_garmoth_upload, finish_garmoth_upload, load_session_for_upload, load_setting,
-    save_settings, DatabasePath, SessionEntry, SessionStatus, Valuation,
+    release_garmoth_upload, save_settings, save_settings_if_unchanged, DatabasePath, SessionEntry,
+    SessionStatus, Valuation,
 };
+
+#[derive(Default)]
+pub struct GarmothOperations(tokio::sync::Mutex<()>);
 
 const API_BASE_URL: &str = "https://api.garmoth.com/api/external";
 const API_KEY_SETTING: &str = "garmoth.api_key";
@@ -95,6 +99,20 @@ pub struct GarmothUploadResult {
     message: String,
 }
 
+#[derive(Debug, PartialEq)]
+enum RequestFailure {
+    Retryable,
+    Unknown,
+}
+
+fn classify_request_failure(error: &reqwest::Error) -> RequestFailure {
+    if error.is_connect() {
+        RequestFailure::Retryable
+    } else {
+        RequestFailure::Unknown
+    }
+}
+
 fn client() -> Result<Client, String> {
     Client::builder()
         .timeout(Duration::from_secs(15))
@@ -178,6 +196,9 @@ fn parse_characters(
             spec: character.spec,
         });
     }
+    if parsed.len() != requested_ids.len() {
+        return Err("Garmoth did not return every requested character build".into());
+    }
     Ok(parsed)
 }
 
@@ -208,7 +229,7 @@ fn stored_api_key(path: &std::path::PathBuf) -> Result<String, String> {
     validate_api_key(&api_key).map(str::to_string)
 }
 
-async fn response_bytes(response: reqwest::Response, purpose: &str) -> Result<Vec<u8>, String> {
+async fn response_bytes(mut response: reqwest::Response, purpose: &str) -> Result<Vec<u8>, String> {
     let status = response.status();
     if !status.is_success() {
         return Err(match status {
@@ -227,14 +248,18 @@ async fn response_bytes(response: reqwest::Response, purpose: &str) -> Result<Ve
     {
         return Err("Garmoth returned an unexpectedly large response".into());
     }
-    let body = response
-        .bytes()
+    let mut body = Vec::new();
+    while let Some(chunk) = response
+        .chunk()
         .await
-        .map_err(|error| format!("could not read the Garmoth response: {error}"))?;
-    if body.len() as u64 > MAX_RESPONSE_BYTES {
-        return Err("Garmoth returned an unexpectedly large response".into());
+        .map_err(|error| format!("could not read the Garmoth response: {error}"))?
+    {
+        if body.len() + chunk.len() > MAX_RESPONSE_BYTES as usize {
+            return Err("Garmoth returned an unexpectedly large response".into());
+        }
+        body.extend_from_slice(&chunk);
     }
-    Ok(body.to_vec())
+    Ok(body)
 }
 
 fn validate_upload(input: &GarmothUploadInput) -> Result<(), String> {
@@ -344,7 +369,11 @@ fn verify_session_values(input: &GarmothUploadInput, state: &DatabasePath) -> Re
 }
 
 #[tauri::command]
-pub fn load_garmoth_settings(state: State<'_, DatabasePath>) -> Result<GarmothSettings, String> {
+pub async fn load_garmoth_settings(
+    state: State<'_, DatabasePath>,
+    operations: State<'_, GarmothOperations>,
+) -> Result<GarmothSettings, String> {
+    let _guard = operations.0.lock().await;
     let characters = parse_stored_characters(load_setting(&state.0, CHARACTERS_SETTING)?)?;
     let selected_character_id =
         parse_selected_character_id(load_setting(&state.0, SELECTED_CHARACTER_SETTING)?)?;
@@ -366,7 +395,9 @@ pub fn load_garmoth_settings(state: State<'_, DatabasePath>) -> Result<GarmothSe
 pub async fn save_garmoth_api_key(
     api_key: String,
     state: State<'_, DatabasePath>,
+    operations: State<'_, GarmothOperations>,
 ) -> Result<(), String> {
+    let _guard = operations.0.lock().await;
     let api_key = validate_api_key(&api_key)?;
     let response = client()?
         .get(format!("{API_BASE_URL}/user/profile"))
@@ -397,7 +428,9 @@ pub async fn save_garmoth_api_key(
 pub async fn fetch_garmoth_characters(
     character_ids: String,
     state: State<'_, DatabasePath>,
+    operations: State<'_, GarmothOperations>,
 ) -> Result<Vec<GarmothCharacter>, String> {
+    let _guard = operations.0.lock().await;
     let api_key = stored_api_key(&state.0)?;
     let character_ids = parse_character_ids(&character_ids)?;
     let ids = character_ids
@@ -408,7 +441,7 @@ pub async fn fetch_garmoth_characters(
     let response = client()?
         .get(format!("{API_BASE_URL}/gear-planner/getCharacterBuilds"))
         .query(&[("ids", ids)])
-        .header("apiKey", api_key)
+        .header("apiKey", &api_key)
         .send()
         .await
         .map_err(|error| format!("could not reach Garmoth: {error}"))?;
@@ -422,22 +455,30 @@ pub async fn fetch_garmoth_characters(
         parse_selected_character_id(load_setting(&state.0, SELECTED_CHARACTER_SETTING)?)?;
     let selected =
         current_selection.filter(|id| characters.iter().any(|character| character.id == *id));
-    save_settings(
+    if !save_settings_if_unchanged(
         &state.0,
+        API_KEY_SETTING,
+        &api_key,
         &[
             (CHARACTER_IDS_SETTING, Some(&ids_json)),
             (CHARACTERS_SETTING, Some(&characters_json)),
             (SELECTED_CHARACTER_SETTING, selected.as_deref()),
         ],
-    )?;
+    )? {
+        return Err(
+            "the Garmoth API key changed while fetching characters; fetch them again".into(),
+        );
+    }
     Ok(characters)
 }
 
 #[tauri::command]
-pub fn select_garmoth_character(
+pub async fn select_garmoth_character(
     character_id: String,
     state: State<'_, DatabasePath>,
+    operations: State<'_, GarmothOperations>,
 ) -> Result<(), String> {
+    let _guard = operations.0.lock().await;
     let characters = parse_stored_characters(load_setting(&state.0, CHARACTERS_SETTING)?)?;
     if !characters
         .iter()
@@ -455,7 +496,9 @@ pub fn select_garmoth_character(
 pub async fn upload_garmoth_session(
     input: GarmothUploadInput,
     state: State<'_, DatabasePath>,
+    operations: State<'_, GarmothOperations>,
 ) -> Result<GarmothUploadResult, String> {
+    let _guard = operations.0.lock().await;
     validate_upload(&input)?;
     verify_session_values(&input, &state)?;
     let api_key = stored_api_key(&state.0)?;
@@ -480,18 +523,30 @@ pub async fn upload_garmoth_session(
     let body = serde_json::to_vec(&payload)
         .map_err(|error| format!("could not prepare the Garmoth upload: {error}"))?;
     let client = client()?;
-
-    claim_garmoth_upload(&state.0, &input.session_id)?;
-    let response = client
+    let request = client
         .post(format!("{API_BASE_URL}/grind-tracker/sessions/create"))
         .header("apiKey", api_key)
         .header(reqwest::header::CONTENT_TYPE, "application/json")
         .body(body)
-        .send()
-        .await;
+        .build()
+        .map_err(|error| format!("could not prepare the Garmoth upload: {error}"))?;
+
+    claim_garmoth_upload(&state.0, &input.session_id)?;
+    let response = client.execute(request).await;
 
     let response = match response {
         Ok(response) => response,
+        Err(error) if classify_request_failure(&error) == RequestFailure::Retryable => {
+            if release_garmoth_upload(&state.0, &input.session_id).is_ok() {
+                return Err(
+                    "could not connect to Garmoth; check your connection and try again".into(),
+                );
+            }
+            return Ok(GarmothUploadResult {
+                status: GarmothUploadResultStatus::Unknown,
+                message: "The Garmoth request was not sent, but the local upload reservation could not be cleared. This session will not be retried automatically.".into(),
+            });
+        }
         Err(_) => {
             return Ok(GarmothUploadResult {
                 status: GarmothUploadResultStatus::Unknown,
@@ -501,7 +556,12 @@ pub async fn upload_garmoth_session(
     };
     let status = response.status();
     if status.is_success() {
-        finish_garmoth_upload(&state.0, &input.session_id)?;
+        if finish_garmoth_upload(&state.0, &input.session_id).is_err() {
+            return Ok(GarmothUploadResult {
+                status: GarmothUploadResultStatus::Unknown,
+                message: "Garmoth confirmed the upload, but Shakatu Sheets could not save that confirmation. Check your Garmoth grind tracker; this session will not be retried automatically.".into(),
+            });
+        }
         return Ok(GarmothUploadResult {
             status: GarmothUploadResultStatus::Success,
             message: "Session uploaded to Garmoth.".into(),
@@ -517,6 +577,12 @@ pub async fn upload_garmoth_session(
 
 #[cfg(test)]
 mod tests {
+    use std::{
+        io::{Read, Write},
+        net::TcpListener,
+        thread,
+    };
+
     use super::*;
 
     #[test]
@@ -541,6 +607,14 @@ mod tests {
             &["dNTbRAtHn1".into()],
         )
         .is_err());
+        assert_eq!(
+            parse_characters(
+                br#"[{"id":42,"url":"dNTbRAtHn1","name":"Main","class":8,"spec":"awak"}]"#,
+                &["dNTbRAtHn1".into(), "missing-id".into()],
+            )
+            .unwrap_err(),
+            "Garmoth did not return every requested character build"
+        );
     }
 
     #[test]
@@ -580,5 +654,90 @@ mod tests {
         );
         assert!(parse_character_ids("dNTbRAtHn1,dNTbRAtHn1").is_err());
         assert!(parse_character_ids("not/a/path").is_err());
+    }
+
+    #[test]
+    fn classifies_connect_failures_as_retryable_and_timeouts_as_unknown() {
+        tokio::runtime::Builder::new_current_thread()
+            .enable_io()
+            .enable_time()
+            .build()
+            .unwrap()
+            .block_on(async {
+                let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+                let closed_address = listener.local_addr().unwrap();
+                drop(listener);
+                let connect_error = Client::builder()
+                    .timeout(Duration::from_millis(100))
+                    .build()
+                    .unwrap()
+                    .get(format!("http://{closed_address}"))
+                    .send()
+                    .await
+                    .unwrap_err();
+                assert_eq!(
+                    classify_request_failure(&connect_error),
+                    RequestFailure::Retryable
+                );
+
+                let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+                let address = listener.local_addr().unwrap();
+                let server = thread::spawn(move || {
+                    let _connection = listener.accept().unwrap();
+                    thread::sleep(Duration::from_millis(100));
+                });
+                let timeout_error = Client::builder()
+                    .timeout(Duration::from_millis(20))
+                    .build()
+                    .unwrap()
+                    .get(format!("http://{address}"))
+                    .send()
+                    .await
+                    .unwrap_err();
+                assert!(timeout_error.is_timeout());
+                assert_eq!(
+                    classify_request_failure(&timeout_error),
+                    RequestFailure::Unknown
+                );
+                server.join().unwrap();
+            });
+    }
+
+    #[test]
+    fn rejects_chunked_responses_over_the_size_limit() {
+        tokio::runtime::Builder::new_current_thread()
+            .enable_io()
+            .enable_time()
+            .build()
+            .unwrap()
+            .block_on(async {
+        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        let address = listener.local_addr().unwrap();
+        let server = thread::spawn(move || {
+            let (mut connection, _) = listener.accept().unwrap();
+            let mut request = [0; 1_024];
+            let _ = connection.read(&mut request);
+            connection
+                .write_all(b"HTTP/1.1 200 OK\r\nTransfer-Encoding: chunked\r\nConnection: close\r\n\r\n")
+                .unwrap();
+            let body = vec![b'x'; MAX_RESPONSE_BYTES as usize + 1];
+            let _ = write!(connection, "{:x}\r\n", body.len());
+            let _ = connection.write_all(&body);
+            let _ = connection.write_all(b"\r\n0\r\n\r\n");
+        });
+        let response = Client::new()
+            .get(format!("http://{address}"))
+            .send()
+            .await
+            .unwrap();
+
+        assert_eq!(
+            response_bytes(response, "testing response bounds")
+                .await
+                .unwrap_err(),
+            "Garmoth returned an unexpectedly large response"
+        );
+        server.join().unwrap();
+            });
     }
 }

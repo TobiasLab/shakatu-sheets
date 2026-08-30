@@ -8,12 +8,18 @@ export type AppView = "live" | "history" | "settings";
 function ViewNavigation({ view, onChange }: { view: AppView; onChange: (view: AppView) => void }) {
     return (
         <nav className={styles.ViewNavigation} aria-label="Application views">
-            <button className={view === "live" ? styles.Active : ""} type="button" onClick={() => onChange("live")}>
+            <button
+                className={view === "live" ? styles.Active : ""}
+                type="button"
+                aria-current={view === "live" ? "page" : undefined}
+                onClick={() => onChange("live")}
+            >
                 Live session
             </button>
             <button
                 className={view === "history" ? styles.Active : ""}
                 type="button"
+                aria-current={view === "history" ? "page" : undefined}
                 onClick={() => onChange("history")}
             >
                 History
@@ -21,6 +27,7 @@ function ViewNavigation({ view, onChange }: { view: AppView; onChange: (view: Ap
             <button
                 className={view === "settings" ? styles.Active : ""}
                 type="button"
+                aria-current={view === "settings" ? "page" : undefined}
                 onClick={() => onChange("settings")}
             >
                 Settings

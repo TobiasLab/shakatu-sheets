@@ -14,7 +14,7 @@ Migration 1 creates:
 - `session_entries`: loot and expense rows owned by a session.
 - `schema_migrations`: applied migration versions.
 - `price_snapshots`: user-triggered regional market-price imports.
-- `settings`: reserved for persisted settings; currently unused.
+- `settings`: local Garmoth configuration, including the API key and selected character.
 
 Migration 1 has run on development machines and must not be rewritten. Future schema changes require a new ordered
 migration with its own literal version number.
@@ -39,7 +39,9 @@ the session ID so a session cannot be uploaded concurrently or retried silently 
 - Session entries retain their own unit price and are not changed by later market imports.
 - Session entry `source` records whether a row was added manually or through reviewed screenshot recognition.
 - Garmoth API keys, fetched character summaries, and the selected character are stored in the existing local `settings`
-  table. The API key is never returned to the frontend after it is saved.
-- Any non-success Garmoth response or network failure remains `unknown` to prevent duplicate entries. Reserved and
-  uploaded sessions cannot be reopened.
+  table. The API key is never returned to the frontend after it is saved. On Unix, the application-data directory and
+  SQLite files are restricted to the current user.
+- Connect failures that occur before request transmission release the upload reservation for an explicit retry. Any
+  potentially transmitted request without a success response remains `unknown` to prevent duplicate entries. Reserved
+  and uploaded sessions cannot be reopened.
 - Screenshots, OCR output, confidence values, and draft thumbnails are never stored in SQLite.

@@ -18,6 +18,7 @@ pub fn run() {
             let database_path =
                 database::initialize_database(app.handle()).map_err(std::io::Error::other)?;
             app.manage(database::DatabasePath(database_path));
+            app.manage(garmoth::GarmothOperations::default());
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
