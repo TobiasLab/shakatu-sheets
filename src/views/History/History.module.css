@@ -47,6 +47,10 @@
     background: var(--accent-surface);
 }
 
+.HistoryList button:disabled {
+    cursor: default;
+}
+
 .HistoryList button.Selected {
     box-shadow: inset 2px 0 var(--mint);
 }
@@ -135,6 +139,66 @@
     overflow: auto;
 }
 
+.GarmothUpload {
+    padding: 16px 19px;
+    border-bottom: 1px solid var(--line);
+    background: var(--surface-raised);
+}
+
+.UploadHeading {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+}
+
+.UploadHeading span,
+.UploadHeading strong {
+    display: block;
+}
+
+.UploadHeading span {
+    color: var(--muted);
+    font-size: 9px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+}
+
+.UploadHeading strong {
+    margin-top: 4px;
+    font-size: 13px;
+}
+
+.UploadPreview {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 7px;
+    margin-top: 13px;
+}
+
+.UploadPreview span {
+    padding: 5px 7px;
+    border: 1px solid var(--line);
+    color: var(--text-soft);
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 9px;
+}
+
+.GarmothUpload p {
+    margin: 12px 0 0;
+    color: var(--muted);
+    font-size: 10px;
+    line-height: 1.5;
+}
+
+.GarmothUpload p.UploadError {
+    color: var(--danger);
+}
+
+.GarmothUpload p.UploadSuccess {
+    color: var(--mint);
+}
+
 .HistoryEntry {
     display: grid;
     grid-template-columns: 31px minmax(0, 1fr) auto;
@@ -212,5 +276,10 @@
     .HistorySummary > div {
         border-right: 0;
         border-bottom: 1px solid var(--line);
+    }
+
+    .UploadHeading {
+        align-items: stretch;
+        flex-direction: column;
     }
 }

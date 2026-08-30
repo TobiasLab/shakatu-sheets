@@ -4,7 +4,7 @@ use rusqlite::{params, Connection, OptionalExtension};
 use serde::{Deserialize, Serialize};
 use tauri::{AppHandle, Manager, State};
 
-const DATABASE_VERSION: i64 = 1;
+const DATABASE_VERSION: i64 = 2;
 
 pub struct DatabasePath(pub PathBuf);
 
@@ -87,6 +87,14 @@ pub struct SessionRecord {
 pub struct FinishedSessionRecord {
     pub session: SessionRecord,
     pub finished_at: i64,
+    pub garmoth_upload_status: Option<GarmothUploadStatus>,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Serialize)]
+#[serde(rename_all = "lowercase")]
+pub enum GarmothUploadStatus {
+    Unknown,
+    Success,
 }
 
 pub fn initialize_database(app: &AppHandle) -> Result<PathBuf, String> {
@@ -203,6 +211,26 @@ fn migrate(connection: &mut Connection) -> Result<(), String> {
             .map_err(|error| error.to_string())?;
         transaction.commit().map_err(|error| error.to_string())?;
         current_version = 1;
+    }
+
+    if current_version < 2 {
+        let transaction = connection
+            .transaction()
+            .map_err(|error| error.to_string())?;
+        transaction
+            .execute_batch(
+                "CREATE TABLE garmoth_uploads (
+                    session_id TEXT PRIMARY KEY REFERENCES sessions(id) ON DELETE CASCADE,
+                    status TEXT NOT NULL CHECK (status IN ('unknown', 'success')),
+                    updated_at INTEGER NOT NULL
+                );
+
+                INSERT INTO schema_migrations (version, applied_at)
+                VALUES (2, unixepoch('subsec') * 1000);",
+            )
+            .map_err(|error| error.to_string())?;
+        transaction.commit().map_err(|error| error.to_string())?;
+        current_version = 2;
     }
 
     if current_version != DATABASE_VERSION {
@@ -499,9 +527,129 @@ fn list_finished_session_records(
             Ok(FinishedSessionRecord {
                 session,
                 finished_at,
+                garmoth_upload_status: load_garmoth_upload_status(connection, &id)?,
             })
         })
         .collect()
+}
+
+fn parse_garmoth_upload_status(value: &str) -> Result<GarmothUploadStatus, String> {
+    match value {
+        "unknown" => Ok(GarmothUploadStatus::Unknown),
+        "success" => Ok(GarmothUploadStatus::Success),
+        _ => Err(format!("unknown Garmoth upload status: {value}")),
+    }
+}
+
+fn load_garmoth_upload_status(
+    connection: &Connection,
+    session_id: &str,
+) -> Result<Option<GarmothUploadStatus>, String> {
+    connection
+        .query_row(
+            "SELECT status FROM garmoth_uploads WHERE session_id = ?1",
+            [session_id],
+            |row| row.get::<_, String>(0),
+        )
+        .optional()
+        .map_err(|error| error.to_string())?
+        .map(|status| parse_garmoth_upload_status(&status))
+        .transpose()
+}
+
+pub(crate) fn load_setting(path: &PathBuf, key: &str) -> Result<Option<String>, String> {
+    let connection = open_database(path)?;
+    connection
+        .query_row("SELECT value FROM settings WHERE key = ?1", [key], |row| {
+            row.get(0)
+        })
+        .optional()
+        .map_err(|error| error.to_string())
+}
+
+pub(crate) fn load_session_for_upload(
+    path: &PathBuf,
+    session_id: &str,
+) -> Result<SessionRecord, String> {
+    let connection = open_database(path)?;
+    load_session_by_id(&connection, session_id)?
+        .ok_or_else(|| "the selected session no longer exists".into())
+}
+
+pub(crate) fn save_settings(
+    path: &PathBuf,
+    settings: &[(&str, Option<&str>)],
+) -> Result<(), String> {
+    let mut connection = open_database(path)?;
+    let transaction = connection
+        .transaction()
+        .map_err(|error| error.to_string())?;
+    for (key, value) in settings {
+        match value {
+            Some(value) => transaction
+                .execute(
+                    "INSERT INTO settings (key, value, updated_at) VALUES (?1, ?2, ?3)
+                     ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at",
+                    params![key, value, timestamp_ms()],
+                )
+                .map_err(|error| error.to_string())?,
+            None => transaction
+                .execute("DELETE FROM settings WHERE key = ?1", [key])
+                .map_err(|error| error.to_string())?,
+        };
+    }
+    transaction.commit().map_err(|error| error.to_string())
+}
+
+pub(crate) fn claim_garmoth_upload(path: &PathBuf, session_id: &str) -> Result<(), String> {
+    let mut connection = open_database(path)?;
+    let transaction = connection
+        .transaction()
+        .map_err(|error| error.to_string())?;
+    let status = transaction
+        .query_row(
+            "SELECT status FROM sessions WHERE id = ?1",
+            [session_id],
+            |row| row.get::<_, String>(0),
+        )
+        .optional()
+        .map_err(|error| error.to_string())?
+        .ok_or_else(|| "the selected session no longer exists".to_string())?;
+    if status != "finished" {
+        return Err("only finished sessions can be uploaded".into());
+    }
+    if let Some(status) = load_garmoth_upload_status(&transaction, session_id)? {
+        return Err(match status {
+            GarmothUploadStatus::Success => "this session was already uploaded to Garmoth",
+            GarmothUploadStatus::Unknown => {
+                "this session may already exist on Garmoth; check Garmoth before taking further action"
+            }
+        }
+        .into());
+    }
+    transaction
+        .execute(
+            "INSERT INTO garmoth_uploads (session_id, status, updated_at) VALUES (?1, 'unknown', ?2)",
+            params![session_id, timestamp_ms()],
+        )
+        .map_err(|error| error.to_string())?;
+    transaction.commit().map_err(|error| error.to_string())
+}
+
+pub(crate) fn finish_garmoth_upload(path: &PathBuf, session_id: &str) -> Result<(), String> {
+    let connection = open_database(path)?;
+    let changed = connection
+        .execute(
+            "UPDATE garmoth_uploads SET status = 'success', updated_at = ?1
+             WHERE session_id = ?2 AND status = 'unknown'",
+            params![timestamp_ms(), session_id],
+        )
+        .map_err(|error| error.to_string())?;
+    if changed == 1 {
+        Ok(())
+    } else {
+        Err("Garmoth upload reservation disappeared".into())
+    }
 }
 
 fn reopen_session_record(connection: &mut Connection, id: &str) -> Result<SessionRecord, String> {
@@ -512,6 +660,9 @@ fn reopen_session_record(connection: &mut Connection, id: &str) -> Result<Sessio
         .ok_or_else(|| format!("session {id} was not found"))?;
     if session.status != SessionStatus::Finished {
         return Err("only finished sessions can be reopened".into());
+    }
+    if load_garmoth_upload_status(&transaction, id)?.is_some() {
+        return Err("sessions sent to Garmoth cannot be reopened".into());
     }
 
     if let Some(active) = load_active_session_record(&transaction)? {
@@ -825,5 +976,28 @@ mod tests {
         assert_eq!(records.len(), 1);
         assert_eq!(records[0].session, finished);
         assert!(records[0].finished_at > 0);
+    }
+
+    #[test]
+    fn refuses_to_reopen_a_session_reserved_for_garmoth() {
+        let mut connection = database();
+        let finished = session(SessionStatus::Finished);
+        save_session_record(&mut connection, &finished).unwrap();
+        connection
+            .execute(
+                "INSERT INTO garmoth_uploads (session_id, status, updated_at)
+                 VALUES (?1, 'unknown', 1000)",
+                [&finished.id],
+            )
+            .unwrap();
+
+        assert_eq!(
+            reopen_session_record(&mut connection, &finished.id).unwrap_err(),
+            "sessions sent to Garmoth cannot be reopened"
+        );
+        assert_eq!(
+            list_finished_session_records(&connection).unwrap()[0].garmoth_upload_status,
+            Some(GarmothUploadStatus::Unknown)
+        );
     }
 }

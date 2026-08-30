@@ -26,12 +26,18 @@ pub fn run() {
             database::load_market_prices,
             database::reopen_session,
             database::save_session,
+            garmoth::fetch_garmoth_characters,
+            garmoth::load_garmoth_settings,
+            garmoth::save_garmoth_api_key,
+            garmoth::select_garmoth_character,
+            garmoth::upload_garmoth_session,
             market::fetch_market_prices
         ])
         .run(tauri::generate_context!())
         .expect("error while running Shakatu Sheets");
 }
 mod database;
+mod garmoth;
 mod market;
 
 use tauri::Manager;

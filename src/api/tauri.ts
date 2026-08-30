@@ -11,6 +11,36 @@ export type MarketPriceSnapshot = {
 export type FinishedSessionRecord = {
     session: SessionState;
     finishedAt: number;
+    garmothUploadStatus: "unknown" | "success" | null;
+};
+
+export type GarmothCharacter = {
+    id: number;
+    name: string;
+    classId: number;
+    spec: "awak" | "succ" | null;
+};
+
+export type GarmothSettings = {
+    apiKeyConfigured: boolean;
+    characterIds: number[];
+    characters: GarmothCharacter[];
+    selectedCharacterId: number | null;
+};
+
+export type GarmothUploadInput = {
+    sessionId: string;
+    grindspotId: number;
+    minutes: number;
+    hourly: number;
+    total: number;
+    drops: Record<string, number>;
+    global: false;
+};
+
+export type GarmothUploadResult = {
+    status: "success" | "unknown";
+    message: string;
 };
 
 export function loadActiveSession() {
@@ -35,4 +65,24 @@ export function listFinishedSessions() {
 
 export function reopenSession(id: string) {
     return invoke<SessionState>("reopen_session", { id });
+}
+
+export function loadGarmothSettings() {
+    return invoke<GarmothSettings>("load_garmoth_settings");
+}
+
+export function saveGarmothApiKey(apiKey: string) {
+    return invoke<void>("save_garmoth_api_key", { apiKey });
+}
+
+export function fetchGarmothCharacters(characterIds: string) {
+    return invoke<GarmothCharacter[]>("fetch_garmoth_characters", { characterIds });
+}
+
+export function selectGarmothCharacter(characterId: number) {
+    return invoke<void>("select_garmoth_character", { characterId });
+}
+
+export function uploadGarmothSession(input: GarmothUploadInput) {
+    return invoke<GarmothUploadResult>("upload_garmoth_session", { input });
 }
