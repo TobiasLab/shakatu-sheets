@@ -1,4 +1,7 @@
-use std::{fs, path::PathBuf};
+use std::{
+    fs,
+    path::{Path, PathBuf},
+};
 
 use rusqlite::{params, Connection, OptionalExtension};
 use serde::{Deserialize, Serialize};
@@ -103,6 +106,7 @@ pub fn initialize_database(app: &AppHandle) -> Result<PathBuf, String> {
         .app_data_dir()
         .map_err(|error| error.to_string())?;
     fs::create_dir_all(&app_data_dir).map_err(|error| error.to_string())?;
+    secure_directory(&app_data_dir)?;
 
     let path = app_data_dir.join("shakatu-sheets.sqlite3");
     let mut connection = open_database(&path)?;
@@ -113,7 +117,42 @@ pub fn initialize_database(app: &AppHandle) -> Result<PathBuf, String> {
 fn open_database(path: &PathBuf) -> Result<Connection, String> {
     let connection = Connection::open(path).map_err(|error| error.to_string())?;
     configure_connection(&connection)?;
+    secure_database_files(path)?;
     Ok(connection)
+}
+
+#[cfg(unix)]
+fn secure_directory(path: &Path) -> Result<(), String> {
+    use std::os::unix::fs::PermissionsExt;
+
+    fs::set_permissions(path, fs::Permissions::from_mode(0o700)).map_err(|error| error.to_string())
+}
+
+#[cfg(not(unix))]
+fn secure_directory(_path: &Path) -> Result<(), String> {
+    Ok(())
+}
+
+#[cfg(unix)]
+fn secure_database_files(path: &Path) -> Result<(), String> {
+    use std::{ffi::OsString, os::unix::fs::PermissionsExt};
+
+    for suffix in ["", "-wal", "-shm"] {
+        let mut file = OsString::from(path.as_os_str());
+        file.push(suffix);
+        let file = PathBuf::from(file);
+        match fs::set_permissions(&file, fs::Permissions::from_mode(0o600)) {
+            Ok(()) => {}
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => {}
+            Err(error) => return Err(error.to_string()),
+        }
+    }
+    Ok(())
+}
+
+#[cfg(not(unix))]
+fn secure_database_files(_path: &Path) -> Result<(), String> {
+    Ok(())
 }
 
 fn configure_connection(connection: &Connection) -> Result<(), String> {
@@ -601,6 +640,45 @@ pub(crate) fn save_settings(
     transaction.commit().map_err(|error| error.to_string())
 }
 
+pub(crate) fn save_settings_if_unchanged(
+    path: &PathBuf,
+    expected_key: &str,
+    expected_value: &str,
+    settings: &[(&str, Option<&str>)],
+) -> Result<bool, String> {
+    let mut connection = open_database(path)?;
+    let transaction = connection
+        .transaction()
+        .map_err(|error| error.to_string())?;
+    let current = transaction
+        .query_row(
+            "SELECT value FROM settings WHERE key = ?1",
+            [expected_key],
+            |row| row.get::<_, String>(0),
+        )
+        .optional()
+        .map_err(|error| error.to_string())?;
+    if current.as_deref() != Some(expected_value) {
+        return Ok(false);
+    }
+    for (key, value) in settings {
+        match value {
+            Some(value) => transaction
+                .execute(
+                    "INSERT INTO settings (key, value, updated_at) VALUES (?1, ?2, ?3)
+                     ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at",
+                    params![key, value, timestamp_ms()],
+                )
+                .map_err(|error| error.to_string())?,
+            None => transaction
+                .execute("DELETE FROM settings WHERE key = ?1", [key])
+                .map_err(|error| error.to_string())?,
+        };
+    }
+    transaction.commit().map_err(|error| error.to_string())?;
+    Ok(true)
+}
+
 pub(crate) fn claim_garmoth_upload(path: &PathBuf, session_id: &str) -> Result<(), String> {
     let mut connection = open_database(path)?;
     let transaction = connection
@@ -643,6 +721,21 @@ pub(crate) fn finish_garmoth_upload(path: &PathBuf, session_id: &str) -> Result<
             "UPDATE garmoth_uploads SET status = 'success', updated_at = ?1
              WHERE session_id = ?2 AND status = 'unknown'",
             params![timestamp_ms(), session_id],
+        )
+        .map_err(|error| error.to_string())?;
+    if changed == 1 {
+        Ok(())
+    } else {
+        Err("Garmoth upload reservation disappeared".into())
+    }
+}
+
+pub(crate) fn release_garmoth_upload(path: &PathBuf, session_id: &str) -> Result<(), String> {
+    let connection = open_database(path)?;
+    let changed = connection
+        .execute(
+            "DELETE FROM garmoth_uploads WHERE session_id = ?1 AND status = 'unknown'",
+            [session_id],
         )
         .map_err(|error| error.to_string())?;
     if changed == 1 {
@@ -811,6 +904,26 @@ pub fn reopen_session(id: String, state: State<'_, DatabasePath>) -> Result<Sess
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn temporary_database() -> (PathBuf, Connection) {
+        let nonce = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_nanos();
+        let path = std::env::temp_dir().join(format!(
+            "shakatu-sheets-test-{}-{nonce}.sqlite3",
+            std::process::id()
+        ));
+        let mut connection = open_database(&path).expect("open temporary database");
+        migrate(&mut connection).expect("migrate temporary database");
+        (path, connection)
+    }
+
+    fn remove_temporary_database(path: &Path) {
+        for suffix in ["", "-wal", "-shm"] {
+            let _ = fs::remove_file(format!("{}{suffix}", path.display()));
+        }
+    }
 
     fn session(status: SessionStatus) -> SessionRecord {
         SessionRecord {
@@ -999,5 +1112,122 @@ mod tests {
             list_finished_session_records(&connection).unwrap()[0].garmoth_upload_status,
             Some(GarmothUploadStatus::Unknown)
         );
+    }
+
+    #[test]
+    fn transitions_garmoth_upload_reservations_without_duplicates() {
+        let (path, mut connection) = temporary_database();
+        let finished = session(SessionStatus::Finished);
+        save_session_record(&mut connection, &finished).unwrap();
+        drop(connection);
+
+        claim_garmoth_upload(&path, &finished.id).unwrap();
+        assert_eq!(
+            claim_garmoth_upload(&path, &finished.id).unwrap_err(),
+            "this session may already exist on Garmoth; check Garmoth before taking further action"
+        );
+        release_garmoth_upload(&path, &finished.id).unwrap();
+        claim_garmoth_upload(&path, &finished.id).unwrap();
+        finish_garmoth_upload(&path, &finished.id).unwrap();
+
+        let connection = open_database(&path).unwrap();
+        assert_eq!(
+            load_garmoth_upload_status(&connection, &finished.id).unwrap(),
+            Some(GarmothUploadStatus::Success)
+        );
+        drop(connection);
+        assert_eq!(
+            claim_garmoth_upload(&path, &finished.id).unwrap_err(),
+            "this session was already uploaded to Garmoth"
+        );
+        remove_temporary_database(&path);
+    }
+
+    #[test]
+    fn upgrades_a_populated_version_one_database() {
+        let mut connection = database();
+        let finished = session(SessionStatus::Finished);
+        save_session_record(&mut connection, &finished).unwrap();
+        connection
+            .execute(
+                "INSERT INTO settings (key, value, updated_at) VALUES ('existing', 'value', 1000)",
+                [],
+            )
+            .unwrap();
+        connection
+            .execute("DROP TABLE garmoth_uploads", [])
+            .unwrap();
+        connection
+            .execute("DELETE FROM schema_migrations WHERE version = 2", [])
+            .unwrap();
+
+        migrate(&mut connection).unwrap();
+
+        assert_eq!(
+            connection
+                .query_row(
+                    "SELECT value FROM settings WHERE key = 'existing'",
+                    [],
+                    |row| row.get::<_, String>(0),
+                )
+                .unwrap(),
+            "value"
+        );
+        assert_eq!(
+            load_session_by_id(&connection, &finished.id).unwrap(),
+            Some(finished)
+        );
+        assert_eq!(
+            connection
+                .query_row("SELECT MAX(version) FROM schema_migrations", [], |row| row
+                    .get::<_, i64>(
+                    0
+                ),)
+                .unwrap(),
+            2
+        );
+    }
+
+    #[test]
+    fn conditionally_saves_settings_only_for_the_expected_key() {
+        let (path, connection) = temporary_database();
+        drop(connection);
+        save_settings(&path, &[("api-key", Some("old"))]).unwrap();
+
+        assert!(save_settings_if_unchanged(
+            &path,
+            "api-key",
+            "old",
+            &[("characters", Some("old-account"))],
+        )
+        .unwrap());
+        save_settings(&path, &[("api-key", Some("new"))]).unwrap();
+        assert!(!save_settings_if_unchanged(
+            &path,
+            "api-key",
+            "old",
+            &[("characters", Some("stale"))],
+        )
+        .unwrap());
+        assert_eq!(
+            load_setting(&path, "characters").unwrap().as_deref(),
+            Some("old-account")
+        );
+        remove_temporary_database(&path);
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn restricts_local_database_permissions() {
+        use std::os::unix::fs::PermissionsExt;
+
+        let (path, connection) = temporary_database();
+        drop(connection);
+
+        assert_eq!(
+            fs::metadata(&path).unwrap().permissions().mode() & 0o777,
+            0o600
+        );
+        remove_temporary_database(&path);
     }
 }

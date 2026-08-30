@@ -92,7 +92,13 @@ export function SettingsView() {
                             <p className="eyebrow">Garmoth</p>
                             <h2>API connection</h2>
                         </div>
-                        <span>{settings?.apiKeyConfigured ? "Configured" : "Not configured"}</span>
+                        <span>
+                            {settings?.apiKeyConfigured
+                                ? "Configured"
+                                : settings === null && !error
+                                  ? "Loading..."
+                                  : "Not configured"}
+                        </span>
                     </div>
                     <form className={styles.SettingsForm} onSubmit={saveApiKey}>
                         <label>

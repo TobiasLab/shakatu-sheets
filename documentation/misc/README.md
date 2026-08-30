@@ -24,8 +24,9 @@ Implemented behavior:
    than being silently omitted.
 5. Uploads include integer minutes, net session and hourly income, all profile drop keys, and the selected character's
    class and specialization. Global-data sharing remains disabled.
-6. Durable per-session upload state prevents duplicate actions. A timed-out, network-failed, or server-failed request is
-   marked unknown and never retried automatically because Garmoth provides no idempotency contract.
+6. Durable per-session upload state prevents duplicate actions. Connect failures before transmission may be retried
+   explicitly; timed-out, interrupted, or server-failed requests are marked unknown and never retried automatically
+   because Garmoth provides no idempotency contract.
 
 The endpoint documentation does not define character-build or upload success response bodies. The client validates the
 documented character fields it consumes and treats any successful upload HTTP status as confirmation. Do not perform a

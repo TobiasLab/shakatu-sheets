@@ -186,10 +186,12 @@
     }
 
     .MobileNavigation .ViewNavigation {
-        grid-template-columns: repeat(3, 1fr);
+        grid-template-columns: repeat(3, minmax(0, 1fr));
     }
 
     .MobileNavigation .ViewNavigation button {
+        min-width: 0;
+        padding-inline: 5px;
         text-align: center;
     }
 

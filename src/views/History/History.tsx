@@ -35,6 +35,7 @@ export function HistoryView({
     const [uploadMessage, setUploadMessage] = useState("");
     const [uploadError, setUploadError] = useState("");
     const [settingsError, setSettingsError] = useState("");
+    const [garmothSettingsLoaded, setGarmothSettingsLoaded] = useState(false);
 
     async function loadHistory() {
         setRecords(null);
@@ -56,7 +57,8 @@ export function HistoryView({
     }, [databaseLoaded, databaseStatus]);
 
     useEffect(() => {
-        if (databaseLoaded)
+        if (databaseLoaded) {
+            setGarmothSettingsLoaded(false);
             loadGarmothSettings()
                 .then((loaded) => {
                     setGarmothSettings(loaded);
@@ -65,7 +67,9 @@ export function HistoryView({
                 .catch((failure) => {
                     setGarmothSettings(null);
                     setSettingsError(String(failure));
-                });
+                })
+                .finally(() => setGarmothSettingsLoaded(true));
+        }
     }, [databaseLoaded]);
 
     const filteredRecords =
@@ -116,6 +120,7 @@ export function HistoryView({
             else setUploadError(result.message);
         } catch (uploadFailure) {
             setUploadError(String(uploadFailure));
+            await loadHistory();
         } finally {
             setUploading(false);
         }
@@ -133,11 +138,15 @@ export function HistoryView({
                         Grind spot
                         <select
                             value={grindSpotFilter}
-                            disabled={!databaseLoaded || records === null || records.length === 0 || uploading}
+                            disabled={
+                                !databaseLoaded || records === null || records.length === 0 || uploading || reopening
+                            }
                             onChange={(event) => {
                                 setGrindSpotFilter(event.target.value);
                                 setSelectedId(null);
                                 setReopenError("");
+                                setUploadMessage("");
+                                setUploadError("");
                             }}
                         >
                             <option value="all">All grind spots</option>
@@ -151,7 +160,7 @@ export function HistoryView({
                     <button
                         className="button subtle"
                         type="button"
-                        disabled={!databaseLoaded || uploading}
+                        disabled={!databaseLoaded || uploading || reopening}
                         onClick={loadHistory}
                     >
                         Reload
@@ -199,7 +208,7 @@ export function HistoryView({
                                         className={record.session.id === selected?.session.id ? styles.Selected : ""}
                                         type="button"
                                         key={record.session.id}
-                                        disabled={uploading}
+                                        disabled={uploading || reopening}
                                         onClick={() => {
                                             setSelectedId(record.session.id);
                                             setReopenError("");
@@ -281,7 +290,11 @@ export function HistoryView({
                                                   : "Ready for review"}
                                         </strong>
                                     </div>
-                                    {!uploadCharacter ? (
+                                    {selected.garmothUploadStatus !== null ? null : !garmothSettingsLoaded ? (
+                                        <button className="button" type="button" disabled>
+                                            Loading settings...
+                                        </button>
+                                    ) : !uploadCharacter ? (
                                         <button className="button subtle" type="button" onClick={onOpenSettings}>
                                             Open Settings
                                         </button>
@@ -310,10 +323,10 @@ export function HistoryView({
                                         {uploadCharacter && <span>{uploadCharacter.name}</span>}
                                     </div>
                                 )}
-                                {!uploadCharacter && (
+                                {selected.garmothUploadStatus === null && garmothSettingsLoaded && !uploadCharacter && (
                                     <p>Save an API key and upload character in Settings before uploading.</p>
                                 )}
-                                {settingsError && (
+                                {selected.garmothUploadStatus === null && settingsError && (
                                     <p className={styles.UploadError} role="alert">
                                         Could not read Garmoth settings: {settingsError}
                                     </p>
@@ -330,10 +343,10 @@ export function HistoryView({
                                         {uploadPreviewError}
                                     </p>
                                 )}
-                                {selected.garmothUploadStatus === "unknown" && (
+                                {selected.garmothUploadStatus === "unknown" && !uploadError && (
                                     <p className={styles.UploadError} role="alert">
-                                        Garmoth did not confirm this upload. Check your Garmoth grind tracker; automatic
-                                        and manual retries are blocked to avoid a duplicate.
+                                        The upload outcome is unknown. Check your Garmoth grind tracker; automatic and
+                                        manual retries are blocked to avoid a duplicate.
                                     </p>
                                 )}
                                 {selected.garmothUploadStatus === "success" && (

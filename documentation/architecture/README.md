@@ -26,12 +26,14 @@ written as a new set of price snapshots; failed responses do not change saved da
 Garmoth credentials remain in SQLite and are used only by Rust requests. The frontend receives configured state and
 validated character summaries, never the saved key. Character builds are fetched explicitly using the IDs required by
 Garmoth's approved endpoint. Finished-session upload previews map profile drop names to Garmoth keys and reject
-unmatched revenue rows rather than silently omitting them.
+unmatched revenue rows rather than silently omitting them. Backend Garmoth operations are serialized so navigation or
+multiple windows cannot race key replacement, character selection, and uploads.
 
 Uploads are explicit and single-shot. Rust reserves a session as `unknown` before sending the create request and changes
-it to `success` only after a successful response. Any non-success response or network failure remains `unknown` because
-Garmoth does not document error semantics or an idempotency contract; the app blocks retries and directs the user to
-check their Garmoth grind tracker. Reserved and uploaded sessions cannot be reopened.
+it to `success` only after a successful response. A connect failure known to occur before transmission releases the
+reservation; any potentially transmitted request without a success response remains `unknown` because Garmoth does not
+document error semantics or an idempotency contract. The app blocks ambiguous retries and directs the user to check their
+Garmoth grind tracker. Reserved and uploaded sessions cannot be reopened.
 
 There is no service layer or plugin system. New boundaries should only be added when a feature cannot remain clear within
 the current structure.
