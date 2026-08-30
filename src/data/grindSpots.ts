@@ -3,6 +3,7 @@ import type { Valuation } from "../domain/session";
 export type DropTemplate = {
     name: string;
     icon: string;
+    garmothKey: string;
     valuation: Exclude<Valuation, "expense">;
     unitPrice: number | null;
     marketItemId?: number;
@@ -10,23 +11,38 @@ export type DropTemplate = {
 
 export type GrindSpotProfile = {
     id: string;
+    garmothId: number;
     name: string;
     trash: DropTemplate;
     drops: DropTemplate[];
 };
 
 function market(name: string, itemId: number): DropTemplate {
-    return { name, icon: `/items/${itemId}.webp`, valuation: "market", unitPrice: null, marketItemId: itemId };
+    return {
+        name,
+        icon: `/items/${itemId}.webp`,
+        garmothKey: `${itemId}_0`,
+        valuation: "market",
+        unitPrice: null,
+        marketItemId: itemId,
+    };
 }
 
-function enhancement(name: string, iconId: number): DropTemplate {
-    return { name, icon: `/items/${iconId}.webp`, valuation: "market", unitPrice: null };
+function enhancement(name: string, iconId: number, subKey: number): DropTemplate {
+    return {
+        name,
+        icon: `/items/${iconId}.webp`,
+        garmothKey: `${iconId}_${subKey}`,
+        valuation: "market",
+        unitPrice: null,
+    };
 }
 
-function vendor(name: string, iconId: number | string, unitPrice: number): DropTemplate {
+function vendor(name: string, iconId: number | string, unitPrice: number, garmothMainKey = iconId): DropTemplate {
     return {
         name,
         icon: `/items/${iconId}.${typeof iconId === "number" ? "webp" : "png"}`,
+        garmothKey: `${garmothMainKey}_0`,
         valuation: "vendor",
         unitPrice,
     };
@@ -56,6 +72,7 @@ const commonDrops = {
 
 export const sycraiaLower: GrindSpotProfile = {
     id: "sycraia-lower-revamp",
+    garmothId: 201,
     name: "Sycraia Ruins Lower Level",
     trash: vendor("Underwater Ancient Weapon Power Stone", 56_341, 107_900),
     drops: [
@@ -70,20 +87,21 @@ export const sycraiaLower: GrindSpotProfile = {
         vendor("Radiant Sycraia's Memory", 56_348, 3_000_000_000),
         market("Sycraia Shard", 821_347),
         market("Tungrad Ring", 12_061),
-        enhancement("PRI: Tungrad Ring", 12_061),
-        enhancement("DUO: Tungrad Ring", 12_061),
+        enhancement("PRI: Tungrad Ring", 12_061, 1),
+        enhancement("DUO: Tungrad Ring", 12_061, 2),
         market("Deboreka Ring", 12_094),
-        enhancement("PRI: Deboreka Ring", 12_094),
-        enhancement("DUO: Deboreka Ring", 12_094),
+        enhancement("PRI: Deboreka Ring", 12_094, 1),
+        enhancement("DUO: Deboreka Ring", 12_094, 2),
         market("Traveler's Map", 16_017),
         vendor("Sycraia Underwater Ruins Paint", 761_718, 0),
         vendor("Al Yurad's Ring Piece", 44_271, 0),
-        vendor("Any Artifact", "artifact", 21_450_000),
+        vendor("Any Artifact", "artifact", 21_450_000, 100_001_004),
     ],
 };
 
 export const starsEnd: GrindSpotProfile = {
     id: "stars-end-revamp",
+    garmothId: 200,
     name: "Star's End",
     trash: vendor("Corrupted Sanguine Crystal", 56_339, 155_000),
     drops: [
@@ -93,12 +111,12 @@ export const starsEnd: GrindSpotProfile = {
         vendor("Clear Blackstar Crystal", 44_405, 177_778_400),
         commonDrops.sealedBlackMagicCrystal,
         market("Black Distortion Earring", 11_853),
-        enhancement("PRI: Black Distortion Earring", 11_853),
-        enhancement("DUO: Black Distortion Earring", 11_853),
-        enhancement("TRI: Black Distortion Earring", 11_853),
+        enhancement("PRI: Black Distortion Earring", 11_853, 1),
+        enhancement("DUO: Black Distortion Earring", 11_853, 2),
+        enhancement("TRI: Black Distortion Earring", 11_853, 3),
         market("Deboreka Earring", 11_882),
-        enhancement("PRI: Deboreka Earring", 11_882),
-        enhancement("DUO: Deboreka Earring", 11_882),
+        enhancement("PRI: Deboreka Earring", 11_882, 1),
+        enhancement("DUO: Deboreka Earring", 11_882, 2),
         market("Gluttony Crystal", 821_344),
         market("Corrupted Gluttony Crystal", 15_741),
         vendor("Origin of Corruption", 56_340, 3_000_000_000),
@@ -109,6 +127,7 @@ export const starsEnd: GrindSpotProfile = {
 
 export const zephyrosCastle: GrindSpotProfile = {
     id: "zephyros-castle",
+    garmothId: 194,
     name: "Zephyrus Castle",
     trash: vendor("Hardened Lava Chunk", 767_248, 126_980),
     drops: [
@@ -126,22 +145,23 @@ export const zephyrosCastle: GrindSpotProfile = {
         market("Herald's Crystal", 821_250),
         market("Flawless Herald's Crystal", 821_251),
         market("Deboreka Belt", 12_276),
-        enhancement("PRI: Deboreka Belt", 12_276),
-        enhancement("DUO: Deboreka Belt", 12_276),
+        enhancement("PRI: Deboreka Belt", 12_276, 1),
+        enhancement("DUO: Deboreka Belt", 12_276, 2),
         market("Deboreka Earring", 11_882),
-        enhancement("PRI: Deboreka Earring", 11_882),
-        enhancement("DUO: Deboreka Earring", 11_882),
+        enhancement("PRI: Deboreka Earring", 11_882, 1),
+        enhancement("DUO: Deboreka Earring", 11_882, 2),
         market("Deboreka Ring", 12_094),
-        enhancement("PRI: Deboreka Ring", 12_094),
-        enhancement("DUO: Deboreka Ring", 12_094),
+        enhancement("PRI: Deboreka Ring", 12_094, 1),
+        enhancement("DUO: Deboreka Ring", 12_094, 2),
         market("Deboreka Necklace", 11_653),
-        enhancement("PRI: Deboreka Necklace", 11_653),
-        enhancement("DUO: Deboreka Necklace", 11_653),
+        enhancement("PRI: Deboreka Necklace", 11_653, 1),
+        enhancement("DUO: Deboreka Necklace", 11_653, 2),
     ],
 };
 
 export const aphrodonTemple: GrindSpotProfile = {
     id: "aphrodon-temple",
+    garmothId: 213,
     name: "Aphrodon Temple",
     trash: vendor("Branch of Abundance", 980_127, 155_127),
     drops: [
@@ -174,6 +194,7 @@ export const aphrodonTemple: GrindSpotProfile = {
 
 export const hermesiaInnerCastle: GrindSpotProfile = {
     id: "hermesia-inner-castle",
+    garmothId: 214,
     name: "Hermesia Inner Castle",
     trash: vendor("Black Crystal Fragment", 980_128, 160_539),
     drops: [
@@ -208,6 +229,7 @@ export const hermesiaInnerCastle: GrindSpotProfile = {
 
 export const magaiaTemple: GrindSpotProfile = {
     id: "magaia-temple",
+    garmothId: 215,
     name: "Magaia Temple",
     trash: vendor("Elion Follower's Helmet", 980_129, 181_042),
     drops: [

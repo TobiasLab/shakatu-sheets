@@ -17,7 +17,8 @@ Implementation order:
 
 1. Document the approved Garmoth endpoints, authentication, payloads, rate limits, and error responses.
 2. Add a Rust API client using the existing HTTP stack and retrieve the official class, grind-spot, and drop metadata.
-3. Map Shakatu grind spots and drops to stable Garmoth identifiers, including enhancement sub-keys.
+3. Map Shakatu grind spots and drops to stable Garmoth identifiers, including enhancement sub-keys. Complete: profiles
+   now retain their persisted internal IDs alongside the official Garmoth spot IDs and exact drop keys.
 4. Add local settings for the user's API key, character class, and specialization without exposing credentials to the
    frontend or logs.
 5. Add an explicit payload preview and upload action for finished sessions. Uploads must never happen automatically.
