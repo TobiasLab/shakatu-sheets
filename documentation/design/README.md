@@ -11,7 +11,7 @@ The application uses a normal desktop window rather than an in-game overlay. The
 
 The grind-spot selector is available only while a session is idle with no elapsed time or entries. It locks as soon as
 time or loot is recorded so one session cannot mix profiles. The current profiles are Sycraia Ruins Lower Level,
-revamped Star's End, Zephyros Castle, Aphrodon Temple, Hermesia Inner Castle, and Magaia Temple.
+revamped Star's End, Zephyrus Castle, Aphrodon Temple, Hermesia Inner Castle, and Magaia Temple.
 
 The interface distinguishes market, vendor, and expense values. Market prices are never guessed when unavailable and
 network access only occurs after the user presses the Arsha fetch button. Saved prices show when they were fetched and

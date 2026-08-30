@@ -34,7 +34,7 @@ export function detectGrindSpot(text: string, fallbackId: string): string {
     const normalized = text.toLocaleLowerCase();
     if (normalized.includes("sycraia")) return "sycraia-lower-revamp";
     if (normalized.includes("star") && normalized.includes("end")) return "stars-end-revamp";
-    if (normalized.includes("zephyros")) return "zephyros-castle";
+    if (/zephyr(?:u|o)s/.test(normalized)) return "zephyros-castle";
     if (normalized.includes("aphrodon")) return "aphrodon-temple";
     if (normalized.includes("hermesia")) return "hermesia-inner-castle";
     if (normalized.includes("magaia")) return "magaia-temple";

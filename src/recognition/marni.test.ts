@@ -23,6 +23,7 @@ describe("Marni screenshot metadata", () => {
         );
         expect(detectGrindSpot("Monster Zone: Star's End", "sycraia-lower-revamp")).toBe("stars-end-revamp");
         expect(detectGrindSpot("Monster Zone: Zephyros Castle", "sycraia-lower-revamp")).toBe("zephyros-castle");
+        expect(detectGrindSpot("Monster Zone: Zephyrus Castle", "sycraia-lower-revamp")).toBe("zephyros-castle");
         expect(detectGrindSpot("Monster Zone: Aphrodon Temple", "sycraia-lower-revamp")).toBe("aphrodon-temple");
         expect(detectGrindSpot("Monster Zone: Hermesia Inner Castle", "sycraia-lower-revamp")).toBe(
             "hermesia-inner-castle",
