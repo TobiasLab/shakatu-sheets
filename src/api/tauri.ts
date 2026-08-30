@@ -15,7 +15,7 @@ export type FinishedSessionRecord = {
 };
 
 export type GarmothCharacter = {
-    id: number;
+    id: string;
     name: string;
     classId: number;
     spec: "awak" | "succ" | null;
@@ -23,9 +23,9 @@ export type GarmothCharacter = {
 
 export type GarmothSettings = {
     apiKeyConfigured: boolean;
-    characterIds: number[];
+    characterIds: string[];
     characters: GarmothCharacter[];
-    selectedCharacterId: number | null;
+    selectedCharacterId: string | null;
 };
 
 export type GarmothUploadInput = {
@@ -79,7 +79,7 @@ export function fetchGarmothCharacters(characterIds: string) {
     return invoke<GarmothCharacter[]>("fetch_garmoth_characters", { characterIds });
 }
 
-export function selectGarmothCharacter(characterId: number) {
+export function selectGarmothCharacter(characterId: string) {
     return invoke<void>("select_garmoth_character", { characterId });
 }
 

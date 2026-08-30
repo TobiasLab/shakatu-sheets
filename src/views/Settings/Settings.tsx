@@ -62,12 +62,11 @@ export function SettingsView() {
     }
 
     async function saveCharacterSelection() {
-        const id = Number(selectedCharacterId);
         setBusy("selection");
         setError("");
         setMessage("");
         try {
-            await selectGarmothCharacter(id);
+            await selectGarmothCharacter(selectedCharacterId);
             await reloadSettings();
             setMessage("Upload character saved.");
         } catch (failure) {
@@ -132,13 +131,12 @@ export function SettingsView() {
                                 value={characterIds}
                                 disabled={!settings?.apiKeyConfigured || busy !== null}
                                 onChange={(event) => setCharacterIds(event.target.value)}
-                                placeholder="12345, 67890"
-                                inputMode="numeric"
+                                placeholder="dNTbRAtHn1"
                             />
                         </label>
                         <p>
-                            Garmoth&apos;s approved character-build endpoint requires the numeric IDs from your Gear
-                            Planner character URLs. Enter up to 20 comma-separated IDs.
+                            Enter the final part of each Garmoth character URL, such as <code>dNTbRAtHn1</code>. You can
+                            provide up to 20 comma-separated IDs.
                         </p>
                         <button
                             className="button"

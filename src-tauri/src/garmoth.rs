@@ -19,7 +19,7 @@ const MAX_RESPONSE_BYTES: u64 = 1_000_000;
 #[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct GarmothCharacter {
-    id: i64,
+    id: String,
     name: String,
     class_id: i64,
     spec: Option<String>,
@@ -29,9 +29,9 @@ pub struct GarmothCharacter {
 #[serde(rename_all = "camelCase")]
 pub struct GarmothSettings {
     api_key_configured: bool,
-    character_ids: Vec<i64>,
+    character_ids: Vec<String>,
     characters: Vec<GarmothCharacter>,
-    selected_character_id: Option<i64>,
+    selected_character_id: Option<String>,
 }
 
 #[derive(Deserialize)]
@@ -41,8 +41,9 @@ struct GarmothProfile {
 
 #[derive(Deserialize)]
 struct CharacterResponse {
-    id: i64,
+    url: String,
     name: String,
+    #[serde(rename = "class")]
     class_id: i64,
     #[serde(default)]
     spec: Option<String>,
@@ -116,18 +117,25 @@ fn validate_api_key(api_key: &str) -> Result<&str, String> {
     Ok(api_key)
 }
 
-fn parse_character_ids(value: &str) -> Result<Vec<i64>, String> {
+fn valid_character_id(id: &str) -> bool {
+    !id.is_empty()
+        && id.len() <= 128
+        && id
+            .bytes()
+            .all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'-' | b'_'))
+}
+
+fn parse_character_ids(value: &str) -> Result<Vec<String>, String> {
     let ids = value
         .split(',')
         .map(str::trim)
-        .map(|id| id.parse::<i64>())
-        .collect::<Result<Vec<_>, _>>()
-        .map_err(|_| "character IDs must be positive numbers separated by commas".to_string())?;
-    if ids.is_empty() || ids.len() > 20 || ids.iter().any(|id| *id <= 0) {
-        return Err("enter between 1 and 20 positive character IDs".into());
+        .map(str::to_string)
+        .collect::<Vec<_>>();
+    if ids.is_empty() || ids.len() > 20 || ids.iter().any(|id| !valid_character_id(id)) {
+        return Err("enter between 1 and 20 valid character URL IDs".into());
     }
     let mut unique = ids.clone();
-    unique.sort_unstable();
+    unique.sort();
     unique.dedup();
     if unique.len() != ids.len() {
         return Err("character IDs must be unique".into());
@@ -135,7 +143,10 @@ fn parse_character_ids(value: &str) -> Result<Vec<i64>, String> {
     Ok(ids)
 }
 
-fn parse_characters(body: &[u8], requested_ids: &[i64]) -> Result<Vec<GarmothCharacter>, String> {
+fn parse_characters(
+    body: &[u8],
+    requested_ids: &[String],
+) -> Result<Vec<GarmothCharacter>, String> {
     let characters = serde_json::from_slice::<Vec<CharacterResponse>>(body)
         .map_err(|error| format!("Garmoth returned an invalid character response: {error}"))?;
     if characters.is_empty() {
@@ -145,8 +156,8 @@ fn parse_characters(body: &[u8], requested_ids: &[i64]) -> Result<Vec<GarmothCha
     let mut parsed = Vec::with_capacity(characters.len());
     for character in characters {
         let name = character.name.trim();
-        if !requested_ids.contains(&character.id)
-            || character.id <= 0
+        if !requested_ids.contains(&character.url)
+            || !valid_character_id(&character.url)
             || character.class_id <= 0
             || name.is_empty()
             || name.len() > 100
@@ -156,12 +167,12 @@ fn parse_characters(body: &[u8], requested_ids: &[i64]) -> Result<Vec<GarmothCha
             )
             || parsed
                 .iter()
-                .any(|existing: &GarmothCharacter| existing.id == character.id)
+                .any(|existing: &GarmothCharacter| existing.id == character.url)
         {
             return Err("Garmoth returned invalid character data".into());
         }
         parsed.push(GarmothCharacter {
-            id: character.id,
+            id: character.url,
             name: name.into(),
             class_id: character.class_id,
             spec: character.spec,
@@ -177,21 +188,18 @@ fn parse_stored_characters(value: Option<String>) -> Result<Vec<GarmothCharacter
     serde_json::from_str(&value).map_err(|_| "saved Garmoth character data is invalid".into())
 }
 
-fn parse_stored_character_ids(value: Option<String>) -> Result<Vec<i64>, String> {
+fn parse_stored_character_ids(value: Option<String>) -> Result<Vec<String>, String> {
     let Some(value) = value else {
         return Ok(Vec::new());
     };
     serde_json::from_str(&value).map_err(|_| "saved Garmoth character IDs are invalid".into())
 }
 
-fn parse_selected_character_id(value: Option<String>) -> Result<Option<i64>, String> {
-    value
-        .map(|value| {
-            value
-                .parse::<i64>()
-                .map_err(|_| "saved Garmoth character selection is invalid".to_string())
-        })
-        .transpose()
+fn parse_selected_character_id(value: Option<String>) -> Result<Option<String>, String> {
+    if value.as_deref().is_some_and(|id| !valid_character_id(id)) {
+        return Err("saved Garmoth character selection is invalid".into());
+    }
+    Ok(value)
 }
 
 fn stored_api_key(path: &std::path::PathBuf) -> Result<String, String> {
@@ -341,7 +349,8 @@ pub fn load_garmoth_settings(state: State<'_, DatabasePath>) -> Result<GarmothSe
     let selected_character_id =
         parse_selected_character_id(load_setting(&state.0, SELECTED_CHARACTER_SETTING)?)?;
     if selected_character_id
-        .is_some_and(|id| !characters.iter().any(|character| character.id == id))
+        .as_ref()
+        .is_some_and(|id| !characters.iter().any(|character| character.id == *id))
     {
         return Err("saved Garmoth character selection was not found".into());
     }
@@ -393,7 +402,7 @@ pub async fn fetch_garmoth_characters(
     let character_ids = parse_character_ids(&character_ids)?;
     let ids = character_ids
         .iter()
-        .map(i64::to_string)
+        .map(String::as_str)
         .collect::<Vec<_>>()
         .join(",");
     let response = client()?
@@ -411,9 +420,8 @@ pub async fn fetch_garmoth_characters(
     let characters_json = serde_json::to_string(&characters).map_err(|error| error.to_string())?;
     let current_selection =
         parse_selected_character_id(load_setting(&state.0, SELECTED_CHARACTER_SETTING)?)?;
-    let selected = current_selection
-        .filter(|id| characters.iter().any(|character| character.id == *id))
-        .map(|id| id.to_string());
+    let selected =
+        current_selection.filter(|id| characters.iter().any(|character| character.id == *id));
     save_settings(
         &state.0,
         &[
@@ -427,7 +435,7 @@ pub async fn fetch_garmoth_characters(
 
 #[tauri::command]
 pub fn select_garmoth_character(
-    character_id: i64,
+    character_id: String,
     state: State<'_, DatabasePath>,
 ) -> Result<(), String> {
     let characters = parse_stored_characters(load_setting(&state.0, CHARACTERS_SETTING)?)?;
@@ -437,7 +445,6 @@ pub fn select_garmoth_character(
     {
         return Err("select a fetched Garmoth character".into());
     }
-    let character_id = character_id.to_string();
     save_settings(
         &state.0,
         &[(SELECTED_CHARACTER_SETTING, Some(&character_id))],
@@ -515,23 +522,23 @@ mod tests {
     #[test]
     fn parses_and_validates_character_responses() {
         let characters = parse_characters(
-            br#"[{"id":42,"name":"Main","class_id":8,"spec":"awak"}]"#,
-            &[42],
+            br#"[{"id":42,"url":"dNTbRAtHn1","name":"Main","class":8,"spec":"awak"}]"#,
+            &["dNTbRAtHn1".into()],
         )
         .unwrap();
 
         assert_eq!(
             characters,
             vec![GarmothCharacter {
-                id: 42,
+                id: "dNTbRAtHn1".into(),
                 name: "Main".into(),
                 class_id: 8,
                 spec: Some("awak".into()),
             }]
         );
         assert!(parse_characters(
-            br#"[{"id":42,"name":"Main","class_id":8,"spec":"invalid"}]"#,
-            &[42],
+            br#"[{"id":42,"url":"dNTbRAtHn1","name":"Main","class":8,"spec":"invalid"}]"#,
+            &["dNTbRAtHn1".into()],
         )
         .is_err());
     }
@@ -567,8 +574,11 @@ mod tests {
 
     #[test]
     fn rejects_duplicate_or_malformed_character_ids() {
-        assert_eq!(parse_character_ids("4, 8").unwrap(), vec![4, 8]);
-        assert!(parse_character_ids("4,4").is_err());
-        assert!(parse_character_ids("4,nope").is_err());
+        assert_eq!(
+            parse_character_ids("dNTbRAtHn1, another-id").unwrap(),
+            vec!["dNTbRAtHn1", "another-id"]
+        );
+        assert!(parse_character_ids("dNTbRAtHn1,dNTbRAtHn1").is_err());
+        assert!(parse_character_ids("not/a/path").is_err());
     }
 }

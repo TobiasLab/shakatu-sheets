@@ -17,8 +17,8 @@ Implemented behavior:
 
 1. Rust validates and stores each user's revocable API key locally, then sends it only in Garmoth's `apiKey` header.
 2. Settings fetches validated character summaries from the approved character-build endpoint and persists the selected
-   upload character. Garmoth requires users to provide the numeric Gear Planner character IDs; the approved API does not
-   expose an account-level character-list endpoint.
+   upload character. Garmoth requires users to provide the final ID segment from each character URL; the approved API
+   does not expose an account-level character-list endpoint.
 3. Grind-spot profiles retain the official spot IDs and exact drop keys, including enhancement sub-keys.
 4. History shows a payload summary before an explicit upload. Unsupported custom revenue rows block the action rather
    than being silently omitted.
