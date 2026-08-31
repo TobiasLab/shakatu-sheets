@@ -17,6 +17,7 @@ mod linux {
 
     const FRAME_HEADER_BYTES: usize = 16;
     const MAX_PREVIEW_WIDTH: u32 = 640;
+    const MAX_PREVIEW_HEIGHT: u32 = 360;
     const SAMPLE_INTERVAL: Duration = Duration::from_millis(125);
     const FIRST_FRAME_TIMEOUT: Duration = Duration::from_secs(10);
 
@@ -26,7 +27,8 @@ mod linux {
     #[derive(Default)]
     struct CaptureControl {
         cancelled: AtomicBool,
-        session: Mutex<Option<Arc<Session<Screencast>>>>,
+        frame_in_flight: AtomicBool,
+        pending_session: Mutex<Option<Arc<Session<Screencast>>>>,
     }
 
     struct StreamData {
@@ -38,12 +40,15 @@ mod linux {
         state: tauri::State<'_, NativeCaptureState>,
         frames: Channel<InvokeResponseBody>,
     ) -> Result<(), String> {
-        stop(&state);
         let control = Arc::new(CaptureControl::default());
-        *state
+        let previous = state
             .0
             .lock()
-            .map_err(|_| "Capture state is unavailable.")? = Some(control.clone());
+            .map_err(|_| "Capture state is unavailable.")?
+            .replace(control.clone());
+        if let Some(previous) = previous {
+            cancel(&previous);
+        }
 
         let portal = Screencast::new().await.map_err(capture_error)?;
         let session = Arc::new(
@@ -53,11 +58,11 @@ mod linux {
                 .map_err(capture_error)?,
         );
         *control
-            .session
+            .pending_session
             .lock()
             .map_err(|_| "Capture session state is unavailable.")? = Some(session.clone());
         if control.cancelled.load(Ordering::Acquire) {
-            close_session(&control);
+            close_pending_session(&control);
             return Err("Screen sharing was cancelled.".to_string());
         }
 
@@ -71,27 +76,27 @@ mod linux {
             )
             .await;
         if control.cancelled.load(Ordering::Acquire) {
-            close_session(&control);
+            close_pending_session(&control);
             return Err("Screen sharing was cancelled.".to_string());
         }
         select_request
-            .map_err(capture_error)?
+            .map_err(|error| portal_error(&control, error))?
             .response()
-            .map_err(capture_error)?;
+            .map_err(|error| portal_error(&control, error))?;
 
         let start_request = portal.start(&session, None, Default::default()).await;
         if control.cancelled.load(Ordering::Acquire) {
-            close_session(&control);
+            close_pending_session(&control);
             return Err("Screen sharing was cancelled.".to_string());
         }
         let response = start_request
-            .map_err(capture_error)?
+            .map_err(|error| portal_error(&control, error))?
             .response()
-            .map_err(capture_error)?;
-        let stream = response
-            .streams()
-            .first()
-            .ok_or_else(|| "The screen capture portal returned no monitor stream.".to_string())?;
+            .map_err(|error| portal_error(&control, error))?;
+        let stream = response.streams().first().ok_or_else(|| {
+            close_pending_session(&control);
+            "The screen capture portal returned no monitor stream.".to_string()
+        })?;
         let node_id = stream.pipe_wire_node_id();
         eprintln!(
             "Native display capture portal stream: node_id={node_id}, size={:?}, position={:?}, source_type={:?}",
@@ -102,9 +107,14 @@ mod linux {
         let fd = portal
             .open_pipe_wire_remote(&session, Default::default())
             .await
-            .map_err(capture_error)?;
+            .map_err(|error| portal_error(&control, error))?;
+        if control.cancelled.load(Ordering::Acquire) {
+            close_pending_session(&control);
+            return Err("Screen sharing was cancelled.".to_string());
+        }
+        // This backend exposes the selected node only after the portal proxies are released.
         control
-            .session
+            .pending_session
             .lock()
             .map_err(|_| "Capture session state is unavailable.")?
             .take();
@@ -119,23 +129,33 @@ mod linux {
                 message.extend_from_slice(error.as_bytes());
                 let _ = errors.send(InvokeResponseBody::Raw(message));
             }
-            close_session(&control);
         });
         Ok(())
     }
 
     pub fn stop(state: &tauri::State<'_, NativeCaptureState>) {
-        if let Ok(mut capture) = state.0.lock() {
-            if let Some(control) = capture.take() {
-                control.cancelled.store(true, Ordering::Release);
-                close_session(&control);
+        let control = state.0.lock().ok().and_then(|mut capture| capture.take());
+        if let Some(control) = control {
+            cancel(&control);
+        }
+    }
+
+    pub fn acknowledge_frame(state: &tauri::State<'_, NativeCaptureState>) {
+        if let Ok(capture) = state.0.lock() {
+            if let Some(control) = capture.as_ref() {
+                control.frame_in_flight.store(false, Ordering::Release);
             }
         }
     }
 
-    fn close_session(control: &Arc<CaptureControl>) {
+    fn cancel(control: &Arc<CaptureControl>) {
+        control.cancelled.store(true, Ordering::Release);
+        close_pending_session(control);
+    }
+
+    fn close_pending_session(control: &Arc<CaptureControl>) {
         let session = control
-            .session
+            .pending_session
             .lock()
             .ok()
             .and_then(|mut session| session.take());
@@ -144,6 +164,11 @@ mod linux {
                 let _ = session.close().await;
             });
         }
+    }
+
+    fn portal_error(control: &Arc<CaptureControl>, error: impl std::fmt::Display) -> String {
+        close_pending_session(control);
+        capture_error(error)
     }
 
     fn run_pipewire(
@@ -169,8 +194,8 @@ mod linux {
 
         let loop_for_frames = mainloop.clone();
         let control_for_frames = control.clone();
-        let received_frame = Rc::new(Cell::new(false));
-        let received_frame_in_process = received_frame.clone();
+        let last_frame = Rc::new(Cell::new(None));
+        let last_frame_in_process = last_frame.clone();
         let stream_error = Rc::new(RefCell::new(None));
         let stream_error_in_callback = stream_error.clone();
         let loop_for_error = mainloop.clone();
@@ -251,6 +276,12 @@ mod linux {
                 let Some(pixels) = source.get(offset..end) else {
                     return;
                 };
+                if control_for_frames
+                    .frame_in_flight
+                    .swap(true, Ordering::AcqRel)
+                {
+                    return;
+                }
                 let Some(frame) = preview_frame(
                     pixels,
                     size.width,
@@ -258,20 +289,27 @@ mod linux {
                     stride,
                     data.format.format(),
                 ) else {
+                    control_for_frames
+                        .frame_in_flight
+                        .store(false, Ordering::Release);
                     return;
                 };
                 if frames.send(InvokeResponseBody::Raw(frame)).is_err() {
+                    control_for_frames
+                        .frame_in_flight
+                        .store(false, Ordering::Release);
                     loop_for_frames.quit();
                     return;
                 }
-                if !received_frame_in_process.get() {
+                if last_frame_in_process.get().is_none() {
                     eprintln!(
                         "Native display capture received first frame: memory={memory_type:?}, bytes={}, stride={stride}",
                         pixels.len()
                     );
                 }
-                received_frame_in_process.set(true);
-                data.last_sample = Some(Instant::now());
+                let now = Instant::now();
+                last_frame_in_process.set(Some(now));
+                data.last_sample = Some(now);
             })
             .register()
             .map_err(capture_error)?;
@@ -282,7 +320,13 @@ mod linux {
         let _stop_timer = mainloop.loop_().add_timer(move |_| {
             if control.cancelled.load(Ordering::Acquire) {
                 loop_for_timer.quit();
-            } else if !received_frame.get() && connection_started.elapsed() >= FIRST_FRAME_TIMEOUT {
+            } else if let Some(last_frame) = last_frame.get() {
+                if last_frame.elapsed() >= FIRST_FRAME_TIMEOUT {
+                    *stream_error_in_timer.borrow_mut() =
+                        Some("The selected monitor stopped producing PipeWire frames.".to_string());
+                    loop_for_timer.quit();
+                }
+            } else if connection_started.elapsed() >= FIRST_FRAME_TIMEOUT {
                 *stream_error_in_timer.borrow_mut() = Some(
                     "The selected monitor did not produce a PipeWire frame within 10 seconds."
                         .to_string(),
@@ -296,9 +340,6 @@ mod linux {
         );
 
         let format = video_format_parameter();
-        eprintln!(
-            "Native display capture advertises raw BGRx/BGRA/RGBx/RGBA; size 1x1..16384x16384 (preferred 1920x1080); framerate 0/1..1000/1 (preferred 8/1); DRM modifier absent; flags AUTOCONNECT|MAP_BUFFERS"
-        );
         let mut parameters = [spa::pod::Pod::from_bytes(&format).ok_or_else(|| {
             "Native display capture produced an invalid format request.".to_string()
         })?];
@@ -389,9 +430,14 @@ mod linux {
         source_stride: u32,
         format: spa::param::video::VideoFormat,
     ) -> Option<Vec<u8>> {
-        let output_width = source_width.min(MAX_PREVIEW_WIDTH);
-        let output_height =
+        let mut output_width = source_width.min(MAX_PREVIEW_WIDTH);
+        let mut output_height =
             ((source_height as u64 * output_width as u64) / source_width as u64).max(1) as u32;
+        if output_height > MAX_PREVIEW_HEIGHT {
+            output_height = MAX_PREVIEW_HEIGHT;
+            output_width =
+                ((source_width as u64 * output_height as u64) / source_height as u64).max(1) as u32;
+        }
         let mut frame = vec![0; FRAME_HEADER_BYTES + (output_width * output_height * 4) as usize];
         for (index, value) in [output_width, output_height, source_width, source_height]
             .into_iter()
@@ -454,6 +500,22 @@ mod linux {
             );
             assert_eq!(&frame[16..], &[1, 2, 3, 255, 4, 5, 6, 255]);
         }
+
+        #[test]
+        fn bounds_portrait_previews() {
+            let source = vec![0; 1080 * 1920 * 4];
+            let frame = preview_frame(
+                &source,
+                1080,
+                1920,
+                1080 * 4,
+                spa::param::video::VideoFormat::BGRx,
+            )
+            .unwrap();
+
+            assert_eq!(&frame[0..8], &[202, 0, 0, 0, 104, 1, 0, 0]);
+            assert_eq!(frame.len(), FRAME_HEADER_BYTES + 202 * 360 * 4);
+        }
     }
 }
 
@@ -477,6 +539,15 @@ pub async fn start_native_display_capture(
         let _ = (state, frames);
         Err("Native display capture is only available on Linux.".to_string())
     }
+}
+
+#[tauri::command]
+pub fn acknowledge_native_display_frame(state: tauri::State<'_, NativeCaptureState>) {
+    #[cfg(target_os = "linux")]
+    linux::acknowledge_frame(&state);
+
+    #[cfg(not(target_os = "linux"))]
+    let _ = state;
 }
 
 #[tauri::command]

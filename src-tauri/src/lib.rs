@@ -14,16 +14,6 @@ pub fn run() {
     configure_linux_webview();
 
     tauri::Builder::default()
-        .on_permission_request(|webview, permission| {
-            if cfg!(target_os = "linux")
-                && webview.label() == "main"
-                && permission == tauri::webview::PermissionKind::DisplayCapture
-            {
-                tauri::webview::PermissionResponse::Allow
-            } else {
-                tauri::webview::PermissionResponse::Default
-            }
-        })
         .setup(|app| {
             let database_path =
                 database::initialize_database(app.handle()).map_err(std::io::Error::other)?;
@@ -44,6 +34,7 @@ pub fn run() {
             garmoth::select_garmoth_character,
             garmoth::upload_garmoth_session,
             market::fetch_market_prices,
+            native_capture::acknowledge_native_display_frame,
             native_capture::start_native_display_capture,
             native_capture::stop_native_display_capture
         ])
