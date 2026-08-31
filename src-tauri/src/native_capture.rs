@@ -291,8 +291,11 @@ mod linux {
                 Range,
                 Fraction,
                 pw::spa::utils::Fraction { num: 8, denom: 1 },
-                pw::spa::utils::Fraction { num: 1, denom: 1 },
-                pw::spa::utils::Fraction { num: 60, denom: 1 }
+                pw::spa::utils::Fraction { num: 0, denom: 1 },
+                pw::spa::utils::Fraction {
+                    num: 1000,
+                    denom: 1
+                }
             ),
         );
         pw::spa::pod::serialize::PodSerializer::serialize(
