@@ -2,7 +2,7 @@
 
 ## Status
 
-Implementation is starting with an operating-system capture feasibility slice. Shakatu Sheets does not yet recognize live
+Implementation is validating an operating-system capture feasibility slice. Shakatu Sheets does not yet recognize live
 loot notifications.
 
 ## Goal
@@ -31,7 +31,7 @@ game process, or inspect BDO network traffic. User-authorized operating-system s
 Capture uses a live operating-system screen-sharing stream rather than repeatedly saving screenshots. The app samples
 approximately 5-10 frames per second and copies only the configured notification rectangle into memory.
 
-The first implementation uses `navigator.mediaDevices.getDisplayMedia` inside the Tauri WebView. The call must come
+Windows and browser development use `navigator.mediaDevices.getDisplayMedia` inside the Tauri WebView. The call must come
 directly from a user action and requests video without audio. There are two separate permission layers:
 
 - Tauri allows its trusted local WebView to request display capture. On Linux this requires Tauri's display-capture
@@ -43,11 +43,16 @@ The current stable Tauri dependency predates the Linux display-capture permissio
 official Tauri revision containing the merged permission-handler work, then return to a stable release as soon as one is
 available.
 
-If WebView capture cannot sustain the required frame rate while BDO is focused, use native platform capture behind the
-same start/stop interface:
+WebKitGTK 2.52 can close the portal session after source selection and then fail `Start` with `Invalid session`. Its
+implementation ignores the `SelectSources` response and requests an embedded cursor without checking whether the portal
+advertises that mode. Linux therefore performs the same user-authorized XDG ScreenCast portal flow natively, requests one
+monitor with a hidden cursor, and consumes the returned PipeWire stream. Sampled RGBA preview frames cross Tauri's local
+binary IPC channel and are not persisted.
+
+Platform capture remains behind the same start/stop interface:
 
 - Windows Graphics Capture for a selected monitor.
-- `xdg-desktop-portal` ScreenCast with PipeWire on Wayland.
+- `xdg-desktop-portal` ScreenCast with PipeWire on Wayland (implemented for the feasibility slice).
 - The portal path on Linux where available instead of compositor-specific capture code.
 
 Wayland intentionally requires an operating-system permission dialog. Browser display-capture permission cannot be

@@ -1,4 +1,4 @@
-import { invoke } from "@tauri-apps/api/core";
+import { Channel, invoke, isTauri } from "@tauri-apps/api/core";
 import type { SessionState } from "../domain/session";
 
 export type MarketPriceSnapshot = {
@@ -85,4 +85,44 @@ export function selectGarmothCharacter(characterId: string) {
 
 export function uploadGarmothSession(input: GarmothUploadInput) {
     return invoke<GarmothUploadResult>("upload_garmoth_session", { input });
+}
+
+export type NativeCaptureFrame = {
+    pixels: Uint8ClampedArray;
+    width: number;
+    height: number;
+    sourceWidth: number;
+    sourceHeight: number;
+};
+
+export function supportsNativeDisplayCapture() {
+    return isTauri() && navigator.userAgent.includes("Linux");
+}
+
+export function startNativeDisplayCapture(
+    onFrame: (frame: NativeCaptureFrame) => void,
+    onError: (message: string) => void,
+) {
+    const frames = new Channel<ArrayBuffer>((message) => {
+        const bytes = new Uint8Array(message);
+        if (bytes.byteLength < 16) return;
+        const header = new DataView(message, 0, 16);
+        const width = header.getUint32(0, true);
+        if (width === 0) {
+            onError(new TextDecoder().decode(bytes.subarray(16)));
+            return;
+        }
+        onFrame({
+            pixels: new Uint8ClampedArray(message, 16),
+            width,
+            height: header.getUint32(4, true),
+            sourceWidth: header.getUint32(8, true),
+            sourceHeight: header.getUint32(12, true),
+        });
+    });
+    return invoke<void>("start_native_display_capture", { frames });
+}
+
+export function stopNativeDisplayCapture() {
+    return invoke<void>("stop_native_display_capture");
 }

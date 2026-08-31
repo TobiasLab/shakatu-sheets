@@ -29,6 +29,7 @@ pub fn run() {
                 database::initialize_database(app.handle()).map_err(std::io::Error::other)?;
             app.manage(database::DatabasePath(database_path));
             app.manage(garmoth::GarmothOperations::default());
+            app.manage(native_capture::NativeCaptureState::default());
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
@@ -42,7 +43,9 @@ pub fn run() {
             garmoth::save_garmoth_api_key,
             garmoth::select_garmoth_character,
             garmoth::upload_garmoth_session,
-            market::fetch_market_prices
+            market::fetch_market_prices,
+            native_capture::start_native_display_capture,
+            native_capture::stop_native_display_capture
         ])
         .run(tauri::generate_context!())
         .expect("error while running Shakatu Sheets");
@@ -50,5 +53,6 @@ pub fn run() {
 mod database;
 mod garmoth;
 mod market;
+mod native_capture;
 
 use tauri::Manager;

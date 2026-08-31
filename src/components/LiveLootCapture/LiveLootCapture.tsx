@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { startNativeDisplayCapture, stopNativeDisplayCapture, supportsNativeDisplayCapture } from "../../api/tauri";
 import type { SessionStatus } from "../../domain/session";
 import {
     DISPLAY_CAPTURE_OPTIONS,
@@ -14,6 +15,10 @@ export function LiveLootCapture({ sessionStatus }: { sessionStatus: SessionStatu
     const video = useRef<HTMLVideoElement>(null);
     const canvas = useRef<HTMLCanvasElement>(null);
     const activeStream = useRef<MediaStream | null>(null);
+    const nativeCapture = useRef(false);
+    const receivedNativeFrame = useRef(false);
+    const sampledFrames = useRef(0);
+    const measurementStarted = useRef(performance.now());
     const requestId = useRef(0);
     const mounted = useRef(true);
     const sessionRunning = useRef(sessionStatus === "running");
@@ -25,12 +30,28 @@ export function LiveLootCapture({ sessionStatus }: { sessionStatus: SessionStatu
     sessionRunning.current = sessionStatus === "running";
 
     function releaseStream() {
+        if (nativeCapture.current) {
+            nativeCapture.current = false;
+            void stopNativeDisplayCapture();
+        }
         stopDisplayCapture(activeStream.current);
         activeStream.current = null;
         if (video.current) video.current.srcObject = null;
         setStatus("idle");
         setSampledFps(0);
         setSourceSize("");
+        sampledFrames.current = 0;
+        measurementStarted.current = performance.now();
+    }
+
+    function recordSample() {
+        sampledFrames.current += 1;
+        const now = performance.now();
+        const elapsed = now - measurementStarted.current;
+        if (elapsed < 1_000) return;
+        setSampledFps((sampledFrames.current * 1_000) / elapsed);
+        sampledFrames.current = 0;
+        measurementStarted.current = now;
     }
 
     function stopCapture() {
@@ -41,7 +62,8 @@ export function LiveLootCapture({ sessionStatus }: { sessionStatus: SessionStatu
     async function startCapture() {
         stopCapture();
         setError("");
-        if (!navigator.mediaDevices?.getDisplayMedia) {
+        const useNativeCapture = supportsNativeDisplayCapture();
+        if (!useNativeCapture && !navigator.mediaDevices?.getDisplayMedia) {
             setError("This WebView does not support operating-system screen capture.");
             return;
         }
@@ -51,6 +73,42 @@ export function LiveLootCapture({ sessionStatus }: { sessionStatus: SessionStatu
         let stream: MediaStream | null = null;
         let captureRequest: Promise<MediaStream> | null = null;
         try {
+            if (useNativeCapture) {
+                nativeCapture.current = true;
+                receivedNativeFrame.current = false;
+                await startNativeDisplayCapture(
+                    (frame) => {
+                        if (!mounted.current || !sessionRunning.current || currentRequest !== requestId.current) {
+                            void stopNativeDisplayCapture();
+                            return;
+                        }
+                        const output = canvas.current;
+                        if (!output) return;
+                        output.width = frame.width;
+                        output.height = frame.height;
+                        output
+                            .getContext("2d")
+                            ?.putImageData(new ImageData(frame.pixels, frame.width, frame.height), 0, 0);
+                        receivedNativeFrame.current = true;
+                        setSourceSize(`${frame.sourceWidth} x ${frame.sourceHeight}`);
+                        setStatus("capturing");
+                        recordSample();
+                    },
+                    (message) => {
+                        if (!mounted.current || currentRequest !== requestId.current) return;
+                        nativeCapture.current = false;
+                        setStatus("idle");
+                        setError(message);
+                    },
+                );
+                if (!mounted.current || !sessionRunning.current || currentRequest !== requestId.current) {
+                    void stopNativeDisplayCapture();
+                    return;
+                }
+                if (!receivedNativeFrame.current) setStatus("connecting");
+                return;
+            }
+
             captureRequest = navigator.mediaDevices.getDisplayMedia(DISPLAY_CAPTURE_OPTIONS);
             stream = await waitForDisplayCapture(captureRequest);
             if (!mounted.current || !sessionRunning.current || currentRequest !== requestId.current) {
@@ -79,6 +137,10 @@ export function LiveLootCapture({ sessionStatus }: { sessionStatus: SessionStatu
             );
             setStatus("capturing");
         } catch (captureError) {
+            if (nativeCapture.current) {
+                nativeCapture.current = false;
+                void stopNativeDisplayCapture();
+            }
             stopDisplayCapture(stream);
             if (!stream && captureRequest) captureRequest.then(stopDisplayCapture, () => {});
             if (!mounted.current || currentRequest !== requestId.current) return;
@@ -93,10 +155,8 @@ export function LiveLootCapture({ sessionStatus }: { sessionStatus: SessionStatu
     }, [sessionStatus, status]);
 
     useEffect(() => {
-        if (status !== "capturing") return;
-        let sampledFrames = 0;
+        if (status !== "capturing" || nativeCapture.current) return;
         let lastVideoTime = -1;
-        let measurementStarted = performance.now();
         const timer = window.setInterval(() => {
             const preview = video.current;
             const output = canvas.current;
@@ -113,14 +173,7 @@ export function LiveLootCapture({ sessionStatus }: { sessionStatus: SessionStatu
                 setSourceSize(`${preview.videoWidth} x ${preview.videoHeight}`);
             }
             output.getContext("2d")?.drawImage(preview, 0, 0, width, height);
-            sampledFrames += 1;
-
-            const now = performance.now();
-            const elapsed = now - measurementStarted;
-            if (elapsed < 1_000) return;
-            setSampledFps((sampledFrames * 1_000) / elapsed);
-            sampledFrames = 0;
-            measurementStarted = now;
+            recordSample();
         }, 125);
         return () => window.clearInterval(timer);
     }, [status]);
@@ -130,6 +183,7 @@ export function LiveLootCapture({ sessionStatus }: { sessionStatus: SessionStatu
             mounted.current = false;
             requestId.current += 1;
             stopDisplayCapture(activeStream.current);
+            if (nativeCapture.current) void stopNativeDisplayCapture();
         },
         [],
     );
