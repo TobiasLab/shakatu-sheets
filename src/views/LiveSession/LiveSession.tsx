@@ -1,4 +1,5 @@
 import { EntryForm } from "../../components/EntryForm/EntryForm";
+import { LiveLootCapture } from "../../components/LiveLootCapture/LiveLootCapture";
 import { LootLedger } from "../../components/LootLedger/LootLedger";
 import { MarniImport } from "../../components/MarniImport/MarniImport";
 import { grindSpots } from "../../data/grindSpots";
@@ -158,6 +159,8 @@ export function LiveSessionView({ controller }: { controller: LiveSessionControl
                     )}
                 </div>
             </section>
+
+            <LiveLootCapture sessionStatus={session.status} />
 
             <MarniImport controller={controller} />
 
