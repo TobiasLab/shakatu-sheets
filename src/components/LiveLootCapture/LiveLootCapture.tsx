@@ -82,6 +82,10 @@ export function LiveLootCapture({ sessionStatus }: { sessionStatus: SessionStatu
                             void stopNativeDisplayCapture();
                             return;
                         }
+                        receivedNativeFrame.current = true;
+                        setSourceSize(`${frame.sourceWidth} x ${frame.sourceHeight}`);
+                        setStatus("capturing");
+                        recordSample();
                         const output = canvas.current;
                         if (!output) return;
                         output.width = frame.width;
@@ -89,10 +93,6 @@ export function LiveLootCapture({ sessionStatus }: { sessionStatus: SessionStatu
                         output
                             .getContext("2d")
                             ?.putImageData(new ImageData(frame.pixels, frame.width, frame.height), 0, 0);
-                        receivedNativeFrame.current = true;
-                        setSourceSize(`${frame.sourceWidth} x ${frame.sourceHeight}`);
-                        setStatus("capturing");
-                        recordSample();
                     },
                     (message) => {
                         if (!mounted.current || currentRequest !== requestId.current) return;
@@ -178,15 +178,15 @@ export function LiveLootCapture({ sessionStatus }: { sessionStatus: SessionStatu
         return () => window.clearInterval(timer);
     }, [status]);
 
-    useEffect(
-        () => () => {
+    useEffect(() => {
+        mounted.current = true;
+        return () => {
             mounted.current = false;
             requestId.current += 1;
             stopDisplayCapture(activeStream.current);
             if (nativeCapture.current) void stopNativeDisplayCapture();
-        },
-        [],
-    );
+        };
+    }, []);
 
     const running = sessionStatus === "running";
     return (
