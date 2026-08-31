@@ -1,6 +1,9 @@
 #[cfg(target_os = "linux")]
 mod linux {
-    use ashpd::desktop::screencast::{CursorMode, Screencast, SelectSourcesOptions, SourceType};
+    use ashpd::desktop::{
+        screencast::{CursorMode, Screencast, SelectSourcesOptions, SourceType},
+        Session,
+    };
     use pipewire as pw;
     use pw::{properties::properties, spa};
     use std::cell::{Cell, RefCell};
@@ -18,7 +21,13 @@ mod linux {
     const FIRST_FRAME_TIMEOUT: Duration = Duration::from_secs(10);
 
     #[derive(Default)]
-    pub struct NativeCaptureState(Mutex<Option<Arc<AtomicBool>>>);
+    pub struct NativeCaptureState(Mutex<Option<Arc<CaptureControl>>>);
+
+    #[derive(Default)]
+    struct CaptureControl {
+        cancelled: AtomicBool,
+        session: Mutex<Option<Arc<Session<Screencast>>>>,
+    }
 
     struct StreamData {
         format: spa::param::video::VideoInfoRaw,
@@ -30,18 +39,29 @@ mod linux {
         frames: Channel<InvokeResponseBody>,
     ) -> Result<(), String> {
         stop(&state);
-        let cancelled = Arc::new(AtomicBool::new(false));
+        let control = Arc::new(CaptureControl::default());
         *state
             .0
             .lock()
-            .map_err(|_| "Capture state is unavailable.")? = Some(cancelled.clone());
+            .map_err(|_| "Capture state is unavailable.")? = Some(control.clone());
 
         let portal = Screencast::new().await.map_err(capture_error)?;
-        let session = portal
-            .create_session(Default::default())
-            .await
-            .map_err(capture_error)?;
-        portal
+        let session = Arc::new(
+            portal
+                .create_session(Default::default())
+                .await
+                .map_err(capture_error)?,
+        );
+        *control
+            .session
+            .lock()
+            .map_err(|_| "Capture session state is unavailable.")? = Some(session.clone());
+        if control.cancelled.load(Ordering::Acquire) {
+            close_session(&control);
+            return Err("Screen sharing was cancelled.".to_string());
+        }
+
+        let select_request = portal
             .select_sources(
                 &session,
                 SelectSourcesOptions::default()
@@ -49,51 +69,80 @@ mod linux {
                     .set_sources(Some(SourceType::Monitor.into()))
                     .set_multiple(false),
             )
-            .await
+            .await;
+        if control.cancelled.load(Ordering::Acquire) {
+            close_session(&control);
+            return Err("Screen sharing was cancelled.".to_string());
+        }
+        select_request
             .map_err(capture_error)?
             .response()
             .map_err(capture_error)?;
-        if cancelled.load(Ordering::Acquire) {
-            return Err("Screen sharing was cancelled.".to_string());
-        }
 
-        let response = portal
-            .start(&session, None, Default::default())
-            .await
+        let start_request = portal.start(&session, None, Default::default()).await;
+        if control.cancelled.load(Ordering::Acquire) {
+            close_session(&control);
+            return Err("Screen sharing was cancelled.".to_string());
+        }
+        let response = start_request
             .map_err(capture_error)?
             .response()
             .map_err(capture_error)?;
-        if cancelled.load(Ordering::Acquire) {
-            return Err("Screen sharing was cancelled.".to_string());
-        }
         let stream = response
             .streams()
             .first()
             .ok_or_else(|| "The screen capture portal returned no monitor stream.".to_string())?;
         let node_id = stream.pipe_wire_node_id();
+        eprintln!(
+            "Native display capture portal stream: node_id={node_id}, size={:?}, position={:?}, source_type={:?}",
+            stream.size(),
+            stream.position(),
+            stream.source_type()
+        );
         let fd = portal
             .open_pipe_wire_remote(&session, Default::default())
             .await
             .map_err(capture_error)?;
+        control
+            .session
+            .lock()
+            .map_err(|_| "Capture session state is unavailable.")?
+            .take();
+        drop(session);
+        drop(portal);
 
         let errors = frames.clone();
         tauri::async_runtime::spawn_blocking(move || {
-            if let Err(error) = run_pipewire(node_id, fd, frames, cancelled) {
+            if let Err(error) = run_pipewire(node_id, fd, frames, control.clone()) {
                 eprintln!("Native display capture stopped: {error}");
                 let mut message = vec![0; FRAME_HEADER_BYTES];
                 message.extend_from_slice(error.as_bytes());
                 let _ = errors.send(InvokeResponseBody::Raw(message));
             }
-            drop(session);
+            close_session(&control);
         });
         Ok(())
     }
 
     pub fn stop(state: &tauri::State<'_, NativeCaptureState>) {
         if let Ok(mut capture) = state.0.lock() {
-            if let Some(cancelled) = capture.take() {
-                cancelled.store(true, Ordering::Release);
+            if let Some(control) = capture.take() {
+                control.cancelled.store(true, Ordering::Release);
+                close_session(&control);
             }
+        }
+    }
+
+    fn close_session(control: &Arc<CaptureControl>) {
+        let session = control
+            .session
+            .lock()
+            .ok()
+            .and_then(|mut session| session.take());
+        if let Some(session) = session {
+            tauri::async_runtime::spawn(async move {
+                let _ = session.close().await;
+            });
         }
     }
 
@@ -101,7 +150,7 @@ mod linux {
         node_id: u32,
         fd: std::os::fd::OwnedFd,
         frames: Channel<InvokeResponseBody>,
-        cancelled: Arc<AtomicBool>,
+        control: Arc<CaptureControl>,
     ) -> Result<(), String> {
         pw::init();
         let mainloop = pw::main_loop::MainLoopRc::new(None).map_err(capture_error)?;
@@ -119,7 +168,7 @@ mod linux {
         .map_err(capture_error)?;
 
         let loop_for_frames = mainloop.clone();
-        let cancelled_for_frames = cancelled.clone();
+        let control_for_frames = control.clone();
         let received_frame = Rc::new(Cell::new(false));
         let received_frame_in_process = received_frame.clone();
         let stream_error = Rc::new(RefCell::new(None));
@@ -130,7 +179,8 @@ mod linux {
                 format: Default::default(),
                 last_sample: None,
             })
-            .state_changed(move |_, _, _, state| {
+            .state_changed(move |_, _, old, state| {
+                eprintln!("Native display capture PipeWire state: {old:?} -> {state:?}");
                 if let pw::stream::StreamState::Error(message) = state {
                     *stream_error_in_callback.borrow_mut() =
                         Some(format!("PipeWire stream error: {message}"));
@@ -149,24 +199,39 @@ mod linux {
                 };
                 if media_type == spa::param::format::MediaType::Video
                     && media_subtype == spa::param::format::MediaSubtype::Raw
+                    && data.format.parse(parameter).is_ok()
                 {
-                    let _ = data.format.parse(parameter);
+                    let size = data.format.size();
+                    let framerate = data.format.framerate();
+                    let max_framerate = data.format.max_framerate();
+                    eprintln!(
+                        "Native display capture negotiated format={:?}, size={}x{}, framerate={}/{}, max_framerate={}/{}, flags={:?}, modifier={}",
+                        data.format.format(),
+                        size.width,
+                        size.height,
+                        framerate.num,
+                        framerate.denom,
+                        max_framerate.num,
+                        max_framerate.denom,
+                        data.format.flags(),
+                        data.format.modifier()
+                    );
                 }
             })
             .process(move |stream, data| {
-                if cancelled_for_frames.load(Ordering::Acquire) {
+                if control_for_frames.cancelled.load(Ordering::Acquire) {
                     loop_for_frames.quit();
                     return;
                 }
+                let Some(mut buffer) = stream.dequeue_buffer() else {
+                    return;
+                };
                 if data
                     .last_sample
                     .is_some_and(|last| last.elapsed() < SAMPLE_INTERVAL)
                 {
                     return;
                 }
-                let Some(mut buffer) = stream.dequeue_buffer() else {
-                    return;
-                };
                 let Some(plane) = buffer.datas_mut().first_mut() else {
                     return;
                 };
@@ -180,6 +245,7 @@ mod linux {
                 };
                 let offset = plane.chunk().offset() as usize;
                 let available = plane.chunk().size() as usize;
+                let memory_type = plane.type_();
                 let Some(source) = plane.data() else { return };
                 let end = offset.saturating_add(available).min(source.len());
                 let Some(pixels) = source.get(offset..end) else {
@@ -198,6 +264,12 @@ mod linux {
                     loop_for_frames.quit();
                     return;
                 }
+                if !received_frame_in_process.get() {
+                    eprintln!(
+                        "Native display capture received first frame: memory={memory_type:?}, bytes={}, stride={stride}",
+                        pixels.len()
+                    );
+                }
                 received_frame_in_process.set(true);
                 data.last_sample = Some(Instant::now());
             })
@@ -208,7 +280,7 @@ mod linux {
         let stream_error_in_timer = stream_error.clone();
         let connection_started = Instant::now();
         let _stop_timer = mainloop.loop_().add_timer(move |_| {
-            if cancelled.load(Ordering::Acquire) {
+            if control.cancelled.load(Ordering::Acquire) {
                 loop_for_timer.quit();
             } else if !received_frame.get() && connection_started.elapsed() >= FIRST_FRAME_TIMEOUT {
                 *stream_error_in_timer.borrow_mut() = Some(
@@ -224,6 +296,9 @@ mod linux {
         );
 
         let format = video_format_parameter();
+        eprintln!(
+            "Native display capture advertises raw BGRx/BGRA/RGBx/RGBA; size 1x1..16384x16384 (preferred 1920x1080); framerate 0/1..1000/1 (preferred 8/1); DRM modifier absent; flags AUTOCONNECT|MAP_BUFFERS"
+        );
         let mut parameters = [spa::pod::Pod::from_bytes(&format).ok_or_else(|| {
             "Native display capture produced an invalid format request.".to_string()
         })?];
@@ -261,11 +336,11 @@ mod linux {
                 Choice,
                 Enum,
                 Id,
-                pw::spa::param::video::VideoFormat::BGRA,
-                pw::spa::param::video::VideoFormat::BGRA,
                 pw::spa::param::video::VideoFormat::BGRx,
-                pw::spa::param::video::VideoFormat::RGBA,
-                pw::spa::param::video::VideoFormat::RGBx
+                pw::spa::param::video::VideoFormat::BGRx,
+                pw::spa::param::video::VideoFormat::BGRA,
+                pw::spa::param::video::VideoFormat::RGBx,
+                pw::spa::param::video::VideoFormat::RGBA
             ),
             pw::spa::pod::property!(
                 pw::spa::param::format::FormatProperties::VideoSize,
