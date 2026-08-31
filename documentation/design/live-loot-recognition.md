@@ -32,16 +32,9 @@ Capture uses a live operating-system screen-sharing stream rather than repeatedl
 approximately 5-10 frames per second and copies only the configured notification rectangle into memory.
 
 Windows and browser development use `navigator.mediaDevices.getDisplayMedia` inside the Tauri WebView. The call must come
-directly from a user action and requests video without audio. There are two separate permission layers:
-
-- Tauri allows its trusted local WebView to request display capture. On Linux this requires Tauri's display-capture
-  permission handler; camera and microphone permissions remain unchanged.
-- The operating system presents its own source picker and the user selects the monitor containing BDO. Browser hints
-  cannot restrict the picker reliably, and Tauri permission never bypasses this dialog or chooses a monitor for the user.
-
-The current stable Tauri dependency predates the Linux display-capture permission hook. The feasibility branch may pin an
-official Tauri revision containing the merged permission-handler work, then return to a stable release as soon as one is
-available.
+directly from a user action and requests video without audio. The operating system presents its own source picker and the
+user selects the monitor containing BDO. Browser hints cannot restrict the picker reliably or choose a monitor for the
+user.
 
 WebKitGTK 2.52 can close the portal session after source selection and then fail `Start` with `Invalid session`. Its
 implementation ignores the `SelectSources` response and requests an embedded cursor without checking whether the portal

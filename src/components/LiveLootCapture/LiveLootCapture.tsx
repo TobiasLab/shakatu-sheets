@@ -5,7 +5,6 @@ import {
     DISPLAY_CAPTURE_OPTIONS,
     displayCaptureErrorMessage,
     stopDisplayCapture,
-    waitForDisplayCapture,
 } from "../../recognition/displayCapture";
 import styles from "./LiveLootCapture.module.css";
 
@@ -71,7 +70,6 @@ export function LiveLootCapture({ sessionStatus }: { sessionStatus: SessionStatu
         const currentRequest = ++requestId.current;
         setStatus("requesting");
         let stream: MediaStream | null = null;
-        let captureRequest: Promise<MediaStream> | null = null;
         try {
             if (useNativeCapture) {
                 nativeCapture.current = true;
@@ -79,7 +77,6 @@ export function LiveLootCapture({ sessionStatus }: { sessionStatus: SessionStatu
                 await startNativeDisplayCapture(
                     (frame) => {
                         if (!mounted.current || !sessionRunning.current || currentRequest !== requestId.current) {
-                            void stopNativeDisplayCapture();
                             return;
                         }
                         receivedNativeFrame.current = true;
@@ -88,29 +85,28 @@ export function LiveLootCapture({ sessionStatus }: { sessionStatus: SessionStatu
                         recordSample();
                         const output = canvas.current;
                         if (!output) return;
-                        output.width = frame.width;
-                        output.height = frame.height;
+                        if (output.width !== frame.width || output.height !== frame.height) {
+                            output.width = frame.width;
+                            output.height = frame.height;
+                        }
                         output
                             .getContext("2d")
                             ?.putImageData(new ImageData(frame.pixels, frame.width, frame.height), 0, 0);
                     },
                     (message) => {
                         if (!mounted.current || currentRequest !== requestId.current) return;
-                        nativeCapture.current = false;
-                        setStatus("idle");
+                        releaseStream();
                         setError(message);
                     },
                 );
                 if (!mounted.current || !sessionRunning.current || currentRequest !== requestId.current) {
-                    void stopNativeDisplayCapture();
                     return;
                 }
                 if (!receivedNativeFrame.current) setStatus("connecting");
                 return;
             }
 
-            captureRequest = navigator.mediaDevices.getDisplayMedia(DISPLAY_CAPTURE_OPTIONS);
-            stream = await waitForDisplayCapture(captureRequest);
+            stream = await navigator.mediaDevices.getDisplayMedia(DISPLAY_CAPTURE_OPTIONS);
             if (!mounted.current || !sessionRunning.current || currentRequest !== requestId.current) {
                 stopDisplayCapture(stream);
                 return;
@@ -137,13 +133,15 @@ export function LiveLootCapture({ sessionStatus }: { sessionStatus: SessionStatu
             );
             setStatus("capturing");
         } catch (captureError) {
+            if (!mounted.current || currentRequest !== requestId.current) {
+                stopDisplayCapture(stream);
+                return;
+            }
             if (nativeCapture.current) {
                 nativeCapture.current = false;
                 void stopNativeDisplayCapture();
             }
             stopDisplayCapture(stream);
-            if (!stream && captureRequest) captureRequest.then(stopDisplayCapture, () => {});
-            if (!mounted.current || currentRequest !== requestId.current) return;
             activeStream.current = null;
             setStatus("idle");
             setError(displayCaptureErrorMessage(captureError));

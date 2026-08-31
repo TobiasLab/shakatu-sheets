@@ -104,21 +104,36 @@ export function startNativeDisplayCapture(
     onError: (message: string) => void,
 ) {
     const frames = new Channel<ArrayBuffer>((message) => {
-        const bytes = new Uint8Array(message);
-        if (bytes.byteLength < 16) return;
-        const header = new DataView(message, 0, 16);
-        const width = header.getUint32(0, true);
-        if (width === 0) {
-            onError(new TextDecoder().decode(bytes.subarray(16)));
-            return;
+        try {
+            const bytes = new Uint8Array(message);
+            if (bytes.byteLength < 16) {
+                onError("Native display capture returned an invalid frame.");
+                return;
+            }
+            const header = new DataView(message, 0, 16);
+            const width = header.getUint32(0, true);
+            if (width === 0) {
+                onError(new TextDecoder().decode(bytes.subarray(16)));
+                return;
+            }
+            const height = header.getUint32(4, true);
+            const sourceWidth = header.getUint32(8, true);
+            const sourceHeight = header.getUint32(12, true);
+            if (
+                height === 0 ||
+                sourceWidth === 0 ||
+                sourceHeight === 0 ||
+                width > 640 ||
+                height > 360 ||
+                bytes.byteLength !== 16 + width * height * 4
+            ) {
+                onError("Native display capture returned an invalid frame.");
+                return;
+            }
+            onFrame({ pixels: new Uint8ClampedArray(message, 16), width, height, sourceWidth, sourceHeight });
+        } finally {
+            void invoke("acknowledge_native_display_frame");
         }
-        onFrame({
-            pixels: new Uint8ClampedArray(message, 16),
-            width,
-            height: header.getUint32(4, true),
-            sourceWidth: header.getUint32(8, true),
-            sourceHeight: header.getUint32(12, true),
-        });
     });
     return invoke<void>("start_native_display_capture", { frames });
 }
