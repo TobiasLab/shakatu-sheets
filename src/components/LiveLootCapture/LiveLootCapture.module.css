@@ -1,0 +1,118 @@
+.CapturePanel {
+    margin-bottom: 13px;
+    padding: 18px 20px;
+    border: 1px solid var(--line-strong);
+    background: var(--surface);
+}
+
+.Intro {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 20px;
+}
+
+.Intro span,
+.Note,
+.PrivacyNote {
+    color: var(--muted);
+    font-size: 11px;
+}
+
+.Intro span {
+    display: block;
+    margin-top: 5px;
+}
+
+.Actions {
+    flex: 0 0 auto;
+}
+
+.Note,
+.PrivacyNote,
+.Error {
+    margin: 12px 0 0;
+}
+
+.Error {
+    color: var(--danger);
+    font-size: 11px;
+}
+
+.CaptureWorkspace {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 220px;
+    gap: 16px;
+    margin-top: 16px;
+}
+
+.Preview {
+    min-height: 180px;
+    border: 1px solid var(--line);
+    background: #020404;
+    display: grid;
+    place-items: center;
+    overflow: hidden;
+}
+
+.SourceVideo {
+    display: none;
+}
+
+.Preview canvas {
+    display: block;
+    max-width: 100%;
+    max-height: 360px;
+}
+
+.Diagnostics {
+    margin: 0;
+    border: 1px solid var(--line);
+    background: var(--clock-background);
+}
+
+.Diagnostics div {
+    padding: 13px 14px;
+    border-bottom: 1px solid var(--line);
+}
+
+.Diagnostics div:last-child {
+    border-bottom: 0;
+}
+
+.Diagnostics dt {
+    color: var(--muted);
+    font-size: 9px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+}
+
+.Diagnostics dd {
+    margin: 5px 0 0;
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 12px;
+}
+
+.Diagnostics .Active {
+    color: var(--mint);
+}
+
+.Diagnostics .Warning {
+    color: var(--gold);
+}
+
+@media (max-width: 760px) {
+    .Intro {
+        align-items: flex-start;
+        flex-direction: column;
+    }
+
+    .Actions,
+    .Actions :global(.button) {
+        width: 100%;
+    }
+
+    .CaptureWorkspace {
+        grid-template-columns: 1fr;
+    }
+}

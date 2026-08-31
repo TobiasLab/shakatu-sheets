@@ -14,6 +14,16 @@ pub fn run() {
     configure_linux_webview();
 
     tauri::Builder::default()
+        .on_permission_request(|webview, permission| {
+            if cfg!(target_os = "linux")
+                && webview.label() == "main"
+                && permission == tauri::webview::PermissionKind::DisplayCapture
+            {
+                tauri::webview::PermissionResponse::Allow
+            } else {
+                tauri::webview::PermissionResponse::Default
+            }
+        })
         .setup(|app| {
             let database_path =
                 database::initialize_database(app.handle()).map_err(std::io::Error::other)?;
