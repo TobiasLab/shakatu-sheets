@@ -36,8 +36,8 @@ directly from a user action and requests video without audio. There are two sepa
 
 - Tauri allows its trusted local WebView to request display capture. On Linux this requires Tauri's display-capture
   permission handler; camera and microphone permissions remain unchanged.
-- The operating system presents its own source picker. The app requests monitor capture, but Tauri permission never
-  bypasses this dialog or chooses a monitor for the user.
+- The operating system presents its own source picker and the user selects the monitor containing BDO. Browser hints
+  cannot restrict the picker reliably, and Tauri permission never bypasses this dialog or chooses a monitor for the user.
 
 The current stable Tauri dependency predates the Linux display-capture permission hook. The feasibility branch may pin an
 official Tauri revision containing the merged permission-handler work, then return to a stable release as soon as one is

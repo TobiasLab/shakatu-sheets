@@ -4,10 +4,11 @@ import {
     DISPLAY_CAPTURE_OPTIONS,
     displayCaptureErrorMessage,
     stopDisplayCapture,
+    waitForDisplayCapture,
 } from "../../recognition/displayCapture";
 import styles from "./LiveLootCapture.module.css";
 
-type CaptureStatus = "idle" | "requesting" | "capturing";
+type CaptureStatus = "idle" | "requesting" | "connecting" | "capturing";
 
 export function LiveLootCapture({ sessionStatus }: { sessionStatus: SessionStatus }) {
     const video = useRef<HTMLVideoElement>(null);
@@ -48,13 +49,16 @@ export function LiveLootCapture({ sessionStatus }: { sessionStatus: SessionStatu
         const currentRequest = ++requestId.current;
         setStatus("requesting");
         let stream: MediaStream | null = null;
+        let captureRequest: Promise<MediaStream> | null = null;
         try {
-            stream = await navigator.mediaDevices.getDisplayMedia(DISPLAY_CAPTURE_OPTIONS);
+            captureRequest = navigator.mediaDevices.getDisplayMedia(DISPLAY_CAPTURE_OPTIONS);
+            stream = await waitForDisplayCapture(captureRequest);
             if (!mounted.current || !sessionRunning.current || currentRequest !== requestId.current) {
                 stopDisplayCapture(stream);
                 return;
             }
 
+            setStatus("connecting");
             const preview = video.current;
             if (!preview) throw new Error("The capture preview is unavailable.");
             activeStream.current = stream;
@@ -76,6 +80,7 @@ export function LiveLootCapture({ sessionStatus }: { sessionStatus: SessionStatu
             setStatus("capturing");
         } catch (captureError) {
             stopDisplayCapture(stream);
+            if (!stream && captureRequest) captureRequest.then(stopDisplayCapture, () => {});
             if (!mounted.current || currentRequest !== requestId.current) return;
             activeStream.current = null;
             setStatus("idle");
@@ -140,24 +145,34 @@ export function LiveLootCapture({ sessionStatus }: { sessionStatus: SessionStatu
                     <span>Select the monitor showing BDO through the operating-system sharing dialog.</span>
                 </div>
                 <div className={styles.Actions}>
-                    {status === "capturing" ? (
+                    {status !== "idle" ? (
                         <button className="button" type="button" onClick={stopCapture}>
-                            Stop capture
+                            {status === "capturing" ? "Stop capture" : "Cancel request"}
                         </button>
                     ) : (
                         <button
                             className="button primary-button"
                             type="button"
-                            disabled={!running || status === "requesting"}
+                            disabled={!running}
                             onClick={startCapture}
                         >
-                            {status === "requesting" ? "Waiting for system..." : "Choose capture source"}
+                            Choose capture source
                         </button>
                     )}
                 </div>
             </div>
 
             {!running && <p className={styles.Note}>Start the grind session before starting screen capture.</p>}
+            {status === "requesting" && (
+                <p className={styles.Note} role="status">
+                    Waiting for the operating-system monitor picker...
+                </p>
+            )}
+            {status === "connecting" && (
+                <p className={styles.Note} role="status">
+                    Monitor selected. Waiting for the first video frame...
+                </p>
+            )}
             {error && (
                 <p className={styles.Error} role="alert">
                     {error}
