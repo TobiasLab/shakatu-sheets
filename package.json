@@ -7,6 +7,9 @@
     "scripts": {
         "dev": "vite",
         "build": "tsc --noEmit && vite build",
+        "benchmark:loot:sample": "node scripts/sample-loot-video.mjs",
+        "benchmark:loot:track": "node scripts/benchmark-loot-tracker.mjs",
+        "benchmark:loot:ocr": "node scripts/benchmark-loot-ocr.mjs",
         "benchmark:marni": "node scripts/benchmark-marni.mjs",
         "bundle:linux": "NO_STRIP=1 tauri build",
         "check": "biome check .",

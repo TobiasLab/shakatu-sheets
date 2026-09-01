@@ -2,8 +2,9 @@
 
 ## Status
 
-Implementation is validating an operating-system capture feasibility slice. Shakatu Sheets does not yet recognize live
-loot notifications.
+Linux capture feasibility is established. The first native-resolution offline benchmark detects events and recognizes
+stable-row items and quantities exactly on its held-out sequence. Shakatu Sheets does not yet recognize live loot
+notifications; more layouts and end-to-end integration remain required.
 
 ## Goal
 
@@ -17,7 +18,8 @@ game process, or inspect BDO network traffic. User-authorized operating-system s
 ## Initial Scope
 
 - English BDO client.
-- 100% UI scale first; add 80% only after the 100% pipeline is measured and stable.
+- 80% UI scale first because that is the available labeled video source; add 100% after the initial pipeline is measured.
+- Benchmark the initial 3440x1440 ultrawide layout and an independently calibrated 16:9 layout before release.
 - Linux Wayland first, followed by Windows using the same browser capture interface where possible.
 - A fixed loot-notification location selected by the user.
 - User-triggered start and stop controls with a persistent capture indicator.
@@ -105,7 +107,7 @@ should be added automatically and uncertain events should wait for review.
 1. On Linux Wayland, prove that the portal stream supplies at least five sampled frames per second for ten minutes while
    BDO is focused, then confirm immediate stream release on stop.
 2. Confirm the same capture lifecycle on Windows WebView2.
-3. Add rectangle selection and an in-memory preview at 100% UI scale.
+3. Add rectangle selection and an in-memory preview for the initial 80% UI-scale layout.
 4. Build an external benchmark from labeled screenshots and a 5-10 FPS frame burst across bright, dark, crowded, and
    effect-heavy scenes.
 5. Implement row detection and temporal event tracking, including consecutive identical drops.
@@ -113,7 +115,11 @@ should be added automatically and uncertain events should wait for review.
 7. Add the editable recent-event feed and session integration.
 8. Measure event accuracy, missed events, duplicate events, frame cadence, CPU use, and memory use on held-out samples.
 9. Replace prototype auto-acceptance with measured confidence gating before release.
-10. Consider 80% UI scale only if normalization preserves acceptable results.
+10. Add 100% UI-scale and 16:9 benchmark sets only after normalization preserves acceptable results.
+
+The current 3440x1440, 80%-UI-scale baseline has 24/24 development and 11/11 test event matches. Dictionary-constrained
+stable-row OCR also has 24/24 development and 11/11 test item-and-quantity matches. This small benchmark does not yet
+measure tracked-event-to-OCR handoff, live native-resolution ROI delivery, other layouts, or release accuracy.
 
 ## Success Criteria
 
