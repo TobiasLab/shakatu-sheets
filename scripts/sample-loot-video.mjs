@@ -1,6 +1,7 @@
 import { spawn } from "node:child_process";
-import { mkdir, readFile, readdir, rm, writeFile } from "node:fs/promises";
+import { mkdir, readdir, readFile, rm, writeFile } from "node:fs/promises";
 import { basename, dirname, join, resolve } from "node:path";
+import { normalizeItem } from "./loot-benchmark-core.mjs";
 
 const arguments_ = process.argv.slice(2);
 if (arguments_.includes("--help") || arguments_.length === 0) {
@@ -54,7 +55,11 @@ function validateManifest(value) {
         ) {
             throw new Error("manifest.itemDictionary must contain item names when provided.");
         }
-        if (new Set(value.itemDictionary).size !== value.itemDictionary.length) {
+        const normalizedItems = value.itemDictionary.map(normalizeItem);
+        if (
+            normalizedItems.some((item) => item.length === 0) ||
+            new Set(normalizedItems).size !== normalizedItems.length
+        ) {
             throw new Error("manifest.itemDictionary must not contain duplicate item names.");
         }
     }
@@ -96,6 +101,7 @@ function validateManifest(value) {
             throw new Error(`manifest.segments[${index}].events must be an array when provided.`);
         }
         const eventIds = new Set();
+        let previousFirstFrame = -1;
         for (const [eventIndex, event] of (segment.events ?? []).entries()) {
             const field = `manifest.segments[${index}].events[${eventIndex}]`;
             if (typeof event.id !== "string" || event.id.length === 0) throw new Error(`${field}.id must be a string.`);
@@ -113,17 +119,38 @@ function validateManifest(value) {
                     throw new Error(`${field}.${frameField} must be a non-negative integer.`);
                 }
             }
-            if (event.stableFrame < event.firstFrame || event.lastFrame < event.stableFrame) {
-                throw new Error(`${field} frame bounds must be ordered.`);
+            if (
+                event.stableFrame < event.firstFrame ||
+                event.lastFrame < event.stableFrame ||
+                event.stableFrame + 2 > event.lastFrame
+            ) {
+                throw new Error(`${field} frame bounds must be ordered and include three stable frames.`);
             }
+            if (event.firstFrame < previousFirstFrame) {
+                throw new Error(`manifest.segments[${index}].events must be ordered by firstFrame.`);
+            }
+            previousFirstFrame = event.firstFrame;
             if (event.baseline !== undefined && typeof event.baseline !== "boolean") {
                 throw new Error(`${field}.baseline must be a boolean when provided.`);
             }
-            if (event.baseline && event.firstFrame !== 0) {
-                throw new Error(`${field}.firstFrame must be 0 for a baseline row.`);
+            if ((event.firstFrame === 0) !== (event.baseline === true)) {
+                throw new Error(`${field} frame-zero events must be marked baseline.`);
             }
             if (event.truncated !== undefined && typeof event.truncated !== "boolean") {
                 throw new Error(`${field}.truncated must be a boolean when provided.`);
+            }
+        }
+    }
+    for (let leftIndex = 0; leftIndex < value.segments.length; leftIndex += 1) {
+        const left = value.segments[leftIndex];
+        for (let rightIndex = leftIndex + 1; rightIndex < value.segments.length; rightIndex += 1) {
+            const right = value.segments[rightIndex];
+            if (
+                left.split !== right.split &&
+                left.startSeconds < right.endSeconds &&
+                right.startSeconds < left.endSeconds
+            ) {
+                throw new Error(`Segments ${left.id} and ${right.id} overlap across benchmark splits.`);
             }
         }
     }
@@ -137,7 +164,7 @@ function run(command, parameters, captureOutput = false) {
         child.stdout?.on("data", (chunk) => stdout.push(chunk));
         child.stderr?.on("data", (chunk) => stderr.push(chunk));
         child.on("error", (error) => rejectRun(new Error(`Could not start ${command}: ${error.message}`)));
-        child.on("exit", (code) => {
+        child.on("close", (code) => {
             if (code === 0) {
                 resolveRun(Buffer.concat(stdout).toString("utf8"));
                 return;
@@ -199,6 +226,8 @@ for (const segment of manifest.segments) {
         String(segment.startSeconds),
         "-i",
         source,
+        "-map",
+        "0:v:0",
         "-t",
         String(segment.endSeconds - segment.startSeconds),
         "-an",
@@ -213,13 +242,18 @@ for (const segment of manifest.segments) {
         if (event.lastFrame >= frameCount) {
             throw new Error(`${segment.id} event ${event.id} ends outside its ${frameCount} generated frames.`);
         }
+        if (event.truncated === true && event.lastFrame !== frameCount - 1) {
+            throw new Error(`${segment.id} truncated event ${event.id} must end on the final frame.`);
+        }
     }
     for (let frame = 0; frame < frameCount; frame += 1) {
         const visibleRows = (segment.events ?? []).filter(
             (event) => event.firstFrame <= frame && event.lastFrame >= frame,
         ).length;
         if (visibleRows > manifest.maxRows) {
-            throw new Error(`${segment.id} frame ${frame} has ${visibleRows} rows, exceeding maxRows ${manifest.maxRows}.`);
+            throw new Error(
+                `${segment.id} frame ${frame} has ${visibleRows} rows, exceeding maxRows ${manifest.maxRows}.`,
+            );
         }
     }
     await run("ffmpeg", [
