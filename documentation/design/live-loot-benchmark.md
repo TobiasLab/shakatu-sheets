@@ -120,7 +120,9 @@ as baselines, preserves retained identities when rows shift upward, and confirms
 frame before appending them at the bottom. Each event uses the first three consecutive detected row observations after its
 entrance frame. OCR accepts only an item-and-quantity pair supported by at least two distinct frames, so independently
 conflicting item and quantity readings cannot be combined. Labels are joined only after inference for chronological
-scoring. Use `--development-only` while tuning.
+scoring. The tracker and end-to-end commands decode packed RGBA frames and call the browser-safe production analyzer,
+tracker, and OCR parsers in `src/recognition/liveLoot.ts`; the benchmark is therefore a replay adapter around the production
+core rather than a separate implementation. Use `--development-only` while tuning.
 
 ## Native-Resolution Baseline
 

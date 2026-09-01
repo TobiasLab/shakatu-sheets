@@ -1,5 +1,6 @@
 import { readFile } from "node:fs/promises";
 import { resolve } from "node:path";
+import { analyzeLootRoiFrame, lootFingerprintDistance } from "../src/recognition/liveLoot.ts";
 import { benchmarkEvents, compareEvents, trackRowEvents, validateGeneratedManifest } from "./loot-benchmark-core.mjs";
 import { createLootBenchmarkVision } from "./loot-benchmark-vision.mjs";
 
@@ -13,15 +14,12 @@ if (!manifestPath || process.argv.includes("--help")) {
 
 const manifest = JSON.parse(await readFile(manifestPath, "utf8"));
 validateGeneratedManifest(manifest);
-const {
-    calibrateGeometry,
-    decodeFrames,
-    detectRows,
-    extractFeatures,
-    extractFingerprints,
-    extractScoreProfiles,
-    fingerprintDistance,
-} = createLootBenchmarkVision({ manifestPath, manifest });
+const width = manifest.roi.pixels.width;
+const height = manifest.roi.pixels.height;
+const { calibrateGeometry, decodeFrames, extractFeatures, extractScoreProfiles } = createLootBenchmarkVision({
+    manifestPath,
+    manifest,
+});
 
 function activeCount(events, frame) {
     return events.filter((event) => event.firstFrame <= frame && event.lastFrame >= frame).length;
@@ -43,9 +41,19 @@ for (const segment of selectedSegments) {
 const development = prepared.filter(({ segment }) => segment.split === "development");
 if (development.length === 0) throw new Error("The tracker benchmark requires at least one development segment.");
 const geometry = calibrateGeometry(development);
+const profile = {
+    width,
+    height,
+    maxRows: manifest.maxRows,
+    bottomCenter: geometry.bottomCenter,
+    spacing: geometry.spacing,
+    rowThreshold: geometry.threshold,
+};
 for (const preparedSegment of prepared) {
     preparedSegment.features = extractFeatures(preparedSegment.profiles, geometry.bottomCenter, geometry.spacing);
-    preparedSegment.fingerprints = extractFingerprints(preparedSegment.frames, geometry.bottomCenter, geometry.spacing);
+    preparedSegment.rows = preparedSegment.frames.map((pixels) =>
+        analyzeLootRoiFrame({ width, height, pixels }, profile),
+    );
 }
 console.log(`Development row geometry: bottom ${geometry.bottomCenter}px, spacing ${geometry.spacing}px`);
 console.log(`Development row threshold: ${geometry.threshold} (${geometry.errors} slot errors)`);
@@ -53,9 +61,8 @@ console.log(
     "Replacement gate: bottom/stack signature 0.1, brightness reset 2x threshold, average strength 2x, maximum fade drop 0.5x",
 );
 let failed = false;
-for (const { segment, features, fingerprints } of prepared) {
-    const rows = detectRows(features, fingerprints, geometry);
-    const actual = trackRowEvents(rows, geometry.threshold, fingerprintDistance)
+for (const { segment, features, rows } of prepared) {
+    const actual = trackRowEvents(rows, geometry.threshold, lootFingerprintDistance)
         .filter((event) => !event.baseline)
         .map((event) => event.firstFrame);
     const expected = expectedFrames(segment);
@@ -72,7 +79,8 @@ for (const { segment, features, fingerprints } of prepared) {
         const expectedBirths = new Set(expected);
         for (let frame = 1; frame < rows.length; frame += 1) {
             if (rows[frame].count === 0 || rows[frame].count !== rows[frame - 1].count) continue;
-            const signatureChange = fingerprintDistance(rows[frame].fingerprint, rows[frame - 1].fingerprint) * 1_000;
+            const signatureChange =
+                lootFingerprintDistance(rows[frame].fingerprint, rows[frame - 1].fingerprint) * 1_000;
             const strengthChange = rows[frame].strength - rows[frame - 1].strength;
             if (expectedBirths.has(frame) || signatureChange >= 100 || strengthChange >= 200) {
                 console.log(

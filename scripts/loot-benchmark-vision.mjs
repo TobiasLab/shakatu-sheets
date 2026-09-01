@@ -23,7 +23,7 @@ export function createLootBenchmarkVision({ manifestPath, manifest }) {
                     "-f",
                     "rawvideo",
                     "-pix_fmt",
-                    "rgb24",
+                    "rgba",
                     "pipe:1",
                 ],
                 { stdio: ["ignore", "pipe", "pipe"] },
@@ -41,7 +41,7 @@ export function createLootBenchmarkVision({ manifestPath, manifest }) {
                     return;
                 }
                 const bytes = Buffer.concat(stdout);
-                const frameSize = width * height * 3;
+                const frameSize = width * height * 4;
                 if (bytes.length !== frameSize * segment.frameCount) {
                     rejectDecode(new Error(`${segment.id}: expected ${segment.frameCount} decoded frames.`));
                     return;
@@ -64,8 +64,8 @@ export function createLootBenchmarkVision({ manifestPath, manifest }) {
         const chroma =
             Math.max(frame[offset], frame[offset + 1], frame[offset + 2]) -
             Math.min(frame[offset], frame[offset + 1], frame[offset + 2]);
-        const horizontal = Math.min(luminance(frame, offset - 6), luminance(frame, offset + 6));
-        const vertical = Math.min(luminance(frame, offset - width * 6), luminance(frame, offset + width * 6));
+        const horizontal = Math.min(luminance(frame, offset - 8), luminance(frame, offset + 8));
+        const vertical = Math.min(luminance(frame, offset - width * 8), luminance(frame, offset + width * 8));
         return light >= 115 && chroma <= 55 && light - Math.min(horizontal, vertical) >= 18;
     }
 
@@ -75,7 +75,7 @@ export function createLootBenchmarkVision({ manifestPath, manifest }) {
         const right = Math.round(width * 0.96);
         for (let y = centerY - 6; y <= centerY + 6; y += 1) {
             for (let x = left; x < right; x += 1) {
-                const offset = (y * width + x) * 3;
+                const offset = (y * width + x) * 4;
                 if (isGlyphPixel(frame, offset)) score += 1;
             }
         }
@@ -141,82 +141,6 @@ export function createLootBenchmarkVision({ manifestPath, manifest }) {
         return best;
     }
 
-    function rowFingerprint(frame, centerY) {
-        const left = Math.round(width * 0.27);
-        const right = Math.round(width * 0.96);
-        const quantityLeft = Math.round(width * 0.58);
-
-        function project(startX) {
-            const projection = new Uint8Array(right - startX);
-            for (let x = startX; x < right; x += 1) {
-                let brightPixels = 0;
-                for (let y = centerY - 9; y <= centerY + 9; y += 1) {
-                    const offset = (y * width + x) * 3;
-                    const chroma =
-                        Math.max(frame[offset], frame[offset + 1], frame[offset + 2]) -
-                        Math.min(frame[offset], frame[offset + 1], frame[offset + 2]);
-                    if (luminance(frame, offset) >= 150 && chroma <= 40) brightPixels += 1;
-                }
-                projection[x - startX] = brightPixels;
-            }
-            return projection;
-        }
-
-        return { full: project(left), quantity: project(quantityLeft) };
-    }
-
-    function extractFingerprints(frames, bottomCenter, spacing) {
-        return frames.map((frame) =>
-            Array.from({ length: maxRows }, (_, index) =>
-                rowFingerprint(frame, bottomCenter - (maxRows - index - 1) * spacing),
-            ),
-        );
-    }
-
-    function fingerprintDistance(left, right) {
-        if (!left || !right) return 0;
-
-        function cosineDistance(leftProjection, rightProjection) {
-            let dot = 0;
-            let leftLength = 0;
-            let rightLength = 0;
-            for (let index = 0; index < leftProjection.length; index += 1) {
-                dot += leftProjection[index] * rightProjection[index];
-                leftLength += leftProjection[index] ** 2;
-                rightLength += rightProjection[index] ** 2;
-            }
-            if (leftLength === 0 || rightLength === 0) return leftLength === rightLength ? 0 : 1;
-            return 1 - dot / Math.sqrt(leftLength * rightLength);
-        }
-
-        return Math.max(cosineDistance(left.full, right.full), cosineDistance(left.quantity, right.quantity));
-    }
-
-    function detectRows(features, fingerprints, geometry) {
-        return features.map((scores, frame) => {
-            const detected = scores.map((score) => score >= geometry.threshold);
-            let count = 0;
-            for (let slot = maxRows - 1; slot >= 0 && detected[slot]; slot -= 1) count += 1;
-            const occupied = detected.map((_, slot) => slot >= maxRows - count);
-            const observations = [];
-            for (let slot = maxRows - count; slot < maxRows; slot += 1) {
-                observations.push({
-                    slot,
-                    centerY: geometry.bottomCenter - (maxRows - slot - 1) * geometry.spacing,
-                    score: scores[slot],
-                    fingerprint: fingerprints[frame][slot],
-                });
-            }
-            return {
-                count: occupied.filter(Boolean).length,
-                strength: scores.reduce((total, score, index) => total + (occupied[index] ? score : 0), 0),
-                fingerprint: count === 0 ? undefined : fingerprints[frame][maxRows - 1],
-                fingerprints: count === 0 ? [] : fingerprints[frame].slice(maxRows - count),
-                observations,
-            };
-        });
-    }
-
     function quantityImage(frame, centerY, threshold) {
         const left = Math.round(width * 0.25);
         const right = Math.round(width * 0.8);
@@ -229,7 +153,7 @@ export function createLootBenchmarkVision({ manifestPath, manifest }) {
         const pixels = Buffer.alloc(imageWidth * imageHeight, 255);
         for (let y = top; y < bottom; y += 1) {
             for (let x = left; x < right; x += 1) {
-                const offset = (y * width + x) * 3;
+                const offset = (y * width + x) * 4;
                 const chroma =
                     Math.max(frame[offset], frame[offset + 1], frame[offset + 2]) -
                     Math.min(frame[offset], frame[offset + 1], frame[offset + 2]);
@@ -250,14 +174,10 @@ export function createLootBenchmarkVision({ manifestPath, manifest }) {
         calibrateGeometry,
         calibrateRowThreshold,
         decodeFrames,
-        detectRows,
         extractFeatures,
-        extractFingerprints,
         extractScoreProfiles,
-        fingerprintDistance,
         luminance,
         quantityImage,
-        rowFingerprint,
         rowScore,
     };
 }
