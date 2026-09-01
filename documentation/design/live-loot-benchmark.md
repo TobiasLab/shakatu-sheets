@@ -72,7 +72,8 @@ Annotate each event after sampling:
 
 Event IDs describe appearances, not item names. Two consecutive identical drops must have different event IDs. Keep
 development, validation, and test segments separated by time range to prevent nearly identical neighboring frames from
-appearing in different splits.
+appearing in different splits. List events by `firstFrame`; when multiple events begin on the same sampled frame, list
+them in their displayed top-to-bottom order. The tracker and OCR commands validate generated annotations before decoding.
 
 Set `baseline` to `true` when a row is already visible in frame 0. It must be tracked until it disappears but must not emit
 a new event. Set `truncated` to `true` when the segment ends before a row disappears; its recorded `lastFrame` is the final
@@ -86,9 +87,10 @@ Run the initial row detector and temporal tracker against generated frames with:
 npm run benchmark:loot:track -- /path/to/benchmark-output/manifest.json
 ```
 
-The benchmark calibrates row geometry and the row threshold exclusively from development segments. Replacement tracking
-uses a text-focused signature, minimum average row strength, and maximum fade drop. Contact-sheet enlargement is never
-passed to the detector. Use `--development-only` while tuning so held-out segments are not evaluated accidentally.
+The benchmark calibrates row geometry and the row threshold exclusively from annotated development segments. Replacement
+tracking uses text-focused signatures for the bottom row and the full stack, a brightness-reset signal, minimum average
+row strength, and maximum fade drop. Contact-sheet enlargement is never passed to the detector. Use `--development-only`
+while tuning so held-out segments are not decoded or evaluated accidentally.
 
 ## Stable-Row OCR
 
@@ -99,10 +101,10 @@ npm run benchmark:loot:ocr -- /path/to/benchmark-output/manifest.json
 ```
 
 The benchmark creates one local Tesseract worker, processes three adjacent stable frames at three brightness thresholds,
-and requires a unique consensus supported by at least two readings. It parses the terminal `x <quantity>` suffix and
+and requires a unique consensus supported by at least two distinct frames. It parses the terminal `x <quantity>` suffix and
 fuzzy-matches the preceding text against `itemDictionary`. The development-supported `x |` and `x I` readings are treated
 as quantity `1`. Invalid, distant, or tied readings are withheld rather than guessed. Use `--development-only` while
-tuning OCR gates.
+tuning OCR gates. A wrong or withheld held-out item or quantity makes the command exit unsuccessfully.
 
 ## Native-Resolution Baseline
 

@@ -1,6 +1,13 @@
 import { spawn } from "node:child_process";
 import { readFile } from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
+import {
+    benchmarkEvents,
+    calibrateThreshold,
+    compareEvents,
+    stackShifted,
+    validateGeneratedManifest,
+} from "./loot-benchmark-core.mjs";
 
 const manifestPath = process.argv[2] ? resolve(process.argv[2]) : undefined;
 const debug = process.argv.includes("--debug");
@@ -11,13 +18,11 @@ if (!manifestPath || process.argv.includes("--help")) {
 }
 
 const manifest = JSON.parse(await readFile(manifestPath, "utf8"));
+validateGeneratedManifest(manifest);
 const benchmarkDirectory = dirname(manifestPath);
 const width = manifest.roi?.pixels?.width;
 const height = manifest.roi?.pixels?.height;
 const maxRows = manifest.maxRows;
-if (![width, height, maxRows].every(Number.isInteger)) {
-    throw new Error("The generated manifest must contain integer ROI dimensions and maxRows.");
-}
 
 function decodeFrames(segment) {
     return new Promise((resolveDecode, rejectDecode) => {
@@ -44,7 +49,7 @@ function decodeFrames(segment) {
         child.stdout.on("data", (chunk) => stdout.push(chunk));
         child.stderr.on("data", (chunk) => stderr.push(chunk));
         child.on("error", rejectDecode);
-        child.on("exit", (code) => {
+        child.on("close", (code) => {
             if (code !== 0) {
                 rejectDecode(new Error(`ffmpeg exited with code ${code}: ${Buffer.concat(stderr).toString("utf8")}`));
                 return;
@@ -70,11 +75,9 @@ function luminance(frame, offset) {
 
 function isGlyphPixel(frame, offset) {
     const light = luminance(frame, offset);
-    const chroma = Math.max(frame[offset], frame[offset + 1], frame[offset + 2]) - Math.min(
-        frame[offset],
-        frame[offset + 1],
-        frame[offset + 2],
-    );
+    const chroma =
+        Math.max(frame[offset], frame[offset + 1], frame[offset + 2]) -
+        Math.min(frame[offset], frame[offset + 1], frame[offset + 2]);
     const horizontal = Math.min(luminance(frame, offset - 6), luminance(frame, offset + 6));
     const vertical = Math.min(luminance(frame, offset - width * 6), luminance(frame, offset + width * 6));
     return light >= 115 && chroma <= 55 && light - Math.min(horizontal, vertical) >= 18;
@@ -104,11 +107,9 @@ function rowFingerprint(frame, centerY) {
             let brightPixels = 0;
             for (let y = centerY - 9; y <= centerY + 9; y += 1) {
                 const offset = (y * width + x) * 3;
-                const chroma = Math.max(frame[offset], frame[offset + 1], frame[offset + 2]) - Math.min(
-                    frame[offset],
-                    frame[offset + 1],
-                    frame[offset + 2],
-                );
+                const chroma =
+                    Math.max(frame[offset], frame[offset + 1], frame[offset + 2]) -
+                    Math.min(frame[offset], frame[offset + 1], frame[offset + 2]);
                 if (luminance(frame, offset) >= 150 && chroma <= 40) brightPixels += 1;
             }
             projection[x - startX] = brightPixels;
@@ -148,9 +149,7 @@ function extractScoreProfiles(frames) {
 
 function extractFeatures(profiles, bottomCenter, spacing) {
     return profiles.map((profile) =>
-        Array.from({ length: maxRows }, (_, index) =>
-            profile[bottomCenter - (maxRows - index - 1) * spacing],
-        ),
+        Array.from({ length: maxRows }, (_, index) => profile[bottomCenter - (maxRows - index - 1) * spacing]),
     );
 }
 
@@ -170,26 +169,20 @@ function calibrateRowThreshold(trainingSets) {
     const examples = [];
     for (const { segment, features } of trainingSets) {
         for (let frame = 0; frame < features.length; frame += 1) {
-            const count = activeCount(segment.events, frame);
+            const count = activeCount(benchmarkEvents(segment), frame);
             for (let slot = 0; slot < maxRows; slot += 1) {
                 examples.push({ score: features[frame][slot], occupied: slot >= maxRows - count });
             }
         }
     }
-    const candidates = [...new Set(examples.map(({ score }) => score))].sort((left, right) => left - right);
-    let best = { threshold: 0, errors: Number.POSITIVE_INFINITY };
-    for (const threshold of candidates) {
-        const errors = examples.filter(({ score, occupied }) => (score >= threshold) !== occupied).length;
-        if (errors < best.errors) best = { threshold, errors };
-    }
-    return best;
+    return calibrateThreshold(examples);
 }
 
 function calibrateGeometry(trainingSets) {
     let best;
     for (let bottomCenter = Math.round(height * 0.58); bottomCenter <= Math.round(height * 0.88); bottomCenter += 1) {
         for (let spacing = Math.round(height * 0.11); spacing <= Math.round(height * 0.18); spacing += 1) {
-            if (bottomCenter - (maxRows - 1) * spacing < 8) continue;
+            if (bottomCenter + 9 >= height || bottomCenter - (maxRows - 1) * spacing < 9) continue;
             const sets = trainingSets.map(({ segment, profiles }) => ({
                 segment,
                 features: extractFeatures(profiles, bottomCenter, spacing),
@@ -200,6 +193,7 @@ function calibrateGeometry(trainingSets) {
             }
         }
     }
+    if (!best) throw new Error("The ROI is too short for the configured maxRows and row geometry.");
     return best;
 }
 
@@ -213,6 +207,7 @@ function detectRows(features, fingerprints, threshold) {
             count: occupied.filter(Boolean).length,
             strength: scores.reduce((total, score, index) => total + (occupied[index] ? score : 0), 0),
             fingerprint: count === 0 ? undefined : fingerprints[frame][maxRows - 1],
+            fingerprints: count === 0 ? [] : fingerprints[frame].slice(maxRows - count),
         };
     });
 }
@@ -229,11 +224,15 @@ function trackEvents(rows, rowThreshold) {
         const additions = Math.max(0, current.count - previous.count);
         for (let index = 0; index < additions; index += 1) events.push(frame);
         const strengthChange = current.strength - previous.strength;
+        const replacementEvidence =
+            fingerprintDistance(current.fingerprint, previous.fingerprint) >= 0.1 ||
+            stackShifted(previous.fingerprints, current.fingerprints, fingerprintDistance) ||
+            strengthChange >= rowThreshold * 2;
         if (
             additions === 0 &&
             current.count > 0 &&
             current.count === previous.count &&
-            fingerprintDistance(current.fingerprint, previous.fingerprint) >= 0.1 &&
+            replacementEvidence &&
             current.strength / current.count >= rowThreshold * 2 &&
             strengthChange >= -rowThreshold / 2
         ) {
@@ -243,32 +242,15 @@ function trackEvents(rows, rowThreshold) {
     return events;
 }
 
-function compareEvents(expected, actual, tolerance = 1) {
-    const remaining = [...actual];
-    const matches = [];
-    const missed = [];
-    for (const frame of expected) {
-        let bestIndex = -1;
-        let bestDistance = Number.POSITIVE_INFINITY;
-        for (let index = 0; index < remaining.length; index += 1) {
-            const distance = Math.abs(remaining[index] - frame);
-            if (distance <= tolerance && distance < bestDistance) {
-                bestIndex = index;
-                bestDistance = distance;
-            }
-        }
-        if (bestIndex === -1) missed.push(frame);
-        else matches.push({ expected: frame, actual: remaining.splice(bestIndex, 1)[0] });
-    }
-    return { matches, missed, invented: remaining };
-}
-
 function expectedFrames(segment) {
-    return segment.events.filter((event) => !event.baseline).map((event) => event.firstFrame);
+    return benchmarkEvents(segment)
+        .filter((event) => !event.baseline)
+        .map((event) => event.firstFrame);
 }
 
 const prepared = [];
-for (const segment of manifest.segments) {
+const selectedSegments = manifest.segments.filter((segment) => !developmentOnly || segment.split === "development");
+for (const segment of selectedSegments) {
     const frames = await decodeFrames(segment);
     prepared.push({ segment, frames, profiles: extractScoreProfiles(frames) });
 }
@@ -278,27 +260,20 @@ if (development.length === 0) throw new Error("The tracker benchmark requires at
 const geometry = calibrateGeometry(development);
 for (const preparedSegment of prepared) {
     preparedSegment.features = extractFeatures(preparedSegment.profiles, geometry.bottomCenter, geometry.spacing);
-    preparedSegment.fingerprints = extractFingerprints(
-        preparedSegment.frames,
-        geometry.bottomCenter,
-        geometry.spacing,
-    );
+    preparedSegment.fingerprints = extractFingerprints(preparedSegment.frames, geometry.bottomCenter, geometry.spacing);
 }
-for (const preparedSegment of development) {
-    preparedSegment.rows = detectRows(preparedSegment.features, preparedSegment.fingerprints, geometry.threshold);
-}
-
 console.log(`Development row geometry: bottom ${geometry.bottomCenter}px, spacing ${geometry.spacing}px`);
 console.log(`Development row threshold: ${geometry.threshold} (${geometry.errors} slot errors)`);
-console.log("Replacement gate: signature 0.1, average row strength 2x threshold, maximum fade drop 0.5x threshold");
+console.log(
+    "Replacement gate: bottom/stack signature 0.1, brightness reset 2x threshold, average strength 2x, maximum fade drop 0.5x",
+);
 let failed = false;
 for (const { segment, features, fingerprints } of prepared) {
-    if (developmentOnly && segment.split !== "development") continue;
     const rows = detectRows(features, fingerprints, geometry.threshold);
     const actual = trackEvents(rows, geometry.threshold);
     const expected = expectedFrames(segment);
     const comparison = compareEvents(expected, actual);
-    const countErrors = rows.filter((row, frame) => row.count !== activeCount(segment.events, frame)).length;
+    const countErrors = rows.filter((row, frame) => row.count !== activeCount(benchmarkEvents(segment), frame)).length;
     console.log(`\n${segment.id} (${segment.split})`);
     console.log(`Rows: ${rows.length - countErrors}/${rows.length} frames correct`);
     console.log(`Events: ${comparison.matches.length}/${expected.length} matched`);
@@ -319,7 +294,7 @@ for (const { segment, features, fingerprints } of prepared) {
             }
         }
         for (let frame = 0; frame < rows.length; frame += 1) {
-            const expectedCount = activeCount(segment.events, frame);
+            const expectedCount = activeCount(benchmarkEvents(segment), frame);
             if (rows[frame].count !== expectedCount) {
                 console.log(
                     `frame ${frame}: expected ${expectedCount}, got ${rows[frame].count}; scores ${features[frame].join(",")}`,
@@ -327,6 +302,7 @@ for (const { segment, features, fingerprints } of prepared) {
             }
         }
     }
-    if (segment.split !== "development" && (comparison.missed.length > 0 || comparison.invented.length > 0)) failed = true;
+    if (segment.split !== "development" && (comparison.missed.length > 0 || comparison.invented.length > 0))
+        failed = true;
 }
 if (failed) process.exitCode = 1;
