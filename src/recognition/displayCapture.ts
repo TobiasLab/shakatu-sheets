@@ -17,20 +17,33 @@ export type PixelRegion = {
     height: number;
 };
 
-export const SUPPORTED_LOOT_SOURCE = { width: 3440, height: 1440 } as const;
-export const LOOT_REGION_SIZE = { width: 362, height: 311 } as const;
+export type LootUiScale = 80 | 100;
+
+export const SUPPORTED_LOOT_SOURCES = [
+    { width: 3440, height: 1440 },
+    { width: 2560, height: 1440 },
+    { width: 1920, height: 1080 },
+] as const;
+export const LOOT_REGION_SIZES: Record<LootUiScale, { width: number; height: number }> = {
+    80: { width: 362, height: 311 },
+    100: { width: 453, height: 389 },
+};
+const DEFAULT_LOOT_CENTER = { x: 2614 / 3440, y: 1145.5 / 1440 } as const;
 
 export function isSupportedLootSource(width: number, height: number): boolean {
-    return width === SUPPORTED_LOOT_SOURCE.width && height === SUPPORTED_LOOT_SOURCE.height;
+    return SUPPORTED_LOOT_SOURCES.some((source) => source.width === width && source.height === height);
 }
 
-export function defaultLootRegion(): NormalizedRegion {
-    return {
-        x: 2433 / SUPPORTED_LOOT_SOURCE.width,
-        y: 990 / SUPPORTED_LOOT_SOURCE.height,
-        width: LOOT_REGION_SIZE.width / SUPPORTED_LOOT_SOURCE.width,
-        height: LOOT_REGION_SIZE.height / SUPPORTED_LOOT_SOURCE.height,
-    };
+export function lootRegionSize(uiScalePercent: LootUiScale) {
+    return LOOT_REGION_SIZES[uiScalePercent];
+}
+
+export function defaultLootRegion(
+    sourceWidth: number,
+    sourceHeight: number,
+    uiScalePercent: LootUiScale,
+): NormalizedRegion {
+    return positionLootRegion(DEFAULT_LOOT_CENTER.x, DEFAULT_LOOT_CENTER.y, sourceWidth, sourceHeight, uiScalePercent);
 }
 
 export function positionLootRegion(
@@ -38,29 +51,28 @@ export function positionLootRegion(
     normalizedCenterY: number,
     sourceWidth: number,
     sourceHeight: number,
+    uiScalePercent: LootUiScale,
 ): NormalizedRegion {
     if (!isSupportedLootSource(sourceWidth, sourceHeight)) {
         throw new Error("The selected source does not match the supported loot-recognition layout.");
     }
+    const regionSize = lootRegionSize(uiScalePercent);
     const x = Math.max(
         0,
-        Math.min(
-            sourceWidth - LOOT_REGION_SIZE.width,
-            Math.round(normalizedCenterX * sourceWidth - LOOT_REGION_SIZE.width / 2),
-        ),
+        Math.min(sourceWidth - regionSize.width, Math.round(normalizedCenterX * sourceWidth - regionSize.width / 2)),
     );
     const y = Math.max(
         0,
         Math.min(
-            sourceHeight - LOOT_REGION_SIZE.height,
-            Math.round(normalizedCenterY * sourceHeight - LOOT_REGION_SIZE.height / 2),
+            sourceHeight - regionSize.height,
+            Math.round(normalizedCenterY * sourceHeight - regionSize.height / 2),
         ),
     );
     return {
         x: x / sourceWidth,
         y: y / sourceHeight,
-        width: LOOT_REGION_SIZE.width / sourceWidth,
-        height: LOOT_REGION_SIZE.height / sourceHeight,
+        width: regionSize.width / sourceWidth,
+        height: regionSize.height / sourceHeight,
     };
 }
 

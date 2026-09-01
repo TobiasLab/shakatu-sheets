@@ -6,10 +6,8 @@ use serde::{Deserialize, Serialize};
 use crate::persistence::{load_setting, save_settings, DatabasePath};
 
 const LOOT_CAPTURE_SETTINGS_KEY: &str = "loot-capture-settings";
-const LOOT_SOURCE_WIDTH: u32 = 3440;
-const LOOT_SOURCE_HEIGHT: u32 = 1440;
-const LOOT_REGION_WIDTH: u32 = 362;
-const LOOT_REGION_HEIGHT: u32 = 311;
+const DEFAULT_UI_SCALE_PERCENT: u32 = 80;
+const SUPPORTED_SOURCE_DIMENSIONS: [(u32, u32); 3] = [(3440, 1440), (2560, 1440), (1920, 1080)];
 
 #[derive(Clone, Copy, Debug, Deserialize, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -88,33 +86,50 @@ fn pixel_boundary(normalized: f64, source_size: u32, round_up: bool) -> u32 {
     }
 }
 
-fn validate_loot_region(region: NormalizedRegion) -> Result<PixelRegion, String> {
-    let pixels = normalized_to_pixel_region(region, LOOT_SOURCE_WIDTH, LOOT_SOURCE_HEIGHT)?;
-    if pixels.width != LOOT_REGION_WIDTH || pixels.height != LOOT_REGION_HEIGHT {
-        return Err(format!(
-            "loot capture region must map to exactly {LOOT_REGION_WIDTH}x{LOOT_REGION_HEIGHT} pixels; mapped to {}x{}",
-            pixels.width, pixels.height
-        ));
-    }
-    Ok(pixels)
+fn default_ui_scale_percent() -> u32 {
+    DEFAULT_UI_SCALE_PERCENT
 }
 
-#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
+fn loot_region_dimensions(ui_scale_percent: u32) -> Result<(u32, u32), String> {
+    match ui_scale_percent {
+        80 => Ok((362, 311)),
+        100 => Ok((453, 389)),
+        _ => Err("loot capture UI scale must be 80 or 100 percent".into()),
+    }
+}
+
+#[derive(Clone, Copy, Debug, Deserialize, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct LootCaptureSettings {
     pub region: NormalizedRegion,
     pub source_width: u32,
     pub source_height: u32,
+    #[serde(default = "default_ui_scale_percent")]
+    pub ui_scale_percent: u32,
 }
 
 impl LootCaptureSettings {
-    fn validate(&self) -> Result<(), String> {
-        if self.source_width != LOOT_SOURCE_WIDTH || self.source_height != LOOT_SOURCE_HEIGHT {
+    fn pixel_region(self) -> Result<PixelRegion, String> {
+        if !SUPPORTED_SOURCE_DIMENSIONS.contains(&(self.source_width, self.source_height)) {
             return Err(format!(
-                "loot capture settings require a {LOOT_SOURCE_WIDTH}x{LOOT_SOURCE_HEIGHT} source"
+                "unsupported loot capture source {}x{}; supported sources are 3440x1440, 2560x1440, and 1920x1080",
+                self.source_width, self.source_height
             ));
         }
-        validate_loot_region(self.region).map(|_| ())
+        let expected = loot_region_dimensions(self.ui_scale_percent)?;
+        let pixels =
+            normalized_to_pixel_region(self.region, self.source_width, self.source_height)?;
+        if (pixels.width, pixels.height) != expected {
+            return Err(format!(
+                "loot capture region for {}% UI scale must map to exactly {}x{} pixels; mapped to {}x{}",
+                self.ui_scale_percent, expected.0, expected.1, pixels.width, pixels.height
+            ));
+        }
+        Ok(pixels)
+    }
+
+    fn validate(self) -> Result<(), String> {
+        self.pixel_region().map(|_| ())
     }
 }
 
@@ -137,18 +152,18 @@ pub struct NativeCaptureState {
 pub async fn start_native_display_capture(
     state: tauri::State<'_, NativeCaptureState>,
     frames: tauri::ipc::Channel<tauri::ipc::InvokeResponseBody>,
-    region: Option<NormalizedRegion>,
+    selection: Option<LootCaptureSettings>,
 ) -> Result<(), String> {
-    if let Some(region) = region {
-        validate_loot_region(region)?;
+    if let Some(selection) = selection {
+        selection.validate()?;
     }
 
     #[cfg(target_os = "linux")]
-    return linux::start(&state.capture, frames, region).await;
+    return linux::start(&state.capture, frames, selection).await;
 
     #[cfg(not(target_os = "linux"))]
     {
-        let _ = (state, frames, region);
+        let _ = (state, frames, selection);
         Err("Native display capture is only available on Linux.".to_string())
     }
 }
@@ -156,18 +171,18 @@ pub async fn start_native_display_capture(
 #[tauri::command]
 pub fn set_native_display_capture_region(
     state: tauri::State<'_, NativeCaptureState>,
-    region: Option<NormalizedRegion>,
+    selection: Option<LootCaptureSettings>,
 ) -> Result<(), String> {
-    if let Some(region) = region {
-        validate_loot_region(region)?;
+    if let Some(selection) = selection {
+        selection.validate()?;
     }
 
     #[cfg(target_os = "linux")]
-    return linux::set_region(&state.capture, region);
+    return linux::set_selection(&state.capture, selection);
 
     #[cfg(not(target_os = "linux"))]
     {
-        let _ = (state, region);
+        let _ = (state, selection);
         Err("Native display capture is only available on Linux.".to_string())
     }
 }
@@ -230,13 +245,45 @@ mod tests {
         }
     }
 
-    fn loot_region(x: u32, y: u32) -> NormalizedRegion {
-        NormalizedRegion {
-            x: x as f64 / LOOT_SOURCE_WIDTH as f64,
-            y: y as f64 / LOOT_SOURCE_HEIGHT as f64,
-            width: LOOT_REGION_WIDTH as f64 / LOOT_SOURCE_WIDTH as f64,
-            height: LOOT_REGION_HEIGHT as f64 / LOOT_SOURCE_HEIGHT as f64,
+    fn selection_with_dimensions(
+        source_width: u32,
+        source_height: u32,
+        ui_scale_percent: u32,
+        x: u32,
+        y: u32,
+        width: u32,
+        height: u32,
+    ) -> LootCaptureSettings {
+        LootCaptureSettings {
+            region: NormalizedRegion {
+                x: x as f64 / source_width as f64,
+                y: y as f64 / source_height as f64,
+                width: width as f64 / source_width as f64,
+                height: height as f64 / source_height as f64,
+            },
+            source_width,
+            source_height,
+            ui_scale_percent,
         }
+    }
+
+    fn selection(
+        source_width: u32,
+        source_height: u32,
+        ui_scale_percent: u32,
+        x: u32,
+        y: u32,
+    ) -> LootCaptureSettings {
+        let (width, height) = loot_region_dimensions(ui_scale_percent).unwrap();
+        selection_with_dimensions(
+            source_width,
+            source_height,
+            ui_scale_percent,
+            x,
+            y,
+            width,
+            height,
+        )
     }
 
     #[test]
@@ -281,71 +328,92 @@ mod tests {
 
     #[test]
     fn loot_capture_settings_json_round_trips_and_uses_camel_case() {
-        let settings = LootCaptureSettings {
-            region: loot_region(100, 200),
-            source_width: LOOT_SOURCE_WIDTH,
-            source_height: LOOT_SOURCE_HEIGHT,
-        };
+        let settings = selection(2560, 1440, 100, 100, 200);
 
         let json = serde_json::to_string(&settings).unwrap();
         let parsed = parse_loot_capture_settings(&json).unwrap();
 
-        assert!(json.contains("\"sourceWidth\":3440"));
-        assert_eq!(parsed.source_width, settings.source_width);
-        assert_eq!(parsed.source_height, settings.source_height);
+        assert!(json.contains("\"sourceWidth\":2560"));
+        assert!(json.contains("\"uiScalePercent\":100"));
         assert_eq!(
-            validate_loot_region(parsed.region).unwrap(),
+            parsed.pixel_region().unwrap(),
             PixelRegion {
                 x: 100,
                 y: 200,
-                width: LOOT_REGION_WIDTH,
-                height: LOOT_REGION_HEIGHT,
+                width: 453,
+                height: 389,
             }
         );
     }
 
     #[test]
-    fn accepts_a_loot_region_on_the_bottom_right_boundary() {
-        assert_eq!(
-            validate_loot_region(loot_region(
-                LOOT_SOURCE_WIDTH - LOOT_REGION_WIDTH,
-                LOOT_SOURCE_HEIGHT - LOOT_REGION_HEIGHT,
-            ))
-            .unwrap(),
-            PixelRegion {
-                x: LOOT_SOURCE_WIDTH - LOOT_REGION_WIDTH,
-                y: LOOT_SOURCE_HEIGHT - LOOT_REGION_HEIGHT,
-                width: LOOT_REGION_WIDTH,
-                height: LOOT_REGION_HEIGHT,
+    fn validates_every_source_and_scale_at_the_bottom_right_boundary() {
+        for (source_width, source_height) in SUPPORTED_SOURCE_DIMENSIONS {
+            for ui_scale_percent in [80, 100] {
+                let (width, height) = loot_region_dimensions(ui_scale_percent).unwrap();
+                let expected = PixelRegion {
+                    x: source_width - width,
+                    y: source_height - height,
+                    width,
+                    height,
+                };
+                assert_eq!(
+                    selection(
+                        source_width,
+                        source_height,
+                        ui_scale_percent,
+                        expected.x,
+                        expected.y,
+                    )
+                    .pixel_region()
+                    .unwrap(),
+                    expected
+                );
             }
-        );
+        }
     }
 
     #[test]
-    fn rejects_oversized_loot_regions_and_non_production_sources() {
-        let mut oversized = loot_region(100, 200);
-        oversized.width = (LOOT_REGION_WIDTH + 1) as f64 / LOOT_SOURCE_WIDTH as f64;
-        assert!(validate_loot_region(oversized)
+    fn rejects_unsupported_sources_scales_and_wrong_crop_sizes() {
+        assert!(selection(1280, 720, 80, 10, 10)
+            .validate()
             .unwrap_err()
-            .contains("exactly 362x311"));
+            .contains("unsupported loot capture source"));
 
-        let settings = LootCaptureSettings {
-            region: loot_region(100, 200),
-            source_width: 2560,
-            source_height: LOOT_SOURCE_HEIGHT,
-        };
-        assert!(settings.validate().unwrap_err().contains("3440x1440"));
+        let unsupported_scale = selection_with_dimensions(1920, 1080, 90, 10, 10, 362, 311);
+        assert!(unsupported_scale
+            .validate()
+            .unwrap_err()
+            .contains("80 or 100"));
+
+        let wrong_size = selection_with_dimensions(3440, 1440, 100, 10, 10, 452, 389);
+        assert!(wrong_size
+            .validate()
+            .unwrap_err()
+            .contains("exactly 453x389"));
+    }
+
+    #[test]
+    fn legacy_settings_default_to_80_percent() {
+        let legacy = selection(3440, 1440, 80, 100, 200);
+        let mut json = serde_json::to_value(legacy).unwrap();
+        json.as_object_mut().unwrap().remove("uiScalePercent");
+
+        let parsed = parse_loot_capture_settings(&json.to_string()).unwrap();
+
+        assert_eq!(parsed.ui_scale_percent, 80);
+        assert_eq!(parsed.pixel_region().unwrap().width, 362);
     }
 
     #[test]
     fn rejects_malformed_saved_settings() {
         assert!(parse_loot_capture_settings("not json").is_err());
         assert!(parse_loot_capture_settings(
-            r#"{"region":{"x":0.9,"y":0.0,"width":0.2,"height":1.0},"sourceWidth":3440,"sourceHeight":1440}"#,
+            r#"{"region":{"x":0.9,"y":0.0,"width":0.2,"height":1.0},"sourceWidth":3440,"sourceHeight":1440,"uiScalePercent":80}"#,
         )
         .is_err());
         assert!(parse_loot_capture_settings(
-            r#"{"region":{"x":0.0,"y":0.0,"width":1.0,"height":1.0},"sourceWidth":0,"sourceHeight":1440}"#,
+            r#"{"region":{"x":0.0,"y":0.0,"width":1.0,"height":1.0},"sourceWidth":0,"sourceHeight":1440,"uiScalePercent":80}"#,
         )
         .is_err());
     }

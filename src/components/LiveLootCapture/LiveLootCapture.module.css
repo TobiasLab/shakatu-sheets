@@ -111,6 +111,34 @@
     flex: 0 0 auto;
 }
 
+.CalibrationControls {
+    display: flex;
+    align-items: flex-end;
+    gap: 10px;
+    flex: 0 0 auto;
+}
+
+.ScaleControl {
+    display: grid;
+    gap: 4px;
+    color: var(--muted);
+    font-size: 8px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+}
+
+.ScaleControl select {
+    min-width: 82px;
+    padding: 8px 9px;
+    border: 1px solid var(--line);
+    border-radius: 0;
+    color: var(--text);
+    background: var(--clock-background);
+    font:
+        10px "IBM Plex Mono",
+        monospace;
+}
+
 .CalibrationError {
     margin: 10px 0 0;
     color: var(--danger);
@@ -202,6 +230,15 @@
     }
 
     .CalibrationBar :global(.button) {
+        width: 100%;
+    }
+
+    .CalibrationControls {
+        align-items: stretch;
+        flex-direction: column;
+    }
+
+    .ScaleControl select {
         width: 100%;
     }
 }

@@ -4,8 +4,9 @@
 
 Linux capture feasibility is established. The first native-resolution offline pipeline tracks events, selects OCR frames,
 and recognizes items and quantities exactly on its held-out sequence without label-selected crops. The live capture UI
-now positions and previews a native-resolution in-memory crop for the initial layout. Shakatu Sheets does not yet recognize
-live loot notifications; streaming recognition, live validation, and more layouts remain required.
+now positions and previews a native-resolution in-memory crop for three source resolutions at 80% or 100% UI scale.
+Shakatu Sheets does not yet recognize live loot notifications; streaming recognition, live validation, and calibrated
+recognition benchmarks for the additional profiles remain required.
 
 ## Goal
 
@@ -19,8 +20,9 @@ game process, or inspect BDO network traffic. User-authorized operating-system s
 ## Initial Scope
 
 - English BDO client.
-- 80% UI scale first because that is the available labeled video source; add 100% after the initial pipeline is measured.
-- Benchmark the initial 3440x1440 ultrawide layout and an independently calibrated 16:9 layout before release.
+- 80% and 100% UI scale capture profiles; only 80% currently has a labeled recognition benchmark.
+- Capture sources at `3440x1440`, `2560x1440`, and `1920x1080`, with independently calibrated recognition benchmarks
+  required before release.
 - Linux Wayland first, followed by Windows using the same browser capture interface where possible.
 - A fixed loot-notification location selected by the user.
 - User-triggered start and stop controls with a persistent capture indicator.
@@ -58,10 +60,11 @@ Wayland intentionally requires an operating-system permission dialog. Browser di
 persisted, so the user should expect to select a source for every new capture session. A future native portal path may use
 a restore token, but the application must never attempt to bypass capture consent.
 
-The user positions a fixed `362x311` notification rectangle on the preview. The first profile accepts only a `3440x1440`
-source at 80% BDO UI scale. Persist only validated normalized rectangle coordinates and their source dimensions, never the
-preview or captured pixels. A dimension mismatch disables the crop and requires a supported profile or future
-recalibration.
+The user selects the BDO UI scale and positions a fixed notification rectangle on the preview. The 80% profile uses a
+`362x311` rectangle and the 100% profile currently uses a proportional `453x389` rectangle. Supported sources are
+`3440x1440`, `2560x1440`, and `1920x1080`. Persist only validated normalized rectangle coordinates, source dimensions, and
+UI scale, never preview or captured pixels. A dimension mismatch disables the crop and requires a supported profile or
+recalibration. The 100% dimensions still require representative recordings to validate recognition geometry.
 
 ## Recognition Pipeline
 
@@ -112,8 +115,8 @@ should be added automatically and uncertain events should wait for review.
 1. On Linux Wayland, prove that the portal stream supplies at least five sampled frames per second for ten minutes while
    BDO is focused, then confirm immediate stream release on stop.
 2. Confirm the same capture lifecycle on Windows WebView2.
-3. Validate the implemented rectangle selection and native-resolution in-memory preview for the initial 80% UI-scale
-   layout during a live BDO session.
+3. Validate rectangle selection and native-resolution in-memory preview for all supported resolution and UI-scale profiles
+   during live BDO sessions.
 4. Build an external benchmark from labeled screenshots and a 5-10 FPS frame burst across bright, dark, crowded, and
    effect-heavy scenes.
 5. Implement row detection and temporal event tracking, including consecutive identical drops.
@@ -121,7 +124,7 @@ should be added automatically and uncertain events should wait for review.
 7. Add the editable recent-event feed and session integration.
 8. Measure event accuracy, missed events, duplicate events, frame cadence, CPU use, and memory use on held-out samples.
 9. Replace prototype auto-acceptance with measured confidence gating before release.
-10. Add 100% UI-scale and 16:9 benchmark sets only after normalization preserves acceptable results.
+10. Add 100% UI-scale and 16:9 benchmark sets and confirm normalization preserves acceptable results.
 
 The current 3440x1440, 80%-UI-scale end-to-end baseline has 24/24 development and 11/11 test item-and-quantity matches.
 Tracked identities select their own first three consecutive detected OCR frames after a one-frame delay, with labels used
