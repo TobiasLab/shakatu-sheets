@@ -41,6 +41,8 @@ the session ID so a session cannot be uploaded concurrently or retried silently 
 - Garmoth API keys, fetched character summaries, and the selected character are stored in the existing local `settings`
   table. The API key is never returned to the frontend after it is saved. On Unix, the application-data directory and
   SQLite files are restricted to the current user.
+- Live loot calibration stores only validated normalized rectangle coordinates and source dimensions in `settings`.
+  Preview and region pixels remain in memory and are never written to the database.
 - Connect failures that occur before request transmission release the upload reservation for an explicit retry. Any
   potentially transmitted request without a success response remains `unknown` to prevent duplicate entries. Reserved
   and uploaded sessions cannot be reopened.
