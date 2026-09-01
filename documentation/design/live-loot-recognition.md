@@ -5,8 +5,10 @@
 Linux capture feasibility is established. The first native-resolution offline pipeline tracks events, selects OCR frames,
 and recognizes items and quantities exactly on its held-out sequence without label-selected crops. The live capture UI
 now positions and previews a native-resolution in-memory crop for three source resolutions at 80% or 100% UI scale.
-Shakatu Sheets does not yet recognize live loot notifications; streaming recognition, live validation, and calibrated
-recognition benchmarks for the additional profiles remain required.
+A browser-safe production module now analyzes packed RGBA crops, tracks notification identities, selects stable OCR frames,
+and resolves dictionary-constrained replay readings. The offline benchmark uses the same production detector, tracker, and
+parsers. Shakatu Sheets does not yet recognize live loot notifications; a frozen production calibration, streaming OCR,
+live validation, and calibrated recognition benchmarks for the additional profiles remain required.
 
 ## Goal
 

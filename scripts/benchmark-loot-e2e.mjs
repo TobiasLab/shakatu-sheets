@@ -1,6 +1,7 @@
 import { readFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import { createWorker, OEM, PSM } from "tesseract.js";
+import { analyzeLootRoiFrame, lootFingerprintDistance } from "../src/recognition/liveLoot.ts";
 import {
     benchmarkEvents,
     chooseTemporalPairConsensus,
@@ -24,17 +25,12 @@ if (!manifestPath || process.argv.includes("--help")) {
 const manifest = JSON.parse(await readFile(manifestPath, "utf8"));
 validateGeneratedManifest(manifest, { requireItemDictionary: true });
 const height = manifest.roi.pixels.height;
+const width = manifest.roi.pixels.width;
 const itemDictionary = manifest.itemDictionary;
-const {
-    calibrateGeometry,
-    decodeFrames,
-    detectRows,
-    extractFeatures,
-    extractFingerprints,
-    extractScoreProfiles,
-    fingerprintDistance,
-    quantityImage,
-} = createLootBenchmarkVision({ manifestPath, manifest });
+const { calibrateGeometry, decodeFrames, extractScoreProfiles, quantityImage } = createLootBenchmarkVision({
+    manifestPath,
+    manifest,
+});
 
 const selectedSegments = manifest.segments.filter((segment) => !developmentOnly || segment.split === "development");
 const prepared = [];
@@ -50,10 +46,16 @@ const geometry = calibrateGeometry(development, {
     errorMessage: "The ROI is too short for the configured maxRows and end-to-end row geometry.",
 });
 for (const sequence of prepared) {
-    sequence.features = extractFeatures(sequence.profiles, geometry.bottomCenter, geometry.spacing);
-    sequence.fingerprints = extractFingerprints(sequence.frames, geometry.bottomCenter, geometry.spacing);
-    sequence.rows = detectRows(sequence.features, sequence.fingerprints, geometry);
-    sequence.tracks = trackRowEvents(sequence.rows, geometry.threshold, fingerprintDistance).filter(
+    const profile = {
+        width,
+        height,
+        maxRows: manifest.maxRows,
+        bottomCenter: geometry.bottomCenter,
+        spacing: geometry.spacing,
+        rowThreshold: geometry.threshold,
+    };
+    sequence.rows = sequence.frames.map((pixels) => analyzeLootRoiFrame({ width, height, pixels }, profile));
+    sequence.tracks = trackRowEvents(sequence.rows, geometry.threshold, lootFingerprintDistance).filter(
         (track) => !track.baseline,
     );
 }
