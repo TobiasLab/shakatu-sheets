@@ -13,10 +13,9 @@ use std::sync::{
 use std::time::{Duration, Instant};
 use tauri::ipc::{Channel, InvokeResponseBody};
 
-use super::{
-    validate_loot_region, NormalizedRegion, PixelRegion, LOOT_REGION_HEIGHT, LOOT_REGION_WIDTH,
-    LOOT_SOURCE_HEIGHT, LOOT_SOURCE_WIDTH,
-};
+use super::LootCaptureSettings;
+#[cfg(test)]
+use super::{NormalizedRegion, PixelRegion};
 
 const FRAME_HEADER_BYTES: usize = 40;
 const FRAME_PROTOCOL_VERSION: u32 = 1;
@@ -70,17 +69,17 @@ struct CaptureControl {
     cancelled: AtomicBool,
     batches: Mutex<BatchState>,
     pending_session: Mutex<Option<Arc<Session<Screencast>>>>,
-    region: Mutex<Option<NormalizedRegion>>,
+    selection: Mutex<Option<LootCaptureSettings>>,
 }
 
 impl CaptureControl {
-    fn new(capture_id: u32, region: Option<NormalizedRegion>) -> Self {
+    fn new(capture_id: u32, selection: Option<LootCaptureSettings>) -> Self {
         Self {
             capture_id,
             cancelled: AtomicBool::new(false),
             batches: Mutex::new(BatchState::default()),
             pending_session: Mutex::new(None),
-            region: Mutex::new(region),
+            selection: Mutex::new(selection),
         }
     }
 
@@ -161,7 +160,7 @@ struct StreamData {
 pub(super) async fn start(
     state: &CaptureState,
     frames: Channel<InvokeResponseBody>,
-    region: Option<NormalizedRegion>,
+    selection: Option<LootCaptureSettings>,
 ) -> Result<(), String> {
     let (control, previous) = {
         let mut state = state
@@ -169,7 +168,7 @@ pub(super) async fn start(
             .lock()
             .map_err(|_| "Capture state is unavailable.")?;
         let capture_id = state.next_capture_id()?;
-        let control = Arc::new(CaptureControl::new(capture_id, region));
+        let control = Arc::new(CaptureControl::new(capture_id, selection));
         let previous = state.capture.replace(control.clone());
         (control, previous)
     };
@@ -277,9 +276,9 @@ pub(super) fn acknowledge_frame(state: &CaptureState, capture_id: u32, batch_id:
     }
 }
 
-pub(super) fn set_region(
+pub(super) fn set_selection(
     state: &CaptureState,
-    region: Option<NormalizedRegion>,
+    selection: Option<LootCaptureSettings>,
 ) -> Result<(), String> {
     let state = state
         .0
@@ -290,9 +289,9 @@ pub(super) fn set_region(
         .as_ref()
         .ok_or_else(|| "Native display capture is not running.".to_string())?;
     *control
-        .region
+        .selection
         .lock()
-        .map_err(|_| "Capture region state is unavailable.")? = region;
+        .map_err(|_| "Capture selection state is unavailable.")? = selection;
     Ok(())
 }
 
@@ -440,24 +439,24 @@ fn run_pipewire(
                     loop_for_frames.quit();
                     return;
                 };
-                let region = match control_for_frames.region.lock() {
-                    Ok(region) => *region,
+                let selection = match control_for_frames.selection.lock() {
+                    Ok(selection) => *selection,
                     Err(_) => {
                         *stream_error_in_process.borrow_mut() =
-                            Some("Capture region state is unavailable.".to_string());
+                            Some("Capture selection state is unavailable.".to_string());
                         loop_for_frames.quit();
                         return;
                     }
                 };
-                let region = match region_for_source(region, size.width, size.height) {
-                    Ok(region) => region,
+                let selection = match selection_for_source(selection, size.width, size.height) {
+                    Ok(selection) => selection,
                     Err(error) => {
                         *stream_error_in_process.borrow_mut() = Some(error);
                         loop_for_frames.quit();
                         return;
                     }
                 };
-                let batch_id = match control_for_frames.begin_batch(region.is_some()) {
+                let batch_id = match control_for_frames.begin_batch(selection.is_some()) {
                     Ok(Some(batch_id)) => batch_id,
                     Ok(None) => return,
                     Err(error) => {
@@ -483,14 +482,14 @@ fn run_pipewire(
                         return;
                     }
                 };
-                let region_frame = match region {
-                    Some(region) => match crop_region_frame(
+                let region_frame = match selection {
+                    Some(selection) => match crop_region_frame(
                         pixels,
                         size.width,
                         size.height,
                         stride,
                         data.format.format(),
-                        region,
+                        selection,
                         BatchIdentity {
                             capture_id: control_for_frames.capture_id,
                             batch_id,
@@ -575,6 +574,7 @@ fn run_pipewire(
 }
 
 fn video_format_parameter() -> Vec<u8> {
+    // Let the ScreenCast producer retain its native size; a preferred size may rescale the stream.
     let format = pw::spa::pod::object!(
         pw::spa::utils::SpaTypes::ObjectParamFormat,
         pw::spa::param::ParamType::EnumFormat,
@@ -598,24 +598,6 @@ fn video_format_parameter() -> Vec<u8> {
             pw::spa::param::video::VideoFormat::BGRA,
             pw::spa::param::video::VideoFormat::RGBx,
             pw::spa::param::video::VideoFormat::RGBA
-        ),
-        pw::spa::pod::property!(
-            pw::spa::param::format::FormatProperties::VideoSize,
-            Choice,
-            Range,
-            Rectangle,
-            pw::spa::utils::Rectangle {
-                width: 1920,
-                height: 1080
-            },
-            pw::spa::utils::Rectangle {
-                width: 1,
-                height: 1
-            },
-            pw::spa::utils::Rectangle {
-                width: 16384,
-                height: 16384
-            }
         ),
         pw::spa::pod::property!(
             pw::spa::param::format::FormatProperties::VideoFramerate,
@@ -696,19 +678,16 @@ fn crop_region_frame(
     source_height: u32,
     source_stride: u32,
     format: spa::param::video::VideoFormat,
-    region: PixelRegion,
+    selection: LootCaptureSettings,
     batch: BatchIdentity,
 ) -> Result<Vec<u8>, String> {
-    if source_width != LOOT_SOURCE_WIDTH || source_height != LOOT_SOURCE_HEIGHT {
+    if source_width != selection.source_width || source_height != selection.source_height {
         return Err(format!(
-            "loot region frames require a {LOOT_SOURCE_WIDTH}x{LOOT_SOURCE_HEIGHT} source"
+            "loot region selection requires a {}x{} source",
+            selection.source_width, selection.source_height
         ));
     }
-    if region.width != LOOT_REGION_WIDTH || region.height != LOOT_REGION_HEIGHT {
-        return Err(format!(
-            "loot capture region must be exactly {LOOT_REGION_WIDTH}x{LOOT_REGION_HEIGHT} pixels"
-        ));
-    }
+    let region = selection.pixel_region()?;
     let end_x = region
         .x
         .checked_add(region.width)
@@ -756,15 +735,19 @@ fn crop_region_frame(
     Ok(frame)
 }
 
-fn region_for_source(
-    region: Option<NormalizedRegion>,
+fn selection_for_source(
+    selection: Option<LootCaptureSettings>,
     source_width: u32,
     source_height: u32,
-) -> Result<Option<PixelRegion>, String> {
-    if source_width != LOOT_SOURCE_WIDTH || source_height != LOOT_SOURCE_HEIGHT {
+) -> Result<Option<LootCaptureSettings>, String> {
+    let Some(selection) = selection else {
+        return Ok(None);
+    };
+    if source_width != selection.source_width || source_height != selection.source_height {
         return Ok(None);
     }
-    region.map(validate_loot_region).transpose()
+    selection.validate()?;
+    Ok(Some(selection))
 }
 
 fn allocate_frame(header: FrameHeader) -> Result<Vec<u8>, String> {
@@ -884,13 +867,45 @@ mod tests {
             .collect()
     }
 
-    fn loot_region(x: u32, y: u32) -> NormalizedRegion {
-        NormalizedRegion {
-            x: x as f64 / LOOT_SOURCE_WIDTH as f64,
-            y: y as f64 / LOOT_SOURCE_HEIGHT as f64,
-            width: LOOT_REGION_WIDTH as f64 / LOOT_SOURCE_WIDTH as f64,
-            height: LOOT_REGION_HEIGHT as f64 / LOOT_SOURCE_HEIGHT as f64,
+    fn selection_with_dimensions(
+        source_width: u32,
+        source_height: u32,
+        ui_scale_percent: u32,
+        x: u32,
+        y: u32,
+        width: u32,
+        height: u32,
+    ) -> LootCaptureSettings {
+        LootCaptureSettings {
+            region: super::super::NormalizedRegion {
+                x: x as f64 / source_width as f64,
+                y: y as f64 / source_height as f64,
+                width: width as f64 / source_width as f64,
+                height: height as f64 / source_height as f64,
+            },
+            source_width,
+            source_height,
+            ui_scale_percent,
         }
+    }
+
+    fn selection(
+        source_width: u32,
+        source_height: u32,
+        ui_scale_percent: u32,
+        x: u32,
+        y: u32,
+    ) -> LootCaptureSettings {
+        let (width, height) = super::super::loot_region_dimensions(ui_scale_percent).unwrap();
+        selection_with_dimensions(
+            source_width,
+            source_height,
+            ui_scale_percent,
+            x,
+            y,
+            width,
+            height,
+        )
     }
 
     #[test]
@@ -974,27 +989,23 @@ mod tests {
     }
 
     #[test]
-    fn crops_exact_bgra_pixels_and_encodes_the_native_origin() {
-        let stride = LOOT_SOURCE_WIDTH * 4;
-        let mut source = vec![0; stride as usize * LOOT_REGION_HEIGHT as usize];
+    fn crops_an_exact_100_percent_region_and_encodes_the_native_origin() {
+        let selection = selection(1920, 1080, 100, 10, 0);
+        let region = selection.pixel_region().unwrap();
+        let stride = selection.source_width * 4;
+        let mut source = vec![0; stride as usize * region.height as usize];
         let first = pixel_offset(0, 10, stride).unwrap();
         source[first..first + 8].copy_from_slice(&[30, 20, 10, 40, 60, 50, 40, 70]);
-        let last =
-            pixel_offset(LOOT_REGION_HEIGHT - 1, 10 + LOOT_REGION_WIDTH - 1, stride).unwrap();
+        let last = pixel_offset(region.height - 1, region.x + region.width - 1, stride).unwrap();
         source[last..last + 4].copy_from_slice(&[99, 88, 77, 110]);
 
         let frame = crop_region_frame(
             &source,
-            LOOT_SOURCE_WIDTH,
-            LOOT_SOURCE_HEIGHT,
+            selection.source_width,
+            selection.source_height,
             stride,
             spa::param::video::VideoFormat::BGRA,
-            PixelRegion {
-                x: 10,
-                y: 0,
-                width: LOOT_REGION_WIDTH,
-                height: LOOT_REGION_HEIGHT,
-            },
+            selection,
             BatchIdentity {
                 capture_id: 31,
                 batch_id: 47,
@@ -1004,18 +1015,7 @@ mod tests {
 
         assert_eq!(
             header(&frame),
-            [
-                1,
-                FRAME_KIND_REGION,
-                31,
-                47,
-                LOOT_REGION_WIDTH,
-                LOOT_REGION_HEIGHT,
-                LOOT_SOURCE_WIDTH,
-                LOOT_SOURCE_HEIGHT,
-                10,
-                0,
-            ]
+            [1, FRAME_KIND_REGION, 31, 47, 453, 389, 1920, 1080, 10, 0,]
         );
         assert_eq!(
             &frame[FRAME_HEADER_BYTES..FRAME_HEADER_BYTES + 8],
@@ -1026,18 +1026,14 @@ mod tests {
 
     #[test]
     fn rejects_roi_allocation_for_invalid_dimensions() {
+        let selection = selection_with_dimensions(1920, 1080, 100, 0, 0, 452, 389);
         let error = crop_region_frame(
             &[],
-            LOOT_SOURCE_WIDTH,
-            LOOT_SOURCE_HEIGHT,
-            LOOT_SOURCE_WIDTH * 4,
+            selection.source_width,
+            selection.source_height,
+            selection.source_width * 4,
             spa::param::video::VideoFormat::BGRA,
-            PixelRegion {
-                x: 0,
-                y: 0,
-                width: LOOT_REGION_WIDTH + 1,
-                height: LOOT_REGION_HEIGHT,
-            },
+            selection,
             BatchIdentity {
                 capture_id: 1,
                 batch_id: 1,
@@ -1045,28 +1041,20 @@ mod tests {
         )
         .unwrap_err();
 
-        assert!(error.contains("exactly 362x311"));
+        assert!(error.contains("exactly 453x389"));
     }
 
     #[test]
     fn source_mismatch_skips_a_configured_region() {
+        let configured = selection(3440, 1440, 80, 10, 20);
         assert_eq!(
-            region_for_source(Some(loot_region(10, 20)), 2560, 1440).unwrap(),
+            selection_for_source(Some(configured), 2560, 1440).unwrap(),
             None
         );
+        let configured = selection(2560, 1440, 100, 10, 20);
         assert_eq!(
-            region_for_source(
-                Some(loot_region(10, 20)),
-                LOOT_SOURCE_WIDTH,
-                LOOT_SOURCE_HEIGHT,
-            )
-            .unwrap(),
-            Some(PixelRegion {
-                x: 10,
-                y: 20,
-                width: LOOT_REGION_WIDTH,
-                height: LOOT_REGION_HEIGHT,
-            })
+            selection_for_source(Some(configured), 2560, 1440).unwrap(),
+            Some(configured)
         );
     }
 

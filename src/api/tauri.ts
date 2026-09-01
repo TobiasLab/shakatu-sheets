@@ -1,6 +1,11 @@
 import { Channel, invoke, isTauri } from "@tauri-apps/api/core";
 import type { SessionState } from "../domain/session";
-import type { NormalizedRegion } from "../recognition/displayCapture";
+import {
+    isSupportedLootSource,
+    type LootUiScale,
+    lootRegionSize,
+    type NormalizedRegion,
+} from "../recognition/displayCapture";
 
 export type MarketPriceSnapshot = {
     itemId: number;
@@ -107,6 +112,7 @@ export type LootCaptureSettings = {
     region: NormalizedRegion;
     sourceWidth: number;
     sourceHeight: number;
+    uiScalePercent: LootUiScale;
 };
 
 const NATIVE_FRAME_HEADER_BYTES = 40;
@@ -137,12 +143,14 @@ export function parseNativeCaptureMessage(message: ArrayBuffer): NativeCaptureFr
     const cropY = header.getUint32(36, true);
     const validKind = kind === 1 || kind === 2;
     const boundedPreview = kind !== 1 || (width <= 640 && height <= 360 && cropX === 0 && cropY === 0);
+    const isProfileRegion = ([80, 100] as const).some((scale) => {
+        const size = lootRegionSize(scale);
+        return width === size.width && height === size.height;
+    });
     const boundedRegion =
         kind !== 2 ||
-        (sourceWidth === 3440 &&
-            sourceHeight === 1440 &&
-            width === 362 &&
-            height === 311 &&
+        (isSupportedLootSource(sourceWidth, sourceHeight) &&
+            isProfileRegion &&
             cropX + width <= sourceWidth &&
             cropY + height <= sourceHeight);
     if (
@@ -182,7 +190,7 @@ export function supportsNativeDisplayCapture() {
 }
 
 export function startNativeDisplayCapture(
-    region: NormalizedRegion | null,
+    selection: LootCaptureSettings | null,
     onFrame: (frame: NativeCaptureFrame) => void,
     onError: (message: string) => void,
 ) {
@@ -207,11 +215,11 @@ export function startNativeDisplayCapture(
             }
         }
     });
-    return invoke<void>("start_native_display_capture", { frames, region });
+    return invoke<void>("start_native_display_capture", { frames, selection });
 }
 
-export function setNativeDisplayCaptureRegion(region: NormalizedRegion | null) {
-    return invoke<void>("set_native_display_capture_region", { region });
+export function setNativeDisplayCaptureRegion(selection: LootCaptureSettings | null) {
+    return invoke<void>("set_native_display_capture_region", { selection });
 }
 
 export function stopNativeDisplayCapture() {

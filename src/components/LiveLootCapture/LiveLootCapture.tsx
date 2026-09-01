@@ -16,7 +16,8 @@ import {
     defaultLootRegion,
     displayCaptureErrorMessage,
     isSupportedLootSource,
-    LOOT_REGION_SIZE,
+    type LootUiScale,
+    lootRegionSize,
     type NormalizedRegion,
     normalizedRegionToPixels,
     positionLootRegion,
@@ -70,6 +71,7 @@ export function LiveLootCapture({ sessionStatus }: { sessionStatus: SessionStatu
     const configuredSource = useRef("");
     const regionRef = useRef<NormalizedRegion | null>(null);
     const sourceDimensionsRef = useRef<SourceDimensions | null>(null);
+    const uiScaleRef = useRef<LootUiScale>(80);
     const [status, setStatus] = useState<CaptureStatus>("idle");
     const [error, setError] = useState("");
     const [sampledFps, setSampledFps] = useState(0);
@@ -79,6 +81,7 @@ export function LiveLootCapture({ sessionStatus }: { sessionStatus: SessionStatu
     const [settingsLoaded, setSettingsLoaded] = useState(() => !supportsTauriApi());
     const [region, setRegion] = useState<NormalizedRegion | null>(null);
     const [captureRegion, setCaptureRegion] = useState<NormalizedRegion | null>(null);
+    const [uiScalePercent, setUiScalePercent] = useState<LootUiScale>(80);
     const [regionConfirmed, setRegionConfirmed] = useState(false);
     const [savingRegion, setSavingRegion] = useState(false);
 
@@ -92,6 +95,11 @@ export function LiveLootCapture({ sessionStatus }: { sessionStatus: SessionStatu
     function updateSourceDimensions(next: SourceDimensions | null) {
         sourceDimensionsRef.current = next;
         setSourceDimensions(next);
+    }
+
+    function updateUiScale(next: LootUiScale) {
+        uiScaleRef.current = next;
+        setUiScalePercent(next);
     }
 
     function releaseStream() {
@@ -244,8 +252,30 @@ export function LiveLootCapture({ sessionStatus }: { sessionStatus: SessionStatu
             (event.clientY - bounds.top) / bounds.height,
             sourceDimensions.width,
             sourceDimensions.height,
+            uiScaleRef.current,
         );
         updateRegion(next);
+        setRegionConfirmed(false);
+        setRegionFrameSize(null);
+        clearCanvas(regionCanvas.current);
+    }
+
+    function changeUiScale(next: LootUiScale) {
+        updateUiScale(next);
+        const currentSource = sourceDimensionsRef.current;
+        if (!currentSource || !isSupportedLootSource(currentSource.width, currentSource.height)) return;
+        const currentRegion = regionRef.current;
+        const nextRegion = currentRegion
+            ? positionLootRegion(
+                  currentRegion.x + currentRegion.width / 2,
+                  currentRegion.y + currentRegion.height / 2,
+                  currentSource.width,
+                  currentSource.height,
+                  next,
+              )
+            : defaultLootRegion(currentSource.width, currentSource.height, next);
+        updateRegion(nextRegion);
+        setCaptureRegion(nextRegion);
         setRegionConfirmed(false);
         setRegionFrameSize(null);
         clearCanvas(regionCanvas.current);
@@ -257,6 +287,7 @@ export function LiveLootCapture({ sessionStatus }: { sessionStatus: SessionStatu
             region,
             sourceWidth: sourceDimensions.width,
             sourceHeight: sourceDimensions.height,
+            uiScalePercent,
         };
         setCaptureRegion(region);
         setSavingRegion(true);
@@ -268,6 +299,7 @@ export function LiveLootCapture({ sessionStatus }: { sessionStatus: SessionStatu
             if (
                 currentSource?.width === settings.sourceWidth &&
                 currentSource.height === settings.sourceHeight &&
+                uiScaleRef.current === settings.uiScalePercent &&
                 regionsEqual(regionRef.current, settings.region)
             ) {
                 setRegionConfirmed(true);
@@ -312,22 +344,26 @@ export function LiveLootCapture({ sessionStatus }: { sessionStatus: SessionStatu
             return;
         }
 
-        let selected = defaultLootRegion();
+        let selectedScale = uiScaleRef.current;
+        let selected = defaultLootRegion(sourceDimensions.width, sourceDimensions.height, selectedScale);
         let confirmed = false;
         if (
             savedSettings?.sourceWidth === sourceDimensions.width &&
             savedSettings.sourceHeight === sourceDimensions.height
         ) {
+            selectedScale = savedSettings.uiScalePercent;
             const pixels = normalizedRegionToPixels(
                 savedSettings.region,
                 sourceDimensions.width,
                 sourceDimensions.height,
             );
-            if (pixels.width === LOOT_REGION_SIZE.width && pixels.height === LOOT_REGION_SIZE.height) {
+            const expected = lootRegionSize(selectedScale);
+            if (pixels.width === expected.width && pixels.height === expected.height) {
                 selected = savedSettings.region;
                 confirmed = true;
             }
         }
+        updateUiScale(selectedScale);
         updateRegion(selected);
         setCaptureRegion(selected);
         setRegionConfirmed(confirmed);
@@ -336,11 +372,24 @@ export function LiveLootCapture({ sessionStatus }: { sessionStatus: SessionStatu
     useEffect(() => {
         if (status !== "capturing" || !nativeCapture.current) return;
         const currentRequest = requestId.current;
-        void setNativeDisplayCaptureRegion(captureRegion).catch((regionError) => {
+        let selection: LootCaptureSettings | null = null;
+        if (captureRegion && sourceDimensions) {
+            const pixels = normalizedRegionToPixels(captureRegion, sourceDimensions.width, sourceDimensions.height);
+            const expected = lootRegionSize(uiScalePercent);
+            if (pixels.width === expected.width && pixels.height === expected.height) {
+                selection = {
+                    region: captureRegion,
+                    sourceWidth: sourceDimensions.width,
+                    sourceHeight: sourceDimensions.height,
+                    uiScalePercent,
+                };
+            }
+        }
+        void setNativeDisplayCaptureRegion(selection).catch((regionError) => {
             if (!mounted.current || currentRequest !== requestId.current) return;
             setError(regionError instanceof Error ? regionError.message : String(regionError));
         });
-    }, [captureRegion, status]);
+    }, [captureRegion, sourceDimensions, status, uiScalePercent]);
 
     useEffect(() => {
         if (sessionStatus !== "running" && status !== "idle") stopCapture();
@@ -364,14 +413,18 @@ export function LiveLootCapture({ sessionStatus }: { sessionStatus: SessionStatu
                 output.height = height;
             }
             const currentSource = sourceDimensionsRef.current;
-            if (currentSource?.width !== preview.videoWidth || currentSource.height !== preview.videoHeight) {
+            const sourceChanged =
+                currentSource?.width !== preview.videoWidth || currentSource.height !== preview.videoHeight;
+            if (sourceChanged) {
                 updateSourceDimensions({ width: preview.videoWidth, height: preview.videoHeight });
+                setRegionFrameSize(null);
+                clearCanvas(regionCanvas.current);
             }
             output.getContext("2d")?.drawImage(preview, 0, 0, width, height);
 
             const selected = regionRef.current;
             const crop = regionCanvas.current;
-            if (selected && crop && isSupportedLootSource(preview.videoWidth, preview.videoHeight)) {
+            if (!sourceChanged && selected && crop && isSupportedLootSource(preview.videoWidth, preview.videoHeight)) {
                 const pixels = normalizedRegionToPixels(selected, preview.videoWidth, preview.videoHeight);
                 if (crop.width !== pixels.width || crop.height !== pixels.height) {
                     crop.width = pixels.width;
@@ -420,6 +473,7 @@ export function LiveLootCapture({ sessionStatus }: { sessionStatus: SessionStatu
         region && sourceDimensions
             ? normalizedRegionToPixels(region, sourceDimensions.width, sourceDimensions.height)
             : null;
+    const expectedRegionSize = lootRegionSize(uiScalePercent);
 
     return (
         <section className={styles.CapturePanel} aria-labelledby="live-capture-heading">
@@ -508,21 +562,41 @@ export function LiveLootCapture({ sessionStatus }: { sessionStatus: SessionStatu
                         </div>
                         {sourceDimensions && !sourceSupported ? (
                             <p className={styles.CalibrationError} role="status">
-                                This first profile requires a 3440 x 1440 source at 80% BDO UI scale.
+                                Supported sources are 3440 x 1440, 2560 x 1440, and 1920 x 1080.
                             </p>
                         ) : (
                             <div className={styles.CalibrationBar}>
                                 <span>
-                                    Drag the highlighted fixed-size area over the loot notifications, then confirm it.
+                                    Drag the highlighted {expectedRegionSize.width} x {expectedRegionSize.height} area
+                                    over the loot notifications, then confirm it.
                                 </span>
-                                <button
-                                    className="button"
-                                    type="button"
-                                    disabled={!region || regionConfirmed || savingRegion}
-                                    onClick={confirmRegion}
-                                >
-                                    {savingRegion ? "Saving..." : regionConfirmed ? "Area confirmed" : "Confirm area"}
-                                </button>
+                                <div className={styles.CalibrationControls}>
+                                    <label className={styles.ScaleControl}>
+                                        BDO UI scale
+                                        <select
+                                            value={uiScalePercent}
+                                            disabled={savingRegion}
+                                            onChange={(event) =>
+                                                changeUiScale(Number(event.currentTarget.value) as LootUiScale)
+                                            }
+                                        >
+                                            <option value={80}>80%</option>
+                                            <option value={100}>100%</option>
+                                        </select>
+                                    </label>
+                                    <button
+                                        className="button"
+                                        type="button"
+                                        disabled={!region || regionConfirmed || savingRegion}
+                                        onClick={confirmRegion}
+                                    >
+                                        {savingRegion
+                                            ? "Saving..."
+                                            : regionConfirmed
+                                              ? "Area confirmed"
+                                              : "Confirm area"}
+                                    </button>
+                                </div>
                             </div>
                         )}
                     </div>
@@ -562,7 +636,7 @@ export function LiveLootCapture({ sessionStatus }: { sessionStatus: SessionStatu
             )}
             <p className={styles.PrivacyNote}>
                 Preview and crop pixels stay in memory and are not saved, uploaded, or sent to OCR yet. Only confirmed
-                coordinates are stored by the desktop app.
+                coordinates, source dimensions, and BDO UI scale are stored by the desktop app.
             </p>
         </section>
     );
