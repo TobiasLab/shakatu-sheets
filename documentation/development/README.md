@@ -5,6 +5,9 @@ Install dependencies and run the desktop application:
 Linux builds require the PipeWire development headers (`libpipewire-0.3-dev` on Debian/Ubuntu or `pipewire-devel` on
 Fedora) and Clang for the Rust PipeWire bindings' generated FFI.
 
+The offline live-loot video benchmark additionally requires FFmpeg. Benchmark videos and generated frames belong in an
+external dataset directory and must not be committed.
+
 ```sh
 npm install
 npm run tauri dev

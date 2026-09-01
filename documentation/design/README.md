@@ -30,3 +30,5 @@ persisted.
 
 Future live notification capture and recognition is described in the
 [live loot recognition plan](live-loot-recognition.md).
+The local video sampling and annotation contract is described in the
+[live loot benchmark guide](live-loot-benchmark.md).
