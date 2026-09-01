@@ -157,6 +157,251 @@ export function stackShifted(previous, current, distance, minimumImprovement = 0
     return (stationaryDistance - shiftedDistance) / (current.length - 1) >= minimumImprovement;
 }
 
+export function rowBirthCount(previous, current, next, rowThreshold, distance) {
+    const additions = Math.max(0, current.count - previous.count);
+    if (current.count === 0) return 0;
+
+    const maximumContinuityDistance = 0.1;
+    function alignmentDistance(source, target, retained) {
+        let total = 0;
+        const sourceOffset = source.fingerprints.length - retained;
+        for (let index = 0; index < retained; index += 1) {
+            total += distance(source.fingerprints[sourceOffset + index], target.fingerprints[index]);
+        }
+        return total / retained;
+    }
+
+    function alignmentIsDiscriminative(source, target, retained, candidateDistance, minimumImprovement = 0.1) {
+        const intendedOffset = source.fingerprints.length - retained;
+        for (let alternativeOffset = 0; alternativeOffset < intendedOffset; alternativeOffset += 1) {
+            let total = 0;
+            for (let index = 0; index < retained; index += 1) {
+                total += distance(source.fingerprints[alternativeOffset + index], target.fingerprints[index]);
+            }
+            if (total / retained - candidateDistance <= minimumImprovement) return false;
+        }
+        return true;
+    }
+
+    function confirmedBirthCount(birthCount) {
+        if (birthCount === 0 || !next || next.count < birthCount) return 0;
+        if (additions > 0 && next.count >= current.count) return birthCount;
+        const maximumRetained = Math.min(current.count, next.count);
+        for (let retained = maximumRetained; retained >= birthCount; retained -= 1) {
+            const candidateDistance = alignmentDistance(current, next, retained);
+            if (
+                candidateDistance <= maximumContinuityDistance &&
+                alignmentIsDiscriminative(current, next, retained, candidateDistance, Number.EPSILON)
+            ) {
+                return birthCount;
+            }
+        }
+        return 0;
+    }
+
+    if (previous.count === 0) return confirmedBirthCount(additions);
+
+    const maximumRetained = Math.min(previous.count, current.count);
+    const stationaryDistance = alignmentDistance(previous, current, maximumRetained);
+    let retained = maximumRetained;
+    let bestDistance = stationaryDistance;
+    for (let candidate = maximumRetained - 1; candidate >= 1; candidate -= 1) {
+        const candidateDistance = alignmentDistance(previous, current, candidate);
+        if (
+            candidateDistance <= maximumContinuityDistance &&
+            candidateDistance < bestDistance &&
+            alignmentIsDiscriminative(previous, current, candidate, candidateDistance)
+        ) {
+            retained = candidate;
+            bestDistance = candidateDistance;
+        }
+    }
+    const alignedBirths = current.count - retained;
+    const averageStrength = current.strength / current.count;
+    const strengthChange = current.strength - previous.strength;
+    if (
+        alignedBirths > additions &&
+        stationaryDistance - bestDistance >= 0.1 &&
+        averageStrength >= rowThreshold * 2 &&
+        (current.count < previous.count || strengthChange >= -rowThreshold / 2)
+    ) {
+        return confirmedBirthCount(alignedBirths);
+    }
+
+    if (additions > 0) {
+        let alternativeDistance = Number.POSITIVE_INFINITY;
+        for (let offset = 1; offset <= additions; offset += 1) {
+            let total = 0;
+            for (let index = 0; index < previous.count; index += 1) {
+                total += distance(previous.fingerprints[index], current.fingerprints[offset + index]);
+            }
+            alternativeDistance = Math.min(alternativeDistance, total / previous.count);
+        }
+        return stationaryDistance - alternativeDistance >= 0.1 ? 0 : confirmedBirthCount(additions);
+    }
+    if (current.count !== previous.count) return 0;
+
+    const replacementEvidence =
+        distance(current.fingerprint, previous.fingerprint) >= 0.1 ||
+        stackShifted(previous.fingerprints, current.fingerprints, distance) ||
+        strengthChange >= rowThreshold * 2;
+    const birthCount =
+        replacementEvidence && averageStrength >= rowThreshold * 2 && strengthChange >= -rowThreshold / 2 ? 1 : 0;
+    return confirmedBirthCount(birthCount);
+}
+
+export function trackRowEvents(rows, rowThreshold, distance) {
+    const tracks = [];
+    let stack = [];
+    let nextId = 1;
+    let emptyFrames = rows[0]?.count === 0 ? 1 : 0;
+
+    function createTrack(firstFrame, baseline) {
+        const track = {
+            id: `detected-${String(nextId).padStart(4, "0")}`,
+            firstFrame,
+            baseline,
+            observations: [],
+        };
+        nextId += 1;
+        tracks.push(track);
+        return track;
+    }
+
+    function bestTrackAlignment(current) {
+        const retained = Math.min(stack.length, current.count);
+        if (retained === 0) return { sourceOffset: 0, targetOffset: 0, retained, distance: Number.POSITIVE_INFINITY };
+
+        let best;
+        for (let sourceOffset = stack.length - retained; sourceOffset >= 0; sourceOffset -= 1) {
+            const nonBaseline = stack
+                .slice(sourceOffset, sourceOffset + retained)
+                .filter((track) => !track.baseline).length;
+            for (let targetOffset = 0; targetOffset <= current.count - retained; targetOffset += 1) {
+                let total = 0;
+                for (let index = 0; index < retained; index += 1) {
+                    total += distance(
+                        stack[sourceOffset + index].observations.at(-1)?.fingerprint,
+                        current.observations[targetOffset + index].fingerprint,
+                    );
+                }
+                const candidate = { sourceOffset, targetOffset, retained, distance: total / retained, nonBaseline };
+                if (
+                    !best ||
+                    candidate.distance < best.distance ||
+                    (candidate.distance === best.distance && candidate.nonBaseline > best.nonBaseline)
+                ) {
+                    best = candidate;
+                }
+            }
+        }
+        return best;
+    }
+
+    function align(frame, current, birthCount, baseline = false) {
+        if (birthCount === 0) {
+            if (current.count === 0) return;
+            const { sourceOffset, targetOffset, retained } = bestTrackAlignment(current);
+            const aligned = [];
+            for (let index = 0; index < current.count; index += 1) {
+                aligned.push(
+                    index >= targetOffset && index < targetOffset + retained
+                        ? stack[sourceOffset + index - targetOffset]
+                        : createTrack(frame, true),
+                );
+            }
+            stack = aligned;
+            for (let index = 0; index < stack.length; index += 1) {
+                stack[index].observations.push({ frame, ...current.observations[index] });
+            }
+            return;
+        }
+
+        const retainedCount = Math.max(0, current.count - birthCount);
+        stack = stack.slice(Math.max(0, stack.length - retainedCount));
+        while (stack.length < retainedCount) stack.unshift(createTrack(frame, true));
+        for (let index = 0; index < birthCount; index += 1) stack.push(createTrack(frame, baseline));
+        while (stack.length < current.count) stack.push(createTrack(frame, true));
+        if (stack.length > current.count) stack = stack.slice(stack.length - current.count);
+        for (let index = 0; index < stack.length; index += 1) {
+            stack[index].observations.push({ frame, ...current.observations[index] });
+        }
+    }
+
+    if (rows.length === 0) return tracks;
+    align(0, rows[0], rows[0].count, true);
+    for (let frame = 1; frame < rows.length; frame += 1) {
+        const current = rows[frame];
+        let births = rowBirthCount(rows[frame - 1], current, rows[frame + 1], rowThreshold, distance);
+        if (emptyFrames === 1 && stack.length > 0) {
+            const recovery = bestTrackAlignment(current);
+            if (recovery.distance <= 0.1) {
+                const unmatchedBottom = current.count - recovery.targetOffset - recovery.retained;
+                births = Math.min(births, unmatchedBottom);
+            }
+        }
+        align(frame, rows[frame], births);
+        if (current.count === 0) {
+            emptyFrames += 1;
+            if (emptyFrames > 1) stack = [];
+        } else {
+            emptyFrames = 0;
+        }
+    }
+    return tracks;
+}
+
+export function selectOcrObservations(
+    track,
+    rowThreshold,
+    { frameCount = 3, delayFrames = 1, minimumScoreMultiplier = 1 } = {},
+) {
+    let run = [];
+    for (const observation of track.observations) {
+        const previous = run.at(-1);
+        const eligible =
+            observation.frame >= track.firstFrame + delayFrames &&
+            observation.score >= rowThreshold * minimumScoreMultiplier;
+        if (!eligible || (previous && observation.frame !== previous.frame + 1)) run = [];
+        if (!eligible) continue;
+        run.push(observation);
+        if (run.length === frameCount) return run;
+    }
+    return [];
+}
+
+export function compareDetectedEvents(expectedEvents, actualEvents, tolerance = 1) {
+    const expected = expectedEvents
+        .map((event, index) => ({ event, index }))
+        .sort((left, right) => left.event.firstFrame - right.event.firstFrame || left.index - right.index);
+    const actual = actualEvents
+        .map((event, index) => ({ event, index }))
+        .sort((left, right) => left.event.firstFrame - right.event.firstFrame || left.index - right.index);
+    const matches = [];
+    const missed = [];
+    const invented = [];
+    let expectedIndex = 0;
+    let actualIndex = 0;
+    while (expectedIndex < expected.length && actualIndex < actual.length) {
+        const expectedEvent = expected[expectedIndex].event;
+        const actualEvent = actual[actualIndex].event;
+        if (actualEvent.firstFrame < expectedEvent.firstFrame - tolerance) {
+            invented.push(actualEvent);
+            actualIndex += 1;
+        } else if (actualEvent.firstFrame > expectedEvent.firstFrame + tolerance) {
+            missed.push(expectedEvent);
+            expectedIndex += 1;
+        } else {
+            matches.push({ expected: expectedEvent, actual: actualEvent });
+            expectedIndex += 1;
+            actualIndex += 1;
+        }
+    }
+    missed.push(...expected.slice(expectedIndex).map(({ event }) => event));
+    invented.push(...actual.slice(actualIndex).map(({ event }) => event));
+    return { matches, missed, invented };
+}
+
 export function parseQuantity(text) {
     const suffix = text.match(/x\s*(\d+|[|Il])\s*$/i)?.[1];
     if (!suffix) return "";
@@ -209,4 +454,16 @@ export function chooseConsensus(readings) {
 
 export function chooseTemporalConsensus(readingsByFrame) {
     return chooseConsensus(readingsByFrame.flatMap((readings) => [...new Set(readings.filter(Boolean))]));
+}
+
+export function chooseTemporalPairConsensus(readingsByFrame) {
+    const pairs = readingsByFrame.map((readings) =>
+        readings
+            .filter(({ item, quantity }) => item !== "" && quantity !== "")
+            .map(({ item, quantity }) => `${item}\0${quantity}`),
+    );
+    const consensus = chooseTemporalConsensus(pairs);
+    if (consensus === "") return { item: "", quantity: "" };
+    const [item, quantity] = consensus.split("\0");
+    return { item, quantity };
 }

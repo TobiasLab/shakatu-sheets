@@ -2,9 +2,9 @@
 
 ## Status
 
-Linux capture feasibility is established. The first native-resolution offline benchmark detects events and recognizes
-stable-row items and quantities exactly on its held-out sequence. Shakatu Sheets does not yet recognize live loot
-notifications; more layouts and end-to-end integration remain required.
+Linux capture feasibility is established. The first native-resolution offline pipeline tracks events, selects OCR frames,
+and recognizes items and quantities exactly on its held-out sequence without label-selected crops. Shakatu Sheets
+does not yet recognize live loot notifications; native-resolution ROI delivery and more layouts remain required.
 
 ## Goal
 
@@ -117,9 +117,10 @@ should be added automatically and uncertain events should wait for review.
 9. Replace prototype auto-acceptance with measured confidence gating before release.
 10. Add 100% UI-scale and 16:9 benchmark sets only after normalization preserves acceptable results.
 
-The current 3440x1440, 80%-UI-scale baseline has 24/24 development and 11/11 test event matches. Dictionary-constrained
-stable-row OCR also has 24/24 development and 11/11 test item-and-quantity matches. This small benchmark does not yet
-measure tracked-event-to-OCR handoff, live native-resolution ROI delivery, other layouts, or release accuracy.
+The current 3440x1440, 80%-UI-scale end-to-end baseline has 24/24 development and 11/11 test item-and-quantity matches.
+Tracked identities select their own first three consecutive detected OCR frames after a one-frame delay, with labels used
+only for development calibration and final scoring. This small benchmark does not yet measure live native-resolution ROI
+delivery, other layouts, or release accuracy.
 
 ## Success Criteria
 

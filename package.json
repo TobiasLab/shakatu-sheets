@@ -10,6 +10,7 @@
         "benchmark:loot:sample": "node scripts/sample-loot-video.mjs",
         "benchmark:loot:track": "node scripts/benchmark-loot-tracker.mjs",
         "benchmark:loot:ocr": "node scripts/benchmark-loot-ocr.mjs",
+        "benchmark:loot:e2e": "node scripts/benchmark-loot-e2e.mjs",
         "benchmark:marni": "node scripts/benchmark-marni.mjs",
         "bundle:linux": "NO_STRIP=1 tauri build",
         "check": "biome check .",
