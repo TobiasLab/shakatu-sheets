@@ -1,5 +1,6 @@
 import { Channel, invoke, isTauri } from "@tauri-apps/api/core";
 import type { SessionState } from "../domain/session";
+import type { NormalizedRegion } from "../recognition/displayCapture";
 
 export type MarketPriceSnapshot = {
     itemId: number;
@@ -88,56 +89,139 @@ export function uploadGarmothSession(input: GarmothUploadInput) {
 }
 
 export type NativeCaptureFrame = {
+    kind: "preview" | "region";
+    captureId: number;
+    batchId: number;
     pixels: Uint8ClampedArray;
     width: number;
     height: number;
     sourceWidth: number;
     sourceHeight: number;
+    cropX: number;
+    cropY: number;
 };
+
+export type NativeCaptureError = { kind: "error"; message: string };
+
+export type LootCaptureSettings = {
+    region: NormalizedRegion;
+    sourceWidth: number;
+    sourceHeight: number;
+};
+
+const NATIVE_FRAME_HEADER_BYTES = 40;
+const NATIVE_FRAME_PROTOCOL_VERSION = 1;
+
+export function parseNativeCaptureMessage(message: ArrayBuffer): NativeCaptureFrame | NativeCaptureError {
+    const bytes = new Uint8Array(message);
+    if (bytes.byteLength < NATIVE_FRAME_HEADER_BYTES) {
+        throw new Error("Native display capture returned an invalid frame.");
+    }
+    const header = new DataView(message, 0, NATIVE_FRAME_HEADER_BYTES);
+    const version = header.getUint32(0, true);
+    const kind = header.getUint32(4, true);
+    if (version !== NATIVE_FRAME_PROTOCOL_VERSION) {
+        throw new Error("Native display capture returned an unsupported frame version.");
+    }
+    if (kind === 0) {
+        return { kind: "error", message: new TextDecoder().decode(bytes.subarray(NATIVE_FRAME_HEADER_BYTES)) };
+    }
+
+    const captureId = header.getUint32(8, true);
+    const batchId = header.getUint32(12, true);
+    const width = header.getUint32(16, true);
+    const height = header.getUint32(20, true);
+    const sourceWidth = header.getUint32(24, true);
+    const sourceHeight = header.getUint32(28, true);
+    const cropX = header.getUint32(32, true);
+    const cropY = header.getUint32(36, true);
+    const validKind = kind === 1 || kind === 2;
+    const boundedPreview = kind !== 1 || (width <= 640 && height <= 360 && cropX === 0 && cropY === 0);
+    const boundedRegion =
+        kind !== 2 ||
+        (sourceWidth === 3440 &&
+            sourceHeight === 1440 &&
+            width === 362 &&
+            height === 311 &&
+            cropX + width <= sourceWidth &&
+            cropY + height <= sourceHeight);
+    if (
+        !validKind ||
+        captureId === 0 ||
+        batchId === 0 ||
+        width === 0 ||
+        height === 0 ||
+        sourceWidth === 0 ||
+        sourceHeight === 0 ||
+        !boundedPreview ||
+        !boundedRegion ||
+        bytes.byteLength !== NATIVE_FRAME_HEADER_BYTES + width * height * 4
+    ) {
+        throw new Error("Native display capture returned an invalid frame.");
+    }
+    return {
+        kind: kind === 1 ? "preview" : "region",
+        captureId,
+        batchId,
+        pixels: new Uint8ClampedArray(message, NATIVE_FRAME_HEADER_BYTES),
+        width,
+        height,
+        sourceWidth,
+        sourceHeight,
+        cropX,
+        cropY,
+    };
+}
+
+export function supportsTauriApi() {
+    return isTauri();
+}
 
 export function supportsNativeDisplayCapture() {
     return isTauri() && navigator.userAgent.includes("Linux");
 }
 
 export function startNativeDisplayCapture(
+    region: NormalizedRegion | null,
     onFrame: (frame: NativeCaptureFrame) => void,
     onError: (message: string) => void,
 ) {
     const frames = new Channel<ArrayBuffer>((message) => {
+        let frame: NativeCaptureFrame | undefined;
         try {
-            const bytes = new Uint8Array(message);
-            if (bytes.byteLength < 16) {
-                onError("Native display capture returned an invalid frame.");
-                return;
+            const parsed = parseNativeCaptureMessage(message);
+            if (parsed.kind === "error") onError(parsed.message);
+            else {
+                frame = parsed;
+                onFrame(parsed);
             }
-            const header = new DataView(message, 0, 16);
-            const width = header.getUint32(0, true);
-            if (width === 0) {
-                onError(new TextDecoder().decode(bytes.subarray(16)));
-                return;
-            }
-            const height = header.getUint32(4, true);
-            const sourceWidth = header.getUint32(8, true);
-            const sourceHeight = header.getUint32(12, true);
-            if (
-                height === 0 ||
-                sourceWidth === 0 ||
-                sourceHeight === 0 ||
-                width > 640 ||
-                height > 360 ||
-                bytes.byteLength !== 16 + width * height * 4
-            ) {
-                onError("Native display capture returned an invalid frame.");
-                return;
-            }
-            onFrame({ pixels: new Uint8ClampedArray(message, 16), width, height, sourceWidth, sourceHeight });
+        } catch (error) {
+            onError(error instanceof Error ? error.message : String(error));
         } finally {
-            void invoke("acknowledge_native_display_frame");
+            if (frame) {
+                void invoke("acknowledge_native_display_frame", {
+                    captureId: frame.captureId,
+                    batchId: frame.batchId,
+                    kind: frame.kind === "preview" ? 1 : 2,
+                });
+            }
         }
     });
-    return invoke<void>("start_native_display_capture", { frames });
+    return invoke<void>("start_native_display_capture", { frames, region });
+}
+
+export function setNativeDisplayCaptureRegion(region: NormalizedRegion | null) {
+    return invoke<void>("set_native_display_capture_region", { region });
 }
 
 export function stopNativeDisplayCapture() {
     return invoke<void>("stop_native_display_capture");
+}
+
+export function loadLootCaptureSettings() {
+    return invoke<LootCaptureSettings | null>("load_loot_capture_settings");
+}
+
+export function saveLootCaptureSettings(settings: LootCaptureSettings) {
+    return invoke<void>("save_loot_capture_settings", { settings });
 }

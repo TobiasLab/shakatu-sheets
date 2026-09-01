@@ -3,8 +3,9 @@
 ## Status
 
 Linux capture feasibility is established. The first native-resolution offline pipeline tracks events, selects OCR frames,
-and recognizes items and quantities exactly on its held-out sequence without label-selected crops. Shakatu Sheets
-does not yet recognize live loot notifications; native-resolution ROI delivery and more layouts remain required.
+and recognizes items and quantities exactly on its held-out sequence without label-selected crops. The live capture UI
+now positions and previews a native-resolution in-memory crop for the initial layout. Shakatu Sheets does not yet recognize
+live loot notifications; streaming recognition, live validation, and more layouts remain required.
 
 ## Goal
 
@@ -31,7 +32,8 @@ game process, or inspect BDO network traffic. User-authorized operating-system s
 ## Capture
 
 Capture uses a live operating-system screen-sharing stream rather than repeatedly saving screenshots. The app samples
-approximately 5-10 frames per second and copies only the configured notification rectangle into memory.
+approximately 5-10 frames per second, creates a bounded full-source preview, and copies the configured notification
+rectangle at native resolution into memory.
 
 Windows and browser development use `navigator.mediaDevices.getDisplayMedia` inside the Tauri WebView. The call must come
 directly from a user action and requests video without audio. The operating system presents its own source picker and the
@@ -42,7 +44,9 @@ WebKitGTK 2.52 can close the portal session after source selection and then fail
 implementation ignores the `SelectSources` response and requests an embedded cursor without checking whether the portal
 advertises that mode. Linux therefore performs the same user-authorized XDG ScreenCast portal flow natively, requests one
 monitor with a hidden cursor, and consumes the returned PipeWire stream. Sampled RGBA preview frames cross Tauri's local
-binary IPC channel and are not persisted.
+binary IPC channel and are not persisted. On Linux, the selected notification rectangle is cropped directly from the
+mapped native PipeWire frame before a separate region frame crosses the same versioned channel. Browser capture crops the
+native hidden video frame with canvas while retaining the downscaled preview.
 
 Platform capture remains behind the same start/stop interface:
 
@@ -54,9 +58,10 @@ Wayland intentionally requires an operating-system permission dialog. Browser di
 persisted, so the user should expect to select a source for every new capture session. A future native portal path may use
 a restore token, but the application must never attempt to bypass capture consent.
 
-The user selects the notification rectangle from a preview frame. Persist only validated normalized rectangle
-coordinates, never the preview or captured pixels. Require recalibration when capture dimensions or aspect ratio change
-materially.
+The user positions a fixed `362x311` notification rectangle on the preview. The first profile accepts only a `3440x1440`
+source at 80% BDO UI scale. Persist only validated normalized rectangle coordinates and their source dimensions, never the
+preview or captured pixels. A dimension mismatch disables the crop and requires a supported profile or future
+recalibration.
 
 ## Recognition Pipeline
 
@@ -107,7 +112,8 @@ should be added automatically and uncertain events should wait for review.
 1. On Linux Wayland, prove that the portal stream supplies at least five sampled frames per second for ten minutes while
    BDO is focused, then confirm immediate stream release on stop.
 2. Confirm the same capture lifecycle on Windows WebView2.
-3. Add rectangle selection and an in-memory preview for the initial 80% UI-scale layout.
+3. Validate the implemented rectangle selection and native-resolution in-memory preview for the initial 80% UI-scale
+   layout during a live BDO session.
 4. Build an external benchmark from labeled screenshots and a 5-10 FPS frame burst across bright, dark, crowded, and
    effect-heavy scenes.
 5. Implement row detection and temporal event tracking, including consecutive identical drops.

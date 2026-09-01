@@ -1,18 +1,63 @@
-import { useEffect, useRef, useState } from "react";
-import { startNativeDisplayCapture, stopNativeDisplayCapture, supportsNativeDisplayCapture } from "../../api/tauri";
+import { type PointerEvent as ReactPointerEvent, useEffect, useRef, useState } from "react";
+import {
+    type LootCaptureSettings,
+    loadLootCaptureSettings,
+    type NativeCaptureFrame,
+    saveLootCaptureSettings,
+    setNativeDisplayCaptureRegion,
+    startNativeDisplayCapture,
+    stopNativeDisplayCapture,
+    supportsNativeDisplayCapture,
+    supportsTauriApi,
+} from "../../api/tauri";
 import type { SessionStatus } from "../../domain/session";
 import {
     DISPLAY_CAPTURE_OPTIONS,
+    defaultLootRegion,
     displayCaptureErrorMessage,
+    isSupportedLootSource,
+    LOOT_REGION_SIZE,
+    type NormalizedRegion,
+    normalizedRegionToPixels,
+    positionLootRegion,
     stopDisplayCapture,
 } from "../../recognition/displayCapture";
 import styles from "./LiveLootCapture.module.css";
 
 type CaptureStatus = "idle" | "requesting" | "connecting" | "capturing";
+type SourceDimensions = { width: number; height: number };
+
+function drawFrame(canvas: HTMLCanvasElement | null, frame: NativeCaptureFrame) {
+    if (!canvas) return;
+    if (canvas.width !== frame.width || canvas.height !== frame.height) {
+        canvas.width = frame.width;
+        canvas.height = frame.height;
+    }
+    canvas.getContext("2d")?.putImageData(new ImageData(frame.pixels, frame.width, frame.height), 0, 0);
+}
+
+function clearCanvas(canvas: HTMLCanvasElement | null) {
+    if (!canvas) return;
+    canvas.width = 0;
+    canvas.height = 0;
+}
+
+function regionsEqual(left: NormalizedRegion | null, right: NormalizedRegion | null) {
+    return (
+        left === right ||
+        (left !== null &&
+            right !== null &&
+            left.x === right.x &&
+            left.y === right.y &&
+            left.width === right.width &&
+            left.height === right.height)
+    );
+}
 
 export function LiveLootCapture({ sessionStatus }: { sessionStatus: SessionStatus }) {
     const video = useRef<HTMLVideoElement>(null);
     const canvas = useRef<HTMLCanvasElement>(null);
+    const regionCanvas = useRef<HTMLCanvasElement>(null);
     const activeStream = useRef<MediaStream | null>(null);
     const nativeCapture = useRef(false);
     const receivedNativeFrame = useRef(false);
@@ -21,12 +66,33 @@ export function LiveLootCapture({ sessionStatus }: { sessionStatus: SessionStatu
     const requestId = useRef(0);
     const mounted = useRef(true);
     const sessionRunning = useRef(sessionStatus === "running");
+    const draggingRegion = useRef(false);
+    const configuredSource = useRef("");
+    const regionRef = useRef<NormalizedRegion | null>(null);
+    const sourceDimensionsRef = useRef<SourceDimensions | null>(null);
     const [status, setStatus] = useState<CaptureStatus>("idle");
     const [error, setError] = useState("");
     const [sampledFps, setSampledFps] = useState(0);
-    const [sourceSize, setSourceSize] = useState("");
+    const [sourceDimensions, setSourceDimensions] = useState<SourceDimensions | null>(null);
+    const [regionFrameSize, setRegionFrameSize] = useState<SourceDimensions | null>(null);
+    const [savedSettings, setSavedSettings] = useState<LootCaptureSettings | null>(null);
+    const [settingsLoaded, setSettingsLoaded] = useState(() => !supportsTauriApi());
+    const [region, setRegion] = useState<NormalizedRegion | null>(null);
+    const [captureRegion, setCaptureRegion] = useState<NormalizedRegion | null>(null);
+    const [regionConfirmed, setRegionConfirmed] = useState(false);
+    const [savingRegion, setSavingRegion] = useState(false);
 
     sessionRunning.current = sessionStatus === "running";
+
+    function updateRegion(next: NormalizedRegion | null) {
+        regionRef.current = next;
+        setRegion(next);
+    }
+
+    function updateSourceDimensions(next: SourceDimensions | null) {
+        sourceDimensionsRef.current = next;
+        setSourceDimensions(next);
+    }
 
     function releaseStream() {
         if (nativeCapture.current) {
@@ -38,9 +104,14 @@ export function LiveLootCapture({ sessionStatus }: { sessionStatus: SessionStatu
         if (video.current) video.current.srcObject = null;
         setStatus("idle");
         setSampledFps(0);
-        setSourceSize("");
+        updateSourceDimensions(null);
+        setRegionFrameSize(null);
+        updateRegion(null);
+        setCaptureRegion(null);
+        clearCanvas(regionCanvas.current);
         sampledFrames.current = 0;
         measurementStarted.current = performance.now();
+        configuredSource.current = "";
     }
 
     function recordSample() {
@@ -75,33 +146,49 @@ export function LiveLootCapture({ sessionStatus }: { sessionStatus: SessionStatu
                 nativeCapture.current = true;
                 receivedNativeFrame.current = false;
                 await startNativeDisplayCapture(
+                    null,
                     (frame) => {
-                        if (!mounted.current || !sessionRunning.current || currentRequest !== requestId.current) {
-                            return;
-                        }
+                        if (!mounted.current || !sessionRunning.current || currentRequest !== requestId.current) return;
                         receivedNativeFrame.current = true;
-                        setSourceSize(`${frame.sourceWidth} x ${frame.sourceHeight}`);
-                        setStatus("capturing");
-                        recordSample();
-                        const output = canvas.current;
-                        if (!output) return;
-                        if (output.width !== frame.width || output.height !== frame.height) {
-                            output.width = frame.width;
-                            output.height = frame.height;
+                        if (frame.kind === "preview") {
+                            const current = sourceDimensionsRef.current;
+                            if (current?.width !== frame.sourceWidth || current.height !== frame.sourceHeight) {
+                                updateSourceDimensions({ width: frame.sourceWidth, height: frame.sourceHeight });
+                            }
+                            setStatus("capturing");
+                            recordSample();
+                            drawFrame(canvas.current, frame);
+                        } else {
+                            const currentSource = sourceDimensionsRef.current;
+                            const selected = regionRef.current;
+                            if (!currentSource || !selected) return;
+                            const pixels = normalizedRegionToPixels(
+                                selected,
+                                currentSource.width,
+                                currentSource.height,
+                            );
+                            if (
+                                frame.sourceWidth !== currentSource.width ||
+                                frame.sourceHeight !== currentSource.height ||
+                                frame.cropX !== pixels.x ||
+                                frame.cropY !== pixels.y ||
+                                frame.width !== pixels.width ||
+                                frame.height !== pixels.height
+                            ) {
+                                return;
+                            }
+                            setRegionFrameSize({ width: frame.width, height: frame.height });
+                            drawFrame(regionCanvas.current, frame);
                         }
-                        output
-                            .getContext("2d")
-                            ?.putImageData(new ImageData(frame.pixels, frame.width, frame.height), 0, 0);
                     },
                     (message) => {
                         if (!mounted.current || currentRequest !== requestId.current) return;
+                        requestId.current += 1;
                         releaseStream();
                         setError(message);
                     },
                 );
-                if (!mounted.current || !sessionRunning.current || currentRequest !== requestId.current) {
-                    return;
-                }
+                if (!mounted.current || !sessionRunning.current || currentRequest !== requestId.current) return;
                 if (!receivedNativeFrame.current) setStatus("connecting");
                 return;
             }
@@ -148,6 +235,113 @@ export function LiveLootCapture({ sessionStatus }: { sessionStatus: SessionStatu
         }
     }
 
+    function moveRegion(event: ReactPointerEvent<HTMLDivElement>) {
+        if (!sourceDimensions || !isSupportedLootSource(sourceDimensions.width, sourceDimensions.height)) return;
+        const bounds = event.currentTarget.getBoundingClientRect();
+        if (bounds.width === 0 || bounds.height === 0) return;
+        const next = positionLootRegion(
+            (event.clientX - bounds.left) / bounds.width,
+            (event.clientY - bounds.top) / bounds.height,
+            sourceDimensions.width,
+            sourceDimensions.height,
+        );
+        updateRegion(next);
+        setRegionConfirmed(false);
+        setRegionFrameSize(null);
+        clearCanvas(regionCanvas.current);
+    }
+
+    async function confirmRegion() {
+        if (!sourceDimensions || !region) return;
+        const settings = {
+            region,
+            sourceWidth: sourceDimensions.width,
+            sourceHeight: sourceDimensions.height,
+        };
+        setCaptureRegion(region);
+        setSavingRegion(true);
+        setError("");
+        try {
+            if (supportsTauriApi()) await saveLootCaptureSettings(settings);
+            setSavedSettings(settings);
+            const currentSource = sourceDimensionsRef.current;
+            if (
+                currentSource?.width === settings.sourceWidth &&
+                currentSource.height === settings.sourceHeight &&
+                regionsEqual(regionRef.current, settings.region)
+            ) {
+                setRegionConfirmed(true);
+            }
+        } catch (saveError) {
+            setError(saveError instanceof Error ? saveError.message : String(saveError));
+        } finally {
+            setSavingRegion(false);
+        }
+    }
+
+    useEffect(() => {
+        if (!supportsTauriApi()) return;
+        let cancelled = false;
+        void loadLootCaptureSettings()
+            .then((settings) => {
+                if (!cancelled) setSavedSettings(settings);
+            })
+            .catch((settingsError) => {
+                if (!cancelled)
+                    setError(settingsError instanceof Error ? settingsError.message : String(settingsError));
+            })
+            .finally(() => {
+                if (!cancelled) setSettingsLoaded(true);
+            });
+        return () => {
+            cancelled = true;
+        };
+    }, []);
+
+    useEffect(() => {
+        if (!sourceDimensions || !settingsLoaded) return;
+        const sourceKey = `${sourceDimensions.width}x${sourceDimensions.height}`;
+        if (configuredSource.current === sourceKey) return;
+        configuredSource.current = sourceKey;
+        setRegionFrameSize(null);
+        clearCanvas(regionCanvas.current);
+        if (!isSupportedLootSource(sourceDimensions.width, sourceDimensions.height)) {
+            updateRegion(null);
+            setCaptureRegion(null);
+            setRegionConfirmed(false);
+            return;
+        }
+
+        let selected = defaultLootRegion();
+        let confirmed = false;
+        if (
+            savedSettings?.sourceWidth === sourceDimensions.width &&
+            savedSettings.sourceHeight === sourceDimensions.height
+        ) {
+            const pixels = normalizedRegionToPixels(
+                savedSettings.region,
+                sourceDimensions.width,
+                sourceDimensions.height,
+            );
+            if (pixels.width === LOOT_REGION_SIZE.width && pixels.height === LOOT_REGION_SIZE.height) {
+                selected = savedSettings.region;
+                confirmed = true;
+            }
+        }
+        updateRegion(selected);
+        setCaptureRegion(selected);
+        setRegionConfirmed(confirmed);
+    }, [savedSettings, settingsLoaded, sourceDimensions]);
+
+    useEffect(() => {
+        if (status !== "capturing" || !nativeCapture.current) return;
+        const currentRequest = requestId.current;
+        void setNativeDisplayCaptureRegion(captureRegion).catch((regionError) => {
+            if (!mounted.current || currentRequest !== requestId.current) return;
+            setError(regionError instanceof Error ? regionError.message : String(regionError));
+        });
+    }, [captureRegion, status]);
+
     useEffect(() => {
         if (sessionStatus !== "running" && status !== "idle") stopCapture();
     }, [sessionStatus, status]);
@@ -168,9 +362,38 @@ export function LiveLootCapture({ sessionStatus }: { sessionStatus: SessionStatu
             if (output.width !== width || output.height !== height) {
                 output.width = width;
                 output.height = height;
-                setSourceSize(`${preview.videoWidth} x ${preview.videoHeight}`);
+            }
+            const currentSource = sourceDimensionsRef.current;
+            if (currentSource?.width !== preview.videoWidth || currentSource.height !== preview.videoHeight) {
+                updateSourceDimensions({ width: preview.videoWidth, height: preview.videoHeight });
             }
             output.getContext("2d")?.drawImage(preview, 0, 0, width, height);
+
+            const selected = regionRef.current;
+            const crop = regionCanvas.current;
+            if (selected && crop && isSupportedLootSource(preview.videoWidth, preview.videoHeight)) {
+                const pixels = normalizedRegionToPixels(selected, preview.videoWidth, preview.videoHeight);
+                if (crop.width !== pixels.width || crop.height !== pixels.height) {
+                    crop.width = pixels.width;
+                    crop.height = pixels.height;
+                }
+                crop.getContext("2d")?.drawImage(
+                    preview,
+                    pixels.x,
+                    pixels.y,
+                    pixels.width,
+                    pixels.height,
+                    0,
+                    0,
+                    pixels.width,
+                    pixels.height,
+                );
+                setRegionFrameSize((current) =>
+                    current?.width === pixels.width && current.height === pixels.height
+                        ? current
+                        : { width: pixels.width, height: pixels.height },
+                );
+            }
             recordSample();
         }, 125);
         return () => window.clearInterval(timer);
@@ -187,6 +410,17 @@ export function LiveLootCapture({ sessionStatus }: { sessionStatus: SessionStatu
     }, []);
 
     const running = sessionStatus === "running";
+    const sourceSupported = sourceDimensions
+        ? isSupportedLootSource(sourceDimensions.width, sourceDimensions.height)
+        : false;
+    const sourceSize = sourceDimensions
+        ? `${sourceDimensions.width} x ${sourceDimensions.height}`
+        : "Reading dimensions...";
+    const regionPixels =
+        region && sourceDimensions
+            ? normalizedRegionToPixels(region, sourceDimensions.width, sourceDimensions.height)
+            : null;
+
     return (
         <section className={styles.CapturePanel} aria-labelledby="live-capture-heading">
             <video ref={video} className={styles.SourceVideo} muted playsInline />
@@ -232,28 +466,104 @@ export function LiveLootCapture({ sessionStatus }: { sessionStatus: SessionStatu
             )}
             {status === "capturing" && (
                 <div className={styles.CaptureWorkspace}>
-                    <div className={styles.Preview}>
-                        <canvas ref={canvas} aria-label="Sampled capture preview" />
+                    <div>
+                        <div className={styles.Preview}>
+                            <div
+                                className={styles.PreviewStage}
+                                onPointerDown={(event) => {
+                                    draggingRegion.current = true;
+                                    event.currentTarget.setPointerCapture(event.pointerId);
+                                    moveRegion(event);
+                                }}
+                                onPointerMove={(event) => {
+                                    if (draggingRegion.current) moveRegion(event);
+                                }}
+                                onPointerUp={(event) => {
+                                    draggingRegion.current = false;
+                                    setCaptureRegion(regionRef.current);
+                                    if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+                                        event.currentTarget.releasePointerCapture(event.pointerId);
+                                    }
+                                }}
+                                onPointerCancel={() => {
+                                    draggingRegion.current = false;
+                                    setCaptureRegion(regionRef.current);
+                                }}
+                            >
+                                <canvas ref={canvas} aria-label="Sampled capture preview" />
+                                {sourceSupported && region && (
+                                    <div
+                                        className={styles.RegionOverlay}
+                                        style={{
+                                            left: `${region.x * 100}%`,
+                                            top: `${region.y * 100}%`,
+                                            width: `${region.width * 100}%`,
+                                            height: `${region.height * 100}%`,
+                                        }}
+                                    >
+                                        <span>Loot area</span>
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                        {sourceDimensions && !sourceSupported ? (
+                            <p className={styles.CalibrationError} role="status">
+                                This first profile requires a 3440 x 1440 source at 80% BDO UI scale.
+                            </p>
+                        ) : (
+                            <div className={styles.CalibrationBar}>
+                                <span>
+                                    Drag the highlighted fixed-size area over the loot notifications, then confirm it.
+                                </span>
+                                <button
+                                    className="button"
+                                    type="button"
+                                    disabled={!region || regionConfirmed || savingRegion}
+                                    onClick={confirmRegion}
+                                >
+                                    {savingRegion ? "Saving..." : regionConfirmed ? "Area confirmed" : "Confirm area"}
+                                </button>
+                            </div>
+                        )}
                     </div>
-                    <dl className={styles.Diagnostics} aria-live="polite">
-                        <div>
-                            <dt>Status</dt>
-                            <dd className={styles.Active}>Capture active</dd>
+                    <aside className={styles.CaptureSidebar}>
+                        <dl className={styles.Diagnostics} aria-live="polite">
+                            <div>
+                                <dt>Status</dt>
+                                <dd className={styles.Active}>Capture active</dd>
+                            </div>
+                            <div>
+                                <dt>Source</dt>
+                                <dd>{sourceSize}</dd>
+                            </div>
+                            <div>
+                                <dt>Sampled rate</dt>
+                                <dd className={sampledFps >= 5 ? styles.Active : styles.Warning}>
+                                    {sampledFps > 0 ? `${sampledFps.toFixed(1)} FPS` : "Measuring..."}
+                                </dd>
+                            </div>
+                            <div>
+                                <dt>Recognition crop</dt>
+                                <dd className={regionFrameSize ? styles.Active : styles.Warning}>
+                                    {regionFrameSize
+                                        ? `${regionFrameSize.width} x ${regionFrameSize.height}`
+                                        : regionPixels
+                                          ? "Waiting for pixels..."
+                                          : "Unavailable"}
+                                </dd>
+                            </div>
+                        </dl>
+                        <div className={styles.RegionPreview}>
+                            <span>In-memory recognition crop</span>
+                            <canvas ref={regionCanvas} aria-label="Loot recognition crop" />
                         </div>
-                        <div>
-                            <dt>Source</dt>
-                            <dd>{sourceSize || "Reading dimensions..."}</dd>
-                        </div>
-                        <div>
-                            <dt>Sampled rate</dt>
-                            <dd className={sampledFps >= 5 ? styles.Active : styles.Warning}>
-                                {sampledFps > 0 ? `${sampledFps.toFixed(1)} FPS` : "Measuring..."}
-                            </dd>
-                        </div>
-                    </dl>
+                    </aside>
                 </div>
             )}
-            <p className={styles.PrivacyNote}>Frames stay in memory and are not saved, uploaded, or sent to OCR yet.</p>
+            <p className={styles.PrivacyNote}>
+                Preview and crop pixels stay in memory and are not saved, uploaded, or sent to OCR yet. Only confirmed
+                coordinates are stored by the desktop app.
+            </p>
         </section>
     );
 }

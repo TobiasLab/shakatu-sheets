@@ -40,5 +40,10 @@ Garmoth-upload storage; `garmoth` separates account settings from uploads; and `
 command boundary separate from the Linux implementation. `lib.rs` is the composition root and explicitly registers every
 command.
 
+Live loot capture uses a versioned local binary channel for a bounded preview and an optional native-resolution region
+frame. Linux crops that region from the mapped PipeWire buffer before IPC; browser capture crops its native hidden video
+frame. Pixels remain transient. SQLite stores only the validated normalized rectangle and the source dimensions used to
+position it.
+
 There is no service layer or plugin system. New boundaries should only be added when a feature cannot remain clear within
 the current structure.
