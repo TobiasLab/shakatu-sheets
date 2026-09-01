@@ -16,23 +16,23 @@ pub fn run() {
     tauri::Builder::default()
         .setup(|app| {
             let database_path =
-                database::initialize_database(app.handle()).map_err(std::io::Error::other)?;
-            app.manage(database::DatabasePath(database_path));
+                persistence::initialize_database(app.handle()).map_err(std::io::Error::other)?;
+            app.manage(persistence::DatabasePath(database_path));
             app.manage(garmoth::GarmothOperations::default());
             app.manage(native_capture::NativeCaptureState::default());
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
-            database::list_finished_sessions,
-            database::load_active_session,
-            database::load_market_prices,
-            database::reopen_session,
-            database::save_session,
-            garmoth::fetch_garmoth_characters,
-            garmoth::load_garmoth_settings,
-            garmoth::save_garmoth_api_key,
-            garmoth::select_garmoth_character,
-            garmoth::upload_garmoth_session,
+            persistence::sessions::list_finished_sessions,
+            persistence::sessions::load_active_session,
+            persistence::market_prices::load_market_prices,
+            persistence::sessions::reopen_session,
+            persistence::sessions::save_session,
+            garmoth::settings::fetch_garmoth_characters,
+            garmoth::settings::load_garmoth_settings,
+            garmoth::settings::save_garmoth_api_key,
+            garmoth::settings::select_garmoth_character,
+            garmoth::upload::upload_garmoth_session,
             market::fetch_market_prices,
             native_capture::acknowledge_native_display_frame,
             native_capture::start_native_display_capture,
@@ -41,9 +41,9 @@ pub fn run() {
         .run(tauri::generate_context!())
         .expect("error while running Shakatu Sheets");
 }
-mod database;
 mod garmoth;
 mod market;
 mod native_capture;
+mod persistence;
 
 use tauri::Manager;

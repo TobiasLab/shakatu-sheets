@@ -3,7 +3,7 @@ use std::{collections::HashSet, time::Duration};
 use serde::Deserialize;
 use tauri::State;
 
-use crate::database::{
+use crate::persistence::{
     save_market_price_records, timestamp_ms, DatabasePath, MarketPriceSnapshot, Region,
 };
 

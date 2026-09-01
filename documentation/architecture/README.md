@@ -35,5 +35,10 @@ reservation; any potentially transmitted request without a success response rema
 document error semantics or an idempotency contract. The app blocks ambiguous retries and directs the user to check their
 Garmoth grind tracker. Reserved and uploaded sessions cannot be reopened.
 
+Rust remains feature-oriented: `persistence` groups SQLite infrastructure with session, market-price, settings, and
+Garmoth-upload storage; `garmoth` separates account settings from uploads; and `native_capture` keeps its cross-platform
+command boundary separate from the Linux implementation. `lib.rs` is the composition root and explicitly registers every
+command.
+
 There is no service layer or plugin system. New boundaries should only be added when a feature cannot remain clear within
 the current structure.
