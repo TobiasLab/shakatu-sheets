@@ -106,6 +106,22 @@ fuzzy-matches the preceding text against `itemDictionary`. The development-suppo
 as quantity `1`. Invalid, distant, or tied readings are withheld rather than guessed. Use `--development-only` while
 tuning OCR gates. A wrong or withheld held-out item or quantity makes the command exit unsuccessfully.
 
+## End-To-End Recognition
+
+Run tracker-selected item and quantity recognition with:
+
+```sh
+npm run benchmark:loot:e2e -- /path/to/benchmark-output/manifest.json
+```
+
+Development annotations calibrate only row geometry and the occupancy threshold. Inference then operates on decoded
+frames, the frozen calibration, and `itemDictionary`: an ordered stack tracker assigns event IDs, treats frame-zero rows
+as baselines, preserves retained identities when rows shift upward, and confirms detected births against the following
+frame before appending them at the bottom. Each event uses the first three consecutive detected row observations after its
+entrance frame. OCR accepts only an item-and-quantity pair supported by at least two distinct frames, so independently
+conflicting item and quantity readings cannot be combined. Labels are joined only after inference for chronological
+scoring. Use `--development-only` while tuning.
+
 ## Native-Resolution Baseline
 
 The 3440x1440, 80%-UI-scale benchmark contains two development sequences and one test sequence. The original validation
@@ -120,6 +136,12 @@ the `118-128` second test sequence was labeled or evaluated.
 No event was missed, duplicated, or invented. Row-count accuracy is lower because nearly transparent rows near the end of
 their fade are often omitted; this did not change event identity in the measured sequences. More recordings and an
 independently calibrated 16:9 layout are still required before treating these numbers as release accuracy.
+Multiple births hidden by expirations are inferred only when at least one retained row visually anchors the stack
+transition. A simultaneous full-stack replacement has no such anchor and is conservatively undercounted rather than
+inventing events from fade noise; that case needs explicit benchmark coverage before release.
+One completely empty detector frame preserves the prior stack when its rows visually recover. Ambiguous partial
+under-detection may shorten an affected track and withhold recognition, while a persistent identical count increase is
+treated as a new drop because pixels alone cannot distinguish it from a previously missed identical baseline row.
 
 OCR gates were tuned only on development events and frozen before evaluating OCR output from the test sequence.
 
@@ -128,6 +150,14 @@ OCR gates were tuned only on development events and frozen before evaluating OCR
 | Development | 24/24 | 24/24 | 24/24 |
 | Test | 11/11 | 11/11 | 11/11 |
 
-No OCR reading was wrong or withheld in these sequences. This measures annotated stable-row crops, not end-to-end live
-recognition: the OCR benchmark uses labeled event lifetimes to select rows, while the tracker is evaluated separately.
-Production must connect tracked event IDs to stable frames without labels and use a native-resolution capture ROI.
+No OCR reading was wrong or withheld in these sequences. The stable-row OCR command remains an oracle component test that
+uses labeled event lifetimes. The end-to-end gates were subsequently frozen on development before their first test run.
+
+| Split | Detected events | Complete end-to-end recognition |
+| --- | ---: | ---: |
+| Development | 24/24 | 24/24 |
+| Test | 11/11 | 11/11 |
+
+The end-to-end command selected every row and OCR frame without event labels, with no missed, invented, wrong, or withheld
+test events. Production still needs a native-resolution capture ROI and must be evaluated on more recordings, UI scales,
+and aspect ratios before these small-set results can be treated as release accuracy.
