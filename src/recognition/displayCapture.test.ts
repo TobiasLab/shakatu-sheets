@@ -5,6 +5,7 @@ import {
     isSupportedLootSource,
     lootRegionSize,
     normalizedRegionToPixels,
+    nudgeLootRegion,
     positionLootRegion,
     stopDisplayCapture,
 } from "./displayCapture";
@@ -37,6 +38,29 @@ describe("loot capture region", () => {
             width: 362,
             height: 311,
         });
+        expect(normalizedRegionToPixels(defaultLootRegion(3440, 1440, 80, "rare"), 3440, 1440)).toEqual({
+            x: 2100,
+            y: 820,
+            width: 400,
+            height: 100,
+        });
+    });
+
+    it("nudges either fixed area in source pixels and clamps at source bounds", () => {
+        const normal = defaultLootRegion(3440, 1440, 80);
+        expect(normalizedRegionToPixels(nudgeLootRegion(normal, -1, 1, 3440, 1440, 80), 3440, 1440)).toEqual({
+            x: 2432,
+            y: 991,
+            width: 362,
+            height: 311,
+        });
+        const rare = positionLootRegion(0, 0, 3440, 1440, 80, "rare");
+        expect(normalizedRegionToPixels(nudgeLootRegion(rare, -10, -10, 3440, 1440, 80, "rare"), 3440, 1440)).toEqual({
+            x: 0,
+            y: 0,
+            width: 400,
+            height: 100,
+        });
     });
 
     it("positions the fixed crop and clamps it to source bounds", () => {
@@ -67,6 +91,14 @@ describe("loot capture region", () => {
                     height,
                 );
                 expect({ width: pixels.width, height: pixels.height }).toEqual(lootRegionSize(uiScalePercent));
+                const rarePixels = normalizedRegionToPixels(
+                    defaultLootRegion(width, height, uiScalePercent, "rare"),
+                    width,
+                    height,
+                );
+                expect({ width: rarePixels.width, height: rarePixels.height }).toEqual(
+                    lootRegionSize(uiScalePercent, "rare"),
+                );
             }
         }
     });

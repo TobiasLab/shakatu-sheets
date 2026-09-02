@@ -5,6 +5,7 @@ import {
     type LootUiScale,
     lootRegionSize,
     type NormalizedRegion,
+    RARE_LOOT_REGION_SIZES,
 } from "../recognition/displayCapture";
 
 export type MarketPriceSnapshot = {
@@ -94,7 +95,7 @@ export function uploadGarmothSession(input: GarmothUploadInput) {
 }
 
 export type NativeCaptureFrame = {
-    kind: "preview" | "region";
+    kind: "preview" | "region" | "rare-region";
     captureId: number;
     batchId: number;
     pixels: Uint8ClampedArray;
@@ -110,14 +111,14 @@ export type NativeCaptureError = { kind: "error"; message: string };
 
 export type LootCaptureSettings = {
     region: NormalizedRegion;
+    rareRegion?: NormalizedRegion | null;
     sourceWidth: number;
     sourceHeight: number;
     uiScalePercent: LootUiScale;
 };
 
 const NATIVE_FRAME_HEADER_BYTES = 40;
-const NATIVE_FRAME_PROTOCOL_VERSION = 1;
-
+const NATIVE_FRAME_PROTOCOL_VERSION = 2;
 export function parseNativeCaptureMessage(message: ArrayBuffer): NativeCaptureFrame | NativeCaptureError {
     const bytes = new Uint8Array(message);
     if (bytes.byteLength < NATIVE_FRAME_HEADER_BYTES) {
@@ -141,16 +142,20 @@ export function parseNativeCaptureMessage(message: ArrayBuffer): NativeCaptureFr
     const sourceHeight = header.getUint32(28, true);
     const cropX = header.getUint32(32, true);
     const cropY = header.getUint32(36, true);
-    const validKind = kind === 1 || kind === 2;
+    const validKind = kind === 1 || kind === 2 || kind === 3;
     const boundedPreview = kind !== 1 || (width <= 640 && height <= 360 && cropX === 0 && cropY === 0);
-    const isProfileRegion = ([80, 100] as const).some((scale) => {
+    const isNormalRegion = ([80, 100] as const).some((scale) => {
         const size = lootRegionSize(scale);
         return width === size.width && height === size.height;
     });
+    const isRareRegion = ([80, 100] as const).some((scale) => {
+        const size = RARE_LOOT_REGION_SIZES[scale];
+        return width === size.width && height === size.height;
+    });
     const boundedRegion =
-        kind !== 2 ||
+        (kind !== 2 && kind !== 3) ||
         (isSupportedLootSource(sourceWidth, sourceHeight) &&
-            isProfileRegion &&
+            (kind === 2 ? isNormalRegion : isRareRegion) &&
             cropX + width <= sourceWidth &&
             cropY + height <= sourceHeight);
     if (
@@ -168,7 +173,7 @@ export function parseNativeCaptureMessage(message: ArrayBuffer): NativeCaptureFr
         throw new Error("Native display capture returned an invalid frame.");
     }
     return {
-        kind: kind === 1 ? "preview" : "region",
+        kind: kind === 1 ? "preview" : kind === 2 ? "region" : "rare-region",
         captureId,
         batchId,
         pixels: new Uint8ClampedArray(message, NATIVE_FRAME_HEADER_BYTES),
@@ -207,10 +212,15 @@ export function startNativeDisplayCapture(
             onError(error instanceof Error ? error.message : String(error));
         } finally {
             if (frame) {
-                void invoke("acknowledge_native_display_frame", {
-                    captureId: frame.captureId,
-                    batchId: frame.batchId,
-                    kind: frame.kind === "preview" ? 1 : 2,
+                void Promise.resolve(
+                    invoke("acknowledge_native_display_frame", {
+                        captureId: frame.captureId,
+                        batchId: frame.batchId,
+                        kind: frame.kind === "preview" ? 1 : frame.kind === "region" ? 2 : 3,
+                    }),
+                ).catch((error) => {
+                    const detail = error instanceof Error ? error.message : String(error);
+                    onError(`Native display capture acknowledgement failed: ${detail}`);
                 });
             }
         }

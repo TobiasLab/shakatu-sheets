@@ -18,6 +18,7 @@ export type PixelRegion = {
 };
 
 export type LootUiScale = 80 | 100;
+export type LootRegionKind = "normal" | "rare";
 
 export const SUPPORTED_LOOT_SOURCES = [
     { width: 3440, height: 1440 },
@@ -28,22 +29,31 @@ export const LOOT_REGION_SIZES: Record<LootUiScale, { width: number; height: num
     80: { width: 362, height: 311 },
     100: { width: 453, height: 389 },
 };
-const DEFAULT_LOOT_CENTER = { x: 2614 / 3440, y: 1145.5 / 1440 } as const;
+export const RARE_LOOT_REGION_SIZES: Record<LootUiScale, { width: number; height: number }> = {
+    80: { width: 400, height: 100 },
+    100: { width: 500, height: 125 },
+};
+const DEFAULT_LOOT_CENTERS: Record<LootRegionKind, { x: number; y: number }> = {
+    normal: { x: 2614 / 3440, y: 1145.5 / 1440 },
+    rare: { x: 2300 / 3440, y: 870 / 1440 },
+};
 
 export function isSupportedLootSource(width: number, height: number): boolean {
     return SUPPORTED_LOOT_SOURCES.some((source) => source.width === width && source.height === height);
 }
 
-export function lootRegionSize(uiScalePercent: LootUiScale) {
-    return LOOT_REGION_SIZES[uiScalePercent];
+export function lootRegionSize(uiScalePercent: LootUiScale, kind: LootRegionKind = "normal") {
+    return kind === "normal" ? LOOT_REGION_SIZES[uiScalePercent] : RARE_LOOT_REGION_SIZES[uiScalePercent];
 }
 
 export function defaultLootRegion(
     sourceWidth: number,
     sourceHeight: number,
     uiScalePercent: LootUiScale,
+    kind: LootRegionKind = "normal",
 ): NormalizedRegion {
-    return positionLootRegion(DEFAULT_LOOT_CENTER.x, DEFAULT_LOOT_CENTER.y, sourceWidth, sourceHeight, uiScalePercent);
+    const center = DEFAULT_LOOT_CENTERS[kind];
+    return positionLootRegion(center.x, center.y, sourceWidth, sourceHeight, uiScalePercent, kind);
 }
 
 export function positionLootRegion(
@@ -52,11 +62,12 @@ export function positionLootRegion(
     sourceWidth: number,
     sourceHeight: number,
     uiScalePercent: LootUiScale,
+    kind: LootRegionKind = "normal",
 ): NormalizedRegion {
     if (!isSupportedLootSource(sourceWidth, sourceHeight)) {
         throw new Error("The selected source does not match the supported loot-recognition layout.");
     }
-    const regionSize = lootRegionSize(uiScalePercent);
+    const regionSize = lootRegionSize(uiScalePercent, kind);
     const x = Math.max(
         0,
         Math.min(sourceWidth - regionSize.width, Math.round(normalizedCenterX * sourceWidth - regionSize.width / 2)),
@@ -74,6 +85,33 @@ export function positionLootRegion(
         width: regionSize.width / sourceWidth,
         height: regionSize.height / sourceHeight,
     };
+}
+
+export function nudgeLootRegion(
+    region: NormalizedRegion,
+    deltaX: number,
+    deltaY: number,
+    sourceWidth: number,
+    sourceHeight: number,
+    uiScalePercent: LootUiScale,
+    kind: LootRegionKind = "normal",
+) {
+    if (!Number.isSafeInteger(deltaX) || !Number.isSafeInteger(deltaY)) {
+        throw new Error("Loot capture nudges must use whole source pixels.");
+    }
+    const pixels = normalizedRegionToPixels(region, sourceWidth, sourceHeight);
+    const expected = lootRegionSize(uiScalePercent, kind);
+    if (pixels.width !== expected.width || pixels.height !== expected.height) {
+        throw new Error("The capture region does not match its configured loot area.");
+    }
+    return positionLootRegion(
+        (pixels.x + pixels.width / 2 + deltaX) / sourceWidth,
+        (pixels.y + pixels.height / 2 + deltaY) / sourceHeight,
+        sourceWidth,
+        sourceHeight,
+        uiScalePercent,
+        kind,
+    );
 }
 
 function pixelBoundary(normalized: number, sourceSize: number, roundUp: boolean): number {

@@ -175,3 +175,15 @@ The end-to-end command selected every row and OCR frame without event labels, wi
 test events. Its exported detector profile (`bottomCenter: 204`, `spacing: 39`, `rowThreshold: 196`) is bundled for
 3440x1440 capture at 80% UI scale. Live capture still needs evaluation on more recordings, UI scales, and aspect ratios
 before these small-set results can be treated as release accuracy.
+
+## Rare-Banner Exploration
+
+The available 3440x1440 recording contains one yellow rare-loot banner at 80% UI scale. Its visible text occupied roughly
+`336x72` source pixels in the inspected stable frames. Live capture therefore uses a more forgiving `400x100` placement
+area at 80% and a provisional proportional `500x125` area at 100%. These dimensions are capture geometry only, not a
+validated recognition profile.
+
+One event cannot provide separate development and held-out sequences. The application consequently previews the rare
+crop but does not detect, OCR, deduplicate, auto-accept, or add rare banners to the ledger. Production rare-banner
+recognition requires more labeled events across varied scenes, at least one frozen held-out sequence, and explicit
+coverage for repeated identical banners before any counting behavior is enabled.

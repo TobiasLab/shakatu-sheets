@@ -9,6 +9,19 @@ export type LiveLootReviewEntry = {
     error: string;
 };
 
+export function acceptLiveLootReviewEntry(
+    entry: LiveLootReviewEntry,
+    accept: (itemName: string, quantity: number) => string | null,
+) {
+    if (entry.accepted || entry.result.status !== "recognized") return entry;
+    try {
+        const error = accept(entry.result.itemName, entry.result.quantity);
+        return { ...entry, accepted: error === null, error: error ?? "" };
+    } catch (error) {
+        return { ...entry, accepted: false, error: error instanceof Error ? error.message : String(error) };
+    }
+}
+
 export function appendLiveLootReviewResult(
     current: readonly LiveLootReviewEntry[],
     entry: LiveLootReviewEntry,

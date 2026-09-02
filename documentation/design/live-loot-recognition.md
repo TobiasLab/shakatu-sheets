@@ -4,7 +4,9 @@
 
 Linux capture feasibility is established. The first native-resolution offline pipeline tracks events, selects OCR frames,
 and recognizes items and quantities exactly on its held-out sequence without label-selected crops. The live capture UI
-now positions and previews a native-resolution in-memory crop for three source resolutions at 80% or 100% UI scale.
+now positions and previews separate native-resolution normal-stack and rare-banner crops for three source resolutions at
+80% or 100% UI scale. The normal crop exposes a smaller alignment guide on calibrated profiles, while the rare crop is a
+preview-only benchmark target and does not feed OCR or the ledger.
 A browser-safe production module now analyzes packed RGBA crops, tracks notification identities, selects stable OCR frames,
 and resolves dictionary-constrained replay readings. Its incremental coordinator bounds retained frames and OCR work,
 confirms births with one-frame lookahead, reports backpressure explicitly, and suppresses stale results after cancellation.
@@ -12,7 +14,8 @@ The offline benchmark uses the same production detector, tracker, and parsers. P
 export a strict V1 detector profile containing only validated capture dimensions, UI scale, 8 FPS cadence, and OCR-safe
 row geometry. The validated 3440x1440, 80%-UI profile is bundled for live capture. After the user confirms the crop, a
 browser-side adapter reuses one local Tesseract worker and sends recognized, withheld, failed, and overflow results to a
-bounded review feed. Recognized events require explicit acceptance before entering the ledger. Live validation and
+bounded review feed. Recognized normal-loot events are added to the ledger immediately; insertion failures remain visible
+and receive three automatic retries with short backoff before remaining manually retryable. Live validation and
 calibrated recognition benchmarks for the additional profiles remain required.
 
 ## Goal
@@ -31,7 +34,7 @@ game process, or inspect BDO network traffic. User-authorized operating-system s
 - Capture sources at `3440x1440`, `2560x1440`, and `1920x1080`, with independently calibrated recognition benchmarks
   required before release.
 - Linux Wayland first, followed by Windows using the same browser capture interface where possible.
-- A fixed loot-notification location selected by the user.
+- Independently positioned normal loot-stack and rare-banner locations selected by the user.
 - User-triggered start and stop controls with a persistent capture indicator.
 - Borderless-windowed mode as the recommended game display mode.
 - The user selects the monitor containing BDO from the operating-system source picker.
@@ -41,8 +44,8 @@ game process, or inspect BDO network traffic. User-authorized operating-system s
 ## Capture
 
 Capture uses a live operating-system screen-sharing stream rather than repeatedly saving screenshots. The app samples
-approximately 5-10 frames per second, creates a bounded full-source preview, and copies the configured notification
-rectangle at native resolution into memory.
+approximately 8 frames per second, creates a bounded full-source preview, and copies the configured notification
+rectangles at native resolution into memory.
 
 Windows and browser development use `navigator.mediaDevices.getDisplayMedia` inside the Tauri WebView. The call must come
 directly from a user action and requests video without audio. The operating system presents its own source picker and the
@@ -53,9 +56,10 @@ WebKitGTK 2.52 can close the portal session after source selection and then fail
 implementation ignores the `SelectSources` response and requests an embedded cursor without checking whether the portal
 advertises that mode. Linux therefore performs the same user-authorized XDG ScreenCast portal flow natively, requests one
 monitor with a hidden cursor, and consumes the returned PipeWire stream. Sampled RGBA preview frames cross Tauri's local
-binary IPC channel and are not persisted. On Linux, the selected notification rectangle is cropped directly from the
-mapped native PipeWire frame before a separate region frame crosses the same versioned channel. Browser capture crops the
-native hidden video frame with canvas while retaining the downscaled preview.
+binary IPC channel and are not persisted. On Linux, the selected normal and rare rectangles are cropped directly from the
+same mapped native PipeWire frame before separate typed region frames cross the same versioned channel. Browser capture
+crops both areas from the native hidden video frame with canvas while retaining the downscaled preview. Frame batches are
+acknowledged independently to bound local IPC work until the frontend has consumed every preview and crop in the batch.
 
 Platform capture remains behind the same start/stop interface:
 
@@ -67,11 +71,19 @@ Wayland intentionally requires an operating-system permission dialog. Browser di
 persisted, so the user should expect to select a source for every new capture session. A future native portal path may use
 a restore token, but the application must never attempt to bypass capture consent.
 
-The user selects the BDO UI scale and positions a fixed notification rectangle on the preview. The 80% profile uses a
-`362x311` rectangle and the 100% profile currently uses a proportional `453x389` rectangle. Supported sources are
-`3440x1440`, `2560x1440`, and `1920x1080`. Persist only validated normalized rectangle coordinates, source dimensions, and
-UI scale, never preview or captured pixels. A dimension mismatch disables the crop and requires a supported profile or
-recalibration. The 100% dimensions still require representative recordings to validate recognition geometry.
+The user selects the BDO UI scale and positions two fixed rectangles on the preview. The normal stack uses `362x311` at
+80% and a proportional `453x389` at 100%. The rare banner uses `400x100` at 80% and a provisional proportional `500x125`
+at 100%. Each rectangle can be selected, dragged, reset, and nudged by one source pixel independently. On the validated
+3440x1440 80% profile, an inner guide marks the approximately `x=78..350`, `y=36..216` portion of the normal envelope used
+by row detection and OCR. The larger envelope remains unchanged so its benchmarked detector geometry stays valid.
+
+Supported sources are `3440x1440`, `2560x1440`, and `1920x1080`. Persist only validated normalized coordinates for both
+rectangles, source dimensions, and UI scale, never preview or captured pixels. Legacy settings without a rare rectangle
+load safely but require the user to place and confirm both areas. A dimension mismatch disables cropping and requires a
+supported profile or recalibration. The 100% dimensions still require representative recordings to validate recognition
+geometry. Only the normal rectangle is sent to the existing recognition pipeline, and only 3440x1440 at 80% currently has
+a bundled calibrated profile. The rare rectangle remains preview-only until a separate detector and OCR path passes a
+held-out benchmark.
 
 ## Recognition Pipeline
 
@@ -100,10 +112,12 @@ Track rows by position, motion, appearance time, text, and icon similarity. Assi
 retain that ID while it moves through the stack, and count it once. Text-only deduplication is insufficient because two
 consecutive drops can have the same item and quantity.
 
-The first prototype shows every result in a recent-event feed and requires explicit acceptance before adding a valid match
-to the ledger. Users can remove or edit an accepted entry through the ledger before finishing the session. Recognition
-failures remain visible without inventing an item or quantity. After broader benchmark data establishes useful confidence
-thresholds, high-confidence events may be added automatically while uncertain events continue to wait for review.
+The first prototype shows every result in a recent-event feed and immediately adds recognized normal-loot matches to the
+ledger. Users can remove or edit an inserted entry through the ledger before finishing the session. If insertion fails,
+the app retries it after one, two, and four seconds while the same session remains running. An exhausted result remains
+actionable in the feed with the latest validation error and a manual retry control. Withheld and failed recognition results
+remain visible without inventing an item or quantity and require manual entry. Before release, broader benchmark data must
+establish whether automatic insertion needs stricter confidence gating.
 
 ## Privacy And Safety
 
@@ -130,7 +144,7 @@ thresholds, high-confidence events may be added automatically while uncertain ev
 6. Add icon-first classification, constrained OCR, and the active grind spot's known-item dictionary.
 7. Add the editable recent-event feed and session integration.
 8. Measure event accuracy, missed events, duplicate events, frame cadence, CPU use, and memory use on held-out samples.
-9. Replace prototype auto-acceptance with measured confidence gating before release.
+9. Evaluate prototype automatic insertion against broader held-out data and add measured confidence gating if required.
 10. Add 100% UI-scale and 16:9 benchmark sets and confirm normalization preserves acceptable results.
 
 The current 3440x1440, 80%-UI-scale end-to-end baseline has 24/24 development and 11/11 test item-and-quantity matches.
