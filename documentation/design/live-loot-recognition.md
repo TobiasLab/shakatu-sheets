@@ -5,18 +5,21 @@
 Linux capture feasibility is established. The first native-resolution offline pipeline tracks events, selects OCR frames,
 and recognizes items and quantities exactly on its held-out sequence without label-selected crops. For the validated
 3440x1440 80% profile, live capture now searches an `800x600` native-resolution area and automatically locks the exact
-`362x311` normal-stack crop after three stable observations. Manual placement remains available. The UI also positions a
-separate rare-banner crop, but that crop is a preview-only benchmark target and does not feed OCR or the ledger.
+`362x311` normal-stack crop after three stable observations. Manual placement remains available. A provisional detector
+also recognizes appearances of the fixed gold rare-banner shell in the separately positioned `400x100` crop, delays OCR
+until its text is readable, and presents dictionary-constrained results in the review feed. Recognized rare results are
+added to the ledger automatically, although the detector has only one calibration event and no held-out sequence.
 A browser-safe production module now analyzes packed RGBA crops, tracks notification identities, selects stable OCR frames,
 and resolves dictionary-constrained replay readings. Its incremental coordinator bounds retained frames and OCR work,
 confirms births with one-frame lookahead, reports backpressure explicitly, and suppresses stale results after cancellation.
 The offline benchmark uses the same production detector, tracker, and parsers. Passing held-out E2E runs can atomically
 export a strict V1 detector profile containing only validated capture dimensions, UI scale, 8 FPS cadence, and OCR-safe
 row geometry. The validated 3440x1440, 80%-UI profile is bundled for live capture. After automatic alignment or manual
-confirmation, a browser-side adapter reuses one local Tesseract worker and sends recognized, withheld, failed, and overflow results to a
-bounded review feed. Recognized normal-loot events are added to the ledger immediately; insertion failures remain visible
-and receive three automatic retries with short backoff before remaining manually retryable. Live validation and
-calibrated recognition benchmarks for the additional profiles remain required.
+confirmation, a browser-side adapter serializes normal and rare jobs through one local Tesseract worker and sends
+recognized, withheld, failed, and overflow results to a bounded review feed. Recognized normal-loot events are added to the
+ledger immediately; insertion failures remain visible and receive three automatic retries with short backoff before
+remaining manually retryable. Live validation and calibrated recognition benchmarks for the additional profiles remain
+required.
 
 ## Goal
 
@@ -35,7 +38,7 @@ game process, or inspect BDO network traffic. User-authorized operating-system s
   required before release.
 - Linux Wayland first, followed by Windows using the same browser capture interface where possible.
 - Automatically localized normal loot-stack placement for the validated profile, with manual fallback.
-- Independently positioned rare-banner preview placement selected by the user.
+- Independently positioned rare-banner placement selected by the user, with provisional recognition at 80% UI scale.
 - User-triggered start and stop controls with a persistent capture indicator.
 - Borderless-windowed mode as the recommended game display mode.
 - The user selects the monitor containing BDO from the operating-system source picker.
@@ -79,18 +82,19 @@ The user selects the BDO UI scale and positions two fixed rectangles on the prev
 80% and a proportional `453x389` at 100%. The rare banner uses `400x100` at 80% and a provisional proportional `500x125`
 at 100%. Each rectangle can be selected, dragged, reset, and nudged by one source pixel independently. On the validated
 3440x1440 80% profile, an inner guide marks the approximately `x=78..350`, `y=36..216` portion of the normal envelope used
-by row detection and OCR. A second inner guide marks the measured rare-banner text extent at approximately `x=52..388`,
-`y=20..92` within the 80% rare envelope. Both guides scale proportionally at 100% and appear on the full-source placement
-preview and their respective native-resolution crop previews. The larger envelopes remain unchanged so the normal guide's
-benchmarked detector geometry stays valid and the rare guide can retain placement tolerance.
+by row detection and OCR. Its green horizontal lines must pass through the center of each visible item name. A second
+inner guide marks the measured rare-banner text extent at approximately `x=52..388`, `y=20..92` within the 80% rare
+envelope. Both guides scale proportionally at 100% and appear on the full-source placement preview and their respective
+native-resolution crop previews. The larger envelopes remain unchanged so the normal guide's benchmarked detector
+geometry stays valid and the rare guide can retain placement tolerance.
 
 Supported sources are `3440x1440`, `2560x1440`, and `1920x1080`. Persist only validated normalized coordinates for both
 rectangles, source dimensions, and UI scale, never preview or captured pixels. Legacy settings without a rare rectangle
 load safely but require the user to place and confirm both areas. A dimension mismatch disables cropping and requires a
 supported profile or recalibration. The 100% dimensions still require representative recordings to validate recognition
-geometry. Only the normal rectangle is sent to the existing recognition pipeline, and only 3440x1440 at 80% currently has
-a bundled calibrated profile. The rare rectangle remains preview-only until a separate detector and OCR path passes a
-held-out benchmark.
+geometry. Both rectangles feed independent event analyzers and serialized jobs through the same local OCR worker. Only
+3440x1440 at 80% currently has bundled normal and provisional rare detector geometry. Recognized results from both paths
+are added automatically and remain visible in the bounded review feed.
 
 ### Automatic Normal-Stack Localization
 
@@ -127,6 +131,21 @@ The translucent notification background has already been composited with the gam
 cannot be recovered. Preprocessing must use local contrast and multiple frames rather than one global brightness
 threshold.
 
+### Provisional Rare-Banner Recognition
+
+At 3440x1440 and 80% UI scale, the rare analyzer measures the fixed gold shell independently of the normal row detector.
+It requires four consecutive shell observations, emits one synthetic row for the duration of the appearance, and waits 12
+detected frames before selecting three OCR frames from `x=40..392`, `y=20..92`. A minimum active lifetime keeps the
+synthetic row available after the gold entrance shell fades and before the text disappears. Two absent frames end a
+sufficiently old appearance; a new confirmed shell after a longer early gap also starts a separate appearance. A later
+identical banner therefore receives a new `rare-*` event ID. A banner whose confirmation begins in the first captured frame
+is treated as a baseline and suppressed until it disappears.
+
+The active grind spot's item names remain the only OCR candidates, and the existing terminal quantity parser reads the
+displayed `x <number>` suffix. Normal and rare coordinators serialize requests through one Tesseract worker. The current
+gold-color, timing, and crop gates were measured from one event and are deliberately marked provisional; 100% UI scale and
+other source resolutions do not start recognition because they have no bundled calibrated profile.
+
 ## Event Tracking
 
 Recognition must run once per notification event, not once per frame. A visible row may persist across many frames, while
@@ -136,12 +155,13 @@ Track rows by position, motion, appearance time, text, and icon similarity. Assi
 retain that ID while it moves through the stack, and count it once. Text-only deduplication is insufficient because two
 consecutive drops can have the same item and quantity.
 
-The first prototype shows every result in a recent-event feed and immediately adds recognized normal-loot matches to the
-ledger. Users can remove or edit an inserted entry through the ledger before finishing the session. If insertion fails,
-the app retries it after one, two, and four seconds while the same session remains running. An exhausted result remains
-actionable in the feed with the latest validation error and a manual retry control. Withheld and failed recognition results
-remain visible without inventing an item or quantity and require manual entry. Before release, broader benchmark data must
-establish whether automatic insertion needs stricter confidence gating.
+The first prototype shows every result in a recent-event feed and identifies whether it came from the normal stack or rare
+banner. Recognized matches from either source are immediately added to the ledger. Users can remove or edit an inserted
+entry through the ledger before finishing the session. If insertion fails, the app retries it after one, two, and four
+seconds while the same session remains running. An exhausted result remains actionable while retained in the bounded feed,
+with the latest validation error and a manual retry control. Withheld and failed recognition results remain visible without
+inventing an item or quantity and require manual entry. Before release, broader benchmark data must establish whether
+automatic insertion needs stricter confidence gating.
 
 ## Privacy And Safety
 
@@ -170,6 +190,8 @@ establish whether automatic insertion needs stricter confidence gating.
 8. Measure event accuracy, missed events, duplicate events, frame cadence, CPU use, and memory use on held-out samples.
 9. Evaluate prototype automatic insertion against broader held-out data and add measured confidence gating if required.
 10. Add 100% UI-scale and 16:9 benchmark sets and confirm normalization preserves acceptable results.
+11. Freeze the rare-banner detector against multiple development events, then evaluate event identity and OCR on an
+    untouched held-out sequence and add measured confidence gating if automatic insertion is not sufficiently accurate.
 
 The current 3440x1440, 80%-UI-scale end-to-end baseline has 24/24 development and 11/11 test item-and-quantity matches.
 Tracked identities select their own first three consecutive detected OCR frames after a one-frame delay, with labels used

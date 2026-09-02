@@ -671,6 +671,37 @@ describe("live loot streaming coordination", () => {
                     onResult: () => undefined,
                 }),
         ).toThrow("positive integer");
+        expect(
+            () =>
+                new LiveLootCoordinator({
+                    profile: streamingProfile,
+                    dictionary: [],
+                    ocrSelection: { frameCount: 1 },
+                    readText: async () => [],
+                    onResult: () => undefined,
+                }),
+        ).toThrow("at least two");
+        expect(
+            () =>
+                new LiveLootCoordinator({
+                    profile: streamingProfile,
+                    dictionary: [],
+                    retainedFrameCount: 4,
+                    ocrSelection: { frameCount: 4 },
+                    readText: async () => [],
+                    onResult: () => undefined,
+                }),
+        ).toThrow("birth confirmation");
+        expect(
+            () =>
+                new LiveLootCoordinator({
+                    profile: streamingProfile,
+                    dictionary: [],
+                    ocrBounds: { left: 0, right: streamingProfile.width + 1, top: 0, bottom: 1 },
+                    readText: async () => [],
+                    onResult: () => undefined,
+                }),
+        ).toThrow("OCR bounds");
     });
 
     it("bounds track and observation retention across repeated long-stream events", async () => {

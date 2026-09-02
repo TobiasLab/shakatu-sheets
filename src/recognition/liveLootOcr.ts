@@ -1,5 +1,5 @@
 import { createWorker, OEM, PSM } from "tesseract.js";
-import type { LiveLootOcrFrame, LiveLootOcrReader, LootRoiFrame } from "./liveLoot";
+import type { LiveLootOcrFrame, LiveLootOcrReader, LootOcrBounds, LootRoiFrame } from "./liveLoot";
 
 export type LootOcrThreshold = 130 | 150 | 170;
 
@@ -10,6 +10,7 @@ export function preprocessLootOcrFrame(
     frame: LootRoiFrame,
     centerY: number,
     threshold: LootOcrThreshold,
+    bounds?: LootOcrBounds,
 ): LootRoiFrame {
     const { width, height, pixels } = frame;
     if (!Number.isSafeInteger(width) || width <= 0 || !Number.isSafeInteger(height) || height <= 0) {
@@ -28,10 +29,23 @@ export function preprocessLootOcrFrame(
     }
     if (!thresholds.includes(threshold)) throw new Error("Loot OCR threshold must be 130, 150, or 170.");
 
-    const left = Math.round(width * 0.25);
-    const right = Math.round(width * 0.8);
-    const top = centerY - 12;
-    const bottom = centerY + 12;
+    const left = bounds?.left ?? Math.round(width * 0.25);
+    const right = bounds?.right ?? Math.round(width * 0.8);
+    const top = bounds?.top ?? centerY - 12;
+    const bottom = bounds?.bottom ?? centerY + 12;
+    if (
+        !Number.isInteger(left) ||
+        !Number.isInteger(right) ||
+        !Number.isInteger(top) ||
+        !Number.isInteger(bottom) ||
+        left < 0 ||
+        left >= right ||
+        right > width ||
+        top >= bottom ||
+        (bounds !== undefined && (top < 0 || bottom > height))
+    ) {
+        throw new Error("Loot OCR bounds must be valid source pixel coordinates.");
+    }
     const scale = 4;
     const padding = 10;
     const outputWidth = (right - left) * scale + padding * 2;
@@ -139,6 +153,29 @@ function abortError() {
     return error;
 }
 
+export function serializeLiveLootOcrReader(readText: LiveLootOcrReader): LiveLootOcrReader {
+    let queue: Promise<void> = Promise.resolve();
+    return (frames, signal) => {
+        if (signal.aborted) return Promise.reject(abortError());
+        const queuedReading = queue.then(() => {
+            if (signal.aborted) throw abortError();
+            return readText(frames, signal);
+        });
+        queue = queuedReading.then(
+            () => undefined,
+            () => undefined,
+        );
+        let onAbort: (() => void) | undefined;
+        const cancellation = new Promise<never>((_, reject) => {
+            onAbort = () => reject(abortError());
+            signal.addEventListener("abort", onAbort, { once: true });
+        });
+        return Promise.race([queuedReading, cancellation]).finally(() => {
+            if (onAbort) signal.removeEventListener("abort", onAbort);
+        });
+    };
+}
+
 function closedError() {
     return new Error("The live loot OCR reader is terminated.");
 }
@@ -223,7 +260,12 @@ export async function createLiveLootTesseractOcr({
                 let source = job.frames?.[frameIndex];
                 if (!source) throw closedError();
                 const centerY = source.observation.centerY;
-                let processed: LootRoiFrame | undefined = preprocessLootOcrFrame(source.roi, centerY, threshold);
+                let processed: LootRoiFrame | undefined = preprocessLootOcrFrame(
+                    source.roi,
+                    centerY,
+                    threshold,
+                    source.bounds,
+                );
                 source = undefined;
 
                 canvas.width = processed.width;

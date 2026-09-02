@@ -7,6 +7,7 @@ import {
     type LiveLootOcrCanvasContext,
     type LiveLootOcrWorker,
     preprocessLootOcrFrame,
+    serializeLiveLootOcrReader,
 } from "./liveLootOcr";
 
 function sourceFrame(width = 8, height = 24, fill = 0): LootRoiFrame {
@@ -134,6 +135,19 @@ describe("preprocessLootOcrFrame", () => {
         expect(outputPixel(output, 14, 10)).toEqual([0, 0, 0, 255]);
     });
 
+    it("uses explicit source bounds for non-stack notifications", () => {
+        const frame = sourceFrame(20, 30);
+        setPixel(frame, 18, 28, 130);
+
+        expect(blackPixelCount(preprocessLootOcrFrame(frame, 15, 130))).toBe(0);
+        const output = preprocessLootOcrFrame(frame, 15, 130, { left: 1, right: 19, top: 2, bottom: 29 });
+
+        expect(output.width).toBe(18 * 4 + 20);
+        expect(output.height).toBe(27 * 4 + 20);
+        expect(blackPixelCount(output)).toBe(16);
+        expect(outputPixel(output, 10 + 17 * 4, 10 + 26 * 4)).toEqual([0, 0, 0, 255]);
+    });
+
     it("accepts chroma 65 and rejects chroma 66", () => {
         const frame = sourceFrame();
         setPixel(frame, 2, 0, 200, 135, 200);
@@ -186,6 +200,47 @@ describe("preprocessLootOcrFrame", () => {
         );
         expect(() => preprocessLootOcrFrame(frame, 12.5, 150)).toThrow("integer");
         expect(() => preprocessLootOcrFrame(frame, 12, 140 as 130)).toThrow("130, 150, or 170");
+        expect(() => preprocessLootOcrFrame(frame, 12, 150, { left: 4, right: 4, top: 0, bottom: 24 })).toThrow(
+            "OCR bounds",
+        );
+        expect(() => preprocessLootOcrFrame(frame, 12, 150, { left: 0, right: 8, top: 0, bottom: 25 })).toThrow(
+            "OCR bounds",
+        );
+    });
+});
+
+describe("serializeLiveLootOcrReader", () => {
+    it("runs shared-worker reads sequentially", async () => {
+        const first = deferred<readonly (readonly string[])[]>();
+        const readText = vi
+            .fn()
+            .mockImplementationOnce(() => first.promise)
+            .mockResolvedValueOnce([["second"]]);
+        const serialized = serializeLiveLootOcrReader(readText);
+        const firstRead = serialized([ocrFrame()], new AbortController().signal);
+        const secondRead = serialized([ocrFrame(1)], new AbortController().signal);
+
+        await Promise.resolve();
+        expect(readText).toHaveBeenCalledOnce();
+        first.resolve([["first"]]);
+        await expect(firstRead).resolves.toEqual([["first"]]);
+        await expect(secondRead).resolves.toEqual([["second"]]);
+        expect(readText).toHaveBeenCalledTimes(2);
+    });
+
+    it("does not start a queued read that was cancelled", async () => {
+        const first = deferred<readonly (readonly string[])[]>();
+        const readText = vi.fn(() => first.promise);
+        const serialized = serializeLiveLootOcrReader(readText);
+        const firstRead = serialized([ocrFrame()], new AbortController().signal);
+        const queuedController = new AbortController();
+        const queuedRead = serialized([ocrFrame(1)], queuedController.signal);
+        queuedController.abort();
+
+        await expect(queuedRead).rejects.toMatchObject({ name: "AbortError" });
+        expect(readText).toHaveBeenCalledOnce();
+        first.resolve([["first"]]);
+        await firstRead;
     });
 });
 
@@ -240,6 +295,25 @@ describe("createLiveLootTesseractOcr", () => {
         expect(canvas.images).toHaveLength(6);
         expect(canvas.clears).toHaveLength(1);
         expect(canvas.canvas).toMatchObject({ width: 0, height: 0 });
+    });
+
+    it("applies each coordinator's OCR bounds", async () => {
+        installDocument();
+        const canvas = testCanvas();
+        const worker = mockWorker();
+        const reader = await createLiveLootTesseractOcr({
+            workerFactory: async () => worker,
+            canvasFactory: () => canvas.canvas,
+        });
+        const frame = {
+            ...ocrFrame(0, sourceFrame(20, 30), 15),
+            bounds: { left: 1, right: 19, top: 2, bottom: 29 },
+        };
+
+        await reader.readText([frame], new AbortController().signal);
+
+        expect(canvas.images).toHaveLength(3);
+        expect(canvas.images.every((image) => image.length === (18 * 4 + 20) * (27 * 4 + 20) * 4)).toBe(true);
     });
 
     it("rejects concurrent reads without another recognize call", async () => {
