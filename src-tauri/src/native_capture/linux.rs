@@ -226,6 +226,14 @@ struct StreamData {
     last_sample: Option<Instant>,
 }
 
+struct SourceFrame<'a> {
+    pixels: &'a [u8],
+    width: u32,
+    height: u32,
+    stride: u32,
+    format: spa::param::video::VideoFormat,
+}
+
 pub(super) async fn start(
     state: &CaptureState,
     frames: Channel<InvokeResponseBody>,
@@ -584,16 +592,19 @@ fn run_pipewire(
                     capture_id: control_for_frames.capture_id,
                     batch_id,
                 };
+                let source_frame = SourceFrame {
+                    pixels,
+                    width: size.width,
+                    height: size.height,
+                    stride,
+                    format: data.format.format(),
+                };
                 let selected_frames = match selection {
                     Some(selection @ NativeCaptureSelection::Search { .. }) => selection
                         .search_pixel_region()
                         .and_then(|region| {
                             crop_pixel_region_frame(
-                                pixels,
-                                size.width,
-                                size.height,
-                                stride,
-                                data.format.format(),
+                                &source_frame,
                                 region,
                                 FRAME_KIND_SEARCH_REGION,
                                 batch,
@@ -602,11 +613,7 @@ fn run_pipewire(
                         .map(|search| (Some(search), None, None)),
                     Some(NativeCaptureSelection::Regions { settings }) => (|| {
                         let region = crop_region_frame(
-                            pixels,
-                            size.width,
-                            size.height,
-                            stride,
-                            data.format.format(),
+                            &source_frame,
                             settings,
                             batch,
                         )?;
@@ -614,11 +621,7 @@ fn run_pipewire(
                             .rare_pixel_region()?
                             .map(|rare_region| {
                                 crop_pixel_region_frame(
-                                    pixels,
-                                    size.width,
-                                    size.height,
-                                    stride,
-                                    data.format.format(),
+                                    &source_frame,
                                     rare_region,
                                     FRAME_KIND_RARE_REGION,
                                     batch,
@@ -827,39 +830,22 @@ fn preview_frame(
 }
 
 fn crop_region_frame(
-    source: &[u8],
-    source_width: u32,
-    source_height: u32,
-    source_stride: u32,
-    format: spa::param::video::VideoFormat,
+    source: &SourceFrame<'_>,
     selection: LootCaptureSettings,
     batch: BatchIdentity,
 ) -> Result<Vec<u8>, String> {
-    if source_width != selection.source_width || source_height != selection.source_height {
+    if source.width != selection.source_width || source.height != selection.source_height {
         return Err(format!(
             "loot region selection requires a {}x{} source",
             selection.source_width, selection.source_height
         ));
     }
     let region = selection.pixel_region()?;
-    crop_pixel_region_frame(
-        source,
-        source_width,
-        source_height,
-        source_stride,
-        format,
-        region,
-        FRAME_KIND_REGION,
-        batch,
-    )
+    crop_pixel_region_frame(source, region, FRAME_KIND_REGION, batch)
 }
 
 fn crop_pixel_region_frame(
-    source: &[u8],
-    source_width: u32,
-    source_height: u32,
-    source_stride: u32,
-    format: spa::param::video::VideoFormat,
+    source: &SourceFrame<'_>,
     region: super::PixelRegion,
     kind: u32,
     batch: BatchIdentity,
@@ -872,7 +858,7 @@ fn crop_pixel_region_frame(
         .y
         .checked_add(region.height)
         .ok_or_else(|| "loot capture region vertical bounds overflowed".to_string())?;
-    if end_x > source_width || end_y > source_height {
+    if end_x > source.width || end_y > source.height {
         return Err("loot capture region is outside the source bounds".into());
     }
     let mut frame = allocate_frame(FrameHeader {
@@ -880,8 +866,8 @@ fn crop_pixel_region_frame(
         batch,
         output_width: region.width,
         output_height: region.height,
-        source_width,
-        source_height,
+        source_width: source.width,
+        source_height: source.height,
         crop_x: region.x,
         crop_y: region.y,
     })?;
@@ -900,11 +886,11 @@ fn crop_pixel_region_frame(
                 .x
                 .checked_add(x)
                 .ok_or_else(|| "region source column overflowed".to_string())?;
-            let input = pixel_offset(source_y, source_x, source_stride)?;
+            let input = pixel_offset(source_y, source_x, source.stride)?;
             let output = FRAME_HEADER_BYTES
                 .checked_add(pixel_offset(y, x, output_stride)?)
                 .ok_or_else(|| "region output offset overflowed".to_string())?;
-            let pixel = converted_pixel(source, input, format)?;
+            let pixel = converted_pixel(source.pixels, input, source.format)?;
             frame[output..output + 4].copy_from_slice(&pixel);
         }
     }
@@ -1041,6 +1027,22 @@ mod tests {
             .iter()
             .map(|bytes| u32::from_le_bytes(*bytes))
             .collect()
+    }
+
+    fn source_frame(
+        pixels: &[u8],
+        width: u32,
+        height: u32,
+        stride: u32,
+        format: spa::param::video::VideoFormat,
+    ) -> SourceFrame<'_> {
+        SourceFrame {
+            pixels,
+            width,
+            height,
+            stride,
+            format,
+        }
     }
 
     fn selection_with_dimensions(
@@ -1195,11 +1197,13 @@ mod tests {
         source[last..last + 4].copy_from_slice(&[99, 88, 77, 110]);
 
         let frame = crop_region_frame(
-            &source,
-            selection.source_width,
-            selection.source_height,
-            stride,
-            spa::param::video::VideoFormat::BGRA,
+            &source_frame(
+                &source,
+                selection.source_width,
+                selection.source_height,
+                stride,
+                spa::param::video::VideoFormat::BGRA,
+            ),
             selection,
             BatchIdentity {
                 capture_id: 31,
@@ -1235,11 +1239,13 @@ mod tests {
         source[first..first + 4].copy_from_slice(&[30, 20, 10, 40]);
 
         let frame = crop_pixel_region_frame(
-            &source,
-            selection.source_width,
-            selection.source_height,
-            stride,
-            spa::param::video::VideoFormat::BGRA,
+            &source_frame(
+                &source,
+                selection.source_width,
+                selection.source_height,
+                stride,
+                spa::param::video::VideoFormat::BGRA,
+            ),
             rare_region,
             FRAME_KIND_RARE_REGION,
             BatchIdentity {
@@ -1278,11 +1284,13 @@ mod tests {
         let source = vec![0; stride as usize * 800];
 
         let frame = crop_pixel_region_frame(
-            &source,
-            3440,
-            1440,
-            stride,
-            spa::param::video::VideoFormat::BGRx,
+            &source_frame(
+                &source,
+                3440,
+                1440,
+                stride,
+                spa::param::video::VideoFormat::BGRx,
+            ),
             region,
             FRAME_KIND_SEARCH_REGION,
             BatchIdentity {
@@ -1313,11 +1321,13 @@ mod tests {
     fn rejects_roi_allocation_for_invalid_dimensions() {
         let selection = selection_with_dimensions(1920, 1080, 100, 0, 0, 452, 389);
         let error = crop_region_frame(
-            &[],
-            selection.source_width,
-            selection.source_height,
-            selection.source_width * 4,
-            spa::param::video::VideoFormat::BGRA,
+            &source_frame(
+                &[],
+                selection.source_width,
+                selection.source_height,
+                selection.source_width * 4,
+                spa::param::video::VideoFormat::BGRA,
+            ),
             selection,
             BatchIdentity {
                 capture_id: 1,
@@ -1491,8 +1501,10 @@ mod tests {
 
     #[test]
     fn stopped_and_superseded_tokens_cannot_start_late() {
-        let mut state = CaptureStateInner::default();
-        state.latest_capture_token = 7;
+        let mut state = CaptureStateInner {
+            latest_capture_token: 7,
+            ..Default::default()
+        };
 
         assert!(state.install_capture(7, None).is_err());
         assert!(state.install_capture(6, None).is_err());

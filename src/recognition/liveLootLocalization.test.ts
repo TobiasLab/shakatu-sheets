@@ -59,8 +59,7 @@ describe("normal loot localization", () => {
             width: 362,
             height: 311,
         });
-        expect(result?.replayFrames).toHaveLength(7);
-        expect(result?.replayFrames[0].pixels.every((value) => value === 0)).toBe(true);
+        expect(result?.replayFrames).toHaveLength(6);
     });
 
     it("accounts for translated native search-frame origins", () => {
@@ -101,7 +100,6 @@ describe("normal loot localization", () => {
         const result = locate(Array.from({ length: 6 }, (_, index) => searchFrame(219, 100, 1000, 500, 2, index + 10)));
 
         expect(result?.replayFrames.map((frame) => Array.from(frame.pixels.subarray(0, 4)))).toEqual([
-            [0, 0, 0, 0],
             [10, 11, 12, 255],
             [11, 12, 13, 255],
             [12, 13, 14, 255],
@@ -112,8 +110,28 @@ describe("normal loot localization", () => {
         expect(result?.replayFrames.every((frame) => frame.width === 362 && frame.height === 311)).toBe(true);
     });
 
-    it("replays the notifications used for localization as new events", async () => {
+    it("uses the first retained search frame as the event baseline", async () => {
         const result = locate(Array.from({ length: 6 }, () => searchFrame(219)));
+        const results: LiveLootRecognitionResult[] = [];
+        const coordinator = new LiveLootCoordinator({
+            profile: { width: 362, height: 311, maxRows: 5, bottomCenter: 204, spacing: 39, rowThreshold: 196 },
+            dictionary: ["Black Stone"],
+            readText: async (frames) => frames.map(() => ["Black Stone x 2"]),
+            onResult: (recognized) => results.push(recognized),
+        });
+
+        for (const frame of result?.replayFrames ?? []) coordinator.pushFrame(frame);
+        await coordinator.finish();
+
+        expect(results).toHaveLength(0);
+    });
+
+    it("replays notifications that appear after the first retained search frame", async () => {
+        const result = locate([
+            searchFrame(null),
+            searchFrame(null),
+            ...Array.from({ length: 6 }, () => searchFrame(219)),
+        ]);
         const results: LiveLootRecognitionResult[] = [];
         const coordinator = new LiveLootCoordinator({
             profile: { width: 362, height: 311, maxRows: 5, bottomCenter: 204, spacing: 39, rowThreshold: 196 },

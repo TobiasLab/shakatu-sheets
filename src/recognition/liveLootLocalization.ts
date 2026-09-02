@@ -194,13 +194,9 @@ export class NormalLootLocalizer {
 
         const x = upperMedian(cluster.map((candidate) => candidate.x));
         const y = upperMedian(cluster.map((candidate) => candidate.y));
-        // Start from an empty baseline so the notifications used to find the crop are emitted as new events.
-        const replayFrames = [
-            { width: CROP_WIDTH, height: CROP_HEIGHT, pixels: new Uint8ClampedArray(CROP_WIDTH * CROP_HEIGHT * 4) },
-            ...this.history
-                .map((retained) => cropFrame(retained, x, y))
-                .filter((retained): retained is LootRoiFrame => retained !== null),
-        ];
+        const replayFrames = this.history
+            .map((retained) => cropFrame(retained, x, y))
+            .filter((retained): retained is LootRoiFrame => retained !== null);
         const region = pixelRegionToNormalized(
             { x, y, width: CROP_WIDTH, height: CROP_HEIGHT },
             SOURCE_WIDTH,

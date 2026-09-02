@@ -1,4 +1,4 @@
-import { type PointerEvent as ReactPointerEvent, useEffect, useRef, useState } from "react";
+import { type PointerEvent as ReactPointerEvent, useEffect, useLayoutEffect, useRef, useState } from "react";
 import {
     type LootCaptureSettings,
     loadLootCaptureSettings,
@@ -193,6 +193,7 @@ export function LiveLootCapture({
     const recognitionRequestedRef = useRef(false);
     const pendingLocalizationReplay = useRef<LootRoiFrame[]>([]);
     const pendingRecognitionFrames = useRef<LootRoiFrame[]>([]);
+    const pendingRecognitionOverflowed = useRef(false);
     const localizer = useRef<NormalLootLocalizer | null>(null);
     const nextReviewResultId = useRef(0);
     const reviewResultsRef = useRef<LiveLootReviewEntry[]>([]);
@@ -224,12 +225,14 @@ export function LiveLootCapture({
     const [omittedReviewResults, setOmittedReviewResults] = useState(0);
 
     const isSessionRunning = sessionStatus === "running";
-    if (previousSessionRunning.current && !isSessionRunning) sessionRunGeneration.current += 1;
-    previousSessionRunning.current = isSessionRunning;
-    sessionRunning.current = isSessionRunning;
-    activeSessionId.current = sessionId;
-    itemDictionaryRef.current = itemDictionary;
-    onAcceptRecognitionRef.current = onAcceptRecognition;
+    useLayoutEffect(() => {
+        if (previousSessionRunning.current && !isSessionRunning) sessionRunGeneration.current += 1;
+        previousSessionRunning.current = isSessionRunning;
+        sessionRunning.current = isSessionRunning;
+        activeSessionId.current = sessionId;
+        itemDictionaryRef.current = itemDictionary;
+        onAcceptRecognitionRef.current = onAcceptRecognition;
+    }, [isSessionRunning, itemDictionary, onAcceptRecognition, sessionId]);
 
     function updateRegion(kind: LootRegionKind, next: NormalizedRegion | null) {
         if (kind === "normal") {
@@ -296,6 +299,7 @@ export function LiveLootCapture({
         localizer.current = null;
         pendingLocalizationReplay.current.length = 0;
         pendingRecognitionFrames.current.length = 0;
+        pendingRecognitionOverflowed.current = false;
         if (searchRegionCanvas.current) {
             searchRegionCanvas.current.width = 0;
             searchRegionCanvas.current.height = 0;
@@ -306,6 +310,7 @@ export function LiveLootCapture({
         recognitionGeneration.current += 1;
         pendingLocalizationReplay.current.length = 0;
         pendingRecognitionFrames.current.length = 0;
+        pendingRecognitionOverflowed.current = false;
         const current = recognition.current;
         recognition.current = null;
         current?.coordinator.stop();
@@ -320,6 +325,7 @@ export function LiveLootCapture({
                 // Keep a contiguous recent window so OCR startup never bridges a gap in event tracking.
                 if (pendingRecognitionFrames.current.length === MAX_PENDING_RECOGNITION_FRAMES) {
                     pendingRecognitionFrames.current.shift();
+                    pendingRecognitionOverflowed.current = true;
                 }
                 pendingRecognitionFrames.current.push(frame);
             }
@@ -414,10 +420,9 @@ export function LiveLootCapture({
         settingsSaveQueue.current = save.catch(() => undefined);
         return save
             .then(() => {
-                if (!mounted.current || saveRequest !== requestId.current || saveId !== nextSettingsSaveId.current)
-                    return false;
+                if (!mounted.current || saveId !== nextSettingsSaveId.current) return false;
                 setSavedSettings(settings);
-                return true;
+                return saveRequest === requestId.current;
             })
             .catch((saveError) => {
                 if (!mounted.current || saveRequest !== requestId.current || saveId !== nextSettingsSaveId.current)
@@ -499,6 +504,7 @@ export function LiveLootCapture({
         clearLocalization();
         restartRecognition();
         localizer.current = new NormalLootLocalizer();
+        selectRegionKind("normal");
         updateRegion("normal", anchor);
         updateCaptureRegion("normal", null);
         updateSearchRegion(nextSearch);
@@ -610,14 +616,20 @@ export function LiveLootCapture({
                                 cropY: frame.cropY,
                             });
                         } else if (frame.kind === "region") {
-                            if (placementModeRef.current === "localizing" || !regionConfirmedRef.current) return;
+                            if (placementModeRef.current === "localizing") return;
                             if (!frameMatchesRegion(frame, normalCaptureRegionRef.current, sourceDimensionsRef.current))
                                 return;
                             setNormalRegionFrameSize({ width: frame.width, height: frame.height });
                             drawFrame(normalRegionCanvas.current, frame);
-                            pushRecognitionFrame({ width: frame.width, height: frame.height, pixels: frame.pixels });
+                            if (regionConfirmedRef.current) {
+                                pushRecognitionFrame({
+                                    width: frame.width,
+                                    height: frame.height,
+                                    pixels: frame.pixels,
+                                });
+                            }
                         } else {
-                            if (placementModeRef.current === "localizing" || !regionConfirmedRef.current) return;
+                            if (placementModeRef.current === "localizing") return;
                             if (!frameMatchesRegion(frame, rareCaptureRegionRef.current, sourceDimensionsRef.current))
                                 return;
                             setRareRegionFrameSize({ width: frame.width, height: frame.height });
@@ -700,6 +712,7 @@ export function LiveLootCapture({
             localizer.current?.clear();
             localizer.current = new NormalLootLocalizer();
             pendingRecognitionFrames.current.length = 0;
+            pendingRecognitionOverflowed.current = false;
             updateRegion("normal", next);
             updateCaptureRegion("normal", null);
             updateSearchRegion(
@@ -707,12 +720,6 @@ export function LiveLootCapture({
             );
             updateRegionConfirmed(false);
             clearRegionPreview("normal");
-            return;
-        }
-        if (placementModeRef.current === "localizing" && kind === "rare") {
-            updateRegion("rare", next);
-            updateCaptureRegion("rare", next);
-            clearRegionPreview("rare");
             return;
         }
         clearLocalization();
@@ -751,6 +758,7 @@ export function LiveLootCapture({
         updateCaptureRegion("rare", nextRare);
         if (findLiveLootProfile(currentSource.width, currentSource.height, next)) {
             localizer.current = new NormalLootLocalizer();
+            selectRegionKind("normal");
             updateSearchRegion(searchRegionAroundLootRegion(nextNormal, currentSource.width, currentSource.height));
             updateCaptureRegion("normal", null);
             updatePlacementMode("localizing");
@@ -844,7 +852,9 @@ export function LiveLootCapture({
         status === "capturing" &&
         calibratedProfile !== null &&
         (placementMode === "localizing" || placementMode === "aligned" || regionConfirmed);
-    recognitionRequestedRef.current = recognitionRequested;
+    useLayoutEffect(() => {
+        recognitionRequestedRef.current = recognitionRequested;
+    }, [recognitionRequested]);
 
     useEffect(() => {
         nextReviewResultId.current = 0;
@@ -891,7 +901,7 @@ export function LiveLootCapture({
                 const coordinator = new LiveLootCoordinator({
                     profile: calibratedProfile.profile,
                     dictionary: itemDictionaryRef.current,
-                    readText: ocr,
+                    readText: ocr.readText,
                     onResult: (result) => {
                         if (
                             !mounted.current ||
@@ -925,9 +935,13 @@ export function LiveLootCapture({
                 recognition.current = pipeline;
                 const replay = pendingLocalizationReplay.current.splice(0);
                 const pending = pendingRecognitionFrames.current.splice(0);
-                for (const frame of replay) {
-                    if (recognition.current !== pipeline) break;
-                    pushRecognitionFrame(frame);
+                const overflowed = pendingRecognitionOverflowed.current;
+                pendingRecognitionOverflowed.current = false;
+                if (!overflowed) {
+                    for (const frame of replay) {
+                        if (recognition.current !== pipeline) break;
+                        pushRecognitionFrame(frame);
+                    }
                 }
                 for (const frame of pending) {
                     if (recognition.current !== pipeline) break;
@@ -945,6 +959,7 @@ export function LiveLootCapture({
                     return;
                 pendingLocalizationReplay.current.length = 0;
                 pendingRecognitionFrames.current.length = 0;
+                pendingRecognitionOverflowed.current = false;
                 setRecognitionStatus("error");
                 setRecognitionError(setupError instanceof Error ? setupError.message : String(setupError));
             }
@@ -1092,13 +1107,7 @@ export function LiveLootCapture({
                     uiScalePercent: 80,
                 };
             }
-        } else if (
-            placementMode !== "localizing" &&
-            regionConfirmed &&
-            normalCaptureRegion &&
-            rareCaptureRegion &&
-            sourceDimensions
-        ) {
+        } else if (placementMode !== "localizing" && normalCaptureRegion && rareCaptureRegion && sourceDimensions) {
             const normalPixels = normalizedRegionToPixels(
                 normalCaptureRegion,
                 sourceDimensions.width,
@@ -1536,7 +1545,7 @@ export function LiveLootCapture({
                                         <button
                                             className="button"
                                             type="button"
-                                            disabled={savingRegion}
+                                            disabled={savingRegion || placementMode === "localizing"}
                                             aria-pressed={activeRegionKind === "rare"}
                                             onClick={() => selectRegionKind("rare")}
                                         >
@@ -1546,16 +1555,14 @@ export function LiveLootCapture({
                                 </fieldset>
                                 <p className={styles.CalibrationInstruction}>
                                     {placementMode === "localizing"
-                                        ? activeRegionKind === "normal"
-                                            ? "Waiting for at least two stacked loot notifications. Drag the 800 x 600 auto-search area to recenter the search if needed."
-                                            : "Automatic loot search continues independently. Place the rare-banner preview; rare detection is still preview-only."
+                                        ? "Waiting for at least two stacked loot notifications. Drag the 800 x 600 auto-search area to recenter the search if needed."
                                         : `Drag the selected ${expectedRegionSize.width} x ${expectedRegionSize.height} area. ${
                                               activeRegionKind === "normal"
                                                   ? "Align notification text inside the inner guide."
                                                   : "Align rare-banner text inside the inner guide; rare detection is still preview-only."
                                           } Confirm after placing both.`}
                                 </p>
-                                {placementMode === "localizing" && activeRegionKind === "normal" ? (
+                                {placementMode === "localizing" ? (
                                     <div className={styles.PrecisionControls}>
                                         <span>Automatic placement</span>
                                         <button className="button" type="button" onClick={beginManualPlacement}>
@@ -1621,11 +1628,6 @@ export function LiveLootCapture({
                                             <option value={100}>100%</option>
                                         </select>
                                     </label>
-                                    {placementMode === "localizing" && activeRegionKind === "rare" && (
-                                        <button className="button" type="button" onClick={beginManualPlacement}>
-                                            Adjust manually
-                                        </button>
-                                    )}
                                     {placementMode !== "localizing" && calibratedProfile && normalRegion && (
                                         <button
                                             className="button"

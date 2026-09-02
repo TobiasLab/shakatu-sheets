@@ -110,7 +110,7 @@ export type LiveLootOcrCanvas = {
 
 export type LiveLootOcrCanvasFactory = () => LiveLootOcrCanvas;
 
-export type LiveLootTesseractOcr = LiveLootOcrReader & {
+export type LiveLootTesseractOcr = {
     readText: LiveLootOcrReader;
     terminate(): Promise<void>;
 };
@@ -272,8 +272,5 @@ export async function createLiveLootTesseractOcr({
         });
     };
 
-    const reader = readText as LiveLootTesseractOcr;
-    reader.readText = readText;
-    reader.terminate = () => close(closedError());
-    return reader;
+    return { readText, terminate: () => close(closedError()) };
 }

@@ -197,7 +197,7 @@ describe("createLiveLootTesseractOcr", () => {
         const factory = vi.fn(async () => worker);
 
         const reader = await createLiveLootTesseractOcr({ workerFactory: factory, canvasFactory: () => canvas.canvas });
-        await reader([ocrFrame()], new AbortController().signal);
+        await reader.readText([ocrFrame()], new AbortController().signal);
 
         expect(factory).toHaveBeenCalledOnce();
         expect(factory).toHaveBeenCalledWith("eng", OEM.LSTM_ONLY, {
@@ -253,8 +253,8 @@ describe("createLiveLootTesseractOcr", () => {
         });
         const signal = new AbortController().signal;
 
-        const firstRead = reader([ocrFrame()], signal);
-        await expect(reader([ocrFrame(1)], signal)).rejects.toThrow("already in progress");
+        const firstRead = reader.readText([ocrFrame()], signal);
+        await expect(reader.readText([ocrFrame(1)], signal)).rejects.toThrow("already in progress");
         expect(worker.recognize).toHaveBeenCalledOnce();
 
         firstRecognition.resolve(textResult("one"));
@@ -276,8 +276,8 @@ describe("createLiveLootTesseractOcr", () => {
             canvasFactory: () => canvas.canvas,
         });
 
-        await expect(reader([ocrFrame()], new AbortController().signal)).rejects.toBe(failure);
-        await expect(reader([ocrFrame()], new AbortController().signal)).resolves.toEqual([
+        await expect(reader.readText([ocrFrame()], new AbortController().signal)).rejects.toBe(failure);
+        await expect(reader.readText([ocrFrame()], new AbortController().signal)).resolves.toEqual([
             ["recovered", "recovered", "recovered"],
         ]);
         expect(worker.terminate).not.toHaveBeenCalled();
@@ -294,9 +294,9 @@ describe("createLiveLootTesseractOcr", () => {
         const controller = new AbortController();
         controller.abort();
 
-        await expect(reader([ocrFrame()], controller.signal)).rejects.toMatchObject({ name: "AbortError" });
+        await expect(reader.readText([ocrFrame()], controller.signal)).rejects.toMatchObject({ name: "AbortError" });
         expect(worker.recognize).not.toHaveBeenCalled();
-        await expect(reader([ocrFrame()], new AbortController().signal)).resolves.toHaveLength(1);
+        await expect(reader.readText([ocrFrame()], new AbortController().signal)).resolves.toHaveLength(1);
     });
 
     it.each(["resolve", "reject"] as const)(
@@ -311,7 +311,7 @@ describe("createLiveLootTesseractOcr", () => {
                 canvasFactory: () => canvas.canvas,
             });
             const controller = new AbortController();
-            const reading = reader([ocrFrame(), ocrFrame(1)], controller.signal);
+            const reading = reader.readText([ocrFrame(), ocrFrame(1)], controller.signal);
 
             controller.abort();
 
@@ -319,7 +319,7 @@ describe("createLiveLootTesseractOcr", () => {
             expect(worker.terminate).toHaveBeenCalledOnce();
             expect(worker.recognize).toHaveBeenCalledOnce();
             expect(canvas.clears.length).toBeGreaterThan(0);
-            await expect(reader([ocrFrame()], new AbortController().signal)).rejects.toThrow("terminated");
+            await expect(reader.readText([ocrFrame()], new AbortController().signal)).rejects.toThrow("terminated");
             if (settlement === "resolve") recognition.resolve(textResult("late"));
             else recognition.reject(new Error("late failure"));
             await Promise.resolve();
@@ -346,7 +346,7 @@ describe("createLiveLootTesseractOcr", () => {
         expect(worker.terminate).toHaveBeenCalledOnce();
         expect(canvas.clears).toHaveLength(1);
         expect(canvas.canvas).toMatchObject({ width: 0, height: 0 });
-        await expect(reader([], new AbortController().signal)).rejects.toThrow("terminated");
+        await expect(reader.readText([], new AbortController().signal)).rejects.toThrow("terminated");
         termination.resolve();
         await firstTermination;
     });
