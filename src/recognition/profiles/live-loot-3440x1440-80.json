@@ -1,0 +1,17 @@
+{
+    "version": 1,
+    "capture": {
+        "sourceWidth": 3440,
+        "sourceHeight": 1440,
+        "uiScalePercent": 80,
+        "sampleFps": 8
+    },
+    "profile": {
+        "width": 362,
+        "height": 311,
+        "maxRows": 5,
+        "bottomCenter": 204,
+        "spacing": 39,
+        "rowThreshold": 196
+    }
+}

@@ -114,6 +114,12 @@ Run tracker-selected item and quantity recognition with:
 npm run benchmark:loot:e2e -- /path/to/benchmark-output/manifest.json
 ```
 
+Export a versioned production detector profile from a passing benchmark with:
+
+```sh
+npm run benchmark:loot:e2e -- /path/to/benchmark-output/manifest.json --profile-output /path/to/live-loot-profile.json
+```
+
 Development annotations calibrate only row geometry and the occupancy threshold. Inference then operates on decoded
 frames, the frozen calibration, and `itemDictionary`: an ordered stack tracker assigns event IDs, treats frame-zero rows
 as baselines, preserves retained identities when rows shift upward, and confirms detected births against the following
@@ -123,6 +129,11 @@ conflicting item and quantity readings cannot be combined. Labels are joined onl
 scoring. The tracker and end-to-end commands decode packed RGBA frames and call the browser-safe production analyzer,
 tracker, and OCR parsers in `src/recognition/liveLoot.ts`; the benchmark is therefore a replay adapter around the production
 core rather than a separate implementation. Use `--development-only` while tuning.
+Profile export is disabled in development-only mode and occurs only after Tesseract terminates, every validation/test
+segment has exact event detection and item-and-quantity recognition with no missed or invented tracks, and at least one
+non-baseline event exists across those held-out splits. A test split alone satisfies the held-out requirement. The V1
+artifact contains only source dimensions, UI scale, 8 FPS sampling metadata, and OCR-safe detector geometry; it excludes
+recording paths, labels, dictionaries, ROI positions, and benchmark metrics.
 
 ## Native-Resolution Baseline
 
@@ -161,5 +172,6 @@ uses labeled event lifetimes. The end-to-end gates were subsequently frozen on d
 | Test | 11/11 | 11/11 |
 
 The end-to-end command selected every row and OCR frame without event labels, with no missed, invented, wrong, or withheld
-test events. Production still needs a native-resolution capture ROI and must be evaluated on more recordings, UI scales,
-and aspect ratios before these small-set results can be treated as release accuracy.
+test events. Its exported detector profile (`bottomCenter: 204`, `spacing: 39`, `rowThreshold: 196`) is bundled for
+3440x1440 capture at 80% UI scale. Live capture still needs evaluation on more recordings, UI scales, and aspect ratios
+before these small-set results can be treated as release accuracy.

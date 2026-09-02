@@ -8,8 +8,11 @@ now positions and previews a native-resolution in-memory crop for three source r
 A browser-safe production module now analyzes packed RGBA crops, tracks notification identities, selects stable OCR frames,
 and resolves dictionary-constrained replay readings. Its incremental coordinator bounds retained frames and OCR work,
 confirms births with one-frame lookahead, reports backpressure explicitly, and suppresses stale results after cancellation.
-The offline benchmark uses the same production detector, tracker, and parsers. Shakatu Sheets does not yet recognize live
-loot notifications; a frozen production calibration, persistent OCR worker, capture/UI integration, live validation, and
+The offline benchmark uses the same production detector, tracker, and parsers. Passing held-out E2E runs can atomically
+export a strict V1 detector profile containing only validated capture dimensions, UI scale, 8 FPS cadence, and OCR-safe
+row geometry. The validated 3440x1440, 80%-UI profile is bundled for live capture. After the user confirms the crop, a
+browser-side adapter reuses one local Tesseract worker and sends recognized, withheld, failed, and overflow results to a
+bounded review feed. Recognized events require explicit acceptance before entering the ledger. Live validation and
 calibrated recognition benchmarks for the additional profiles remain required.
 
 ## Goal
@@ -97,10 +100,10 @@ Track rows by position, motion, appearance time, text, and icon similarity. Assi
 retain that ID while it moves through the stack, and count it once. Text-only deduplication is insufficient because two
 consecutive drops can have the same item and quantity.
 
-The first prototype adds every valid best-match event to the ledger and shows its confidence in a recent-event feed. Users
-must be able to correct, remove, or undo an event before finishing the session. Recognition failures must remain visible
-without inventing an item or quantity. After benchmark data establishes useful thresholds, only high-confidence events
-should be added automatically and uncertain events should wait for review.
+The first prototype shows every result in a recent-event feed and requires explicit acceptance before adding a valid match
+to the ledger. Users can remove or edit an accepted entry through the ledger before finishing the session. Recognition
+failures remain visible without inventing an item or quantity. After broader benchmark data establishes useful confidence
+thresholds, high-confidence events may be added automatically while uncertain events continue to wait for review.
 
 ## Privacy And Safety
 

@@ -628,7 +628,7 @@ export function parseLootQuantity(text: string) {
     if (!suffix) return null;
     if (/^[|Il]$/i.test(suffix)) return 1;
     const quantity = Number(suffix);
-    return quantity > 0 ? quantity : null;
+    return Number.isSafeInteger(quantity) && quantity > 0 ? quantity : null;
 }
 
 function editDistance(left: string, right: string) {

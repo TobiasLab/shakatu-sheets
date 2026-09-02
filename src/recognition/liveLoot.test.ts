@@ -235,6 +235,7 @@ describe("live loot replay recognition", () => {
         expect(parseLootItem("Black Stone x2", ["Black Stone"])).toBe("Black Stone");
         expect(parseLootQuantity("Black Stone x I")).toBe(1);
         expect(parseLootQuantity("Black Stone x0")).toBeNull();
+        expect(parseLootQuantity("Black Stone x999999999999999999999999999999999")).toBeNull();
     });
 });
 
