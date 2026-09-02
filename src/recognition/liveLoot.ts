@@ -50,7 +50,13 @@ export type LootRecognitionResult = {
 
 type LiveLootEventResultBase = LootRecognitionResult & {
     status: "recognized" | "withheld" | "failed";
-    reason: null | "insufficient-observations" | "consensus-withheld" | "ocr-failure";
+    reason:
+        | null
+        | "insufficient-observations"
+        | "item-not-recognized"
+        | "quantity-not-recognized"
+        | "consensus-withheld"
+        | "ocr-failure";
 };
 
 export type LiveLootEventResult =
@@ -62,7 +68,11 @@ export type LiveLootEventResult =
       })
     | (LiveLootEventResultBase & {
           status: "withheld";
-          reason: "insufficient-observations" | "consensus-withheld";
+          reason:
+              | "insufficient-observations"
+              | "item-not-recognized"
+              | "quantity-not-recognized"
+              | "consensus-withheld";
           itemName: null;
           quantity: null;
       })
@@ -682,14 +692,26 @@ function chooseTemporalPairConsensus(readingsByFrame: Array<Array<{ item: string
 }
 
 function parseLootReadings(rawReadings: readonly (readonly string[])[], dictionary: readonly string[]) {
-    return chooseTemporalPairConsensus(
-        rawReadings.map((frameReadings) =>
-            frameReadings.map((text) => ({
-                item: parseLootItem(text, dictionary),
-                quantity: parseLootQuantity(text),
-            })),
-        ),
+    return analyzeLootReadings(rawReadings, dictionary).consensus;
+}
+
+function analyzeLootReadings(rawReadings: readonly (readonly string[])[], dictionary: readonly string[]) {
+    const parsed = rawReadings.map((frameReadings) =>
+        frameReadings.map((text) => ({
+            item: parseLootItem(text, dictionary),
+            quantity: parseLootQuantity(text),
+        })),
     );
+    const consensus = chooseTemporalPairConsensus(parsed);
+    if (consensus) return { consensus, reason: null as null };
+    const readings = parsed.flat();
+    if (!readings.some(({ quantity }) => quantity !== null)) {
+        return { consensus: null, reason: "quantity-not-recognized" as const };
+    }
+    if (!readings.some(({ item }) => item !== null)) {
+        return { consensus: null, reason: "item-not-recognized" as const };
+    }
+    return { consensus: null, reason: "consensus-withheld" as const };
 }
 
 const defaultRetainedFrameCount = 4;
@@ -973,19 +995,19 @@ export class LiveLootCoordinator {
                     }
                     if (delivery.generation === this.generation) {
                         const metadata = this.emptyResult(delivery);
-                        const consensus = parseLootReadings(rawReadings, this.options.dictionary);
-                        result = consensus
+                        const analysis = analyzeLootReadings(rawReadings, this.options.dictionary);
+                        result = analysis.consensus
                             ? {
                                   ...metadata,
                                   status: "recognized",
                                   reason: null,
-                                  itemName: consensus.item,
-                                  quantity: consensus.quantity,
+                                  itemName: analysis.consensus.item,
+                                  quantity: analysis.consensus.quantity,
                               }
                             : {
                                   ...metadata,
                                   status: "withheld",
-                                  reason: "consensus-withheld",
+                                  reason: analysis.reason,
                               };
                     }
                 } catch {

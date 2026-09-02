@@ -243,8 +243,13 @@
 .ReviewFeed ul {
     display: grid;
     gap: 7px;
+    max-height: 360px;
     margin: 12px 0 0;
     padding: 0;
+    padding-right: 5px;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    scrollbar-gutter: stable;
     list-style: none;
 }
 
@@ -344,5 +349,9 @@
 
     .ReviewFeed li :global(.button) {
         width: 100%;
+    }
+
+    .ReviewFeed ul {
+        max-height: 280px;
     }
 }

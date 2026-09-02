@@ -39,6 +39,7 @@ type RecognitionPipeline = {
 type LiveLootCaptureProps = {
     sessionId: string;
     sessionStatus: SessionStatus;
+    grindSpotName: string;
     itemDictionary: readonly string[];
     onAcceptRecognition: (itemName: string, quantity: number) => string | null;
 };
@@ -75,12 +76,15 @@ function resultDescription(result: LiveLootRecognitionResult) {
     if (result.status === "failed") return "Local OCR failed for this notification.";
     if (result.status === "dropped") return `${result.count} notifications dropped while recognition was busy.`;
     if (result.reason === "insufficient-observations") return "Notification disappeared before three stable frames.";
+    if (result.reason === "item-not-recognized") return "OCR item did not match the active grind spot.";
+    if (result.reason === "quantity-not-recognized") return "OCR did not find a stable quantity suffix.";
     return "No item and quantity pair reached consensus.";
 }
 
 export function LiveLootCapture({
     sessionId,
     sessionStatus,
+    grindSpotName,
     itemDictionary,
     onAcceptRecognition,
 }: LiveLootCaptureProps) {
@@ -817,6 +821,12 @@ export function LiveLootCapture({
                                 <dt>Recognition</dt>
                                 <dd className={recognitionStatus === "active" ? styles.Active : styles.Warning}>
                                     {recognitionLabel}
+                                </dd>
+                            </div>
+                            <div>
+                                <dt>Item profile</dt>
+                                <dd>
+                                    {grindSpotName} ({itemDictionary.length})
                                 </dd>
                             </div>
                         </dl>
