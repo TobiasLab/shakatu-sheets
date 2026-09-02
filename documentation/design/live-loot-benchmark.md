@@ -176,6 +176,19 @@ test events. Its exported detector profile (`bottomCenter: 204`, `spacing: 39`, 
 3440x1440 capture at 80% UI scale. Live capture still needs evaluation on more recordings, UI scales, and aspect ratios
 before these small-set results can be treated as release accuracy.
 
+## Automatic Localization Baseline
+
+Automatic normal-stack localization was evaluated separately from OCR by placing native-resolution `800x600` search crops
+around the labeled `362x311` ROI in the available 3440x1440, 80%-UI recording. Development frames established the broad
+bright-glyph scoring window, the minimum two-row requirement, and the temporal lock gates. The gates were then frozen
+before evaluation on 24 held-out stable frames.
+
+The localizer evaluates every second 8 FPS frame and accepts a position only when three of its latest four candidates lie
+within 12 source pixels. It retains at most 12 search frames. All 24 held-out stable frames localized within two source
+pixels of the labeled ROI. Requiring three stable observations prevented locks on the measured empty frames. This is a
+small single-recording baseline, not release accuracy; additional scenes, moved UI layouts, and independently calibrated
+resolutions remain required. Single-row notifications intentionally do not lock the current localizer.
+
 ## Rare-Banner Exploration
 
 The available 3440x1440 recording contains one yellow rare-loot banner at 80% UI scale. Its visible text occupied roughly

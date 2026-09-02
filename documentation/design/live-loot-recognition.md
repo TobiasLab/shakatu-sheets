@@ -3,18 +3,17 @@
 ## Status
 
 Linux capture feasibility is established. The first native-resolution offline pipeline tracks events, selects OCR frames,
-and recognizes items and quantities exactly on its held-out sequence without label-selected crops. The live capture UI
-now positions and previews separate native-resolution normal-stack and rare-banner crops for three source resolutions at
-80% or 100% UI scale. Both crops expose smaller proportional placement guides; the normal guide geometry is validated only
-for the bundled 3440x1440 80% profile, while the rare crop is a preview-only benchmark target and does not feed OCR or the
-ledger.
+and recognizes items and quantities exactly on its held-out sequence without label-selected crops. For the validated
+3440x1440 80% profile, live capture now searches an `800x600` native-resolution area and automatically locks the exact
+`362x311` normal-stack crop after three stable observations. Manual placement remains available. The UI also positions a
+separate rare-banner crop, but that crop is a preview-only benchmark target and does not feed OCR or the ledger.
 A browser-safe production module now analyzes packed RGBA crops, tracks notification identities, selects stable OCR frames,
 and resolves dictionary-constrained replay readings. Its incremental coordinator bounds retained frames and OCR work,
 confirms births with one-frame lookahead, reports backpressure explicitly, and suppresses stale results after cancellation.
 The offline benchmark uses the same production detector, tracker, and parsers. Passing held-out E2E runs can atomically
 export a strict V1 detector profile containing only validated capture dimensions, UI scale, 8 FPS cadence, and OCR-safe
-row geometry. The validated 3440x1440, 80%-UI profile is bundled for live capture. After the user confirms the crop, a
-browser-side adapter reuses one local Tesseract worker and sends recognized, withheld, failed, and overflow results to a
+row geometry. The validated 3440x1440, 80%-UI profile is bundled for live capture. After automatic alignment or manual
+confirmation, a browser-side adapter reuses one local Tesseract worker and sends recognized, withheld, failed, and overflow results to a
 bounded review feed. Recognized normal-loot events are added to the ledger immediately; insertion failures remain visible
 and receive three automatic retries with short backoff before remaining manually retryable. Live validation and
 calibrated recognition benchmarks for the additional profiles remain required.
@@ -35,7 +34,8 @@ game process, or inspect BDO network traffic. User-authorized operating-system s
 - Capture sources at `3440x1440`, `2560x1440`, and `1920x1080`, with independently calibrated recognition benchmarks
   required before release.
 - Linux Wayland first, followed by Windows using the same browser capture interface where possible.
-- Independently positioned normal loot-stack and rare-banner locations selected by the user.
+- Automatically localized normal loot-stack placement for the validated profile, with manual fallback.
+- Independently positioned rare-banner preview placement selected by the user.
 - User-triggered start and stop controls with a persistent capture indicator.
 - Borderless-windowed mode as the recommended game display mode.
 - The user selects the monitor containing BDO from the operating-system source picker.
@@ -45,8 +45,8 @@ game process, or inspect BDO network traffic. User-authorized operating-system s
 ## Capture
 
 Capture uses a live operating-system screen-sharing stream rather than repeatedly saving screenshots. The app samples
-approximately 8 frames per second, creates a bounded full-source preview, and copies the configured notification
-rectangles at native resolution into memory.
+approximately 8 frames per second, creates a bounded full-source preview, and copies either the automatic search area or
+the configured notification rectangles at native resolution into memory.
 
 Windows and browser development use `navigator.mediaDevices.getDisplayMedia` inside the Tauri WebView. The call must come
 directly from a user action and requests video without audio. The operating system presents its own source picker and the
@@ -58,9 +58,12 @@ implementation ignores the `SelectSources` response and requests an embedded cur
 advertises that mode. Linux therefore performs the same user-authorized XDG ScreenCast portal flow natively, requests one
 monitor with a hidden cursor, and consumes the returned PipeWire stream. Sampled RGBA preview frames cross Tauri's local
 binary IPC channel and are not persisted. On Linux, the selected normal and rare rectangles are cropped directly from the
-same mapped native PipeWire frame before separate typed region frames cross the same versioned channel. Browser capture
-crops both areas from the native hidden video frame with canvas while retaining the downscaled preview. Frame batches are
-acknowledged independently to bound local IPC work until the frontend has consumed every preview and crop in the batch.
+same mapped native PipeWire frame before separate typed region frames cross the same versioned channel. During automatic
+placement, PipeWire emits the search crop instead of the exact normal and rare crops. Browser capture performs the same
+mode-specific crops from the native hidden video frame with canvas while retaining the downscaled preview. Protocol V3
+identifies preview, normal, rare, and search frames separately. Frame batches are acknowledged independently to bound
+local IPC work until the frontend has consumed every preview and crop in the batch. Selection and stop commands carry a
+capture token so delayed commands from a previous request cannot modify or terminate a newer capture.
 
 Platform capture remains behind the same start/stop interface:
 
@@ -88,6 +91,23 @@ supported profile or recalibration. The 100% dimensions still require representa
 geometry. Only the normal rectangle is sent to the existing recognition pipeline, and only 3440x1440 at 80% currently has
 a bundled calibrated profile. The rare rectangle remains preview-only until a separate detector and OCR path passes a
 held-out benchmark.
+
+### Automatic Normal-Stack Localization
+
+Automatic placement is enabled only for the bundled `3440x1440`, 80%-UI profile. Capture begins with an `800x600` search
+area centered around the saved normal region, or the default region when no saved placement exists. The user can drag this
+larger area to recenter the search without switching to manual pixel placement.
+
+The localizer evaluates every second sampled frame, scores the five calibrated row centers, and requires at least two
+visible rows. It locks only after three of the latest four candidates agree within 12 source pixels. Retained search history
+is bounded to 12 frames. On lock, the localizer converts the median candidate to the exact normalized `362x311` region,
+switches native capture from search mode to exact normal and rare crops, and persists the resulting coordinates. The
+retained frames are cropped and replayed from an explicit empty baseline so the notifications used for alignment can still
+be recognized. While the single Tesseract worker starts, capture retains a rolling window of at most 32 exact frames.
+
+If localization cannot establish confidence, capture remains in search mode rather than guessing. The user can choose
+manual placement at any time. Other resolutions and 100% UI scale continue to use manual placement until separately
+calibrated localization benchmarks exist.
 
 ## Recognition Pipeline
 

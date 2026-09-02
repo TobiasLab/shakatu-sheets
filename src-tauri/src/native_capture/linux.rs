@@ -13,16 +13,17 @@ use std::sync::{
 use std::time::{Duration, Instant};
 use tauri::ipc::{Channel, InvokeResponseBody};
 
-use super::LootCaptureSettings;
+use super::{LootCaptureSettings, NativeCaptureSelection};
 #[cfg(test)]
 use super::{NormalizedRegion, PixelRegion};
 
 const FRAME_HEADER_BYTES: usize = 40;
-const FRAME_PROTOCOL_VERSION: u32 = 2;
+const FRAME_PROTOCOL_VERSION: u32 = 3;
 const FRAME_KIND_ERROR: u32 = 0;
 const FRAME_KIND_PREVIEW: u32 = 1;
 const FRAME_KIND_REGION: u32 = 2;
 const FRAME_KIND_RARE_REGION: u32 = 3;
+const FRAME_KIND_SEARCH_REGION: u32 = 4;
 const MAX_PREVIEW_WIDTH: u32 = 640;
 const MAX_PREVIEW_HEIGHT: u32 = 360;
 const SAMPLE_INTERVAL: Duration = Duration::from_millis(125);
@@ -53,6 +54,7 @@ pub(super) struct CaptureState(Mutex<CaptureStateInner>);
 struct CaptureStateInner {
     capture: Option<Arc<CaptureControl>>,
     last_capture_id: u32,
+    latest_capture_token: u64,
 }
 
 impl CaptureStateInner {
@@ -64,21 +66,38 @@ impl CaptureStateInner {
         self.last_capture_id = capture_id;
         Ok(capture_id)
     }
+
+    fn install_capture(
+        &mut self,
+        capture_token: u64,
+        selection: Option<NativeCaptureSelection>,
+    ) -> Result<(Arc<CaptureControl>, Option<Arc<CaptureControl>>), String> {
+        if capture_token <= self.latest_capture_token {
+            return Err("Native display capture request is no longer active.".to_string());
+        }
+        self.latest_capture_token = capture_token;
+        let capture_id = self.next_capture_id()?;
+        let control = Arc::new(CaptureControl::new(capture_id, capture_token, selection));
+        let previous = self.capture.replace(control.clone());
+        Ok((control, previous))
+    }
 }
 
 struct CaptureControl {
     capture_id: u32,
+    capture_token: u64,
     cancelled: AtomicBool,
     finished: AtomicBool,
     batches: Mutex<BatchState>,
     pending_session: Mutex<Option<Arc<Session<Screencast>>>>,
-    selection: Mutex<Option<LootCaptureSettings>>,
+    selection: Mutex<Option<NativeCaptureSelection>>,
 }
 
 impl CaptureControl {
-    fn new(capture_id: u32, selection: Option<LootCaptureSettings>) -> Self {
+    fn new(capture_id: u32, capture_token: u64, selection: Option<NativeCaptureSelection>) -> Self {
         Self {
             capture_id,
+            capture_token,
             cancelled: AtomicBool::new(false),
             finished: AtomicBool::new(false),
             batches: Mutex::new(BatchState::default()),
@@ -87,7 +106,10 @@ impl CaptureControl {
         }
     }
 
-    fn begin_batch(&self, has_region: bool, has_rare_region: bool) -> Result<Option<u32>, String> {
+    fn begin_batch(
+        &self,
+        selection: Option<NativeCaptureSelection>,
+    ) -> Result<Option<u32>, String> {
         let mut batches = self
             .batches
             .lock()
@@ -100,12 +122,20 @@ impl CaptureControl {
             .checked_add(1)
             .ok_or_else(|| "Native display capture exhausted its batch IDs.".to_string())?;
         batches.last_batch_id = batch_id;
+        let (search_pending, region_pending, rare_region_pending) = match selection {
+            Some(NativeCaptureSelection::Search { .. }) => (true, false, false),
+            Some(NativeCaptureSelection::Regions { settings }) => {
+                (false, true, settings.rare_region.is_some())
+            }
+            None => (false, false, false),
+        };
         batches.pending = Some(PendingBatch {
             batch_id,
             started_at: Instant::now(),
             preview_pending: true,
-            region_pending: has_region,
-            rare_region_pending: has_rare_region,
+            search_pending,
+            region_pending,
+            rare_region_pending,
         });
         Ok(Some(batch_id))
     }
@@ -127,9 +157,14 @@ impl CaptureControl {
             FRAME_KIND_PREVIEW => pending.preview_pending = false,
             FRAME_KIND_REGION => pending.region_pending = false,
             FRAME_KIND_RARE_REGION => pending.rare_region_pending = false,
+            FRAME_KIND_SEARCH_REGION => pending.search_pending = false,
             _ => return,
         }
-        if !pending.preview_pending && !pending.region_pending && !pending.rare_region_pending {
+        if !pending.preview_pending
+            && !pending.search_pending
+            && !pending.region_pending
+            && !pending.rare_region_pending
+        {
             batches.pending = None;
         }
     }
@@ -181,6 +216,7 @@ struct PendingBatch {
     batch_id: u32,
     started_at: Instant,
     preview_pending: bool,
+    search_pending: bool,
     region_pending: bool,
     rare_region_pending: bool,
 }
@@ -193,17 +229,15 @@ struct StreamData {
 pub(super) async fn start(
     state: &CaptureState,
     frames: Channel<InvokeResponseBody>,
-    selection: Option<LootCaptureSettings>,
+    capture_token: u64,
+    selection: Option<NativeCaptureSelection>,
 ) -> Result<(), String> {
     let (control, previous) = {
         let mut state = state
             .0
             .lock()
             .map_err(|_| "Capture state is unavailable.")?;
-        let capture_id = state.next_capture_id()?;
-        let control = Arc::new(CaptureControl::new(capture_id, selection));
-        let previous = state.capture.replace(control.clone());
-        (control, previous)
+        state.install_capture(capture_token, selection)?
     };
     if let Some(previous) = previous {
         cancel(&previous);
@@ -298,12 +332,19 @@ pub(super) async fn start(
     Ok(())
 }
 
-pub(super) fn stop(state: &CaptureState) {
-    let control = state
-        .0
-        .lock()
-        .ok()
-        .and_then(|mut state| state.capture.take());
+pub(super) fn stop(state: &CaptureState, capture_token: u64) {
+    let control = state.0.lock().ok().and_then(|mut state| {
+        state.latest_capture_token = state.latest_capture_token.max(capture_token);
+        if state
+            .capture
+            .as_ref()
+            .is_some_and(|control| control.capture_token == capture_token)
+        {
+            state.capture.take()
+        } else {
+            None
+        }
+    });
     if let Some(control) = control {
         cancel(&control);
     }
@@ -319,7 +360,8 @@ pub(super) fn acknowledge_frame(state: &CaptureState, capture_id: u32, batch_id:
 
 pub(super) fn set_selection(
     state: &CaptureState,
-    selection: Option<LootCaptureSettings>,
+    capture_token: u64,
+    selection: Option<NativeCaptureSelection>,
 ) -> Result<(), String> {
     let state = state
         .0
@@ -329,6 +371,9 @@ pub(super) fn set_selection(
         .capture
         .as_ref()
         .ok_or_else(|| "Native display capture is not running.".to_string())?;
+    if control.capture_token != capture_token {
+        return Err("Native display capture request is no longer active.".to_string());
+    }
     if control.cancelled.load(Ordering::Acquire) || control.finished.load(Ordering::Acquire) {
         return Err("Native display capture is not running.".to_string());
     }
@@ -509,10 +554,7 @@ fn run_pipewire(
                 }
                 let source_frame_time = Instant::now();
                 last_source_frame_in_process.set(Some(source_frame_time));
-                let batch_id = match control_for_frames.begin_batch(
-                    selection.is_some(),
-                    selection.is_some_and(|selection| selection.rare_region.is_some()),
-                ) {
+                let batch_id = match control_for_frames.begin_batch(selection) {
                     Ok(Some(batch_id)) => batch_id,
                     Ok(None) => return,
                     Err(error) => {
@@ -542,18 +584,33 @@ fn run_pipewire(
                     capture_id: control_for_frames.capture_id,
                     batch_id,
                 };
-                let region_frames = selection
-                    .map(|selection| {
+                let selected_frames = match selection {
+                    Some(selection @ NativeCaptureSelection::Search { .. }) => selection
+                        .search_pixel_region()
+                        .and_then(|region| {
+                            crop_pixel_region_frame(
+                                pixels,
+                                size.width,
+                                size.height,
+                                stride,
+                                data.format.format(),
+                                region,
+                                FRAME_KIND_SEARCH_REGION,
+                                batch,
+                            )
+                        })
+                        .map(|search| (Some(search), None, None)),
+                    Some(NativeCaptureSelection::Regions { settings }) => (|| {
                         let region = crop_region_frame(
                             pixels,
                             size.width,
                             size.height,
                             stride,
                             data.format.format(),
-                            selection,
+                            settings,
                             batch,
                         )?;
-                        let rare_region = selection
+                        let rare_region = settings
                             .rare_pixel_region()?
                             .map(|rare_region| {
                                 crop_pixel_region_frame(
@@ -568,12 +625,12 @@ fn run_pipewire(
                                 )
                             })
                             .transpose()?;
-                        Ok::<_, String>((region, rare_region))
-                    })
-                    .transpose();
-                let (region_frame, rare_region_frame) = match region_frames {
-                    Ok(Some((region, rare_region))) => (Some(region), rare_region),
-                    Ok(None) => (None, None),
+                        Ok((None, Some(region), rare_region))
+                    })(),
+                    None => Ok((None, None, None)),
+                };
+                let (search_frame, region_frame, rare_region_frame) = match selected_frames {
+                    Ok(frames) => frames,
                     Err(error) => {
                         control_for_frames.clear_batch(batch_id);
                         *stream_error_in_process.borrow_mut() = Some(error);
@@ -585,6 +642,13 @@ fn run_pipewire(
                     control_for_frames.clear_batch(batch_id);
                     loop_for_frames.quit();
                     return;
+                }
+                if let Some(frame) = search_frame {
+                    if frames.send(InvokeResponseBody::Raw(frame)).is_err() {
+                        control_for_frames.clear_batch(batch_id);
+                        loop_for_frames.quit();
+                        return;
+                    }
                 }
                 if let Some(frame) = region_frame {
                     if frames.send(InvokeResponseBody::Raw(frame)).is_err() {
@@ -848,14 +912,14 @@ fn crop_pixel_region_frame(
 }
 
 fn selection_for_source(
-    selection: Option<LootCaptureSettings>,
+    selection: Option<NativeCaptureSelection>,
     source_width: u32,
     source_height: u32,
-) -> Result<Option<LootCaptureSettings>, String> {
+) -> Result<Option<NativeCaptureSelection>, String> {
     let Some(selection) = selection else {
         return Ok(None);
     };
-    if source_width != selection.source_width || source_height != selection.source_height {
+    if (source_width, source_height) != selection.source_dimensions() {
         return Ok(None);
     }
     selection.validate()?;
@@ -1021,6 +1085,24 @@ mod tests {
         )
     }
 
+    fn regions_selection(settings: LootCaptureSettings) -> NativeCaptureSelection {
+        NativeCaptureSelection::Regions { settings }
+    }
+
+    fn search_selection(x: u32, y: u32) -> NativeCaptureSelection {
+        NativeCaptureSelection::Search {
+            region: NormalizedRegion {
+                x: x as f64 / 3440.0,
+                y: y as f64 / 1440.0,
+                width: 800.0 / 3440.0,
+                height: 600.0 / 1440.0,
+            },
+            source_width: 3440,
+            source_height: 1440,
+            ui_scale_percent: 80,
+        }
+    }
+
     #[test]
     fn converts_bgra_and_encodes_the_preview_header() {
         let frame = preview_frame(
@@ -1036,7 +1118,7 @@ mod tests {
 
         assert_eq!(
             header(&frame),
-            [2, FRAME_KIND_PREVIEW, 17, 23, 2, 1, 2, 1, 0, 0]
+            [3, FRAME_KIND_PREVIEW, 17, 23, 2, 1, 2, 1, 0, 0]
         );
         assert_eq!(&frame[FRAME_HEADER_BYTES..], &[1, 2, 3, 7, 4, 5, 6, 8]);
     }
@@ -1128,7 +1210,7 @@ mod tests {
 
         assert_eq!(
             header(&frame),
-            [2, FRAME_KIND_REGION, 31, 47, 453, 389, 1920, 1080, 10, 0,]
+            [3, FRAME_KIND_REGION, 31, 47, 453, 389, 1920, 1080, 10, 0,]
         );
         assert_eq!(
             &frame[FRAME_HEADER_BYTES..FRAME_HEADER_BYTES + 8],
@@ -1170,7 +1252,7 @@ mod tests {
         assert_eq!(
             header(&frame),
             [
-                2,
+                3,
                 FRAME_KIND_RARE_REGION,
                 31,
                 47,
@@ -1185,6 +1267,45 @@ mod tests {
         assert_eq!(
             &frame[FRAME_HEADER_BYTES..FRAME_HEADER_BYTES + 4],
             &[10, 20, 30, 40]
+        );
+    }
+
+    #[test]
+    fn crops_a_search_region_and_encodes_the_kind_four_header() {
+        let selection = search_selection(100, 200);
+        let region = selection.search_pixel_region().unwrap();
+        let stride = 3440 * 4;
+        let source = vec![0; stride as usize * 800];
+
+        let frame = crop_pixel_region_frame(
+            &source,
+            3440,
+            1440,
+            stride,
+            spa::param::video::VideoFormat::BGRx,
+            region,
+            FRAME_KIND_SEARCH_REGION,
+            BatchIdentity {
+                capture_id: 41,
+                batch_id: 59,
+            },
+        )
+        .unwrap();
+
+        assert_eq!(
+            header(&frame),
+            [
+                3,
+                FRAME_KIND_SEARCH_REGION,
+                41,
+                59,
+                800,
+                600,
+                3440,
+                1440,
+                100,
+                200
+            ]
         );
     }
 
@@ -1212,12 +1333,21 @@ mod tests {
     fn source_mismatch_skips_a_configured_region() {
         let configured = selection(3440, 1440, 80, 10, 20);
         assert_eq!(
-            selection_for_source(Some(configured), 2560, 1440).unwrap(),
+            selection_for_source(Some(regions_selection(configured)), 2560, 1440).unwrap(),
             None
         );
         let configured = selection(2560, 1440, 100, 10, 20);
         assert_eq!(
+            selection_for_source(Some(regions_selection(configured)), 2560, 1440).unwrap(),
+            Some(regions_selection(configured))
+        );
+        let configured = search_selection(100, 200);
+        assert_eq!(
             selection_for_source(Some(configured), 2560, 1440).unwrap(),
+            None
+        );
+        assert_eq!(
+            selection_for_source(Some(configured), 3440, 1440).unwrap(),
             Some(configured)
         );
     }
@@ -1241,8 +1371,18 @@ mod tests {
         assert_eq!(state.next_capture_id().unwrap(), 1);
         assert_eq!(state.next_capture_id().unwrap(), 2);
 
-        let control = CaptureControl::new(7, None);
-        let batch_id = control.begin_batch(true, true).unwrap().unwrap();
+        let control = CaptureControl::new(7, 11, None);
+        let mut settings = selection(3440, 1440, 80, 10, 20);
+        settings.rare_region = Some(NormalizedRegion {
+            x: 1000.0 / 3440.0,
+            y: 1000.0 / 1440.0,
+            width: 400.0 / 3440.0,
+            height: 100.0 / 1440.0,
+        });
+        let batch_id = control
+            .begin_batch(Some(regions_selection(settings)))
+            .unwrap()
+            .unwrap();
 
         control.acknowledge(8, batch_id, FRAME_KIND_PREVIEW);
         control.acknowledge(7, batch_id + 1, FRAME_KIND_PREVIEW);
@@ -1251,6 +1391,7 @@ mod tests {
             let batches = control.batches.lock().unwrap();
             let pending = batches.pending.as_ref().unwrap();
             assert!(pending.preview_pending);
+            assert!(!pending.search_pending);
             assert!(pending.region_pending);
             assert!(pending.rare_region_pending);
         }
@@ -1261,6 +1402,7 @@ mod tests {
             let batches = control.batches.lock().unwrap();
             let pending = batches.pending.as_ref().unwrap();
             assert!(!pending.preview_pending);
+            assert!(!pending.search_pending);
             assert!(pending.region_pending);
             assert!(pending.rare_region_pending);
         }
@@ -1270,20 +1412,39 @@ mod tests {
         control.acknowledge(7, batch_id, FRAME_KIND_RARE_REGION);
         assert!(control.batches.lock().unwrap().pending.is_none());
 
-        let next_batch_id = control.begin_batch(false, false).unwrap().unwrap();
+        let next_batch_id = control.begin_batch(None).unwrap().unwrap();
         assert_eq!(next_batch_id, batch_id + 1);
         control.acknowledge(7, batch_id, FRAME_KIND_PREVIEW);
         assert!(control.batches.lock().unwrap().pending.is_some());
         control.acknowledge(7, next_batch_id, FRAME_KIND_PREVIEW);
         assert!(control.batches.lock().unwrap().pending.is_none());
 
-        let normal_batch_id = control.begin_batch(true, false).unwrap().unwrap();
+        let normal_batch_id = control
+            .begin_batch(Some(regions_selection(selection(3440, 1440, 80, 10, 20))))
+            .unwrap()
+            .unwrap();
         control.acknowledge(7, normal_batch_id, FRAME_KIND_PREVIEW);
         assert!(control.batches.lock().unwrap().pending.is_some());
         control.acknowledge(7, normal_batch_id, FRAME_KIND_REGION);
         assert!(control.batches.lock().unwrap().pending.is_none());
 
-        let failed_batch_id = control.begin_batch(false, false).unwrap().unwrap();
+        let search_batch_id = control
+            .begin_batch(Some(search_selection(100, 200)))
+            .unwrap()
+            .unwrap();
+        control.acknowledge(7, search_batch_id, FRAME_KIND_PREVIEW);
+        control.acknowledge(7, search_batch_id, FRAME_KIND_REGION);
+        {
+            let batches = control.batches.lock().unwrap();
+            let pending = batches.pending.as_ref().unwrap();
+            assert!(pending.search_pending);
+            assert!(!pending.region_pending);
+            assert!(!pending.rare_region_pending);
+        }
+        control.acknowledge(7, search_batch_id, FRAME_KIND_SEARCH_REGION);
+        assert!(control.batches.lock().unwrap().pending.is_none());
+
+        let failed_batch_id = control.begin_batch(None).unwrap().unwrap();
         control.clear_batch(failed_batch_id - 1);
         assert!(control.batches.lock().unwrap().pending.is_some());
         control.clear_batch(failed_batch_id);
@@ -1293,16 +1454,53 @@ mod tests {
     #[test]
     fn finished_capture_rejects_selection_updates() {
         let state = CaptureState::default();
-        let control = Arc::new(CaptureControl::new(1, None));
+        let control = Arc::new(CaptureControl::new(1, 7, None));
         state.0.lock().unwrap().capture = Some(control.clone());
 
-        set_selection(&state, None).unwrap();
+        assert_eq!(
+            set_selection(&state, 6, None),
+            Err("Native display capture request is no longer active.".to_string())
+        );
+        set_selection(&state, 7, None).unwrap();
         control.finished.store(true, Ordering::Release);
 
         assert_eq!(
-            set_selection(&state, None),
+            set_selection(&state, 7, None),
             Err("Native display capture is not running.".to_string())
         );
+    }
+
+    #[test]
+    fn stale_stop_does_not_cancel_the_current_capture() {
+        let state = CaptureState::default();
+        let control = Arc::new(CaptureControl::new(1, 7, None));
+        {
+            let mut inner = state.0.lock().unwrap();
+            inner.latest_capture_token = 7;
+            inner.capture = Some(control.clone());
+        }
+
+        stop(&state, 6);
+        assert!(!control.cancelled.load(Ordering::Acquire));
+        assert!(state.0.lock().unwrap().capture.is_some());
+
+        stop(&state, 7);
+        assert!(control.cancelled.load(Ordering::Acquire));
+        assert!(state.0.lock().unwrap().capture.is_none());
+    }
+
+    #[test]
+    fn stopped_and_superseded_tokens_cannot_start_late() {
+        let mut state = CaptureStateInner::default();
+        state.latest_capture_token = 7;
+
+        assert!(state.install_capture(7, None).is_err());
+        assert!(state.install_capture(6, None).is_err());
+        let (control, previous) = state.install_capture(8, None).unwrap();
+
+        assert_eq!(control.capture_token, 8);
+        assert!(previous.is_none());
+        assert_eq!(state.latest_capture_token, 8);
     }
 
     #[test]
@@ -1331,7 +1529,7 @@ mod tests {
 
         assert_eq!(
             header(&frame),
-            [2, FRAME_KIND_ERROR, 0, 0, 0, 0, 0, 0, 0, 0]
+            [3, FRAME_KIND_ERROR, 0, 0, 0, 0, 0, 0, 0, 0]
         );
         assert_eq!(&frame[FRAME_HEADER_BYTES..], b"failed");
     }

@@ -8,6 +8,9 @@ use crate::persistence::{load_setting, save_settings, DatabasePath};
 const LOOT_CAPTURE_SETTINGS_KEY: &str = "loot-capture-settings";
 const DEFAULT_UI_SCALE_PERCENT: u32 = 80;
 const SUPPORTED_SOURCE_DIMENSIONS: [(u32, u32); 3] = [(3440, 1440), (2560, 1440), (1920, 1080)];
+const SEARCH_SOURCE_DIMENSIONS: (u32, u32) = (3440, 1440);
+const SEARCH_UI_SCALE_PERCENT: u32 = 80;
+const SEARCH_REGION_DIMENSIONS: (u32, u32) = (800, 600);
 
 #[derive(Clone, Copy, Debug, Deserialize, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -165,6 +168,72 @@ impl LootCaptureSettings {
     }
 }
 
+#[derive(Clone, Copy, Debug, Deserialize, PartialEq)]
+#[serde(
+    tag = "mode",
+    rename_all = "camelCase",
+    rename_all_fields = "camelCase"
+)]
+pub enum NativeCaptureSelection {
+    Search {
+        region: NormalizedRegion,
+        source_width: u32,
+        source_height: u32,
+        ui_scale_percent: u32,
+    },
+    Regions {
+        settings: LootCaptureSettings,
+    },
+}
+
+impl NativeCaptureSelection {
+    fn source_dimensions(self) -> (u32, u32) {
+        match self {
+            Self::Search {
+                source_width,
+                source_height,
+                ..
+            } => (source_width, source_height),
+            Self::Regions { settings } => (settings.source_width, settings.source_height),
+        }
+    }
+
+    fn search_pixel_region(self) -> Result<PixelRegion, String> {
+        let Self::Search {
+            region,
+            source_width,
+            source_height,
+            ui_scale_percent,
+        } = self
+        else {
+            return Err("capture selection is not in search mode".into());
+        };
+        if (source_width, source_height) != SEARCH_SOURCE_DIMENSIONS {
+            return Err(format!(
+                "unsupported search capture source {source_width}x{source_height}; supported source is 3440x1440"
+            ));
+        }
+        if ui_scale_percent != SEARCH_UI_SCALE_PERCENT {
+            return Err("search capture UI scale must be 80 percent".into());
+        }
+        let pixels = normalized_to_pixel_region(region, source_width, source_height)?;
+        if (pixels.width, pixels.height) != SEARCH_REGION_DIMENSIONS {
+            return Err(format!(
+                "search capture region for {ui_scale_percent}% UI scale must map to exactly 800x600 pixels; mapped to {}x{}",
+                pixels.width, pixels.height
+            ));
+        }
+        Ok(pixels)
+    }
+
+    fn validate(self) -> Result<(), String> {
+        match self {
+            Self::Search { .. } => self.search_pixel_region().map(|_| ()),
+            Self::Regions { settings } => settings.validate(),
+        }
+    }
+}
+
 fn parse_loot_capture_settings(value: &str) -> Result<LootCaptureSettings, String> {
     let settings: LootCaptureSettings = serde_json::from_str(value)
         .map_err(|error| format!("saved loot capture settings are invalid: {error}"))?;
@@ -184,18 +253,22 @@ pub struct NativeCaptureState {
 pub async fn start_native_display_capture(
     state: tauri::State<'_, NativeCaptureState>,
     frames: tauri::ipc::Channel<tauri::ipc::InvokeResponseBody>,
-    selection: Option<LootCaptureSettings>,
+    capture_token: u64,
+    selection: Option<NativeCaptureSelection>,
 ) -> Result<(), String> {
+    if capture_token == 0 {
+        return Err("native display capture token must be positive".into());
+    }
     if let Some(selection) = selection {
         selection.validate()?;
     }
 
     #[cfg(target_os = "linux")]
-    return linux::start(&state.capture, frames, selection).await;
+    return linux::start(&state.capture, frames, capture_token, selection).await;
 
     #[cfg(not(target_os = "linux"))]
     {
-        let _ = (state, frames, selection);
+        let _ = (state, frames, capture_token, selection);
         Err("Native display capture is only available on Linux.".to_string())
     }
 }
@@ -203,18 +276,22 @@ pub async fn start_native_display_capture(
 #[tauri::command]
 pub fn set_native_display_capture_region(
     state: tauri::State<'_, NativeCaptureState>,
-    selection: Option<LootCaptureSettings>,
+    capture_token: u64,
+    selection: Option<NativeCaptureSelection>,
 ) -> Result<(), String> {
+    if capture_token == 0 {
+        return Err("native display capture token must be positive".into());
+    }
     if let Some(selection) = selection {
         selection.validate()?;
     }
 
     #[cfg(target_os = "linux")]
-    return linux::set_selection(&state.capture, selection);
+    return linux::set_selection(&state.capture, capture_token, selection);
 
     #[cfg(not(target_os = "linux"))]
     {
-        let _ = (state, selection);
+        let _ = (state, capture_token, selection);
         Err("Native display capture is only available on Linux.".to_string())
     }
 }
@@ -256,12 +333,15 @@ pub fn acknowledge_native_display_frame(
 }
 
 #[tauri::command]
-pub fn stop_native_display_capture(state: tauri::State<'_, NativeCaptureState>) {
+pub fn stop_native_display_capture(
+    state: tauri::State<'_, NativeCaptureState>,
+    capture_token: u64,
+) {
     #[cfg(target_os = "linux")]
-    linux::stop(&state.capture);
+    linux::stop(&state.capture, capture_token);
 
     #[cfg(not(target_os = "linux"))]
-    let _ = state;
+    let _ = (state, capture_token);
 }
 
 #[cfg(test)]
@@ -317,6 +397,26 @@ mod tests {
             width,
             height,
         )
+    }
+
+    fn search_selection(
+        source_width: u32,
+        source_height: u32,
+        ui_scale_percent: u32,
+        width: u32,
+        height: u32,
+    ) -> NativeCaptureSelection {
+        NativeCaptureSelection::Search {
+            region: NormalizedRegion {
+                x: 100.0 / source_width as f64,
+                y: 200.0 / source_height as f64,
+                width: width as f64 / source_width as f64,
+                height: height as f64 / source_height as f64,
+            },
+            source_width,
+            source_height,
+            ui_scale_percent,
+        }
     }
 
     #[test]
@@ -376,6 +476,76 @@ mod tests {
                 width: 453,
                 height: 389,
             }
+        );
+    }
+
+    #[test]
+    fn runtime_selections_deserialize_from_tagged_typescript_shapes() {
+        let search: NativeCaptureSelection = serde_json::from_value(serde_json::json!({
+            "mode": "search",
+            "region": {
+                "x": 100.0 / 3440.0,
+                "y": 200.0 / 1440.0,
+                "width": 800.0 / 3440.0,
+                "height": 600.0 / 1440.0
+            },
+            "sourceWidth": 3440,
+            "sourceHeight": 1440,
+            "uiScalePercent": 80
+        }))
+        .unwrap();
+        search.validate().unwrap();
+        assert_eq!(
+            search.search_pixel_region().unwrap(),
+            PixelRegion {
+                x: 100,
+                y: 200,
+                width: 800,
+                height: 600,
+            }
+        );
+
+        let settings = selection(2560, 1440, 100, 100, 200);
+        let regions: NativeCaptureSelection = serde_json::from_value(serde_json::json!({
+            "mode": "regions",
+            "settings": settings
+        }))
+        .unwrap();
+        assert_eq!(regions, NativeCaptureSelection::Regions { settings });
+        regions.validate().unwrap();
+    }
+
+    #[test]
+    fn rejects_unsupported_search_sources_scales_and_crop_sizes() {
+        assert!(search_selection(2560, 1440, 80, 800, 600)
+            .validate()
+            .unwrap_err()
+            .contains("supported source is 3440x1440"));
+        assert!(search_selection(3440, 1440, 100, 800, 600)
+            .validate()
+            .unwrap_err()
+            .contains("must be 80 percent"));
+        assert!(search_selection(3440, 1440, 80, 799, 600)
+            .validate()
+            .unwrap_err()
+            .contains("exactly 800x600"));
+    }
+
+    #[test]
+    fn persisted_settings_keep_the_untagged_schema() {
+        let settings = selection(3440, 1440, 80, 100, 200);
+        let json = serde_json::to_value(settings).unwrap();
+
+        assert!(json.get("mode").is_none());
+        assert!(json.get("settings").is_none());
+        let parsed = parse_loot_capture_settings(&json.to_string()).unwrap();
+        assert_eq!(parsed.source_width, settings.source_width);
+        assert_eq!(parsed.source_height, settings.source_height);
+        assert_eq!(parsed.ui_scale_percent, settings.ui_scale_percent);
+        assert_eq!(parsed.rare_region, settings.rare_region);
+        assert_eq!(
+            parsed.pixel_region().unwrap(),
+            settings.pixel_region().unwrap()
         );
     }
 
