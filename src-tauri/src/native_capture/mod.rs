@@ -115,6 +115,8 @@ pub struct LootCaptureSettings {
     pub region: NormalizedRegion,
     #[serde(default)]
     pub rare_region: Option<NormalizedRegion>,
+    #[serde(default)]
+    pub rare_region_confirmed: bool,
     pub source_width: u32,
     pub source_height: u32,
     #[serde(default = "default_ui_scale_percent")]
@@ -164,6 +166,9 @@ impl LootCaptureSettings {
     fn validate(self) -> Result<(), String> {
         self.pixel_region()?;
         self.rare_pixel_region()?;
+        if self.rare_region_confirmed && self.rare_region.is_none() {
+            return Err("confirmed rare loot capture settings require a rare region".into());
+        }
         Ok(())
     }
 }
@@ -374,6 +379,7 @@ mod tests {
                 height: height as f64 / source_height as f64,
             },
             rare_region: None,
+            rare_region_confirmed: false,
             source_width,
             source_height,
             ui_scale_percent,
@@ -468,6 +474,7 @@ mod tests {
 
         assert!(json.contains("\"sourceWidth\":2560"));
         assert!(json.contains("\"uiScalePercent\":100"));
+        assert!(json.contains("\"rareRegionConfirmed\":false"));
         assert_eq!(
             parsed.pixel_region().unwrap(),
             PixelRegion {
@@ -558,11 +565,13 @@ mod tests {
             width: 500.0 / 2560.0,
             height: 125.0 / 1440.0,
         });
+        settings.rare_region_confirmed = true;
 
         let json = serde_json::to_string(&settings).unwrap();
         let parsed = parse_loot_capture_settings(&json).unwrap();
 
         assert!(json.contains("\"rareRegion\""));
+        assert!(json.contains("\"rareRegionConfirmed\":true"));
         assert_eq!(parsed, settings);
         assert_eq!(
             parsed.rare_pixel_region().unwrap(),
@@ -628,11 +637,13 @@ mod tests {
         let mut json = serde_json::to_value(legacy).unwrap();
         json.as_object_mut().unwrap().remove("uiScalePercent");
         json.as_object_mut().unwrap().remove("rareRegion");
+        json.as_object_mut().unwrap().remove("rareRegionConfirmed");
 
         let parsed = parse_loot_capture_settings(&json.to_string()).unwrap();
 
         assert_eq!(parsed.ui_scale_percent, 80);
         assert_eq!(parsed.rare_region, None);
+        assert!(!parsed.rare_region_confirmed);
         assert_eq!(parsed.pixel_region().unwrap().width, 362);
     }
 
@@ -650,6 +661,13 @@ mod tests {
             .validate()
             .unwrap_err()
             .contains("rare loot capture region for 80% UI scale must map to exactly 400x100"));
+
+        let mut missing = selection(3440, 1440, 80, 100, 200);
+        missing.rare_region_confirmed = true;
+        assert!(missing
+            .validate()
+            .unwrap_err()
+            .contains("confirmed rare loot capture settings require a rare region"));
     }
 
     #[test]

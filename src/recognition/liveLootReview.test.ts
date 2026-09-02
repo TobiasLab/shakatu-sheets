@@ -1,11 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import type { LiveLootRecognitionResult } from "./liveLoot";
-import {
-    acceptLiveLootReviewEntry,
-    appendLiveLootReviewResult,
-    automaticallyAcceptLiveLootReviewEntry,
-    type LiveLootReviewEntry,
-} from "./liveLootReview";
+import { acceptLiveLootReviewEntry, appendLiveLootReviewResult, type LiveLootReviewEntry } from "./liveLootReview";
 
 function entry(id: number, status: LiveLootRecognitionResult["status"] = "recognized"): LiveLootReviewEntry {
     const result: LiveLootRecognitionResult =
@@ -64,20 +59,9 @@ describe("appendLiveLootReviewResult", () => {
 });
 
 describe("acceptLiveLootReviewEntry", () => {
-    it("automatically accepts normal-stack and rare-banner results", () => {
+    it.each(["normal", "rare"] as const)("adds a recognized %s result and marks it accepted", (source) => {
         const accept = vi.fn(() => null);
-        const normal = entry(1);
-        const rare = { ...entry(2), source: "rare" as const };
-
-        expect(automaticallyAcceptLiveLootReviewEntry(normal, accept).accepted).toBe(true);
-        expect(automaticallyAcceptLiveLootReviewEntry(rare, accept).accepted).toBe(true);
-        expect(accept).toHaveBeenCalledTimes(2);
-    });
-
-    it("adds a recognized result and marks it accepted", () => {
-        const accept = vi.fn(() => null);
-
-        const accepted = acceptLiveLootReviewEntry(entry(1), accept);
+        const accepted = acceptLiveLootReviewEntry({ ...entry(1), source }, accept);
 
         expect(accept).toHaveBeenCalledOnce();
         expect(accept).toHaveBeenCalledWith("Black Stone", 1);

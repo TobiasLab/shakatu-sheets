@@ -34,13 +34,13 @@ function emptyRows(): LootDetectedRows {
     return { count: 0, strength: 0, fingerprints: [], observations: [] };
 }
 
-function detectedRow(): LootDetectedRows {
+function detectedRow(score = 1): LootDetectedRows {
     return {
         count: 1,
-        strength: 1,
+        strength: score,
         fingerprint,
         fingerprints: [fingerprint],
-        observations: [{ slot: 0, centerY: TEXT_CENTER_Y, score: 1, fingerprint }],
+        observations: [{ slot: 0, centerY: TEXT_CENTER_Y, score, fingerprint }],
     };
 }
 
@@ -79,6 +79,8 @@ export class RareLootFrameAnalyzer {
     private suppressed = false;
     private activeFrames = 0;
     private absentFrames = 0;
+    private reappearanceFrames = 0;
+    private replacementGapFrames = 0;
 
     pushFrame(frame: LootRoiFrame): LootDetectedRows {
         validateFrame(frame);
@@ -86,27 +88,49 @@ export class RareLootFrameAnalyzer {
         const baselineFrame = this.frameCount === 0;
         this.frameCount += 1;
 
+        if (this.replacementGapFrames > 0) {
+            this.replacementGapFrames -= 1;
+            if (this.replacementGapFrames > 0) return emptyRows();
+            this.active = true;
+            this.activeFrames = 1;
+            this.absentFrames = shellVisible ? 0 : 1;
+            return detectedRow();
+        }
+
         if (this.active) {
-            this.activeFrames += 1;
-            if (shellVisible && this.absentFrames >= REAPPEARANCE_GAP_FRAMES) {
-                this.active = false;
-                this.suppressed = false;
-                this.activeFrames = 0;
-                this.absentFrames = 0;
-                this.candidateFrames = 1;
-                this.candidateStartedAtBaseline = false;
-                return emptyRows();
-            }
-            if (shellVisible) this.absentFrames = 0;
+            if (this.reappearanceFrames > 0) {
+                if (shellVisible) this.reappearanceFrames += 1;
+                else {
+                    this.reappearanceFrames = 0;
+                    this.absentFrames += 1;
+                }
+            } else if (shellVisible && this.absentFrames >= REAPPEARANCE_GAP_FRAMES) {
+                this.reappearanceFrames = 1;
+            } else if (shellVisible) this.absentFrames = 0;
             else this.absentFrames += 1;
-            if (this.absentFrames >= END_CONFIRMATION_FRAMES && this.activeFrames >= MINIMUM_ACTIVE_FRAMES) {
+
+            if (this.reappearanceFrames >= CONFIRMATION_FRAMES) {
+                this.active = false;
+                this.suppressed = false;
+                this.activeFrames = 0;
+                this.absentFrames = 0;
+                this.reappearanceFrames = 0;
+                this.replacementGapFrames = 2;
+                return emptyRows();
+            }
+            if (
+                this.reappearanceFrames === 0 &&
+                this.absentFrames >= END_CONFIRMATION_FRAMES &&
+                this.activeFrames >= MINIMUM_ACTIVE_FRAMES
+            ) {
                 this.active = false;
                 this.suppressed = false;
                 this.activeFrames = 0;
                 this.absentFrames = 0;
                 return emptyRows();
             }
-            return this.suppressed ? emptyRows() : detectedRow();
+            this.activeFrames += 1;
+            return this.suppressed ? emptyRows() : detectedRow(this.reappearanceFrames > 0 ? 0 : 1);
         }
 
         if (!shellVisible) {

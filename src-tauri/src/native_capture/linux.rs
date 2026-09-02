@@ -1062,6 +1062,7 @@ mod tests {
                 height: height as f64 / source_height as f64,
             },
             rare_region: None,
+            rare_region_confirmed: false,
             source_width,
             source_height,
             ui_scale_percent,

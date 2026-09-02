@@ -709,7 +709,8 @@ function chooseTemporalPairConsensus(readingsByFrame: Array<Array<{ item: string
         }
     }
     const ranked = [...counts.values()].sort((left, right) => right.count - left.count);
-    return ranked[0]?.count >= 2 && ranked[0].count > (ranked[1]?.count ?? 0) ? ranked[0] : null;
+    const requiredSupport = Math.floor(readingsByFrame.length / 2) + 1;
+    return ranked[0]?.count >= requiredSupport && ranked[0].count > (ranked[1]?.count ?? 0) ? ranked[0] : null;
 }
 
 function parseLootReadings(rawReadings: readonly (readonly string[])[], dictionary: readonly string[]) {

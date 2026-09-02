@@ -39,10 +39,11 @@ describe("rare loot frame analysis", () => {
         expect(counts([0, 0.7, 0.7, 0.7, 0])).toEqual([0, 0, 0, 0, 0]);
     });
 
-    it("confirms four shell frames and stays active through the readable phase", () => {
-        const result = counts([0, 0.7, 0.7, 0.7, 0.7, ...Array.from({ length: 16 }, () => 0)]);
+    it("confirms four shell frames and emits at least 18 active observations", () => {
+        const result = counts([0, 0.7, 0.7, 0.7, 0.7, ...Array.from({ length: 18 }, () => 0)]);
         expect(result.slice(0, 4)).toEqual([0, 0, 0, 0]);
-        expect(result.slice(4, 21)).toEqual(Array.from({ length: 17 }, () => 1));
+        expect(result.slice(4, 22)).toEqual(Array.from({ length: 18 }, () => 1));
+        expect(result[22]).toBe(0);
     });
 
     it("suppresses a banner whose confirmation begins in the baseline frame", () => {
@@ -67,8 +68,27 @@ describe("rare loot frame analysis", () => {
             ...Array.from({ length: 4 }, () => 0.7),
             ...Array.from({ length: 6 }, () => 0),
             ...Array.from({ length: 4 }, () => 0.7),
+            0,
+            0,
         ]);
         expect(result.filter((count, index) => count === 1 && result[index - 1] === 0)).toHaveLength(2);
+    });
+
+    it.each([1, 2, 3])("does not split an active event for a %i-frame returning flash", (flashFrames) => {
+        const analyzer = new RareLootFrameAnalyzer();
+        const ratios = [
+            0,
+            ...Array.from({ length: 4 }, () => 0.7),
+            ...Array.from({ length: 6 }, () => 0),
+            ...Array.from({ length: flashFrames }, () => 0.7),
+            0,
+        ];
+        const result = ratios.map((ratio) => analyzer.pushFrame(rareFrame(ratio)));
+        expect(result.filter(({ count }, index) => count === 1 && result[index - 1]?.count === 0)).toHaveLength(1);
+        expect(result.slice(11, 11 + flashFrames).map(({ observations }) => observations[0]?.score)).toEqual(
+            Array.from({ length: flashFrames }, () => 0),
+        );
+        expect(result[result.length - 1]?.observations[0]?.score).toBe(1);
     });
 
     it("recognizes a new shell shortly after a suppressed baseline banner", () => {
@@ -76,8 +96,47 @@ describe("rare loot frame analysis", () => {
             ...Array.from({ length: 4 }, () => 0.7),
             ...Array.from({ length: 6 }, () => 0),
             ...Array.from({ length: 4 }, () => 0.7),
+            0,
+            0,
         ]);
         expect(result.filter((count, index) => count === 1 && result[index - 1] === 0)).toHaveLength(1);
+    });
+
+    it("does not attribute confirmed replacement frames to the previous event", async () => {
+        const analyzer = new RareLootFrameAnalyzer();
+        const results: LiveLootRecognitionResult[] = [];
+        const readText = vi.fn<LiveLootOcrReader>(async (frames) => frames.map(() => ["Deboreka Necklace x 1"]));
+        const coordinator = new LiveLootCoordinator({
+            profile: RARE_LOOT_PROFILE,
+            dictionary: ["Twilight of the End - Earring", "Deboreka Necklace"],
+            analyzeFrame: (frame) => analyzer.pushFrame(frame),
+            ocrSelection: RARE_LOOT_OCR_SELECTION,
+            ocrBounds: RARE_LOOT_OCR_BOUNDS,
+            eventIdPrefix: "rare",
+            readText,
+            onResult: (result) => results.push(result),
+        });
+
+        for (const ratio of [
+            0,
+            ...Array.from({ length: 4 }, () => 0.7),
+            ...Array.from({ length: 11 }, () => 0),
+            ...Array.from({ length: 4 }, () => 0.7),
+            ...Array.from({ length: 20 }, () => 0),
+        ]) {
+            coordinator.pushFrame(rareFrame(ratio));
+        }
+        await coordinator.finish();
+
+        expect(readText).toHaveBeenCalledOnce();
+        expect(results).toEqual([
+            expect.objectContaining({ eventId: "rare-0001", status: "withheld", reason: "insufficient-observations" }),
+            expect.objectContaining({
+                eventId: "rare-0002",
+                status: "recognized",
+                itemName: "Deboreka Necklace",
+            }),
+        ]);
     });
 
     it("delays OCR until the banner text is readable", async () => {

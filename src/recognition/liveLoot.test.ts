@@ -284,6 +284,28 @@ describe("live loot streaming coordination", () => {
         ]);
     });
 
+    it("requires a strict majority when more than three OCR frames are selected", async () => {
+        const results: LiveLootRecognitionResult[] = [];
+        const coordinator = new LiveLootCoordinator({
+            profile: streamingProfile,
+            dictionary: ["Black Stone"],
+            retainedFrameCount: 5,
+            ocrSelection: { frameCount: 4 },
+            readText: async () => [
+                ["Black Stone x 2"],
+                ["Black Stone x 2"],
+                ["Ancient Spirit Dust x 1"],
+                ["Branch of Abundance x 1"],
+            ],
+            onResult: (result) => results.push(result),
+        });
+
+        pushRowSequence(coordinator, [0, 1, 1, 1, 1, 1, 1]);
+        await coordinator.finish();
+
+        expect(results).toEqual([expect.objectContaining({ status: "withheld", reason: "consensus-withheld" })]);
+    });
+
     it("runs OCR sequentially and preserves recognized event order", async () => {
         const first = deferred<readonly (readonly string[])[]>();
         const second = deferred<readonly (readonly string[])[]>();

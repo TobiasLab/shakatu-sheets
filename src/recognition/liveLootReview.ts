@@ -23,13 +23,6 @@ export function acceptLiveLootReviewEntry(
     }
 }
 
-export function automaticallyAcceptLiveLootReviewEntry(
-    entry: LiveLootReviewEntry,
-    accept: (itemName: string, quantity: number) => string | null,
-) {
-    return acceptLiveLootReviewEntry(entry, accept);
-}
-
 export function appendLiveLootReviewResult(
     current: readonly LiveLootReviewEntry[],
     entry: LiveLootReviewEntry,
