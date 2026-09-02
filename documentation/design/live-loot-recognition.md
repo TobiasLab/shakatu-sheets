@@ -102,8 +102,8 @@ The localizer evaluates every second sampled frame, scores the five calibrated r
 visible rows. It locks only after three of the latest four candidates agree within 12 source pixels. Retained search history
 is bounded to 12 frames. On lock, the localizer converts the median candidate to the exact normalized `362x311` region,
 switches native capture from search mode to exact normal and rare crops, and persists the resulting coordinates. The
-retained frames are cropped and replayed from an explicit empty baseline so the notifications used for alignment can still
-be recognized. While the single Tesseract worker starts, capture retains a rolling window of at most 32 exact frames.
+first retained search frame establishes the event baseline, and later notifications in the retained history are replayed.
+While the single Tesseract worker starts, capture retains a rolling window of at most 32 exact frames.
 
 If localization cannot establish confidence, capture remains in search mode rather than guessing. The user can choose
 manual placement at any time. Other resolutions and 100% UI scale continue to use manual placement until separately
