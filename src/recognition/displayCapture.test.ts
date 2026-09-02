@@ -71,14 +71,14 @@ describe("loot capture region", () => {
             y: 20,
             width: 336,
             height: 72,
-            rowCenters: [],
+            rowCenters: [57],
         });
         expect(lootAlignmentGuide(100, "rare")).toEqual({
             x: 65,
             y: 25,
             width: 420,
             height: 90,
-            rowCenters: [],
+            rowCenters: [71],
         });
     });
 

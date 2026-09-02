@@ -107,7 +107,9 @@ function AlignmentGuide({ frameSize, guide }: { frameSize: SourceDimensions; gui
                 height: `${(guide.height / frameSize.height) * 100}%`,
             }}
         >
-            <span className={styles.GuideLabel}>{guide.rowCenters.length > 0 ? "Item-name rows" : "Text area"}</span>
+            <span className={styles.GuideLabel}>
+                {guide.rowCenters.length === 1 ? "Item-name center" : "Item-name rows"}
+            </span>
             {guide.rowCenters.map((center) => (
                 <i
                     key={center}
@@ -1638,7 +1640,7 @@ export function LiveLootCapture({
                                         : `Drag the selected ${expectedRegionSize.width} x ${expectedRegionSize.height} area. ${
                                               activeRegionKind === "normal"
                                                   ? "Each green horizontal line should run through the center of a visible item name."
-                                                  : "Align the rare-banner text inside the inner guide. Rare recognition is provisional."
+                                                  : "The green horizontal line should run through the center of the rare item name. Rare recognition is provisional."
                                           } Confirm after placing both.`}
                                 </p>
                                 {placementMode === "localizing" ? (

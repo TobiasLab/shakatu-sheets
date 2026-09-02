@@ -84,9 +84,10 @@ at 100%. Each rectangle can be selected, dragged, reset, and nudged by one sourc
 3440x1440 80% profile, an inner guide marks the approximately `x=78..350`, `y=36..216` portion of the normal envelope used
 by row detection and OCR. Its green horizontal lines must pass through the center of each visible item name. A second
 inner guide marks the measured rare-banner text extent at approximately `x=52..388`, `y=20..92` within the 80% rare
-envelope. Both guides scale proportionally at 100% and appear on the full-source placement preview and their respective
-native-resolution crop previews. The larger envelopes remain unchanged so the normal guide's benchmarked detector
-geometry stays valid and the rare guide can retain placement tolerance.
+envelope, with a green line at `y=57` that must pass through the center of the rare item name. Both guides scale
+proportionally at 100% and appear on the full-source placement preview and their respective native-resolution crop
+previews. The larger envelopes remain unchanged so the normal guide's benchmarked detector geometry stays valid and the
+rare guide can retain placement tolerance.
 
 Supported sources are `3440x1440`, `2560x1440`, and `1920x1080`. Persist only validated normalized coordinates for both
 rectangles, source dimensions, and UI scale, never preview or captured pixels. Legacy settings without a rare rectangle
