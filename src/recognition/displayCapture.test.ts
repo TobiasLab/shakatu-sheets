@@ -3,11 +3,15 @@ import {
     defaultLootRegion,
     displayCaptureErrorMessage,
     isSupportedLootSource,
+    LOOT_SEARCH_REGION_SIZE,
     lootAlignmentGuide,
     lootRegionSize,
     normalizedRegionToPixels,
     nudgeLootRegion,
+    pixelRegionToNormalized,
     positionLootRegion,
+    positionLootSearchRegion,
+    searchRegionAroundLootRegion,
     stopDisplayCapture,
 } from "./displayCapture";
 
@@ -142,5 +146,59 @@ describe("loot capture region", () => {
         expect(isSupportedLootSource(1280, 720)).toBe(false);
         expect(() => positionLootRegion(0.5, 0.5, 1280, 720, 80)).toThrow(/supported/);
         expect(() => normalizedRegionToPixels({ x: 0.9, y: 0, width: 0.2, height: 1 }, 3440, 1440)).toThrow(/invalid/);
+    });
+});
+
+describe("automatic loot search region", () => {
+    it("uses a fixed 800x600 calibrated search area containing the default ROI", () => {
+        expect(LOOT_SEARCH_REGION_SIZE).toEqual({ width: 800, height: 600 });
+        const exact = normalizedRegionToPixels(defaultLootRegion(3440, 1440, 80), 3440, 1440);
+        const search = normalizedRegionToPixels(
+            searchRegionAroundLootRegion(defaultLootRegion(3440, 1440, 80), 3440, 1440),
+            3440,
+            1440,
+        );
+
+        expect(search).toEqual({ x: 2214, y: 840, width: 800, height: 600 });
+        expect(search.x).toBeLessThanOrEqual(exact.x);
+        expect(search.y).toBeLessThanOrEqual(exact.y);
+        expect(search.x + search.width).toBeGreaterThanOrEqual(exact.x + exact.width);
+        expect(search.y + search.height).toBeGreaterThanOrEqual(exact.y + exact.height);
+    });
+
+    it("clamps search regions at every source edge", () => {
+        expect(normalizedRegionToPixels(positionLootSearchRegion(0, 0, 3440, 1440), 3440, 1440)).toEqual({
+            x: 0,
+            y: 0,
+            width: 800,
+            height: 600,
+        });
+        expect(normalizedRegionToPixels(positionLootSearchRegion(1, 1, 3440, 1440), 3440, 1440)).toEqual({
+            x: 2640,
+            y: 840,
+            width: 800,
+            height: 600,
+        });
+    });
+
+    it("round-trips exact pixel regions deterministically", () => {
+        for (const pixels of [
+            { x: 0, y: 0, width: 800, height: 600 },
+            { x: 2214, y: 840, width: 800, height: 600 },
+            { x: 2433, y: 990, width: 362, height: 311 },
+        ]) {
+            expect(normalizedRegionToPixels(pixelRegionToNormalized(pixels, 3440, 1440), 3440, 1440)).toEqual(pixels);
+        }
+    });
+
+    it("rejects unsupported search geometry and non-exact normal regions", () => {
+        expect(() => positionLootSearchRegion(0.5, 0.5, 2560, 1440)).toThrow(/3440x1440/);
+        expect(() =>
+            searchRegionAroundLootRegion(
+                pixelRegionToNormalized({ x: 10, y: 10, width: 453, height: 389 }, 3440, 1440),
+                3440,
+                1440,
+            ),
+        ).toThrow(/362x311/);
     });
 });

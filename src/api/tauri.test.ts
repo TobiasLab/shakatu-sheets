@@ -15,14 +15,21 @@ vi.mock("@tauri-apps/api/core", () => ({
     isTauri: () => true,
 }));
 
-import { parseNativeCaptureMessage, startNativeDisplayCapture } from "./tauri";
+import {
+    type LootCaptureSettings,
+    type NativeCaptureSelection,
+    parseNativeCaptureMessage,
+    setNativeDisplayCaptureRegion,
+    startNativeDisplayCapture,
+    stopNativeDisplayCapture,
+} from "./tauri";
 
 function message(kind: number, width: number, height: number, sourceWidth: number, sourceHeight: number) {
     const buffer = new ArrayBuffer(40 + width * height * 4);
     const header = new DataView(buffer);
-    const cropX = kind === 2 || kind === 3 ? Math.min(2433, sourceWidth - width) : 0;
-    const cropY = kind === 2 || kind === 3 ? Math.min(990, sourceHeight - height) : 0;
-    for (const [index, value] of [2, kind, 7, 11, width, height, sourceWidth, sourceHeight, cropX, cropY].entries()) {
+    const cropX = kind >= 2 ? Math.min(2433, sourceWidth - width) : 0;
+    const cropY = kind >= 2 ? Math.min(990, sourceHeight - height) : 0;
+    for (const [index, value] of [3, kind, 7, 11, width, height, sourceWidth, sourceHeight, cropX, cropY].entries()) {
         header.setUint32(index * 4, value, true);
     }
     return buffer;
@@ -34,7 +41,7 @@ describe("native capture frame protocol", () => {
         tauri.onMessage = undefined;
     });
 
-    it("parses preview, normal region, and rare region frames", () => {
+    it("parses preview, normal region, rare region, and search region frames", () => {
         expect(parseNativeCaptureMessage(message(1, 2, 1, 3440, 1440))).toMatchObject({
             kind: "preview",
             width: 2,
@@ -74,6 +81,15 @@ describe("native capture frame protocol", () => {
             width: 500,
             height: 125,
         });
+        expect(parseNativeCaptureMessage(message(4, 800, 600, 3440, 1440))).toMatchObject({
+            kind: "search-region",
+            width: 800,
+            height: 600,
+            sourceWidth: 3440,
+            sourceHeight: 1440,
+            cropX: 2433,
+            cropY: 840,
+        });
     });
 
     it("rejects malformed and unsupported frames", () => {
@@ -89,10 +105,16 @@ describe("native capture frame protocol", () => {
         const outOfBounds = message(3, 400, 100, 1920, 1080);
         new DataView(outOfBounds).setUint32(32, 1600, true);
         expect(() => parseNativeCaptureMessage(outOfBounds)).toThrow(/invalid/);
-        expect(() => parseNativeCaptureMessage(message(4, 1, 1, 1, 1))).toThrow(/invalid/);
+        expect(() => parseNativeCaptureMessage(message(4, 799, 600, 3440, 1440))).toThrow(/invalid/);
+        expect(() => parseNativeCaptureMessage(message(4, 800, 599, 3440, 1440))).toThrow(/invalid/);
+        expect(() => parseNativeCaptureMessage(message(4, 800, 600, 2560, 1440))).toThrow(/invalid/);
+        const searchOutOfBounds = message(4, 800, 600, 3440, 1440);
+        new DataView(searchOutOfBounds).setUint32(32, 2641, true);
+        expect(() => parseNativeCaptureMessage(searchOutOfBounds)).toThrow(/invalid/);
+        expect(() => parseNativeCaptureMessage(message(5, 1, 1, 1, 1))).toThrow(/invalid/);
 
         const unsupported = message(1, 1, 1, 1, 1);
-        new DataView(unsupported).setUint32(0, 1, true);
+        new DataView(unsupported).setUint32(0, 2, true);
         expect(() => parseNativeCaptureMessage(unsupported)).toThrow(/unsupported/);
     });
 
@@ -100,14 +122,14 @@ describe("native capture frame protocol", () => {
         const text = new TextEncoder().encode("capture failed");
         const buffer = new ArrayBuffer(40 + text.length);
         const header = new DataView(buffer);
-        header.setUint32(0, 2, true);
+        header.setUint32(0, 3, true);
         new Uint8Array(buffer, 40).set(text);
         expect(parseNativeCaptureMessage(buffer)).toEqual({ kind: "error", message: "capture failed" });
     });
 
     it("acknowledges rare region frames as kind 3", () => {
         const onFrame = vi.fn();
-        startNativeDisplayCapture(null, onFrame, vi.fn());
+        startNativeDisplayCapture(1, null, onFrame, vi.fn());
 
         tauri.onMessage?.(message(3, 400, 100, 2560, 1440));
 
@@ -119,6 +141,55 @@ describe("native capture frame protocol", () => {
         });
     });
 
+    it("acknowledges search region frames as kind 4", () => {
+        const onFrame = vi.fn();
+        startNativeDisplayCapture(1, null, onFrame, vi.fn());
+
+        tauri.onMessage?.(message(4, 800, 600, 3440, 1440));
+
+        expect(onFrame).toHaveBeenCalledWith(expect.objectContaining({ kind: "search-region" }));
+        expect(tauri.invoke).toHaveBeenLastCalledWith("acknowledge_native_display_frame", {
+            captureId: 7,
+            batchId: 11,
+            kind: 4,
+        });
+    });
+
+    it("sends discriminated search and region selections", () => {
+        const search: NativeCaptureSelection = {
+            mode: "search",
+            region: { x: 0.5, y: 0.5, width: 800 / 3440, height: 600 / 1440 },
+            sourceWidth: 3440,
+            sourceHeight: 1440,
+            uiScalePercent: 80,
+        };
+        const settings: LootCaptureSettings = {
+            region: { x: 2433 / 3440, y: 990 / 1440, width: 362 / 3440, height: 311 / 1440 },
+            sourceWidth: 3440,
+            sourceHeight: 1440,
+            uiScalePercent: 80,
+        };
+
+        startNativeDisplayCapture(17, search, vi.fn(), vi.fn());
+        expect(tauri.invoke).toHaveBeenLastCalledWith("start_native_display_capture", {
+            captureToken: 17,
+            frames: expect.anything(),
+            selection: search,
+        });
+        setNativeDisplayCaptureRegion(17, { mode: "regions", settings });
+        expect(tauri.invoke).toHaveBeenLastCalledWith("set_native_display_capture_region", {
+            captureToken: 17,
+            selection: { mode: "regions", settings },
+        });
+        stopNativeDisplayCapture(17);
+        expect(tauri.invoke).toHaveBeenLastCalledWith("stop_native_display_capture", { captureToken: 17 });
+        setNativeDisplayCaptureRegion(17, settings);
+        expect(tauri.invoke).toHaveBeenLastCalledWith("set_native_display_capture_region", {
+            captureToken: 17,
+            selection: { mode: "regions", settings },
+        });
+    });
+
     it("reports acknowledgement failures", async () => {
         tauri.invoke.mockImplementation((command: string) =>
             command === "acknowledge_native_display_frame"
@@ -126,12 +197,23 @@ describe("native capture frame protocol", () => {
                 : Promise.resolve(),
         );
         const onError = vi.fn();
-        startNativeDisplayCapture(null, vi.fn(), onError);
+        startNativeDisplayCapture(1, null, vi.fn(), onError);
 
         tauri.onMessage?.(message(3, 400, 100, 2560, 1440));
 
         await vi.waitFor(() =>
             expect(onError).toHaveBeenCalledWith("Native display capture acknowledgement failed: channel closed"),
         );
+    });
+
+    it("does not acknowledge malformed search frames", () => {
+        const onError = vi.fn();
+        startNativeDisplayCapture(1, null, vi.fn(), onError);
+        tauri.invoke.mockClear();
+
+        tauri.onMessage?.(message(4, 799, 600, 3440, 1440));
+
+        expect(onError).toHaveBeenCalledWith(expect.stringMatching(/invalid/));
+        expect(tauri.invoke).not.toHaveBeenCalledWith("acknowledge_native_display_frame", expect.anything());
     });
 });

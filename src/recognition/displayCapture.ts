@@ -34,6 +34,7 @@ export const RARE_LOOT_REGION_SIZES: Record<LootUiScale, { width: number; height
     80: { width: 400, height: 100 },
     100: { width: 500, height: 125 },
 };
+export const LOOT_SEARCH_REGION_SIZE = { width: 800, height: 600 } as const;
 const DEFAULT_LOOT_CENTERS: Record<LootRegionKind, { x: number; y: number }> = {
     normal: { x: 2614 / 3440, y: 1145.5 / 1440 },
     rare: { x: 2300 / 3440, y: 870 / 1440 },
@@ -111,6 +112,51 @@ export function positionLootRegion(
     };
 }
 
+export function positionLootSearchRegion(
+    normalizedCenterX: number,
+    normalizedCenterY: number,
+    sourceWidth: number,
+    sourceHeight: number,
+): NormalizedRegion {
+    if (sourceWidth !== 3440 || sourceHeight !== 1440) {
+        throw new Error("Automatic loot localization is calibrated for a 3440x1440 source.");
+    }
+    if (![normalizedCenterX, normalizedCenterY].every(Number.isFinite)) {
+        throw new Error("The search-region center is invalid.");
+    }
+    const x = Math.max(
+        0,
+        Math.min(sourceWidth - LOOT_SEARCH_REGION_SIZE.width, Math.round(normalizedCenterX * sourceWidth - 400)),
+    );
+    const y = Math.max(
+        0,
+        Math.min(sourceHeight - LOOT_SEARCH_REGION_SIZE.height, Math.round(normalizedCenterY * sourceHeight - 300)),
+    );
+    return pixelRegionToNormalized(
+        { x, y, width: LOOT_SEARCH_REGION_SIZE.width, height: LOOT_SEARCH_REGION_SIZE.height },
+        sourceWidth,
+        sourceHeight,
+    );
+}
+
+export function searchRegionAroundLootRegion(
+    region: NormalizedRegion,
+    sourceWidth: number,
+    sourceHeight: number,
+): NormalizedRegion {
+    const pixels = normalizedRegionToPixels(region, sourceWidth, sourceHeight);
+    const expected = LOOT_REGION_SIZES[80];
+    if (pixels.width !== expected.width || pixels.height !== expected.height) {
+        throw new Error("Automatic loot localization requires an exact 362x311 normal loot region.");
+    }
+    return positionLootSearchRegion(
+        (pixels.x + pixels.width / 2) / sourceWidth,
+        (pixels.y + pixels.height / 2) / sourceHeight,
+        sourceWidth,
+        sourceHeight,
+    );
+}
+
 export function nudgeLootRegion(
     region: NormalizedRegion,
     deltaX: number,
@@ -173,6 +219,33 @@ export function normalizedRegionToPixels(
     const endY = Math.min(sourceHeight, pixelBoundary(region.y + region.height, sourceHeight, true));
     if (x >= endX || y >= endY) throw new Error("The capture region is empty.");
     return { x, y, width: endX - x, height: endY - y };
+}
+
+export function pixelRegionToNormalized(
+    region: PixelRegion,
+    sourceWidth: number,
+    sourceHeight: number,
+): NormalizedRegion {
+    const values = [region.x, region.y, region.width, region.height, sourceWidth, sourceHeight];
+    if (
+        !values.every(Number.isSafeInteger) ||
+        region.x < 0 ||
+        region.y < 0 ||
+        region.width <= 0 ||
+        region.height <= 0 ||
+        sourceWidth <= 0 ||
+        sourceHeight <= 0 ||
+        region.x + region.width > sourceWidth ||
+        region.y + region.height > sourceHeight
+    ) {
+        throw new Error("The pixel capture region is invalid.");
+    }
+    return {
+        x: region.x / sourceWidth,
+        y: region.y / sourceHeight,
+        width: region.width / sourceWidth,
+        height: region.height / sourceHeight,
+    };
 }
 
 export function stopDisplayCapture(stream: MediaStream | null): void {

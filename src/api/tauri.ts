@@ -2,6 +2,7 @@ import { Channel, invoke, isTauri } from "@tauri-apps/api/core";
 import type { SessionState } from "../domain/session";
 import {
     isSupportedLootSource,
+    LOOT_SEARCH_REGION_SIZE,
     type LootUiScale,
     lootRegionSize,
     type NormalizedRegion,
@@ -95,7 +96,7 @@ export function uploadGarmothSession(input: GarmothUploadInput) {
 }
 
 export type NativeCaptureFrame = {
-    kind: "preview" | "region" | "rare-region";
+    kind: "preview" | "region" | "rare-region" | "search-region";
     captureId: number;
     batchId: number;
     pixels: Uint8ClampedArray;
@@ -117,8 +118,18 @@ export type LootCaptureSettings = {
     uiScalePercent: LootUiScale;
 };
 
+export type NativeCaptureSelection =
+    | {
+          mode: "search";
+          region: NormalizedRegion;
+          sourceWidth: number;
+          sourceHeight: number;
+          uiScalePercent: 80;
+      }
+    | { mode: "regions"; settings: LootCaptureSettings };
+
 const NATIVE_FRAME_HEADER_BYTES = 40;
-const NATIVE_FRAME_PROTOCOL_VERSION = 2;
+const NATIVE_FRAME_PROTOCOL_VERSION = 3;
 export function parseNativeCaptureMessage(message: ArrayBuffer): NativeCaptureFrame | NativeCaptureError {
     const bytes = new Uint8Array(message);
     if (bytes.byteLength < NATIVE_FRAME_HEADER_BYTES) {
@@ -142,7 +153,7 @@ export function parseNativeCaptureMessage(message: ArrayBuffer): NativeCaptureFr
     const sourceHeight = header.getUint32(28, true);
     const cropX = header.getUint32(32, true);
     const cropY = header.getUint32(36, true);
-    const validKind = kind === 1 || kind === 2 || kind === 3;
+    const validKind = kind === 1 || kind === 2 || kind === 3 || kind === 4;
     const boundedPreview = kind !== 1 || (width <= 640 && height <= 360 && cropX === 0 && cropY === 0);
     const isNormalRegion = ([80, 100] as const).some((scale) => {
         const size = lootRegionSize(scale);
@@ -158,6 +169,14 @@ export function parseNativeCaptureMessage(message: ArrayBuffer): NativeCaptureFr
             (kind === 2 ? isNormalRegion : isRareRegion) &&
             cropX + width <= sourceWidth &&
             cropY + height <= sourceHeight);
+    const boundedSearchRegion =
+        kind !== 4 ||
+        (width === LOOT_SEARCH_REGION_SIZE.width &&
+            height === LOOT_SEARCH_REGION_SIZE.height &&
+            sourceWidth === 3440 &&
+            sourceHeight === 1440 &&
+            cropX + width <= sourceWidth &&
+            cropY + height <= sourceHeight);
     if (
         !validKind ||
         captureId === 0 ||
@@ -168,12 +187,13 @@ export function parseNativeCaptureMessage(message: ArrayBuffer): NativeCaptureFr
         sourceHeight === 0 ||
         !boundedPreview ||
         !boundedRegion ||
+        !boundedSearchRegion ||
         bytes.byteLength !== NATIVE_FRAME_HEADER_BYTES + width * height * 4
     ) {
         throw new Error("Native display capture returned an invalid frame.");
     }
     return {
-        kind: kind === 1 ? "preview" : kind === 2 ? "region" : "rare-region",
+        kind: kind === 1 ? "preview" : kind === 2 ? "region" : kind === 3 ? "rare-region" : "search-region",
         captureId,
         batchId,
         pixels: new Uint8ClampedArray(message, NATIVE_FRAME_HEADER_BYTES),
@@ -195,7 +215,8 @@ export function supportsNativeDisplayCapture() {
 }
 
 export function startNativeDisplayCapture(
-    selection: LootCaptureSettings | null,
+    captureToken: number,
+    selection: NativeCaptureSelection | LootCaptureSettings | null,
     onFrame: (frame: NativeCaptureFrame) => void,
     onError: (message: string) => void,
 ) {
@@ -216,7 +237,14 @@ export function startNativeDisplayCapture(
                     invoke("acknowledge_native_display_frame", {
                         captureId: frame.captureId,
                         batchId: frame.batchId,
-                        kind: frame.kind === "preview" ? 1 : frame.kind === "region" ? 2 : 3,
+                        kind:
+                            frame.kind === "preview"
+                                ? 1
+                                : frame.kind === "region"
+                                  ? 2
+                                  : frame.kind === "rare-region"
+                                    ? 3
+                                    : 4,
                     }),
                 ).catch((error) => {
                     const detail = error instanceof Error ? error.message : String(error);
@@ -225,15 +253,32 @@ export function startNativeDisplayCapture(
             }
         }
     });
-    return invoke<void>("start_native_display_capture", { frames, selection });
+    return invoke<void>("start_native_display_capture", {
+        captureToken,
+        frames,
+        selection: nativeCaptureSelection(selection),
+    });
 }
 
-export function setNativeDisplayCaptureRegion(selection: LootCaptureSettings | null) {
-    return invoke<void>("set_native_display_capture_region", { selection });
+function nativeCaptureSelection(
+    selection: NativeCaptureSelection | LootCaptureSettings | null,
+): NativeCaptureSelection | null {
+    if (selection === null || "mode" in selection) return selection;
+    return { mode: "regions", settings: selection };
 }
 
-export function stopNativeDisplayCapture() {
-    return invoke<void>("stop_native_display_capture");
+export function setNativeDisplayCaptureRegion(
+    captureToken: number,
+    selection: NativeCaptureSelection | LootCaptureSettings | null,
+) {
+    return invoke<void>("set_native_display_capture_region", {
+        captureToken,
+        selection: nativeCaptureSelection(selection),
+    });
+}
+
+export function stopNativeDisplayCapture(captureToken: number) {
+    return invoke<void>("stop_native_display_capture", { captureToken });
 }
 
 export function loadLootCaptureSettings() {

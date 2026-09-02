@@ -89,6 +89,15 @@
     box-shadow: 0 0 0 1px rgb(0 0 0 / 70%);
 }
 
+.SearchRegionOverlay {
+    color: #ff8c42;
+    outline: 2px dashed #ff8c42;
+    background:
+        linear-gradient(135deg, rgb(255 140 66 / 10%) 25%, transparent 25%) 0 0 / 12px 12px,
+        rgb(255 140 66 / 7%);
+    box-shadow: 0 0 0 1px rgb(0 0 0 / 80%);
+}
+
 .RareRegionOverlay {
     color: #65cde5;
     outline: 2px solid #65cde5;
@@ -124,6 +133,11 @@
 
 .NormalRegionOverlay > .OverlayLabel {
     background: var(--gold);
+}
+
+.SearchRegionOverlay > .OverlayLabel {
+    color: #160b04;
+    background: #ff8c42;
 }
 
 .RareRegionOverlay > .OverlayLabel {
