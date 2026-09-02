@@ -185,6 +185,7 @@ export function LiveSessionView({ controller }: { controller: LiveSessionControl
             <LiveLootCapture
                 sessionId={session.id}
                 sessionStatus={session.status}
+                grindSpotName={spot.name}
                 itemDictionary={drops.map((drop) => drop.name)}
                 onAcceptRecognition={acceptRecognizedLoot}
             />

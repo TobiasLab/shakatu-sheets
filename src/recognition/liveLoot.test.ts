@@ -402,6 +402,24 @@ describe("live loot streaming coordination", () => {
         expect(withheld[0]).toMatchObject({ status: "withheld", reason: "consensus-withheld" });
     });
 
+    it("distinguishes item-profile and quantity OCR withholding", async () => {
+        for (const [readings, reason] of [
+            [["Branch of Abundance x 4"], "item-not-recognized"],
+            [["Black Stone"], "quantity-not-recognized"],
+        ] as const) {
+            const results: LiveLootRecognitionResult[] = [];
+            const coordinator = new LiveLootCoordinator({
+                profile: streamingProfile,
+                dictionary: ["Black Stone"],
+                readText: async () => [readings, readings, readings],
+                onResult: (result) => results.push(result),
+            });
+            pushRowSequence(coordinator, [0, 1, 1, 1, 1, 1]);
+            await coordinator.finish();
+            expect(results[0]).toMatchObject({ status: "withheld", reason });
+        }
+    });
+
     it("aborts active OCR, clears queued jobs, and promptly settles finish on an idempotent stop", async () => {
         const pending = deferred<readonly (readonly string[])[]>();
         const results: LiveLootRecognitionResult[] = [];
