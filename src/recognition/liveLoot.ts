@@ -48,7 +48,75 @@ export type LootRecognitionResult = {
     quantity: number | null;
 };
 
-type FingerprintDistance<TFingerprint> = (left: TFingerprint | undefined, right: TFingerprint | undefined) => number;
+type LiveLootEventResultBase = LootRecognitionResult & {
+    status: "recognized" | "withheld" | "failed";
+    reason: null | "insufficient-observations" | "consensus-withheld" | "ocr-failure";
+};
+
+export type LiveLootEventResult =
+    | (LiveLootEventResultBase & {
+          status: "recognized";
+          reason: null;
+          itemName: string;
+          quantity: number;
+      })
+    | (LiveLootEventResultBase & {
+          status: "withheld";
+          reason: "insufficient-observations" | "consensus-withheld";
+          itemName: null;
+          quantity: null;
+      })
+    | (LiveLootEventResultBase & {
+          status: "failed";
+          reason: "ocr-failure";
+          itemName: null;
+          quantity: null;
+      });
+
+export type LiveLootOverflowSummary = {
+    eventId: null;
+    firstFrame: number;
+    selectedFrames: [];
+    itemName: null;
+    quantity: null;
+    status: "dropped";
+    reason: "backpressure-summary" | "result-overflow-summary" | "mixed-overflow-summary";
+    count: number;
+    backpressureCount: number;
+    resultOverflowCount: number;
+    firstEventId: string;
+    lastEventId: string;
+    lastFrame: number;
+};
+
+export type LiveLootRecognitionResult = LiveLootEventResult | LiveLootOverflowSummary;
+
+export type LiveLootOcrFrame = {
+    frame: number;
+    roi: LootRoiFrame;
+    observation: LootRowObservation<LootFingerprint>;
+};
+
+export type LiveLootOcrReader = (
+    frames: readonly LiveLootOcrFrame[],
+    signal: AbortSignal,
+) => Promise<readonly (readonly string[])[]>;
+
+export type LiveLootCoordinatorOptions = {
+    profile: LootDetectionProfile;
+    dictionary: readonly string[];
+    readText: LiveLootOcrReader;
+    /** Must complete synchronously. Returned thenables are treated as callback errors and are not awaited. */
+    onResult: (result: LiveLootRecognitionResult) => void;
+    maxPendingOcrJobs?: number;
+    maxPendingResults?: number;
+    retainedFrameCount?: number;
+};
+
+export type FingerprintDistance<TFingerprint> = (
+    left: TFingerprint | undefined,
+    right: TFingerprint | undefined,
+) => number;
 
 function validateProfile(profile: LootDetectionProfile) {
     if (
@@ -301,46 +369,102 @@ export function rowBirthCount<TFingerprint>(
         : 0;
 }
 
-export function trackLootRows<TFingerprint>(
-    rows: LootDetectedRows<TFingerprint>[],
-    rowThreshold: number,
-    distance: FingerprintDistance<TFingerprint>,
-): LootTrack<TFingerprint>[] {
-    const tracks: LootTrack<TFingerprint>[] = [];
-    let stack: LootTrack<TFingerprint>[] = [];
-    let nextId = 1;
-    let emptyFrames = rows[0]?.count === 0 ? 1 : 0;
+/**
+ * `retainHistory: false` is for bounded incremental consumers. Such consumers must drain both lifecycle queues after
+ * every push and release each settled or ended track; otherwise those queues deliberately retain undelivered events.
+ */
+export type LootRowTrackerOptions = {
+    retainHistory?: boolean;
+    maxObservationsPerTrack?: number;
+};
 
-    function createTrack(firstFrame: number, baseline: boolean) {
+export class LootRowTracker<TFingerprint> {
+    readonly tracks: LootTrack<TFingerprint>[] = [];
+    private stack: LootTrack<TFingerprint>[] = [];
+    private readonly newTracks: LootTrack<TFingerprint>[] = [];
+    private readonly endedTracks: LootTrack<TFingerprint>[] = [];
+    private readonly releasedTracks = new Set<LootTrack<TFingerprint>>();
+    private readonly retainHistory: boolean;
+    private readonly maxObservationsPerTrack: number;
+    private nextId = 1;
+    private emptyFrames = 0;
+    private frameCount = 0;
+    private previous: LootDetectedRows<TFingerprint> | undefined;
+    private pending: { frame: number; rows: LootDetectedRows<TFingerprint> } | undefined;
+    private finished = false;
+
+    constructor(
+        private readonly rowThreshold: number,
+        private readonly distance: FingerprintDistance<TFingerprint>,
+        options: LootRowTrackerOptions = {},
+    ) {
+        this.retainHistory = options.retainHistory ?? true;
+        this.maxObservationsPerTrack = options.maxObservationsPerTrack ?? Number.POSITIVE_INFINITY;
+        if (
+            this.maxObservationsPerTrack !== Number.POSITIVE_INFINITY &&
+            (this.maxObservationsPerTrack < 1 || !Number.isInteger(this.maxObservationsPerTrack))
+        ) {
+            throw new Error("Maximum loot observations per track must be a positive integer.");
+        }
+    }
+
+    private createTrack(firstFrame: number, baseline: boolean) {
         const track: LootTrack<TFingerprint> = {
-            id: `detected-${String(nextId).padStart(4, "0")}`,
+            id: `detected-${String(this.nextId).padStart(4, "0")}`,
             firstFrame,
             baseline,
             observations: [],
         };
-        nextId += 1;
-        tracks.push(track);
+        this.nextId += 1;
+        this.tracks.push(track);
+        this.newTracks.push(track);
         return track;
     }
 
-    function bestTrackAlignment(current: LootDetectedRows<TFingerprint>) {
-        const retained = Math.min(stack.length, current.count);
+    private endTrack(track: LootTrack<TFingerprint>) {
+        this.endedTracks.push(track);
+        if (this.releasedTracks.delete(track)) track.observations.length = 0;
+        if (!this.retainHistory) {
+            const index = this.tracks.indexOf(track);
+            if (index >= 0) this.tracks.splice(index, 1);
+        }
+    }
+
+    private replaceStack(stack: LootTrack<TFingerprint>[]) {
+        const retained = new Set(stack);
+        for (const track of this.stack) {
+            if (!retained.has(track)) this.endTrack(track);
+        }
+        this.stack = stack;
+    }
+
+    private observe(track: LootTrack<TFingerprint>, observation: LootRowObservation<TFingerprint> & { frame: number }) {
+        track.observations.push(observation);
+        const limit = this.releasedTracks.has(track) ? 1 : this.maxObservationsPerTrack;
+        if (track.observations.length > limit) {
+            track.observations.splice(0, track.observations.length - limit);
+        }
+    }
+
+    private bestTrackAlignment(current: LootDetectedRows<TFingerprint>) {
+        const retained = Math.min(this.stack.length, current.count);
         if (retained === 0) {
             return { sourceOffset: 0, targetOffset: 0, retained, distance: Number.POSITIVE_INFINITY };
         }
         let best:
             | { sourceOffset: number; targetOffset: number; retained: number; distance: number; nonBaseline: number }
             | undefined;
-        for (let sourceOffset = stack.length - retained; sourceOffset >= 0; sourceOffset -= 1) {
-            const nonBaseline = stack
+        for (let sourceOffset = this.stack.length - retained; sourceOffset >= 0; sourceOffset -= 1) {
+            const nonBaseline = this.stack
                 .slice(sourceOffset, sourceOffset + retained)
                 .filter((track) => !track.baseline).length;
             for (let targetOffset = 0; targetOffset <= current.count - retained; targetOffset += 1) {
                 let total = 0;
                 for (let index = 0; index < retained; index += 1) {
-                    total += distance(
-                        stack[sourceOffset + index].observations[stack[sourceOffset + index].observations.length - 1]
-                            ?.fingerprint,
+                    total += this.distance(
+                        this.stack[sourceOffset + index].observations[
+                            this.stack[sourceOffset + index].observations.length - 1
+                        ]?.fingerprint,
                         current.observations[targetOffset + index].fingerprint,
                     );
                 }
@@ -358,57 +482,122 @@ export function trackLootRows<TFingerprint>(
         return best;
     }
 
-    function align(frame: number, current: LootDetectedRows<TFingerprint>, birthCount: number, baseline = false) {
+    private align(frame: number, current: LootDetectedRows<TFingerprint>, birthCount: number, baseline = false) {
         if (birthCount === 0) {
             if (current.count === 0) return;
-            const { sourceOffset, targetOffset, retained } = bestTrackAlignment(current);
+            const { sourceOffset, targetOffset, retained } = this.bestTrackAlignment(current);
             const aligned: LootTrack<TFingerprint>[] = [];
             for (let index = 0; index < current.count; index += 1) {
                 aligned.push(
                     index >= targetOffset && index < targetOffset + retained
-                        ? stack[sourceOffset + index - targetOffset]
-                        : createTrack(frame, true),
+                        ? this.stack[sourceOffset + index - targetOffset]
+                        : this.createTrack(frame, true),
                 );
             }
-            stack = aligned;
-            for (let index = 0; index < stack.length; index += 1) {
-                stack[index].observations.push({ frame, ...current.observations[index] });
+            this.replaceStack(aligned);
+            for (let index = 0; index < this.stack.length; index += 1) {
+                this.observe(this.stack[index], { frame, ...current.observations[index] });
             }
             return;
         }
 
         const retainedCount = Math.max(0, current.count - birthCount);
-        stack = stack.slice(Math.max(0, stack.length - retainedCount));
-        while (stack.length < retainedCount) stack.unshift(createTrack(frame, true));
-        for (let index = 0; index < birthCount; index += 1) stack.push(createTrack(frame, baseline));
-        while (stack.length < current.count) stack.push(createTrack(frame, true));
-        if (stack.length > current.count) stack = stack.slice(stack.length - current.count);
-        for (let index = 0; index < stack.length; index += 1) {
-            stack[index].observations.push({ frame, ...current.observations[index] });
+        const stack = this.stack.slice(Math.max(0, this.stack.length - retainedCount));
+        while (stack.length < retainedCount) stack.unshift(this.createTrack(frame, true));
+        for (let index = 0; index < birthCount; index += 1) stack.push(this.createTrack(frame, baseline));
+        while (stack.length < current.count) stack.push(this.createTrack(frame, true));
+        this.replaceStack(stack.length > current.count ? stack.slice(stack.length - current.count) : stack);
+        for (let index = 0; index < this.stack.length; index += 1) {
+            this.observe(this.stack[index], { frame, ...current.observations[index] });
         }
     }
 
-    if (rows.length === 0) return tracks;
-    align(0, rows[0], rows[0].count, true);
-    for (let frame = 1; frame < rows.length; frame += 1) {
-        const current = rows[frame];
-        let births = rowBirthCount(rows[frame - 1], current, rows[frame + 1], rowThreshold, distance);
-        if (emptyFrames === 1 && stack.length > 0) {
-            const recovery = bestTrackAlignment(current);
+    private processPending(next: LootDetectedRows<TFingerprint> | undefined) {
+        if (!this.previous || !this.pending) return;
+        const { frame, rows: current } = this.pending;
+        let births = rowBirthCount(this.previous, current, next, this.rowThreshold, this.distance);
+        if (this.emptyFrames === 1 && this.stack.length > 0) {
+            const recovery = this.bestTrackAlignment(current);
             if (recovery.distance <= 0.1) {
                 const unmatchedBottom = current.count - recovery.targetOffset - recovery.retained;
                 births = Math.min(births, unmatchedBottom);
             }
         }
-        align(frame, current, births);
+        this.align(frame, current, births);
         if (current.count === 0) {
-            emptyFrames += 1;
-            if (emptyFrames > 1) stack = [];
+            this.emptyFrames += 1;
+            if (this.emptyFrames > 1) this.replaceStack([]);
         } else {
-            emptyFrames = 0;
+            this.emptyFrames = 0;
         }
+        this.previous = current;
+        this.pending = undefined;
     }
-    return tracks;
+
+    push(rows: LootDetectedRows<TFingerprint>): void {
+        if (this.finished) throw new Error("Cannot push loot rows after the tracker is finished.");
+        const frame = this.frameCount;
+        this.frameCount += 1;
+        if (frame === 0) {
+            this.align(frame, rows, rows.count, true);
+            this.emptyFrames = rows.count === 0 ? 1 : 0;
+            this.previous = rows;
+            return;
+        }
+        this.processPending(rows);
+        this.pending = { frame, rows };
+    }
+
+    finish(): LootTrack<TFingerprint>[] {
+        if (!this.finished) {
+            this.processPending(undefined);
+            this.finished = true;
+        }
+        return this.tracks;
+    }
+
+    /** Drains tracks created since the previous call. Required after every push in non-history mode. */
+    takeNewTracks() {
+        return this.newTracks.splice(0);
+    }
+
+    /** Drains tracks that left the active stack since the previous call. Required in non-history mode. */
+    takeEndedTracks() {
+        return this.endedTracks.splice(0);
+    }
+
+    /** Compacts an active track to its alignment observation, or clears an ended track. */
+    releaseTrack(track: LootTrack<TFingerprint>) {
+        if (this.stack.includes(track)) {
+            this.releasedTracks.add(track);
+            if (track.observations.length > 1) track.observations.splice(0, track.observations.length - 1);
+            return;
+        }
+        track.observations.length = 0;
+    }
+
+    clear() {
+        const retained = new Set([...this.tracks, ...this.stack, ...this.newTracks, ...this.endedTracks]);
+        for (const track of retained) track.observations.length = 0;
+        this.tracks.length = 0;
+        this.stack.length = 0;
+        this.newTracks.length = 0;
+        this.endedTracks.length = 0;
+        this.releasedTracks.clear();
+        this.previous = undefined;
+        this.pending = undefined;
+        this.finished = true;
+    }
+}
+
+export function trackLootRows<TFingerprint>(
+    rows: LootDetectedRows<TFingerprint>[],
+    rowThreshold: number,
+    distance: FingerprintDistance<TFingerprint>,
+): LootTrack<TFingerprint>[] {
+    const tracker = new LootRowTracker(rowThreshold, distance);
+    for (const current of rows) tracker.push(current);
+    return tracker.finish();
 }
 
 export function selectLootOcrObservations<TFingerprint>(
@@ -492,6 +681,443 @@ function chooseTemporalPairConsensus(readingsByFrame: Array<Array<{ item: string
     return ranked[0]?.count >= 2 && ranked[0].count > (ranked[1]?.count ?? 0) ? ranked[0] : null;
 }
 
+function parseLootReadings(rawReadings: readonly (readonly string[])[], dictionary: readonly string[]) {
+    return chooseTemporalPairConsensus(
+        rawReadings.map((frameReadings) =>
+            frameReadings.map((text) => ({
+                item: parseLootItem(text, dictionary),
+                quantity: parseLootQuantity(text),
+            })),
+        ),
+    );
+}
+
+const defaultRetainedFrameCount = 4;
+const defaultMaxPendingResults = 16;
+
+type LootResultMetadata = {
+    eventId: string;
+    firstFrame: number;
+    selectedFrames: number[];
+};
+
+type LootOcrDelivery = LootResultMetadata & {
+    kind: "ocr";
+    frames: LiveLootOcrFrame[];
+    generation: number;
+};
+
+type LootResultDelivery = {
+    kind: "result";
+    result: LiveLootEventResult;
+    generation: number;
+};
+
+type LootSummaryDelivery = {
+    kind: "summary";
+    result: LiveLootOverflowSummary;
+    generation: number;
+};
+
+type LootDelivery = LootOcrDelivery | LootResultDelivery | LootSummaryDelivery;
+
+export class LiveLootCoordinator {
+    private readonly tracker: LootRowTracker<LootFingerprint>;
+    private readonly frames = new Map<number, LootRoiFrame>();
+    private readonly candidates = new Set<LootTrack<LootFingerprint>>();
+    private readonly deliveries: LootDelivery[] = [];
+    private readonly abortController = new AbortController();
+    private pendingSummary: LootSummaryDelivery | undefined;
+    private activeOcrDelivery: LootOcrDelivery | undefined;
+    private state: "active" | "finishing" | "finished" | "stopped" = "active";
+    private nextFrame = 0;
+    private pendingOcrJobs = 0;
+    private pendingResultEntries = 0;
+    private draining = false;
+    private deliveringCallback = false;
+    private generation = 0;
+    private finishPromise: Promise<void> | undefined;
+    private finishResolve: (() => void) | undefined;
+    private finishReject: ((reason?: unknown) => void) | undefined;
+    private finishSettled = false;
+    private callbackFailed = false;
+    private callbackError: unknown;
+    private finishFailed = false;
+    private finishError: unknown;
+
+    constructor(private readonly options: LiveLootCoordinatorOptions) {
+        validateProfile(options.profile);
+        const maxPendingOcrJobs = options.maxPendingOcrJobs ?? 2;
+        const maxPendingResults = options.maxPendingResults ?? defaultMaxPendingResults;
+        const retainedFrameCount = options.retainedFrameCount ?? defaultRetainedFrameCount;
+        if (!Number.isInteger(maxPendingOcrJobs) || maxPendingOcrJobs < 1) {
+            throw new Error("Maximum pending loot OCR jobs must be a positive integer.");
+        }
+        if (!Number.isInteger(retainedFrameCount) || retainedFrameCount < defaultRetainedFrameCount) {
+            throw new Error(`Retained loot frame count must be at least ${defaultRetainedFrameCount}.`);
+        }
+        if (!Number.isInteger(maxPendingResults) || maxPendingResults < 1) {
+            throw new Error("Maximum pending loot results must be a positive integer.");
+        }
+        this.maxPendingOcrJobs = maxPendingOcrJobs;
+        this.maxPendingResults = maxPendingResults;
+        this.maximumRetainedFrames = retainedFrameCount;
+        this.tracker = new LootRowTracker(options.profile.rowThreshold, lootFingerprintDistance, {
+            retainHistory: false,
+            maxObservationsPerTrack: 3,
+        });
+    }
+
+    private readonly maxPendingOcrJobs: number;
+    private readonly maxPendingResults: number;
+    private readonly maximumRetainedFrames: number;
+
+    get retainedFrameCount() {
+        return this.frames.size;
+    }
+
+    get retainedTrackCount() {
+        return this.tracker.tracks.length;
+    }
+
+    get retainedObservationCount() {
+        return this.tracker.tracks.reduce((count, track) => count + track.observations.length, 0);
+    }
+
+    get pendingCandidateCount() {
+        return this.candidates.size;
+    }
+
+    get queuedDeliveryCount() {
+        return this.deliveries.length;
+    }
+
+    get queuedSummaryCount() {
+        return this.pendingSummary ? 1 : 0;
+    }
+
+    private resultMetadata(track: LootTrack<LootFingerprint>, selectedFrames: number[]): LootResultMetadata {
+        return {
+            eventId: track.id,
+            firstFrame: track.firstFrame,
+            selectedFrames,
+        };
+    }
+
+    private emptyResult(metadata: LootResultMetadata) {
+        return {
+            eventId: metadata.eventId,
+            firstFrame: metadata.firstFrame,
+            selectedFrames: metadata.selectedFrames,
+            itemName: null as null,
+            quantity: null as null,
+        };
+    }
+
+    private updateSummaryReason(summary: LiveLootOverflowSummary) {
+        summary.reason =
+            summary.backpressureCount > 0 && summary.resultOverflowCount > 0
+                ? "mixed-overflow-summary"
+                : summary.backpressureCount > 0
+                  ? "backpressure-summary"
+                  : "result-overflow-summary";
+    }
+
+    private summarize(metadata: LootResultMetadata, overflow: "backpressure" | "result") {
+        if (this.pendingSummary) {
+            const summary = this.pendingSummary.result;
+            summary.count += 1;
+            summary.lastEventId = metadata.eventId;
+            summary.lastFrame = metadata.firstFrame;
+            if (overflow === "backpressure") summary.backpressureCount += 1;
+            else summary.resultOverflowCount += 1;
+            this.updateSummaryReason(summary);
+            return;
+        }
+
+        const result: LiveLootOverflowSummary = {
+            eventId: null,
+            firstFrame: metadata.firstFrame,
+            selectedFrames: [],
+            itemName: null,
+            quantity: null,
+            status: "dropped",
+            reason: overflow === "backpressure" ? "backpressure-summary" : "result-overflow-summary",
+            count: 1,
+            backpressureCount: overflow === "backpressure" ? 1 : 0,
+            resultOverflowCount: overflow === "result" ? 1 : 0,
+            firstEventId: metadata.eventId,
+            lastEventId: metadata.eventId,
+            lastFrame: metadata.firstFrame,
+        };
+        const delivery: LootSummaryDelivery = { kind: "summary", result, generation: this.generation };
+        this.pendingSummary = delivery;
+        this.deliveries.push(delivery);
+    }
+
+    private queueResult(result: LiveLootEventResult) {
+        const metadata = {
+            eventId: result.eventId,
+            firstFrame: result.firstFrame,
+            selectedFrames: result.selectedFrames,
+        };
+        if (
+            this.pendingSummary ||
+            this.pendingResultEntries + (this.deliveringCallback ? 1 : 0) >= this.maxPendingResults
+        ) {
+            this.summarize(metadata, "result");
+            return;
+        }
+        this.pendingResultEntries += 1;
+        this.deliveries.push({ kind: "result", result, generation: this.generation });
+    }
+
+    private settleCandidate(track: LootTrack<LootFingerprint>) {
+        const selected = selectLootOcrObservations(track, this.options.profile.rowThreshold);
+        if (selected.length !== 3) return false;
+
+        const metadata = this.resultMetadata(
+            track,
+            selected.map(({ frame }) => frame),
+        );
+        if (this.pendingSummary) {
+            this.summarize(metadata, this.pendingOcrJobs >= this.maxPendingOcrJobs ? "backpressure" : "result");
+        } else if (this.pendingOcrJobs >= this.maxPendingOcrJobs) {
+            this.summarize(metadata, "backpressure");
+        } else {
+            const frames = selected.map((observation) => {
+                const roi = this.frames.get(observation.frame);
+                if (!roi) throw new Error(`Selected loot frame ${observation.frame} is no longer retained.`);
+                return { frame: observation.frame, roi, observation };
+            });
+            this.pendingOcrJobs += 1;
+            this.deliveries.push({ kind: "ocr", ...metadata, frames, generation: this.generation });
+        }
+        this.candidates.delete(track);
+        this.tracker.releaseTrack(track);
+        return true;
+    }
+
+    private processTrackerChanges() {
+        for (const track of this.tracker.takeEndedTracks()) {
+            if (this.candidates.delete(track)) {
+                const metadata = this.resultMetadata(track, []);
+                this.queueResult({
+                    ...this.emptyResult(metadata),
+                    status: "withheld",
+                    reason: "insufficient-observations",
+                });
+            }
+            this.tracker.releaseTrack(track);
+        }
+        for (const track of this.tracker.takeNewTracks()) {
+            if (track.baseline) this.tracker.releaseTrack(track);
+            else this.candidates.add(track);
+        }
+        for (const track of this.candidates) {
+            this.settleCandidate(track);
+        }
+    }
+
+    private recordCallbackError(error: unknown) {
+        if (!this.callbackFailed) {
+            this.callbackFailed = true;
+            this.callbackError = error;
+        }
+    }
+
+    private deliver(result: LiveLootRecognitionResult, generation: number) {
+        if (this.state === "stopped" || generation !== this.generation) return;
+        this.deliveringCallback = true;
+        try {
+            const returned = this.options.onResult(result) as unknown;
+            if (
+                returned !== null &&
+                (typeof returned === "object" || typeof returned === "function") &&
+                typeof (returned as { then?: unknown }).then === "function"
+            ) {
+                this.recordCallbackError(new Error("Live loot result callbacks must be synchronous."));
+                void Promise.resolve(returned).catch(() => undefined);
+            }
+        } catch (error) {
+            this.recordCallbackError(error);
+        } finally {
+            this.deliveringCallback = false;
+            this.maybeSettleFinish();
+        }
+    }
+
+    private async drainDeliveries() {
+        if (this.draining) return;
+        this.draining = true;
+        try {
+            while (this.deliveries.length > 0 && this.state !== "stopped") {
+                const delivery = this.deliveries.shift();
+                if (!delivery) break;
+                if (delivery.kind !== "ocr") {
+                    if (delivery.kind === "summary" && this.pendingSummary === delivery) {
+                        this.pendingSummary = undefined;
+                    } else if (delivery.kind === "result") {
+                        this.pendingResultEntries -= 1;
+                    }
+                    this.deliver(delivery.result, delivery.generation);
+                    continue;
+                }
+
+                let result: LiveLootRecognitionResult | undefined;
+                this.activeOcrDelivery = delivery;
+                try {
+                    const rawReadings = await this.options.readText(delivery.frames, this.abortController.signal);
+                    if (rawReadings.length !== delivery.frames.length) {
+                        throw new Error("Loot OCR readings must match the selected frame count.");
+                    }
+                    if (delivery.generation === this.generation) {
+                        const metadata = this.emptyResult(delivery);
+                        const consensus = parseLootReadings(rawReadings, this.options.dictionary);
+                        result = consensus
+                            ? {
+                                  ...metadata,
+                                  status: "recognized",
+                                  reason: null,
+                                  itemName: consensus.item,
+                                  quantity: consensus.quantity,
+                              }
+                            : {
+                                  ...metadata,
+                                  status: "withheld",
+                                  reason: "consensus-withheld",
+                              };
+                    }
+                } catch {
+                    result = {
+                        ...this.emptyResult(delivery),
+                        status: "failed",
+                        reason: "ocr-failure",
+                    };
+                } finally {
+                    delivery.frames.length = 0;
+                    if (this.activeOcrDelivery === delivery) this.activeOcrDelivery = undefined;
+                    this.pendingOcrJobs -= 1;
+                }
+                if (result) this.deliver(result, delivery.generation);
+            }
+        } finally {
+            this.draining = false;
+            this.maybeSettleFinish();
+        }
+    }
+
+    private startDraining() {
+        void this.drainDeliveries();
+    }
+
+    private createFinishPromise() {
+        this.finishPromise = new Promise<void>((resolve, reject) => {
+            this.finishResolve = resolve;
+            this.finishReject = reject;
+        });
+        return this.finishPromise;
+    }
+
+    private maybeSettleFinish() {
+        if (!this.finishPromise || this.finishSettled) return;
+        if (this.deliveringCallback) return;
+        if (this.state !== "stopped" && (this.state !== "finishing" || this.draining || this.deliveries.length > 0)) {
+            return;
+        }
+        if (this.state === "finishing") this.state = "finished";
+        this.finishSettled = true;
+        if (this.finishFailed) this.finishReject?.(this.finishError);
+        else if (this.callbackFailed) this.finishReject?.(this.callbackError);
+        else this.finishResolve?.();
+    }
+
+    private finishCandidates() {
+        for (const track of this.candidates) {
+            const selected = selectLootOcrObservations(track, this.options.profile.rowThreshold);
+            if (selected.length === 3) {
+                this.settleCandidate(track);
+            } else {
+                const metadata = this.resultMetadata(track, []);
+                this.queueResult({
+                    ...this.emptyResult(metadata),
+                    status: "withheld",
+                    reason: "insufficient-observations",
+                });
+                this.candidates.delete(track);
+                this.tracker.releaseTrack(track);
+            }
+        }
+    }
+
+    /**
+     * Takes ownership of `frame` and its pixel buffer without copying. The caller must not mutate or reuse either
+     * after this call. Ownership is released after the frame leaves the rolling store and any selected OCR job settles.
+     */
+    pushFrame(frame: LootRoiFrame) {
+        if (this.state !== "active")
+            throw new Error("Cannot push loot frames after the coordinator is stopped or finished.");
+        const rows = analyzeLootRoiFrame(frame, this.options.profile);
+        const frameNumber = this.nextFrame;
+        this.nextFrame += 1;
+        this.frames.set(frameNumber, frame);
+        while (this.frames.size > this.maximumRetainedFrames) {
+            const oldest = this.frames.keys().next().value;
+            if (oldest === undefined) break;
+            this.frames.delete(oldest);
+        }
+        this.tracker.push(rows);
+        this.processTrackerChanges();
+        this.startDraining();
+    }
+
+    finish(): Promise<void> {
+        if (this.finishPromise) return this.finishPromise;
+        const finishPromise = this.createFinishPromise();
+        if (this.state === "stopped") {
+            this.maybeSettleFinish();
+            return finishPromise;
+        }
+        this.state = "finishing";
+        try {
+            this.tracker.finish();
+            this.processTrackerChanges();
+            this.finishCandidates();
+        } catch (error) {
+            this.finishFailed = true;
+            this.finishError = error;
+        }
+        this.candidates.clear();
+        this.tracker.clear();
+        this.frames.clear();
+        this.startDraining();
+        this.maybeSettleFinish();
+        return finishPromise;
+    }
+
+    stop() {
+        if (this.state === "stopped" || this.state === "finished") return;
+        this.state = "stopped";
+        this.generation += 1;
+        this.abortController.abort();
+        if (this.activeOcrDelivery) this.activeOcrDelivery.frames.length = 0;
+        for (const delivery of this.deliveries) {
+            if (delivery.kind === "ocr") {
+                delivery.frames.length = 0;
+                this.pendingOcrJobs -= 1;
+            } else if (delivery.kind === "result") {
+                this.pendingResultEntries -= 1;
+            }
+        }
+        this.deliveries.length = 0;
+        this.pendingSummary = undefined;
+        this.frames.clear();
+        this.candidates.clear();
+        this.tracker.clear();
+        this.maybeSettleFinish();
+    }
+}
+
 export async function recognizeLootReplay<TFingerprint>(options: {
     rows: LootDetectedRows<TFingerprint>[];
     rowThreshold: number;
@@ -512,13 +1138,7 @@ export async function recognizeLootReplay<TFingerprint>(options: {
         if (rawReadings.length !== selected.length) {
             throw new Error("Loot OCR readings must match the selected frame count.");
         }
-        const readings = rawReadings.map((frameReadings) =>
-            frameReadings.map((text) => ({
-                item: parseLootItem(text, options.dictionary),
-                quantity: parseLootQuantity(text),
-            })),
-        );
-        const consensus = chooseTemporalPairConsensus(readings);
+        const consensus = parseLootReadings(rawReadings, options.dictionary);
         results.push({
             eventId: track.id,
             firstFrame: track.firstFrame,
