@@ -16,8 +16,10 @@ import {
     defaultLootRegion,
     displayCaptureErrorMessage,
     isSupportedLootSource,
+    type LootAlignmentGuide,
     type LootRegionKind,
     type LootUiScale,
+    lootAlignmentGuide,
     lootRegionSize,
     type NormalizedRegion,
     normalizedRegionToPixels,
@@ -66,6 +68,31 @@ function clearCanvas(canvas: HTMLCanvasElement | null) {
     if (!canvas) return;
     canvas.width = 0;
     canvas.height = 0;
+}
+
+function AlignmentGuide({ frameSize, guide }: { frameSize: SourceDimensions; guide: LootAlignmentGuide }) {
+    return (
+        <div
+            className={styles.RecognitionGuide}
+            aria-hidden="true"
+            style={{
+                left: `${(guide.x / frameSize.width) * 100}%`,
+                top: `${(guide.y / frameSize.height) * 100}%`,
+                width: `${(guide.width / frameSize.width) * 100}%`,
+                height: `${(guide.height / frameSize.height) * 100}%`,
+            }}
+        >
+            <span className={styles.GuideLabel}>Align loot text</span>
+            {guide.rowCenters.map((center) => (
+                <i
+                    key={center}
+                    style={{
+                        top: `${((center - guide.y) / guide.height) * 100}%`,
+                    }}
+                />
+            ))}
+        </div>
+    );
 }
 
 function regionsEqual(left: NormalizedRegion | null, right: NormalizedRegion | null) {
@@ -914,17 +941,10 @@ export function LiveLootCapture({
             ? normalizedRegionToPixels(rareRegion, sourceDimensions.width, sourceDimensions.height)
             : null;
     const expectedRegionSize = lootRegionSize(uiScalePercent, activeRegionKind);
-    const guideProfile = calibratedProfile?.profile;
-    const guideTopCenter = guideProfile
-        ? guideProfile.bottomCenter - (guideProfile.maxRows - 1) * guideProfile.spacing
-        : 0;
-    const guideLeft = guideProfile ? Math.round(guideProfile.width * 0.22) - 2 : 0;
-    const guideRight = guideProfile ? Math.round(guideProfile.width * 0.96) + 2 : 0;
-    const guideTop = guideTopCenter - 12;
-    const guideBottom = guideProfile ? guideProfile.bottomCenter + 12 : 0;
-    const guideRowCenters = guideProfile
-        ? Array.from({ length: guideProfile.maxRows }, (_, index) => guideTopCenter + index * guideProfile.spacing)
-        : [];
+    const normalGuideFrameSize = lootRegionSize(uiScalePercent, "normal");
+    const rareGuideFrameSize = lootRegionSize(uiScalePercent, "rare");
+    const normalAlignmentGuide = lootAlignmentGuide(uiScalePercent, "normal");
+    const rareAlignmentGuide = lootAlignmentGuide(uiScalePercent, "rare");
     const recognitionLabel = !regionConfirmed
         ? "Confirm both areas"
         : recognitionStatus === "starting"
@@ -1035,27 +1055,7 @@ export function LiveLootCapture({
                                         }}
                                     >
                                         <span className={styles.OverlayLabel}>Capture envelope</span>
-                                        {guideProfile && (
-                                            <div
-                                                className={styles.RecognitionGuide}
-                                                style={{
-                                                    left: `${(guideLeft / guideProfile.width) * 100}%`,
-                                                    top: `${(guideTop / guideProfile.height) * 100}%`,
-                                                    width: `${((guideRight - guideLeft) / guideProfile.width) * 100}%`,
-                                                    height: `${((guideBottom - guideTop) / guideProfile.height) * 100}%`,
-                                                }}
-                                            >
-                                                <span className={styles.GuideLabel}>Align loot text</span>
-                                                {guideRowCenters.map((center) => (
-                                                    <i
-                                                        key={center}
-                                                        style={{
-                                                            top: `${((center - guideTop) / (guideBottom - guideTop)) * 100}%`,
-                                                        }}
-                                                    />
-                                                ))}
-                                            </div>
-                                        )}
+                                        <AlignmentGuide frameSize={normalGuideFrameSize} guide={normalAlignmentGuide} />
                                     </div>
                                 )}
                                 {sourceSupported && rareRegion && (
@@ -1070,7 +1070,8 @@ export function LiveLootCapture({
                                             height: `${rareRegion.height * 100}%`,
                                         }}
                                     >
-                                        <span className={styles.OverlayLabel}>Rare loot area</span>
+                                        <span className={styles.OverlayLabel}>Rare preview area</span>
+                                        <AlignmentGuide frameSize={rareGuideFrameSize} guide={rareAlignmentGuide} />
                                     </div>
                                 )}
                             </div>
@@ -1107,10 +1108,8 @@ export function LiveLootCapture({
                                 <p className={styles.CalibrationInstruction}>
                                     Drag the selected {expectedRegionSize.width} x {expectedRegionSize.height} area.{" "}
                                     {activeRegionKind === "normal"
-                                        ? guideProfile
-                                            ? "Align notification text inside the inner guide. "
-                                            : "Position it over the loot-notification stack. "
-                                        : "Position it over rare-loot banners. "}
+                                        ? "Align notification text inside the inner guide. "
+                                        : "Align rare-banner text inside the inner guide; rare detection is still preview-only. "}
                                     Confirm after placing both.
                                 </p>
                                 <div className={styles.PrecisionControls}>
@@ -1253,11 +1252,21 @@ export function LiveLootCapture({
                         </dl>
                         <div className={styles.RegionPreview}>
                             <span>Normal recognition preview</span>
-                            <canvas ref={normalRegionCanvas} aria-label="Loot stack recognition crop" />
+                            <div className={styles.RegionPreviewStage}>
+                                <canvas ref={normalRegionCanvas} aria-label="Loot stack recognition crop" />
+                                {normalRegionFrameSize && (
+                                    <AlignmentGuide frameSize={normalGuideFrameSize} guide={normalAlignmentGuide} />
+                                )}
+                            </div>
                         </div>
                         <div className={`${styles.RegionPreview} ${styles.RareRegionPreview}`}>
                             <span>Rare loot preview</span>
-                            <canvas ref={rareRegionCanvas} aria-label="Rare loot preview crop" />
+                            <div className={styles.RegionPreviewStage}>
+                                <canvas ref={rareRegionCanvas} aria-label="Rare loot preview crop" />
+                                {rareRegionFrameSize && (
+                                    <AlignmentGuide frameSize={rareGuideFrameSize} guide={rareAlignmentGuide} />
+                                )}
+                            </div>
                             <p>Preview only - recognition benchmark pending</p>
                         </div>
                     </aside>

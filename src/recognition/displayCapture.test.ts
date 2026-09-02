@@ -3,6 +3,7 @@ import {
     defaultLootRegion,
     displayCaptureErrorMessage,
     isSupportedLootSource,
+    lootAlignmentGuide,
     lootRegionSize,
     normalizedRegionToPixels,
     nudgeLootRegion,
@@ -43,6 +44,37 @@ describe("loot capture region", () => {
             y: 820,
             width: 400,
             height: 100,
+        });
+    });
+
+    it("provides exact normal and rare text-alignment guides at each UI scale", () => {
+        expect(lootAlignmentGuide(80)).toEqual({
+            x: 78,
+            y: 36,
+            width: 272,
+            height: 180,
+            rowCenters: [48, 87, 126, 165, 204],
+        });
+        expect(lootAlignmentGuide(100)).toEqual({
+            x: 98,
+            y: 45,
+            width: 340,
+            height: 225,
+            rowCenters: [60, 109, 158, 206, 255],
+        });
+        expect(lootAlignmentGuide(80, "rare")).toEqual({
+            x: 52,
+            y: 20,
+            width: 336,
+            height: 72,
+            rowCenters: [],
+        });
+        expect(lootAlignmentGuide(100, "rare")).toEqual({
+            x: 65,
+            y: 25,
+            width: 420,
+            height: 90,
+            rowCenters: [],
         });
     });
 
