@@ -3,7 +3,7 @@ import { LiveLootCapture } from "../../components/LiveLootCapture/LiveLootCaptur
 import { LootLedger } from "../../components/LootLedger/LootLedger";
 import { MarniImport } from "../../components/MarniImport/MarniImport";
 import { grindSpots } from "../../data/grindSpots";
-import type { SessionState } from "../../domain/session";
+import { createEntry, type SessionState } from "../../domain/session";
 import { formatDuration, formatSilver, formatTimestamp } from "../../format";
 import type { LiveSessionController } from "../../hooks/useLiveSession";
 import styles from "./LiveSession.module.css";
@@ -17,6 +17,7 @@ export function LiveSessionView({ controller }: { controller: LiveSessionControl
         totals,
         editingDisabled,
         spot,
+        drops,
         marketItemIds,
         changeRegion,
         changeGrindSpot,
@@ -26,6 +27,27 @@ export function LiveSessionView({ controller }: { controller: LiveSessionControl
     } = controller;
     const timeEditable = session.status === "idle" || session.status === "paused";
     const spotEditable = session.status === "idle" && session.elapsedMs === 0 && session.entries.length === 0;
+
+    function acceptRecognizedLoot(itemName: string, quantity: number) {
+        if (!databaseLoaded) return "The local database is still loading.";
+        if (session.status === "finished") return "Finished sessions cannot accept more loot.";
+        if (!Number.isSafeInteger(quantity) || quantity <= 0) return "The recognized quantity is invalid.";
+        const drop = drops.find((candidate) => candidate.name === itemName);
+        if (!drop) return "The recognized item is not in the active grind-spot profile.";
+        const marketPrice = market.currentMarketPrices.find((price) => price.itemId === drop.marketItemId)?.basePrice;
+        const unitPrice = marketPrice ?? drop.unitPrice;
+        if (unitPrice === null || !Number.isSafeInteger(unitPrice) || unitPrice < 0) {
+            return "No valid price is available. Fetch market prices or add this item manually.";
+        }
+        dispatch({
+            type: "add-entry",
+            entry: {
+                ...createEntry(drop.name, quantity, unitPrice, drop.valuation),
+                source: "recognition",
+            },
+        });
+        return null;
+    }
 
     return (
         <>
@@ -160,7 +182,12 @@ export function LiveSessionView({ controller }: { controller: LiveSessionControl
                 </div>
             </section>
 
-            <LiveLootCapture sessionStatus={session.status} />
+            <LiveLootCapture
+                sessionId={session.id}
+                sessionStatus={session.status}
+                itemDictionary={drops.map((drop) => drop.name)}
+                onAcceptRecognition={acceptRecognizedLoot}
+            />
 
             <MarniImport controller={controller} />
 

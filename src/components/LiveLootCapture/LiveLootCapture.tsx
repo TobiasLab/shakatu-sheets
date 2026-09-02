@@ -23,10 +23,25 @@ import {
     positionLootRegion,
     stopDisplayCapture,
 } from "../../recognition/displayCapture";
+import { LiveLootCoordinator, type LiveLootRecognitionResult, type LootRoiFrame } from "../../recognition/liveLoot";
+import { createLiveLootTesseractOcr, type LiveLootTesseractOcr } from "../../recognition/liveLootOcr";
+import { findLiveLootProfile } from "../../recognition/liveLootProfiles";
+import { appendLiveLootReviewResult, type LiveLootReviewEntry } from "../../recognition/liveLootReview";
 import styles from "./LiveLootCapture.module.css";
 
 type CaptureStatus = "idle" | "requesting" | "connecting" | "capturing";
+type RecognitionStatus = "idle" | "starting" | "active" | "unavailable" | "error";
 type SourceDimensions = { width: number; height: number };
+type RecognitionPipeline = {
+    coordinator: LiveLootCoordinator;
+    ocr: LiveLootTesseractOcr;
+};
+type LiveLootCaptureProps = {
+    sessionId: string;
+    sessionStatus: SessionStatus;
+    itemDictionary: readonly string[];
+    onAcceptRecognition: (itemName: string, quantity: number) => string | null;
+};
 
 function drawFrame(canvas: HTMLCanvasElement | null, frame: NativeCaptureFrame) {
     if (!canvas) return;
@@ -55,7 +70,20 @@ function regionsEqual(left: NormalizedRegion | null, right: NormalizedRegion | n
     );
 }
 
-export function LiveLootCapture({ sessionStatus }: { sessionStatus: SessionStatus }) {
+function resultDescription(result: LiveLootRecognitionResult) {
+    if (result.status === "recognized") return `${result.itemName} x ${result.quantity}`;
+    if (result.status === "failed") return "Local OCR failed for this notification.";
+    if (result.status === "dropped") return `${result.count} notifications dropped while recognition was busy.`;
+    if (result.reason === "insufficient-observations") return "Notification disappeared before three stable frames.";
+    return "No item and quantity pair reached consensus.";
+}
+
+export function LiveLootCapture({
+    sessionId,
+    sessionStatus,
+    itemDictionary,
+    onAcceptRecognition,
+}: LiveLootCaptureProps) {
     const video = useRef<HTMLVideoElement>(null);
     const canvas = useRef<HTMLCanvasElement>(null);
     const regionCanvas = useRef<HTMLCanvasElement>(null);
@@ -72,6 +100,13 @@ export function LiveLootCapture({ sessionStatus }: { sessionStatus: SessionStatu
     const regionRef = useRef<NormalizedRegion | null>(null);
     const sourceDimensionsRef = useRef<SourceDimensions | null>(null);
     const uiScaleRef = useRef<LootUiScale>(80);
+    const recognition = useRef<RecognitionPipeline | null>(null);
+    const recognitionGeneration = useRef(0);
+    const recognitionStartup = useRef<Promise<void> | null>(null);
+    const nextReviewResultId = useRef(0);
+    const reviewResultsRef = useRef<LiveLootReviewEntry[]>([]);
+    const itemDictionaryRef = useRef(itemDictionary);
+    const onAcceptRecognitionRef = useRef(onAcceptRecognition);
     const [status, setStatus] = useState<CaptureStatus>("idle");
     const [error, setError] = useState("");
     const [sampledFps, setSampledFps] = useState(0);
@@ -84,8 +119,14 @@ export function LiveLootCapture({ sessionStatus }: { sessionStatus: SessionStatu
     const [uiScalePercent, setUiScalePercent] = useState<LootUiScale>(80);
     const [regionConfirmed, setRegionConfirmed] = useState(false);
     const [savingRegion, setSavingRegion] = useState(false);
+    const [recognitionStatus, setRecognitionStatus] = useState<RecognitionStatus>("idle");
+    const [recognitionError, setRecognitionError] = useState("");
+    const [reviewResults, setReviewResults] = useState<LiveLootReviewEntry[]>([]);
+    const [omittedReviewResults, setOmittedReviewResults] = useState(0);
 
     sessionRunning.current = sessionStatus === "running";
+    itemDictionaryRef.current = itemDictionary;
+    onAcceptRecognitionRef.current = onAcceptRecognition;
 
     function updateRegion(next: NormalizedRegion | null) {
         regionRef.current = next;
@@ -102,7 +143,48 @@ export function LiveLootCapture({ sessionStatus }: { sessionStatus: SessionStatu
         setUiScalePercent(next);
     }
 
+    function stopRecognition(updateStatus = true) {
+        recognitionGeneration.current += 1;
+        const current = recognition.current;
+        recognition.current = null;
+        current?.coordinator.stop();
+        if (current) void current.ocr.terminate().catch(() => undefined);
+        if (updateStatus && mounted.current) setRecognitionStatus("idle");
+    }
+
+    function pushRecognitionFrame(frame: LootRoiFrame) {
+        const current = recognition.current;
+        if (!current) return;
+        try {
+            current.coordinator.pushFrame(frame);
+        } catch (frameError) {
+            stopRecognition(false);
+            setRecognitionStatus("error");
+            setRecognitionError(frameError instanceof Error ? frameError.message : String(frameError));
+        }
+    }
+
+    function acceptReviewResult(id: number) {
+        const review = reviewResults.find((candidate) => candidate.id === id);
+        if (!review || review.accepted || review.result.status !== "recognized") return;
+        const acceptanceError = onAcceptRecognitionRef.current(review.result.itemName, review.result.quantity);
+        const next = reviewResultsRef.current.map((candidate) =>
+            candidate.id === id
+                ? { ...candidate, accepted: acceptanceError === null, error: acceptanceError ?? "" }
+                : candidate,
+        );
+        reviewResultsRef.current = next;
+        setReviewResults(next);
+    }
+
+    function clearReviewResults() {
+        reviewResultsRef.current = [];
+        setReviewResults([]);
+        setOmittedReviewResults(0);
+    }
+
     function releaseStream() {
+        stopRecognition();
         if (nativeCapture.current) {
             nativeCapture.current = false;
             void stopNativeDisplayCapture();
@@ -187,6 +269,7 @@ export function LiveLootCapture({ sessionStatus }: { sessionStatus: SessionStatu
                             }
                             setRegionFrameSize({ width: frame.width, height: frame.height });
                             drawFrame(regionCanvas.current, frame);
+                            pushRecognitionFrame({ width: frame.width, height: frame.height, pixels: frame.pixels });
                         }
                     },
                     (message) => {
@@ -254,6 +337,7 @@ export function LiveLootCapture({ sessionStatus }: { sessionStatus: SessionStatu
             sourceDimensions.height,
             uiScaleRef.current,
         );
+        stopRecognition();
         updateRegion(next);
         setRegionConfirmed(false);
         setRegionFrameSize(null);
@@ -261,6 +345,7 @@ export function LiveLootCapture({ sessionStatus }: { sessionStatus: SessionStatu
     }
 
     function changeUiScale(next: LootUiScale) {
+        stopRecognition();
         updateUiScale(next);
         const currentSource = sourceDimensionsRef.current;
         if (!currentSource || !isSupportedLootSource(currentSource.width, currentSource.height)) return;
@@ -310,6 +395,80 @@ export function LiveLootCapture({ sessionStatus }: { sessionStatus: SessionStatu
             setSavingRegion(false);
         }
     }
+
+    const calibratedProfile = sourceDimensions
+        ? findLiveLootProfile(sourceDimensions.width, sourceDimensions.height, uiScalePercent)
+        : null;
+
+    useEffect(() => {
+        nextReviewResultId.current = 0;
+        clearReviewResults();
+    }, [sessionId]);
+
+    useEffect(() => {
+        stopRecognition(false);
+        setRecognitionError("");
+        if (status !== "capturing" || !regionConfirmed || !calibratedProfile) {
+            setRecognitionStatus(regionConfirmed && sourceDimensions ? "unavailable" : "idle");
+            return;
+        }
+
+        const generation = recognitionGeneration.current;
+        setRecognitionStatus("starting");
+        const previousStartup = recognitionStartup.current;
+        // Tesseract setup cannot be aborted, so stale starts settle and terminate before a replacement begins.
+        const startup = (async () => {
+            if (previousStartup) await previousStartup.catch(() => undefined);
+            if (!mounted.current || generation !== recognitionGeneration.current) return;
+            let createdOcr: LiveLootTesseractOcr | null = null;
+            try {
+                const ocr = await createLiveLootTesseractOcr();
+                createdOcr = ocr;
+                if (!mounted.current || generation !== recognitionGeneration.current) {
+                    await ocr.terminate();
+                    return;
+                }
+                const coordinator = new LiveLootCoordinator({
+                    profile: calibratedProfile.profile,
+                    dictionary: itemDictionaryRef.current,
+                    readText: ocr,
+                    onResult: (result) => {
+                        if (!mounted.current || generation !== recognitionGeneration.current) return;
+                        const id = nextReviewResultId.current;
+                        nextReviewResultId.current += 1;
+                        const appended = appendLiveLootReviewResult(reviewResultsRef.current, {
+                            id,
+                            result,
+                            accepted: false,
+                            error: "",
+                        });
+                        reviewResultsRef.current = appended.results;
+                        setReviewResults(appended.results);
+                        if (appended.omittedCount > 0) {
+                            setOmittedReviewResults((current) => current + appended.omittedCount);
+                        }
+                    },
+                });
+                recognition.current = { coordinator, ocr };
+                setRecognitionStatus("active");
+            } catch (setupError) {
+                if (createdOcr) await createdOcr.terminate().catch(() => undefined);
+                if (!mounted.current || generation !== recognitionGeneration.current) return;
+                setRecognitionStatus("error");
+                setRecognitionError(setupError instanceof Error ? setupError.message : String(setupError));
+            }
+        })();
+        recognitionStartup.current = startup;
+        void startup
+            .finally(() => {
+                if (recognitionStartup.current === startup) recognitionStartup.current = null;
+            })
+            .catch(() => undefined);
+
+        return () => {
+            if (generation === recognitionGeneration.current) stopRecognition(false);
+        };
+    }, [calibratedProfile, regionConfirmed, sourceDimensions, status]);
 
     useEffect(() => {
         if (!supportsTauriApi()) return;
@@ -430,7 +589,8 @@ export function LiveLootCapture({ sessionStatus }: { sessionStatus: SessionStatu
                     crop.width = pixels.width;
                     crop.height = pixels.height;
                 }
-                crop.getContext("2d")?.drawImage(
+                const cropContext = crop.getContext("2d");
+                cropContext?.drawImage(
                     preview,
                     pixels.x,
                     pixels.y,
@@ -441,6 +601,16 @@ export function LiveLootCapture({ sessionStatus }: { sessionStatus: SessionStatu
                     pixels.width,
                     pixels.height,
                 );
+                if (cropContext && recognition.current) {
+                    try {
+                        const frame = cropContext.getImageData(0, 0, pixels.width, pixels.height);
+                        pushRecognitionFrame({ width: pixels.width, height: pixels.height, pixels: frame.data });
+                    } catch (frameError) {
+                        stopRecognition(false);
+                        setRecognitionStatus("error");
+                        setRecognitionError(frameError instanceof Error ? frameError.message : String(frameError));
+                    }
+                }
                 setRegionFrameSize((current) =>
                     current?.width === pixels.width && current.height === pixels.height
                         ? current
@@ -457,6 +627,7 @@ export function LiveLootCapture({ sessionStatus }: { sessionStatus: SessionStatu
         return () => {
             mounted.current = false;
             requestId.current += 1;
+            stopRecognition(false);
             stopDisplayCapture(activeStream.current);
             if (nativeCapture.current) void stopNativeDisplayCapture();
         };
@@ -474,6 +645,17 @@ export function LiveLootCapture({ sessionStatus }: { sessionStatus: SessionStatu
             ? normalizedRegionToPixels(region, sourceDimensions.width, sourceDimensions.height)
             : null;
     const expectedRegionSize = lootRegionSize(uiScalePercent);
+    const recognitionLabel = !regionConfirmed
+        ? "Confirm area"
+        : recognitionStatus === "starting"
+          ? "Starting local OCR..."
+          : recognitionStatus === "active"
+            ? "Local OCR active"
+            : recognitionStatus === "unavailable"
+              ? "No calibrated profile"
+              : recognitionStatus === "error"
+                ? "Recognition stopped"
+                : "Waiting";
 
     return (
         <section className={styles.CapturePanel} aria-labelledby="live-capture-heading">
@@ -516,6 +698,11 @@ export function LiveLootCapture({ sessionStatus }: { sessionStatus: SessionStatu
             {error && (
                 <p className={styles.Error} role="alert">
                     {error}
+                </p>
+            )}
+            {recognitionError && (
+                <p className={styles.Error} role="alert">
+                    Local recognition stopped: {recognitionError}
                 </p>
             )}
             {status === "capturing" && (
@@ -626,6 +813,12 @@ export function LiveLootCapture({ sessionStatus }: { sessionStatus: SessionStatu
                                           : "Unavailable"}
                                 </dd>
                             </div>
+                            <div>
+                                <dt>Recognition</dt>
+                                <dd className={recognitionStatus === "active" ? styles.Active : styles.Warning}>
+                                    {recognitionLabel}
+                                </dd>
+                            </div>
                         </dl>
                         <div className={styles.RegionPreview}>
                             <span>In-memory recognition crop</span>
@@ -634,9 +827,55 @@ export function LiveLootCapture({ sessionStatus }: { sessionStatus: SessionStatu
                     </aside>
                 </div>
             )}
+            <div className={styles.RecognitionAnnouncements} aria-live="polite" aria-atomic="true">
+                {reviewResults[0] ? resultDescription(reviewResults[0].result) : ""}
+            </div>
+            {reviewResults.length > 0 && (
+                <div className={styles.ReviewFeed}>
+                    <div className={styles.ReviewHeader}>
+                        <div>
+                            <p className="eyebrow">Local OCR review</p>
+                            <h3>Recent notifications</h3>
+                        </div>
+                        <button className="button subtle" type="button" onClick={clearReviewResults}>
+                            Clear
+                        </button>
+                    </div>
+                    {omittedReviewResults > 0 && (
+                        <p className={styles.FeedWarning} role="status">
+                            {`${omittedReviewResults} older ${omittedReviewResults === 1 ? "result was" : "results were"} omitted from this bounded review feed.`}
+                        </p>
+                    )}
+                    <ul>
+                        {reviewResults.map((review) => (
+                            <li key={review.id}>
+                                <div>
+                                    <span className={`${styles.ResultStatus} ${styles[review.result.status]}`}>
+                                        {review.result.status}
+                                    </span>
+                                    <strong>{resultDescription(review.result)}</strong>
+                                    {review.result.eventId && <small>{review.result.eventId}</small>}
+                                    {review.error && <small className={styles.ResultError}>{review.error}</small>}
+                                </div>
+                                {review.result.status === "recognized" && (
+                                    <button
+                                        className="button"
+                                        type="button"
+                                        disabled={review.accepted || sessionStatus === "finished"}
+                                        onClick={() => acceptReviewResult(review.id)}
+                                    >
+                                        {review.accepted ? "Added" : "Add to ledger"}
+                                    </button>
+                                )}
+                            </li>
+                        ))}
+                    </ul>
+                    <p>Withheld or failed notifications can be entered through the manual loot form.</p>
+                </div>
+            )}
             <p className={styles.PrivacyNote}>
-                Preview and crop pixels stay in memory and are not saved, uploaded, or sent to OCR yet. Only confirmed
-                coordinates, source dimensions, and BDO UI scale are stored by the desktop app.
+                Preview and crop pixels stay in memory, are processed only by the bundled local OCR worker, and are
+                never saved or uploaded. Only confirmed coordinates, source dimensions, and BDO UI scale are stored.
             </p>
         </section>
     );
