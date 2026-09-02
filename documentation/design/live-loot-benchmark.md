@@ -180,8 +180,9 @@ before these small-set results can be treated as release accuracy.
 
 The available 3440x1440 recording contains one yellow rare-loot banner at 80% UI scale. Its visible text occupied roughly
 `336x72` source pixels in the inspected stable frames. Live capture therefore uses a more forgiving `400x100` placement
-area at 80% and a provisional proportional `500x125` area at 100%. These dimensions are capture geometry only, not a
-validated recognition profile.
+area at 80% and a provisional proportional `500x125` area at 100%. The alignment guide places that measured extent at
+`x=52..388`, `y=20..92` inside the 80% capture area and scales it proportionally at 100%. These dimensions are capture
+geometry only, not a validated recognition profile.
 
 One event cannot provide separate development and held-out sequences. The application consequently previews the rare
 crop but does not detect, OCR, deduplicate, auto-accept, or add rare banners to the ledger. Production rare-banner

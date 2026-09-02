@@ -305,13 +305,21 @@
     background: #020404;
 }
 
-.RegionPreview span {
+.RegionPreview > span {
     display: block;
     margin-bottom: 8px;
     color: var(--muted);
     font-size: 8px;
     letter-spacing: 0.1em;
     text-transform: uppercase;
+}
+
+.RegionPreviewStage {
+    position: relative;
+}
+
+.RegionPreviewStage .RecognitionGuide {
+    pointer-events: none;
 }
 
 .RegionPreview p {
@@ -321,7 +329,7 @@
     line-height: 1.4;
 }
 
-.RegionPreview canvas {
+.RegionPreviewStage canvas {
     display: block;
     width: 100%;
     height: auto;

@@ -19,6 +19,7 @@ export type PixelRegion = {
 
 export type LootUiScale = 80 | 100;
 export type LootRegionKind = "normal" | "rare";
+export type LootAlignmentGuide = PixelRegion & { rowCenters: readonly number[] };
 
 export const SUPPORTED_LOOT_SOURCES = [
     { width: 3440, height: 1440 },
@@ -37,6 +38,13 @@ const DEFAULT_LOOT_CENTERS: Record<LootRegionKind, { x: number; y: number }> = {
     normal: { x: 2614 / 3440, y: 1145.5 / 1440 },
     rare: { x: 2300 / 3440, y: 870 / 1440 },
 };
+const BASE_ALIGNMENT_GUIDES: Record<
+    LootRegionKind,
+    { left: number; top: number; right: number; bottom: number; rowCenters: readonly number[] }
+> = {
+    normal: { left: 78, top: 36, right: 350, bottom: 216, rowCenters: [48, 87, 126, 165, 204] },
+    rare: { left: 52, top: 20, right: 388, bottom: 92, rowCenters: [] },
+};
 
 export function isSupportedLootSource(width: number, height: number): boolean {
     return SUPPORTED_LOOT_SOURCES.some((source) => source.width === width && source.height === height);
@@ -44,6 +52,22 @@ export function isSupportedLootSource(width: number, height: number): boolean {
 
 export function lootRegionSize(uiScalePercent: LootUiScale, kind: LootRegionKind = "normal") {
     return kind === "normal" ? LOOT_REGION_SIZES[uiScalePercent] : RARE_LOOT_REGION_SIZES[uiScalePercent];
+}
+
+export function lootAlignmentGuide(uiScalePercent: LootUiScale, kind: LootRegionKind = "normal"): LootAlignmentGuide {
+    const base = BASE_ALIGNMENT_GUIDES[kind];
+    const scale = uiScalePercent / 80;
+    const x = Math.round(base.left * scale);
+    const y = Math.round(base.top * scale);
+    const right = Math.round(base.right * scale);
+    const bottom = Math.round(base.bottom * scale);
+    return {
+        x,
+        y,
+        width: right - x,
+        height: bottom - y,
+        rowCenters: base.rowCenters.map((center) => Math.round(center * scale)),
+    };
 }
 
 export function defaultLootRegion(

@@ -5,8 +5,9 @@
 Linux capture feasibility is established. The first native-resolution offline pipeline tracks events, selects OCR frames,
 and recognizes items and quantities exactly on its held-out sequence without label-selected crops. The live capture UI
 now positions and previews separate native-resolution normal-stack and rare-banner crops for three source resolutions at
-80% or 100% UI scale. The normal crop exposes a smaller alignment guide on calibrated profiles, while the rare crop is a
-preview-only benchmark target and does not feed OCR or the ledger.
+80% or 100% UI scale. Both crops expose smaller proportional placement guides; the normal guide geometry is validated only
+for the bundled 3440x1440 80% profile, while the rare crop is a preview-only benchmark target and does not feed OCR or the
+ledger.
 A browser-safe production module now analyzes packed RGBA crops, tracks notification identities, selects stable OCR frames,
 and resolves dictionary-constrained replay readings. Its incremental coordinator bounds retained frames and OCR work,
 confirms births with one-frame lookahead, reports backpressure explicitly, and suppresses stale results after cancellation.
@@ -75,7 +76,10 @@ The user selects the BDO UI scale and positions two fixed rectangles on the prev
 80% and a proportional `453x389` at 100%. The rare banner uses `400x100` at 80% and a provisional proportional `500x125`
 at 100%. Each rectangle can be selected, dragged, reset, and nudged by one source pixel independently. On the validated
 3440x1440 80% profile, an inner guide marks the approximately `x=78..350`, `y=36..216` portion of the normal envelope used
-by row detection and OCR. The larger envelope remains unchanged so its benchmarked detector geometry stays valid.
+by row detection and OCR. A second inner guide marks the measured rare-banner text extent at approximately `x=52..388`,
+`y=20..92` within the 80% rare envelope. Both guides scale proportionally at 100% and appear on the full-source placement
+preview and their respective native-resolution crop previews. The larger envelopes remain unchanged so the normal guide's
+benchmarked detector geometry stays valid and the rare guide can retain placement tolerance.
 
 Supported sources are `3440x1440`, `2560x1440`, and `1920x1080`. Persist only validated normalized coordinates for both
 rectangles, source dimensions, and UI scale, never preview or captured pixels. Legacy settings without a rare rectangle
