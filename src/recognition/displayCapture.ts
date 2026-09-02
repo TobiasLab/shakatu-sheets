@@ -44,7 +44,7 @@ const BASE_ALIGNMENT_GUIDES: Record<
     { left: number; top: number; right: number; bottom: number; rowCenters: readonly number[] }
 > = {
     normal: { left: 78, top: 36, right: 350, bottom: 216, rowCenters: [48, 87, 126, 165, 204] },
-    rare: { left: 52, top: 20, right: 388, bottom: 92, rowCenters: [] },
+    rare: { left: 52, top: 20, right: 388, bottom: 92, rowCenters: [57] },
 };
 
 export function isSupportedLootSource(width: number, height: number): boolean {
