@@ -41,7 +41,7 @@
 
 .CaptureWorkspace {
     display: grid;
-    grid-template-columns: minmax(0, 1fr) 220px;
+    grid-template-columns: minmax(0, 1fr) 260px;
     gap: 16px;
     margin-top: 16px;
 }
@@ -76,19 +76,39 @@
 
 .RegionOverlay {
     position: absolute;
-    border: 2px solid var(--gold);
-    background: color-mix(in srgb, var(--gold) 14%, transparent);
-    box-shadow: 0 0 0 1px rgb(0 0 0 / 70%);
+    box-sizing: border-box;
+    opacity: 0.66;
     pointer-events: none;
+    transition: opacity 120ms ease;
 }
 
-.RegionOverlay span {
+.NormalRegionOverlay {
+    color: var(--gold);
+    outline: 2px solid var(--gold);
+    background: color-mix(in srgb, var(--gold) 10%, transparent);
+    box-shadow: 0 0 0 1px rgb(0 0 0 / 70%);
+}
+
+.RareRegionOverlay {
+    color: #65cde5;
+    outline: 2px solid #65cde5;
+    background: rgb(101 205 229 / 12%);
+    box-shadow: 0 0 0 1px rgb(0 0 0 / 75%);
+}
+
+.ActiveRegionOverlay {
+    z-index: 2;
+    opacity: 1;
+    box-shadow:
+        0 0 0 1px rgb(0 0 0 / 85%),
+        0 0 12px currentColor;
+}
+
+.RegionOverlay > .OverlayLabel,
+.GuideLabel {
     position: absolute;
-    top: -20px;
-    left: -2px;
     padding: 3px 5px;
     color: #0a0d0c;
-    background: var(--gold);
     font-family: "IBM Plex Mono", monospace;
     font-size: 8px;
     line-height: 1;
@@ -97,24 +117,117 @@
     white-space: nowrap;
 }
 
+.RegionOverlay > .OverlayLabel {
+    top: -20px;
+    left: -2px;
+}
+
+.NormalRegionOverlay > .OverlayLabel {
+    background: var(--gold);
+}
+
+.RareRegionOverlay > .OverlayLabel {
+    background: #65cde5;
+}
+
+.RecognitionGuide {
+    position: absolute;
+    box-sizing: border-box;
+    outline: 1px dashed rgb(255 255 255 / 90%);
+    background: rgb(0 0 0 / 10%);
+}
+
+.RecognitionGuide i {
+    position: absolute;
+    left: 0;
+    width: 100%;
+    border-top: 1px solid rgb(255 255 255 / 72%);
+    transform: translateY(-0.5px);
+}
+
+.GuideLabel {
+    right: -1px;
+    bottom: 100%;
+    padding: 2px 4px;
+    color: #fff;
+    background: rgb(2 4 4 / 84%);
+    font-size: 7px;
+}
+
+.CalibrationPanel {
+    display: grid;
+    gap: 10px;
+    margin-top: 10px;
+    padding: 10px;
+    border: 1px solid var(--line);
+    background: var(--clock-background);
+}
+
+.AreaSelectorButtons,
+.PrecisionControls {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    flex-wrap: wrap;
+}
+
+.AreaSelector {
+    min-width: 0;
+    margin: 0;
+    padding: 0;
+    border: 0;
+}
+
+.AreaSelector > legend,
+.PrecisionControls > span {
+    margin-right: 3px;
+    padding: 0;
+    color: var(--muted);
+    font-size: 8px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+}
+
+.AreaSelector > legend {
+    margin-bottom: 7px;
+}
+
+.AreaSelector :global(.button)[aria-pressed="true"] {
+    border-color: var(--gold);
+    color: var(--gold);
+    background: color-mix(in srgb, var(--gold) 10%, var(--surface));
+}
+
+.CalibrationInstruction {
+    margin: 0;
+    color: var(--muted);
+    font-size: 10px;
+    line-height: 1.5;
+}
+
+.PrecisionControls {
+    padding-top: 9px;
+    border-top: 1px solid var(--line);
+}
+
+.PrecisionControls :global(.button),
+.AreaSelectorButtons :global(.button) {
+    padding: 7px 9px;
+    font-size: 9px;
+}
+
 .CalibrationBar {
     display: flex;
     align-items: center;
-    justify-content: space-between;
+    justify-content: flex-end;
     gap: 16px;
-    margin-top: 10px;
+    padding-top: 9px;
+    border-top: 1px solid var(--line);
     color: var(--muted);
     font-size: 10px;
 }
 
 .CalibrationBar :global(.button) {
-    flex: 0 0 auto;
-}
-
-.CalibrationControls {
-    display: flex;
-    align-items: flex-end;
-    gap: 10px;
     flex: 0 0 auto;
 }
 
@@ -201,12 +314,27 @@
     text-transform: uppercase;
 }
 
+.RegionPreview p {
+    margin: 8px 0 0;
+    color: #65cde5;
+    font-size: 8px;
+    line-height: 1.4;
+}
+
 .RegionPreview canvas {
     display: block;
     width: 100%;
     height: auto;
     min-height: 80px;
     background: var(--clock-background);
+}
+
+.RareRegionPreview {
+    border-color: color-mix(in srgb, #65cde5 45%, var(--line));
+}
+
+.RareRegionPreview canvas {
+    min-height: 60px;
 }
 
 .ReviewFeed {
@@ -296,6 +424,13 @@
     text-transform: uppercase;
 }
 
+.AutoAdded {
+    color: var(--mint);
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 9px;
+    white-space: nowrap;
+}
+
 .recognized {
     color: var(--mint);
 }
@@ -333,9 +468,23 @@
         width: 100%;
     }
 
-    .CalibrationControls {
-        align-items: stretch;
-        flex-direction: column;
+    .AreaSelectorButtons,
+    .PrecisionControls {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .PrecisionControls > span {
+        grid-column: 1 / -1;
+    }
+
+    .AreaSelectorButtons :global(.button),
+    .PrecisionControls :global(.button) {
+        width: 100%;
+    }
+
+    .PrecisionControls :global(.button):first-of-type {
+        grid-column: 1 / -1;
     }
 
     .ScaleControl select {

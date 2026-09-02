@@ -18,14 +18,16 @@ use super::LootCaptureSettings;
 use super::{NormalizedRegion, PixelRegion};
 
 const FRAME_HEADER_BYTES: usize = 40;
-const FRAME_PROTOCOL_VERSION: u32 = 1;
+const FRAME_PROTOCOL_VERSION: u32 = 2;
 const FRAME_KIND_ERROR: u32 = 0;
 const FRAME_KIND_PREVIEW: u32 = 1;
 const FRAME_KIND_REGION: u32 = 2;
+const FRAME_KIND_RARE_REGION: u32 = 3;
 const MAX_PREVIEW_WIDTH: u32 = 640;
 const MAX_PREVIEW_HEIGHT: u32 = 360;
 const SAMPLE_INTERVAL: Duration = Duration::from_millis(125);
 const FIRST_FRAME_TIMEOUT: Duration = Duration::from_secs(10);
+const FRAME_ACK_TIMEOUT: Duration = Duration::from_secs(10);
 
 #[derive(Clone, Copy)]
 struct BatchIdentity {
@@ -67,6 +69,7 @@ impl CaptureStateInner {
 struct CaptureControl {
     capture_id: u32,
     cancelled: AtomicBool,
+    finished: AtomicBool,
     batches: Mutex<BatchState>,
     pending_session: Mutex<Option<Arc<Session<Screencast>>>>,
     selection: Mutex<Option<LootCaptureSettings>>,
@@ -77,13 +80,14 @@ impl CaptureControl {
         Self {
             capture_id,
             cancelled: AtomicBool::new(false),
+            finished: AtomicBool::new(false),
             batches: Mutex::new(BatchState::default()),
             pending_session: Mutex::new(None),
             selection: Mutex::new(selection),
         }
     }
 
-    fn begin_batch(&self, has_region: bool) -> Result<Option<u32>, String> {
+    fn begin_batch(&self, has_region: bool, has_rare_region: bool) -> Result<Option<u32>, String> {
         let mut batches = self
             .batches
             .lock()
@@ -98,8 +102,10 @@ impl CaptureControl {
         batches.last_batch_id = batch_id;
         batches.pending = Some(PendingBatch {
             batch_id,
+            started_at: Instant::now(),
             preview_pending: true,
             region_pending: has_region,
+            rare_region_pending: has_rare_region,
         });
         Ok(Some(batch_id))
     }
@@ -120,9 +126,10 @@ impl CaptureControl {
         match kind {
             FRAME_KIND_PREVIEW => pending.preview_pending = false,
             FRAME_KIND_REGION => pending.region_pending = false,
+            FRAME_KIND_RARE_REGION => pending.rare_region_pending = false,
             _ => return,
         }
-        if !pending.preview_pending && !pending.region_pending {
+        if !pending.preview_pending && !pending.region_pending && !pending.rare_region_pending {
             batches.pending = None;
         }
     }
@@ -138,6 +145,30 @@ impl CaptureControl {
             }
         }
     }
+
+    fn pending_batch_age(&self) -> Result<Option<Duration>, String> {
+        let batches = self
+            .batches
+            .lock()
+            .map_err(|_| "Capture batch state is unavailable.")?;
+        Ok(batches
+            .pending
+            .as_ref()
+            .map(|pending| pending.started_at.elapsed()))
+    }
+}
+
+struct CaptureStartupGuard {
+    control: Arc<CaptureControl>,
+    worker_started: bool,
+}
+
+impl Drop for CaptureStartupGuard {
+    fn drop(&mut self) {
+        if !self.worker_started {
+            self.control.finished.store(true, Ordering::Release);
+        }
+    }
 }
 
 #[derive(Default)]
@@ -148,8 +179,10 @@ struct BatchState {
 
 struct PendingBatch {
     batch_id: u32,
+    started_at: Instant,
     preview_pending: bool,
     region_pending: bool,
+    rare_region_pending: bool,
 }
 
 struct StreamData {
@@ -175,6 +208,10 @@ pub(super) async fn start(
     if let Some(previous) = previous {
         cancel(&previous);
     }
+    let mut startup_guard = CaptureStartupGuard {
+        control: control.clone(),
+        worker_started: false,
+    };
 
     let portal = Screencast::new().await.map_err(capture_error)?;
     let session = Arc::new(
@@ -248,12 +285,16 @@ pub(super) async fn start(
     drop(portal);
 
     let errors = frames.clone();
+    let worker_control = control.clone();
     tauri::async_runtime::spawn_blocking(move || {
-        if let Err(error) = run_pipewire(node_id, fd, frames, control.clone()) {
+        let result = run_pipewire(node_id, fd, frames, worker_control.clone());
+        worker_control.finished.store(true, Ordering::Release);
+        if let Err(error) = result {
             eprintln!("Native display capture stopped: {error}");
             let _ = errors.send(InvokeResponseBody::Raw(error_frame(&error)));
         }
     });
+    startup_guard.worker_started = true;
     Ok(())
 }
 
@@ -288,6 +329,9 @@ pub(super) fn set_selection(
         .capture
         .as_ref()
         .ok_or_else(|| "Native display capture is not running.".to_string())?;
+    if control.cancelled.load(Ordering::Acquire) || control.finished.load(Ordering::Acquire) {
+        return Err("Native display capture is not running.".to_string());
+    }
     *control
         .selection
         .lock()
@@ -297,6 +341,7 @@ pub(super) fn set_selection(
 
 fn cancel(control: &Arc<CaptureControl>) {
     control.cancelled.store(true, Ordering::Release);
+    control.finished.store(true, Ordering::Release);
     close_pending_session(control);
 }
 
@@ -341,8 +386,8 @@ fn run_pipewire(
 
     let loop_for_frames = mainloop.clone();
     let control_for_frames = control.clone();
-    let last_frame = Rc::new(Cell::new(None));
-    let last_frame_in_process = last_frame.clone();
+    let last_source_frame = Rc::new(Cell::new(None));
+    let last_source_frame_in_process = last_source_frame.clone();
     let stream_error = Rc::new(RefCell::new(None));
     let stream_error_in_callback = stream_error.clone();
     let stream_error_in_process = stream_error.clone();
@@ -456,7 +501,18 @@ fn run_pipewire(
                         return;
                     }
                 };
-                let batch_id = match control_for_frames.begin_batch(selection.is_some()) {
+                if last_source_frame_in_process.get().is_none() {
+                    eprintln!(
+                        "Native display capture received first frame: memory={memory_type:?}, bytes={}, stride={stride}",
+                        pixels.len()
+                    );
+                }
+                let source_frame_time = Instant::now();
+                last_source_frame_in_process.set(Some(source_frame_time));
+                let batch_id = match control_for_frames.begin_batch(
+                    selection.is_some(),
+                    selection.is_some_and(|selection| selection.rare_region.is_some()),
+                ) {
                     Ok(Some(batch_id)) => batch_id,
                     Ok(None) => return,
                     Err(error) => {
@@ -482,28 +538,48 @@ fn run_pipewire(
                         return;
                     }
                 };
-                let region_frame = match selection {
-                    Some(selection) => match crop_region_frame(
-                        pixels,
-                        size.width,
-                        size.height,
-                        stride,
-                        data.format.format(),
-                        selection,
-                        BatchIdentity {
-                            capture_id: control_for_frames.capture_id,
-                            batch_id,
-                        },
-                    ) {
-                        Ok(frame) => Some(frame),
-                        Err(error) => {
-                            control_for_frames.clear_batch(batch_id);
-                            *stream_error_in_process.borrow_mut() = Some(error);
-                            loop_for_frames.quit();
-                            return;
-                        }
-                    },
-                    None => None,
+                let batch = BatchIdentity {
+                    capture_id: control_for_frames.capture_id,
+                    batch_id,
+                };
+                let region_frames = selection
+                    .map(|selection| {
+                        let region = crop_region_frame(
+                            pixels,
+                            size.width,
+                            size.height,
+                            stride,
+                            data.format.format(),
+                            selection,
+                            batch,
+                        )?;
+                        let rare_region = selection
+                            .rare_pixel_region()?
+                            .map(|rare_region| {
+                                crop_pixel_region_frame(
+                                    pixels,
+                                    size.width,
+                                    size.height,
+                                    stride,
+                                    data.format.format(),
+                                    rare_region,
+                                    FRAME_KIND_RARE_REGION,
+                                    batch,
+                                )
+                            })
+                            .transpose()?;
+                        Ok::<_, String>((region, rare_region))
+                    })
+                    .transpose();
+                let (region_frame, rare_region_frame) = match region_frames {
+                    Ok(Some((region, rare_region))) => (Some(region), rare_region),
+                    Ok(None) => (None, None),
+                    Err(error) => {
+                        control_for_frames.clear_batch(batch_id);
+                        *stream_error_in_process.borrow_mut() = Some(error);
+                        loop_for_frames.quit();
+                        return;
+                    }
                 };
                 if frames.send(InvokeResponseBody::Raw(preview)).is_err() {
                     control_for_frames.clear_batch(batch_id);
@@ -517,15 +593,14 @@ fn run_pipewire(
                         return;
                     }
                 }
-                if last_frame_in_process.get().is_none() {
-                    eprintln!(
-                        "Native display capture received first frame: memory={memory_type:?}, bytes={}, stride={stride}",
-                        pixels.len()
-                    );
+                if let Some(frame) = rare_region_frame {
+                    if frames.send(InvokeResponseBody::Raw(frame)).is_err() {
+                        control_for_frames.clear_batch(batch_id);
+                        loop_for_frames.quit();
+                        return;
+                    }
                 }
-                let now = Instant::now();
-                last_frame_in_process.set(Some(now));
-                data.last_sample = Some(now);
+                data.last_sample = Some(source_frame_time);
             })
             .register()
             .map_err(capture_error)?;
@@ -536,11 +611,26 @@ fn run_pipewire(
     let _stop_timer = mainloop.loop_().add_timer(move |_| {
         if control.cancelled.load(Ordering::Acquire) {
             loop_for_timer.quit();
-        } else if let Some(last_frame) = last_frame.get() {
-            if last_frame.elapsed() >= FIRST_FRAME_TIMEOUT {
+        } else if let Some(last_source_frame) = last_source_frame.get() {
+            if last_source_frame.elapsed() >= FIRST_FRAME_TIMEOUT {
                 *stream_error_in_timer.borrow_mut() =
                     Some("The selected monitor stopped producing PipeWire frames.".to_string());
                 loop_for_timer.quit();
+            } else {
+                match control.pending_batch_age() {
+                    Ok(Some(age)) if age >= FRAME_ACK_TIMEOUT => {
+                        *stream_error_in_timer.borrow_mut() = Some(
+                            "The frontend did not acknowledge a native display frame batch within 10 seconds."
+                                .to_string(),
+                        );
+                        loop_for_timer.quit();
+                    }
+                    Ok(_) => {}
+                    Err(error) => {
+                        *stream_error_in_timer.borrow_mut() = Some(error);
+                        loop_for_timer.quit();
+                    }
+                }
             }
         } else if connection_started.elapsed() >= FIRST_FRAME_TIMEOUT {
             *stream_error_in_timer.borrow_mut() = Some(
@@ -688,6 +778,28 @@ fn crop_region_frame(
         ));
     }
     let region = selection.pixel_region()?;
+    crop_pixel_region_frame(
+        source,
+        source_width,
+        source_height,
+        source_stride,
+        format,
+        region,
+        FRAME_KIND_REGION,
+        batch,
+    )
+}
+
+fn crop_pixel_region_frame(
+    source: &[u8],
+    source_width: u32,
+    source_height: u32,
+    source_stride: u32,
+    format: spa::param::video::VideoFormat,
+    region: super::PixelRegion,
+    kind: u32,
+    batch: BatchIdentity,
+) -> Result<Vec<u8>, String> {
     let end_x = region
         .x
         .checked_add(region.width)
@@ -700,7 +812,7 @@ fn crop_region_frame(
         return Err("loot capture region is outside the source bounds".into());
     }
     let mut frame = allocate_frame(FrameHeader {
-        kind: FRAME_KIND_REGION,
+        kind,
         batch,
         output_width: region.width,
         output_height: region.height,
@@ -883,6 +995,7 @@ mod tests {
                 width: width as f64 / source_width as f64,
                 height: height as f64 / source_height as f64,
             },
+            rare_region: None,
             source_width,
             source_height,
             ui_scale_percent,
@@ -923,7 +1036,7 @@ mod tests {
 
         assert_eq!(
             header(&frame),
-            [1, FRAME_KIND_PREVIEW, 17, 23, 2, 1, 2, 1, 0, 0]
+            [2, FRAME_KIND_PREVIEW, 17, 23, 2, 1, 2, 1, 0, 0]
         );
         assert_eq!(&frame[FRAME_HEADER_BYTES..], &[1, 2, 3, 7, 4, 5, 6, 8]);
     }
@@ -1015,13 +1128,64 @@ mod tests {
 
         assert_eq!(
             header(&frame),
-            [1, FRAME_KIND_REGION, 31, 47, 453, 389, 1920, 1080, 10, 0,]
+            [2, FRAME_KIND_REGION, 31, 47, 453, 389, 1920, 1080, 10, 0,]
         );
         assert_eq!(
             &frame[FRAME_HEADER_BYTES..FRAME_HEADER_BYTES + 8],
             &[10, 20, 30, 40, 40, 50, 60, 70]
         );
         assert_eq!(&frame[frame.len() - 4..], &[77, 88, 99, 110]);
+    }
+
+    #[test]
+    fn crops_a_rare_region_and_encodes_its_header() {
+        let mut selection = selection(1920, 1080, 80, 10, 20);
+        selection.rare_region = Some(NormalizedRegion {
+            x: 100.0 / 1920.0,
+            y: 200.0 / 1080.0,
+            width: 400.0 / 1920.0,
+            height: 100.0 / 1080.0,
+        });
+        let rare_region = selection.rare_pixel_region().unwrap().unwrap();
+        let stride = selection.source_width * 4;
+        let mut source = vec![0; stride as usize * 300];
+        let first = pixel_offset(rare_region.y, rare_region.x, stride).unwrap();
+        source[first..first + 4].copy_from_slice(&[30, 20, 10, 40]);
+
+        let frame = crop_pixel_region_frame(
+            &source,
+            selection.source_width,
+            selection.source_height,
+            stride,
+            spa::param::video::VideoFormat::BGRA,
+            rare_region,
+            FRAME_KIND_RARE_REGION,
+            BatchIdentity {
+                capture_id: 31,
+                batch_id: 47,
+            },
+        )
+        .unwrap();
+
+        assert_eq!(
+            header(&frame),
+            [
+                2,
+                FRAME_KIND_RARE_REGION,
+                31,
+                47,
+                400,
+                100,
+                1920,
+                1080,
+                100,
+                200,
+            ]
+        );
+        assert_eq!(
+            &frame[FRAME_HEADER_BYTES..FRAME_HEADER_BYTES + 4],
+            &[10, 20, 30, 40]
+        );
     }
 
     #[test]
@@ -1078,7 +1242,7 @@ mod tests {
         assert_eq!(state.next_capture_id().unwrap(), 2);
 
         let control = CaptureControl::new(7, None);
-        let batch_id = control.begin_batch(true).unwrap().unwrap();
+        let batch_id = control.begin_batch(true, true).unwrap().unwrap();
 
         control.acknowledge(8, batch_id, FRAME_KIND_PREVIEW);
         control.acknowledge(7, batch_id + 1, FRAME_KIND_PREVIEW);
@@ -1088,6 +1252,7 @@ mod tests {
             let pending = batches.pending.as_ref().unwrap();
             assert!(pending.preview_pending);
             assert!(pending.region_pending);
+            assert!(pending.rare_region_pending);
         }
 
         control.acknowledge(7, batch_id, FRAME_KIND_PREVIEW);
@@ -1097,23 +1262,47 @@ mod tests {
             let pending = batches.pending.as_ref().unwrap();
             assert!(!pending.preview_pending);
             assert!(pending.region_pending);
+            assert!(pending.rare_region_pending);
         }
 
         control.acknowledge(7, batch_id, FRAME_KIND_REGION);
+        assert!(control.batches.lock().unwrap().pending.is_some());
+        control.acknowledge(7, batch_id, FRAME_KIND_RARE_REGION);
         assert!(control.batches.lock().unwrap().pending.is_none());
 
-        let next_batch_id = control.begin_batch(false).unwrap().unwrap();
+        let next_batch_id = control.begin_batch(false, false).unwrap().unwrap();
         assert_eq!(next_batch_id, batch_id + 1);
         control.acknowledge(7, batch_id, FRAME_KIND_PREVIEW);
         assert!(control.batches.lock().unwrap().pending.is_some());
         control.acknowledge(7, next_batch_id, FRAME_KIND_PREVIEW);
         assert!(control.batches.lock().unwrap().pending.is_none());
 
-        let failed_batch_id = control.begin_batch(false).unwrap().unwrap();
+        let normal_batch_id = control.begin_batch(true, false).unwrap().unwrap();
+        control.acknowledge(7, normal_batch_id, FRAME_KIND_PREVIEW);
+        assert!(control.batches.lock().unwrap().pending.is_some());
+        control.acknowledge(7, normal_batch_id, FRAME_KIND_REGION);
+        assert!(control.batches.lock().unwrap().pending.is_none());
+
+        let failed_batch_id = control.begin_batch(false, false).unwrap().unwrap();
         control.clear_batch(failed_batch_id - 1);
         assert!(control.batches.lock().unwrap().pending.is_some());
         control.clear_batch(failed_batch_id);
         assert!(control.batches.lock().unwrap().pending.is_none());
+    }
+
+    #[test]
+    fn finished_capture_rejects_selection_updates() {
+        let state = CaptureState::default();
+        let control = Arc::new(CaptureControl::new(1, None));
+        state.0.lock().unwrap().capture = Some(control.clone());
+
+        set_selection(&state, None).unwrap();
+        control.finished.store(true, Ordering::Release);
+
+        assert_eq!(
+            set_selection(&state, None),
+            Err("Native display capture is not running.".to_string())
+        );
     }
 
     #[test]
@@ -1142,7 +1331,7 @@ mod tests {
 
         assert_eq!(
             header(&frame),
-            [1, FRAME_KIND_ERROR, 0, 0, 0, 0, 0, 0, 0, 0]
+            [2, FRAME_KIND_ERROR, 0, 0, 0, 0, 0, 0, 0, 0]
         );
         assert_eq!(&frame[FRAME_HEADER_BYTES..], b"failed");
     }

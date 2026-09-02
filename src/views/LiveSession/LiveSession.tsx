@@ -39,6 +39,14 @@ export function LiveSessionView({ controller }: { controller: LiveSessionControl
         if (unitPrice === null || !Number.isSafeInteger(unitPrice) || unitPrice < 0) {
             return "No valid price is available. Fetch market prices or add this item manually.";
         }
+        const combinedQuantity = session.entries.reduce(
+            (total, entry) =>
+                entry.name === drop.name && entry.valuation === drop.valuation && entry.unitPrice === unitPrice
+                    ? total + entry.quantity
+                    : total,
+            quantity,
+        );
+        if (!Number.isSafeInteger(combinedQuantity)) return "The combined recognized quantity is too large.";
         dispatch({
             type: "add-entry",
             entry: {

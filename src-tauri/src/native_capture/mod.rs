@@ -98,10 +98,20 @@ fn loot_region_dimensions(ui_scale_percent: u32) -> Result<(u32, u32), String> {
     }
 }
 
+fn rare_loot_region_dimensions(ui_scale_percent: u32) -> Result<(u32, u32), String> {
+    match ui_scale_percent {
+        80 => Ok((400, 100)),
+        100 => Ok((500, 125)),
+        _ => Err("loot capture UI scale must be 80 or 100 percent".into()),
+    }
+}
+
 #[derive(Clone, Copy, Debug, Deserialize, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct LootCaptureSettings {
     pub region: NormalizedRegion,
+    #[serde(default)]
+    pub rare_region: Option<NormalizedRegion>,
     pub source_width: u32,
     pub source_height: u32,
     #[serde(default = "default_ui_scale_percent")]
@@ -110,18 +120,38 @@ pub struct LootCaptureSettings {
 
 impl LootCaptureSettings {
     fn pixel_region(self) -> Result<PixelRegion, String> {
+        self.validated_pixel_region(self.region, loot_region_dimensions, "loot capture region")
+    }
+
+    fn rare_pixel_region(self) -> Result<Option<PixelRegion>, String> {
+        self.rare_region
+            .map(|region| {
+                self.validated_pixel_region(
+                    region,
+                    rare_loot_region_dimensions,
+                    "rare loot capture region",
+                )
+            })
+            .transpose()
+    }
+
+    fn validated_pixel_region(
+        self,
+        region: NormalizedRegion,
+        dimensions: fn(u32) -> Result<(u32, u32), String>,
+        name: &str,
+    ) -> Result<PixelRegion, String> {
         if !SUPPORTED_SOURCE_DIMENSIONS.contains(&(self.source_width, self.source_height)) {
             return Err(format!(
                 "unsupported loot capture source {}x{}; supported sources are 3440x1440, 2560x1440, and 1920x1080",
                 self.source_width, self.source_height
             ));
         }
-        let expected = loot_region_dimensions(self.ui_scale_percent)?;
-        let pixels =
-            normalized_to_pixel_region(self.region, self.source_width, self.source_height)?;
+        let expected = dimensions(self.ui_scale_percent)?;
+        let pixels = normalized_to_pixel_region(region, self.source_width, self.source_height)?;
         if (pixels.width, pixels.height) != expected {
             return Err(format!(
-                "loot capture region for {}% UI scale must map to exactly {}x{} pixels; mapped to {}x{}",
+                "{name} for {}% UI scale must map to exactly {}x{} pixels; mapped to {}x{}",
                 self.ui_scale_percent, expected.0, expected.1, pixels.width, pixels.height
             ));
         }
@@ -129,7 +159,9 @@ impl LootCaptureSettings {
     }
 
     fn validate(self) -> Result<(), String> {
-        self.pixel_region().map(|_| ())
+        self.pixel_region()?;
+        self.rare_pixel_region()?;
+        Ok(())
     }
 }
 
@@ -261,6 +293,7 @@ mod tests {
                 width: width as f64 / source_width as f64,
                 height: height as f64 / source_height as f64,
             },
+            rare_region: None,
             source_width,
             source_height,
             ui_scale_percent,
@@ -347,6 +380,32 @@ mod tests {
     }
 
     #[test]
+    fn dual_loot_capture_settings_round_trip() {
+        let mut settings = selection(2560, 1440, 100, 100, 200);
+        settings.rare_region = Some(NormalizedRegion {
+            x: 1200.0 / 2560.0,
+            y: 900.0 / 1440.0,
+            width: 500.0 / 2560.0,
+            height: 125.0 / 1440.0,
+        });
+
+        let json = serde_json::to_string(&settings).unwrap();
+        let parsed = parse_loot_capture_settings(&json).unwrap();
+
+        assert!(json.contains("\"rareRegion\""));
+        assert_eq!(parsed, settings);
+        assert_eq!(
+            parsed.rare_pixel_region().unwrap(),
+            Some(PixelRegion {
+                x: 1200,
+                y: 900,
+                width: 500,
+                height: 125,
+            })
+        );
+    }
+
+    #[test]
     fn validates_every_source_and_scale_at_the_bottom_right_boundary() {
         for (source_width, source_height) in SUPPORTED_SOURCE_DIMENSIONS {
             for ui_scale_percent in [80, 100] {
@@ -398,11 +457,29 @@ mod tests {
         let legacy = selection(3440, 1440, 80, 100, 200);
         let mut json = serde_json::to_value(legacy).unwrap();
         json.as_object_mut().unwrap().remove("uiScalePercent");
+        json.as_object_mut().unwrap().remove("rareRegion");
 
         let parsed = parse_loot_capture_settings(&json.to_string()).unwrap();
 
         assert_eq!(parsed.ui_scale_percent, 80);
+        assert_eq!(parsed.rare_region, None);
         assert_eq!(parsed.pixel_region().unwrap().width, 362);
+    }
+
+    #[test]
+    fn rejects_an_invalid_rare_region_size() {
+        let mut settings = selection(3440, 1440, 80, 100, 200);
+        settings.rare_region = Some(NormalizedRegion {
+            x: 1000.0 / 3440.0,
+            y: 1000.0 / 1440.0,
+            width: 399.0 / 3440.0,
+            height: 100.0 / 1440.0,
+        });
+
+        assert!(settings
+            .validate()
+            .unwrap_err()
+            .contains("rare loot capture region for 80% UI scale must map to exactly 400x100"));
     }
 
     #[test]

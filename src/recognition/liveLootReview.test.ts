@@ -1,6 +1,6 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import type { LiveLootRecognitionResult } from "./liveLoot";
-import { appendLiveLootReviewResult, type LiveLootReviewEntry } from "./liveLootReview";
+import { acceptLiveLootReviewEntry, appendLiveLootReviewResult, type LiveLootReviewEntry } from "./liveLootReview";
 
 function entry(id: number, status: LiveLootRecognitionResult["status"] = "recognized"): LiveLootReviewEntry {
     const result: LiveLootRecognitionResult =
@@ -34,7 +34,7 @@ describe("appendLiveLootReviewResult", () => {
         });
     });
 
-    it("evicts non-actionable history before pending recognized results", () => {
+    it("evicts non-actionable history before unresolved recognized results", () => {
         const failed = entry(1, "failed");
         const pending = entry(2);
         expect(appendLiveLootReviewResult([pending, failed], entry(3), 2)).toEqual({
@@ -43,7 +43,7 @@ describe("appendLiveLootReviewResult", () => {
         });
     });
 
-    it("reports when the oldest pending recognized result must be omitted", () => {
+    it("reports when the oldest unresolved recognized result must be omitted", () => {
         expect(appendLiveLootReviewResult([entry(2), entry(1)], entry(3), 2)).toEqual({
             results: [entry(3), entry(2)],
             omittedCount: 1,
@@ -55,5 +55,37 @@ describe("appendLiveLootReviewResult", () => {
             results: [entry(3, "failed"), entry(2)],
             omittedCount: 1,
         });
+    });
+});
+
+describe("acceptLiveLootReviewEntry", () => {
+    it("adds a recognized result and marks it accepted", () => {
+        const accept = vi.fn(() => null);
+
+        const accepted = acceptLiveLootReviewEntry(entry(1), accept);
+
+        expect(accept).toHaveBeenCalledOnce();
+        expect(accept).toHaveBeenCalledWith("Black Stone", 1);
+        expect(accepted).toMatchObject({ accepted: true, error: "" });
+    });
+
+    it("keeps a recognized result actionable when insertion fails", () => {
+        let rejected = acceptLiveLootReviewEntry(entry(1), () => "No valid price is available.");
+
+        expect(rejected).toMatchObject({ accepted: false, error: "No valid price is available." });
+        rejected = acceptLiveLootReviewEntry(rejected, () => "The local database is still loading.");
+        rejected = acceptLiveLootReviewEntry(rejected, () => "The local database is still loading.");
+        expect(acceptLiveLootReviewEntry(rejected, () => null)).toMatchObject({ accepted: true, error: "" });
+    });
+
+    it("does not add non-recognized results and reports thrown insertion errors", () => {
+        const accept = vi.fn(() => null);
+        expect(acceptLiveLootReviewEntry(entry(1, "failed"), accept)).toEqual(entry(1, "failed"));
+        expect(accept).not.toHaveBeenCalled();
+
+        const failed = acceptLiveLootReviewEntry(entry(2), () => {
+            throw new Error("Ledger unavailable");
+        });
+        expect(failed).toMatchObject({ accepted: false, error: "Ledger unavailable" });
     });
 });
