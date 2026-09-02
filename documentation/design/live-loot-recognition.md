@@ -14,12 +14,12 @@ and resolves dictionary-constrained replay readings. Its incremental coordinator
 confirms births with one-frame lookahead, reports backpressure explicitly, and suppresses stale results after cancellation.
 The offline benchmark uses the same production detector, tracker, and parsers. Passing held-out E2E runs can atomically
 export a strict V1 detector profile containing only validated capture dimensions, UI scale, 8 FPS cadence, and OCR-safe
-row geometry. The validated 3440x1440, 80%-UI profile is bundled for live capture. After automatic alignment or manual
-confirmation, a browser-side adapter serializes normal and rare jobs through one local Tesseract worker and sends
-recognized, withheld, failed, and overflow results to a bounded review feed. Recognized normal-loot events are added to the
-ledger immediately; insertion failures remain visible and receive three automatic retries with short backoff before
-remaining manually retryable. Live validation and calibrated recognition benchmarks for the additional profiles remain
-required.
+row geometry. The validated 3440x1440, 80%-UI profile is bundled for live capture. Normal jobs begin after automatic
+alignment or manual confirmation, while rare jobs require separate rare-area confirmation. A browser-side adapter
+serializes both paths through one local Tesseract worker and sends recognized, withheld, failed, and overflow results to a
+bounded review feed. Recognized events from both paths are added to the ledger immediately; insertion failures remain
+visible and receive three automatic retries with short backoff before remaining manually retryable. Live validation and
+calibrated recognition benchmarks for the additional profiles remain required.
 
 ## Goal
 
@@ -38,7 +38,8 @@ game process, or inspect BDO network traffic. User-authorized operating-system s
   required before release.
 - Linux Wayland first, followed by Windows using the same browser capture interface where possible.
 - Automatically localized normal loot-stack placement for the validated profile, with manual fallback.
-- Independently positioned rare-banner placement selected by the user, with provisional recognition at 80% UI scale.
+- Independently positioned and confirmed rare-banner placement selected by the user, with provisional recognition at 80%
+  UI scale.
 - User-triggered start and stop controls with a persistent capture indicator.
 - Borderless-windowed mode as the recommended game display mode.
 - The user selects the monitor containing BDO from the operating-system source picker.
@@ -90,12 +91,14 @@ previews. The larger envelopes remain unchanged so the normal guide's benchmarke
 rare guide can retain placement tolerance.
 
 Supported sources are `3440x1440`, `2560x1440`, and `1920x1080`. Persist only validated normalized coordinates for both
-rectangles, source dimensions, and UI scale, never preview or captured pixels. Legacy settings without a rare rectangle
-load safely but require the user to place and confirm both areas. A dimension mismatch disables cropping and requires a
-supported profile or recalibration. The 100% dimensions still require representative recordings to validate recognition
-geometry. Both rectangles feed independent event analyzers and serialized jobs through the same local OCR worker. Only
-3440x1440 at 80% currently has bundled normal and provisional rare detector geometry. Recognized results from both paths
-are added automatically and remain visible in the bounded review feed.
+rectangles, an explicit rare-area confirmation flag, source dimensions, and UI scale, never preview or captured pixels.
+Legacy settings default the confirmation flag to false even if they contain an automatically saved rare rectangle, so the
+user must explicitly confirm that placement before rare recognition starts. A dimension mismatch disables cropping and
+requires a supported profile or recalibration. The 100% dimensions still require representative recordings to validate
+recognition geometry. The normal rectangle and a separately confirmed rare rectangle feed independent event analyzers and
+serialized jobs through the same local OCR worker. Automatic normal localization never implicitly confirms the rare
+placement. Only 3440x1440 at 80% currently has bundled normal and provisional rare detector geometry. Recognized results
+from both paths are added automatically and remain visible in the bounded review feed.
 
 ### Automatic Normal-Stack Localization
 
@@ -105,10 +108,12 @@ larger area to recenter the search without switching to manual pixel placement.
 
 The localizer evaluates every second sampled frame, scores the five calibrated row centers, and requires at least two
 visible rows. It locks only after three of the latest four candidates agree within 12 source pixels. Retained search history
-is bounded to 12 frames. On lock, the localizer converts the median candidate to the exact normalized `362x311` region,
-switches native capture from search mode to exact normal and rare crops, and persists the resulting coordinates. The
-first retained search frame establishes the event baseline, and later notifications in the retained history are replayed.
-While the single Tesseract worker starts, capture retains a rolling window of at most 32 exact frames.
+is bounded to 12 frames. On lock, the localizer converts the median candidate to the exact normalized `362x311` region and
+switches native capture from search mode to exact normal and rare crops. It persists the normal result and preserves a
+previously confirmed rare position; otherwise the user must align and confirm the rare area before rare frames feed
+recognition. The first retained search frame establishes the event baseline, and later notifications in the retained
+history are replayed. While the single Tesseract worker starts, capture retains rolling windows of at most 32 frames per
+crop.
 
 If localization cannot establish confidence, capture remains in search mode rather than guessing. The user can choose
 manual placement at any time. Other resolutions and 100% UI scale continue to use manual placement until separately
@@ -137,10 +142,11 @@ threshold.
 At 3440x1440 and 80% UI scale, the rare analyzer measures the fixed gold shell independently of the normal row detector.
 It requires four consecutive shell observations, emits one synthetic row for the duration of the appearance, and waits 12
 detected frames before selecting three OCR frames from `x=40..392`, `y=20..92`. A minimum active lifetime keeps the
-synthetic row available after the gold entrance shell fades and before the text disappears. Two absent frames end a
-sufficiently old appearance; a new confirmed shell after a longer early gap also starts a separate appearance. A later
-identical banner therefore receives a new `rare-*` event ID. A banner whose confirmation begins in the first captured frame
-is treated as a baseline and suppressed until it disappears.
+synthetic row available after the gold entrance shell fades and before the text disappears unless a separately confirmed
+replacement appears. Frames used to confirm a replacement remain tracking-only and cannot be selected as OCR evidence for
+the old event. Two absent frames end a sufficiently old appearance; a new confirmed shell after a longer early gap starts
+a separate appearance. A later identical banner therefore receives a new `rare-*` event ID. A banner whose confirmation
+begins in the first captured frame is treated as a baseline and suppressed until it disappears.
 
 The active grind spot's item names remain the only OCR candidates, and the existing terminal quantity parser reads the
 displayed `x <number>` suffix. Normal and rare coordinators serialize requests through one Tesseract worker. The current

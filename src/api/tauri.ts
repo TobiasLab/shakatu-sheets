@@ -113,6 +113,7 @@ export type NativeCaptureError = { kind: "error"; message: string };
 export type LootCaptureSettings = {
     region: NormalizedRegion;
     rareRegion?: NormalizedRegion | null;
+    rareRegionConfirmed: boolean;
     sourceWidth: number;
     sourceHeight: number;
     uiScalePercent: LootUiScale;

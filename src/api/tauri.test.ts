@@ -165,6 +165,7 @@ describe("native capture frame protocol", () => {
         };
         const settings: LootCaptureSettings = {
             region: { x: 2433 / 3440, y: 990 / 1440, width: 362 / 3440, height: 311 / 1440 },
+            rareRegionConfirmed: false,
             sourceWidth: 3440,
             sourceHeight: 1440,
             uiScalePercent: 80,

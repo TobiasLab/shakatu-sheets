@@ -42,7 +42,6 @@ import { findLiveLootProfile } from "../../recognition/liveLootProfiles";
 import {
     acceptLiveLootReviewEntry,
     appendLiveLootReviewResult,
-    automaticallyAcceptLiveLootReviewEntry,
     type LiveLootReviewEntry,
 } from "../../recognition/liveLootReview";
 import {
@@ -161,13 +160,24 @@ function resultDescription(result: LiveLootRecognitionResult) {
     return "No item and quantity pair reached consensus.";
 }
 
-function resultAnnouncement(entry: LiveLootReviewEntry) {
+function resultAnnouncement(
+    entry: LiveLootReviewEntry,
+    automaticRetriesRemaining?: number,
+    manualRetryAttempt?: number,
+) {
     const source = entry.source === "rare" ? "rare banner" : "normal loot";
     const description = resultDescription(entry.result);
     if (entry.result.status !== "recognized") return `Result ${entry.id + 1}, ${source}: ${description}`;
     if (entry.accepted) return `Result ${entry.id + 1}, ${source}: ${description}. Added to the session.`;
     if (entry.error) {
-        return `Result ${entry.id + 1}, ${source}: ${description}. Insertion failed: ${entry.error}. Select Retry add.`;
+        const nextAction =
+            automaticRetriesRemaining === undefined
+                ? "Select Retry add."
+                : automaticRetriesRemaining > 0
+                  ? `${automaticRetriesRemaining} automatic ${automaticRetriesRemaining === 1 ? "retry remains" : "retries remain"}.`
+                  : "Automatic retries exhausted. Select Retry add.";
+        const attempt = manualRetryAttempt ? `Manual retry ${manualRetryAttempt} failed. ` : "";
+        return `Result ${entry.id + 1}, ${source}: ${description}. ${attempt}Insertion failed: ${entry.error}. ${nextAction}`;
     }
     return `Result ${entry.id + 1}, ${source}: ${description}. Automatic insertion is pending.`;
 }
@@ -208,6 +218,7 @@ export function LiveLootCapture({
     const placementModeRef = useRef<PlacementMode>("manual");
     const searchRegionRef = useRef<NormalizedRegion | null>(null);
     const regionConfirmedRef = useRef(false);
+    const rareRegionConfirmedRef = useRef(false);
     const normalCaptureRegionRef = useRef<NormalizedRegion | null>(null);
     const rareCaptureRegionRef = useRef<NormalizedRegion | null>(null);
     const sourceDimensionsRef = useRef<SourceDimensions | null>(null);
@@ -224,6 +235,7 @@ export function LiveLootCapture({
     const nextReviewResultId = useRef(0);
     const reviewResultsRef = useRef<LiveLootReviewEntry[]>([]);
     const automaticRetries = useRef(new Map<number, AutomaticRetry>());
+    const manualRetryAttempts = useRef(new Map<number, number>());
     const itemDictionaryRef = useRef(itemDictionary);
     const onAcceptRecognitionRef = useRef(onAcceptRecognition);
     const [status, setStatus] = useState<CaptureStatus>("idle");
@@ -243,6 +255,7 @@ export function LiveLootCapture({
     const [activeRegionKind, setActiveRegionKind] = useState<LootRegionKind>("normal");
     const [uiScalePercent, setUiScalePercent] = useState<LootUiScale>(80);
     const [regionConfirmed, setRegionConfirmed] = useState(false);
+    const [rareRegionConfirmed, setRareRegionConfirmed] = useState(false);
     const [savingRegion, setSavingRegion] = useState(false);
     const [recognitionStatus, setRecognitionStatus] = useState<RecognitionStatus>("idle");
     const [recognitionError, setRecognitionError] = useState("");
@@ -294,6 +307,17 @@ export function LiveLootCapture({
     function updateRegionConfirmed(next: boolean) {
         regionConfirmedRef.current = next;
         setRegionConfirmed(next);
+    }
+
+    function updateRareRegionConfirmed(next: boolean) {
+        rareRegionConfirmedRef.current = next;
+        setRareRegionConfirmed(next);
+    }
+
+    function regionIsReady(kind: LootRegionKind) {
+        return kind === "normal"
+            ? placementModeRef.current === "aligned" || regionConfirmedRef.current
+            : rareRegionConfirmedRef.current;
     }
 
     function selectRegionKind(kind: LootRegionKind) {
@@ -409,7 +433,11 @@ export function LiveLootCapture({
         automaticRetries.current.clear();
     }
 
-    function replaceReviewEntry(entry: LiveLootReviewEntry) {
+    function replaceReviewEntry(
+        entry: LiveLootReviewEntry,
+        automaticRetriesRemaining?: number,
+        manualRetryAttempt?: number,
+    ) {
         let retained = false;
         const next = reviewResultsRef.current.map((candidate) => {
             if (candidate.id !== entry.id) return candidate;
@@ -419,7 +447,7 @@ export function LiveLootCapture({
         if (!retained) return;
         reviewResultsRef.current = next;
         setReviewResults(next);
-        setRecognitionAnnouncement(resultAnnouncement(entry));
+        setRecognitionAnnouncement(resultAnnouncement(entry, automaticRetriesRemaining, manualRetryAttempt));
     }
 
     function scheduleAutomaticRetry(entry: LiveLootReviewEntry, retriesRemaining: number) {
@@ -441,7 +469,8 @@ export function LiveLootCapture({
                 return;
             const current = reviewResultsRef.current.find((candidate) => candidate.id === entry.id) ?? entry;
             const retried = acceptLiveLootReviewEntry(current, onAcceptRecognitionRef.current);
-            replaceReviewEntry(retried);
+            replaceReviewEntry(retried, retriesRemaining - 1);
+            if (retried.accepted) manualRetryAttempts.current.delete(entry.id);
             scheduleAutomaticRetry(retried, retriesRemaining - 1);
         }, AUTOMATIC_INSERTION_RETRY_DELAYS[delayIndex]);
         automaticRetries.current.set(entry.id, { timerId, retriesRemaining });
@@ -450,13 +479,19 @@ export function LiveLootCapture({
     function acceptReviewResult(id: number) {
         const review = reviewResultsRef.current.find((candidate) => candidate.id === id);
         if (!review || review.accepted || review.result.status !== "recognized") return;
+        const manualRetryAttempt = (manualRetryAttempts.current.get(id) ?? 0) + 1;
+        manualRetryAttempts.current.set(id, manualRetryAttempt);
         const retried = acceptLiveLootReviewEntry(review, onAcceptRecognitionRef.current);
-        replaceReviewEntry(retried);
-        if (retried.accepted) cancelAutomaticRetry(id);
+        replaceReviewEntry(retried, automaticRetries.current.get(id)?.retriesRemaining, manualRetryAttempt);
+        if (retried.accepted) {
+            cancelAutomaticRetry(id);
+            manualRetryAttempts.current.delete(id);
+        }
     }
 
     function clearReviewResults() {
         clearAutomaticRetries();
+        manualRetryAttempts.current.clear();
         reviewResultsRef.current = [];
         setReviewResults([]);
         setOmittedReviewResults(0);
@@ -498,7 +533,8 @@ export function LiveLootCapture({
         updateRegion("normal", region);
         updateCaptureRegion("normal", region);
         updatePlacementMode("aligned");
-        updateRegionConfirmed(true);
+        updateRegionConfirmed(rareRegionConfirmedRef.current);
+        if (!rareRegionConfirmedRef.current) selectRegionKind("rare");
         clearRegionPreview("normal");
         if (searchRegionCanvas.current) {
             searchRegionCanvas.current.width = 0;
@@ -517,7 +553,8 @@ export function LiveLootCapture({
         updateCaptureRegion("rare", finalRare);
         void queueSettingsSave({
             region,
-            rareRegion: finalRare,
+            rareRegion: rareRegionConfirmedRef.current ? finalRare : null,
+            rareRegionConfirmed: rareRegionConfirmedRef.current,
             sourceWidth: currentSource.width,
             sourceHeight: currentSource.height,
             uiScalePercent: uiScaleRef.current,
@@ -572,6 +609,7 @@ export function LiveLootCapture({
         updateSearchRegion(null);
         updatePlacementMode("manual");
         updateRegionConfirmed(false);
+        updateRareRegionConfirmed(false);
         updateCaptureRegion("normal", normalRegionRef.current);
         updateCaptureRegion("rare", rareRegionRef.current);
         clearRegionPreview("normal");
@@ -600,6 +638,7 @@ export function LiveLootCapture({
         updateSearchRegion(null);
         updatePlacementMode("manual");
         updateRegionConfirmed(false);
+        updateRareRegionConfirmed(false);
         sampledFrames.current = 0;
         measurementStarted.current = performance.now();
         configuredSource.current = "";
@@ -673,7 +712,7 @@ export function LiveLootCapture({
                                 return;
                             setNormalRegionFrameSize({ width: frame.width, height: frame.height });
                             drawFrame(normalRegionCanvas.current, frame);
-                            if (regionConfirmedRef.current) {
+                            if (regionIsReady("normal")) {
                                 pushRecognitionFrame({
                                     width: frame.width,
                                     height: frame.height,
@@ -686,7 +725,7 @@ export function LiveLootCapture({
                                 return;
                             setRareRegionFrameSize({ width: frame.width, height: frame.height });
                             drawFrame(rareRegionCanvas.current, frame);
-                            if (regionConfirmedRef.current) {
+                            if (regionIsReady("rare")) {
                                 pushRareRecognitionFrame({
                                     width: frame.width,
                                     height: frame.height,
@@ -781,13 +820,15 @@ export function LiveLootCapture({
             clearRegionPreview("normal");
             return;
         }
+        const preserveAutomaticNormal = placementModeRef.current === "aligned" && kind === "rare";
         clearLocalization();
         restartRecognition();
         updateSearchRegion(null);
-        updatePlacementMode("manual");
+        if (!preserveAutomaticNormal) updatePlacementMode("manual");
         updateRegion(kind, next);
         updateCaptureRegion(kind, next);
         updateRegionConfirmed(false);
+        if (kind === "rare") updateRareRegionConfirmed(false);
         clearRegionPreview(kind);
     }
 
@@ -797,6 +838,7 @@ export function LiveLootCapture({
         restartRecognition();
         updateUiScale(next);
         updateRegionConfirmed(false);
+        updateRareRegionConfirmed(false);
         const currentSource = sourceDimensionsRef.current;
         if (!currentSource || !isSupportedLootSource(currentSource.width, currentSource.height)) return;
         const reposition = (kind: LootRegionKind, current: NormalizedRegion | null) =>
@@ -834,14 +876,16 @@ export function LiveLootCapture({
         if (savingRegion) return;
         const kind = activeRegionKindRef.current;
         if (placementModeRef.current !== "localizing") {
+            const preserveAutomaticNormal = placementModeRef.current === "aligned" && kind === "rare";
             clearLocalization();
             restartRecognition();
             updateSearchRegion(null);
-            updatePlacementMode("manual");
+            if (!preserveAutomaticNormal) updatePlacementMode("manual");
             updateRegionConfirmed(false);
         }
         updateRegion(kind, next);
         updateCaptureRegion(kind, next);
+        if (kind === "rare") updateRareRegionConfirmed(false);
         clearRegionPreview(kind);
     }
 
@@ -876,6 +920,7 @@ export function LiveLootCapture({
         const settings = {
             region: normalRegion,
             rareRegion,
+            rareRegionConfirmed: true,
             sourceWidth: sourceDimensions.width,
             sourceHeight: sourceDimensions.height,
             uiScalePercent,
@@ -895,7 +940,7 @@ export function LiveLootCapture({
                 regionsEqual(normalRegionRef.current, settings.region) &&
                 regionsEqual(rareRegionRef.current, settings.rareRegion)
             ) {
-                updatePlacementMode("manual");
+                updateRareRegionConfirmed(true);
                 updateRegionConfirmed(true);
             }
         } finally {
@@ -910,7 +955,7 @@ export function LiveLootCapture({
         sessionStatus === "running" &&
         status === "capturing" &&
         calibratedProfile !== null &&
-        (placementMode === "localizing" || placementMode === "aligned" || regionConfirmed);
+        (placementMode === "localizing" || placementMode === "aligned" || regionConfirmed || rareRegionConfirmed);
     useLayoutEffect(() => {
         recognitionRequestedRef.current = recognitionRequested;
     }, [recognitionRequested]);
@@ -977,11 +1022,18 @@ export function LiveLootCapture({
                         accepted: false,
                         error: "",
                     };
-                    const entry = automaticallyAcceptLiveLootReviewEntry(pendingEntry, onAcceptRecognitionRef.current);
+                    const entry = acceptLiveLootReviewEntry(pendingEntry, onAcceptRecognitionRef.current);
                     const appended = appendLiveLootReviewResult(reviewResultsRef.current, entry);
                     reviewResultsRef.current = appended.results;
                     setReviewResults(appended.results);
-                    setRecognitionAnnouncement(resultAnnouncement(entry));
+                    const retainedIds = new Set(appended.results.map(({ id }) => id));
+                    for (const reviewId of automaticRetries.current.keys()) {
+                        if (!retainedIds.has(reviewId)) cancelAutomaticRetry(reviewId);
+                    }
+                    for (const reviewId of manualRetryAttempts.current.keys()) {
+                        if (!retainedIds.has(reviewId)) manualRetryAttempts.current.delete(reviewId);
+                    }
+                    setRecognitionAnnouncement(resultAnnouncement(entry, AUTOMATIC_INSERTION_RETRY_DELAYS.length));
                     scheduleAutomaticRetry(entry, AUTOMATIC_INSERTION_RETRY_DELAYS.length);
                     if (appended.omittedCount > 0) {
                         setOmittedReviewResults((current) => current + appended.omittedCount);
@@ -1082,6 +1134,7 @@ export function LiveLootCapture({
         clearLocalization();
         clearRegionPreview("normal");
         clearRegionPreview("rare");
+        updateRareRegionConfirmed(false);
         if (!isSupportedLootSource(sourceDimensions.width, sourceDimensions.height)) {
             updateRegion("normal", null);
             updateRegion("rare", null);
@@ -1102,6 +1155,7 @@ export function LiveLootCapture({
         );
         let selectedRare = defaultLootRegion(sourceDimensions.width, sourceDimensions.height, selectedScale, "rare");
         let confirmed = false;
+        let rareConfirmed = false;
         if (
             savedSettings?.sourceWidth === sourceDimensions.width &&
             savedSettings.sourceHeight === sourceDimensions.height
@@ -1146,12 +1200,14 @@ export function LiveLootCapture({
                     rareValid = false;
                 }
             }
-            confirmed = normalValid && rareValid;
+            rareConfirmed = rareValid && savedSettings.rareRegionConfirmed;
+            confirmed = normalValid && rareConfirmed;
         }
         updateUiScale(selectedScale);
         updateRegion("normal", selectedNormal);
         updateRegion("rare", selectedRare);
         updateCaptureRegion("rare", selectedRare);
+        updateRareRegionConfirmed(rareConfirmed);
         if (findLiveLootProfile(sourceDimensions.width, sourceDimensions.height, selectedScale)) {
             beginAutomaticLocalization(selectedNormal);
         } else {
@@ -1210,6 +1266,7 @@ export function LiveLootCapture({
                     settings: {
                         region: normalCaptureRegion,
                         rareRegion: rareCaptureRegion,
+                        rareRegionConfirmed,
                         sourceWidth: sourceDimensions.width,
                         sourceHeight: sourceDimensions.height,
                         uiScalePercent,
@@ -1245,6 +1302,7 @@ export function LiveLootCapture({
         normalCaptureRegion,
         placementMode,
         rareCaptureRegion,
+        rareRegionConfirmed,
         regionConfirmed,
         searchRegion,
         sourceDimensions,
@@ -1353,7 +1411,7 @@ export function LiveLootCapture({
                     }
                 }
                 const drawBrowserRegion = (kind: LootRegionKind) => {
-                    if (kind === "normal" && localizingAtSampleStart) return;
+                    if (localizingAtSampleStart) return;
                     const selected = kind === "normal" ? normalRegionRef.current : rareRegionRef.current;
                     const crop = kind === "normal" ? normalRegionCanvas.current : rareRegionCanvas.current;
                     if (!selected || !crop) return;
@@ -1374,7 +1432,7 @@ export function LiveLootCapture({
                         pixels.width,
                         pixels.height,
                     );
-                    if (cropContext && regionConfirmedRef.current) {
+                    if (cropContext && regionIsReady(kind)) {
                         try {
                             const frame = cropContext.getImageData(0, 0, pixels.width, pixels.height);
                             const recognitionFrame = { width: pixels.width, height: pixels.height, pixels: frame.data };
@@ -1439,6 +1497,8 @@ export function LiveLootCapture({
     const rareGuideFrameSize = lootRegionSize(uiScalePercent, "rare");
     const normalAlignmentGuide = lootAlignmentGuide(uiScalePercent, "normal");
     const rareAlignmentGuide = lootAlignmentGuide(uiScalePercent, "rare");
+    const normalRecognitionReady = calibratedProfile !== null && (placementMode === "aligned" || regionConfirmed);
+    const rareRecognitionReady = calibratedProfile !== null && rareRegionConfirmed;
     const placementLabel = !calibratedProfile
         ? "No calibrated profile"
         : placementMode === "localizing"
@@ -1457,6 +1517,11 @@ export function LiveLootCapture({
               : placementMode === "manual" && !regionConfirmed
                 ? "Confirm manual placement"
                 : "Waiting";
+    const placementConfirmationInstruction = regionConfirmed
+        ? "Both areas are confirmed."
+        : placementMode === "aligned"
+          ? "Confirm the rare area to enable rare recognition."
+          : "Confirm after placing both.";
 
     return (
         <section className={styles.CapturePanel} aria-labelledby="live-capture-heading">
@@ -1599,7 +1664,9 @@ export function LiveLootCapture({
                                             height: `${rareRegion.height * 100}%`,
                                         }}
                                     >
-                                        <span className={styles.OverlayLabel}>Rare recognition area</span>
+                                        <span className={styles.OverlayLabel}>
+                                            {rareRecognitionReady ? "Rare recognition area" : "Rare alignment area"}
+                                        </span>
                                         <AlignmentGuide frameSize={rareGuideFrameSize} guide={rareAlignmentGuide} />
                                     </div>
                                 )}
@@ -1641,7 +1708,7 @@ export function LiveLootCapture({
                                               activeRegionKind === "normal"
                                                   ? "Each green horizontal line should run through the center of a visible item name."
                                                   : "The green horizontal line should run through the center of the rare item name. Rare recognition is provisional."
-                                          } Confirm after placing both.`}
+                                          } ${placementConfirmationInstruction}`}
                                 </p>
                                 {placementMode === "localizing" ? (
                                     <div className={styles.PrecisionControls}>
@@ -1719,7 +1786,7 @@ export function LiveLootCapture({
                                             Relocate automatically
                                         </button>
                                     )}
-                                    {placementMode === "manual" && (
+                                    {placementMode !== "localizing" && (
                                         <button
                                             className="button"
                                             type="button"
@@ -1730,7 +1797,9 @@ export function LiveLootCapture({
                                                 ? "Saving..."
                                                 : regionConfirmed
                                                   ? "Both areas confirmed"
-                                                  : "Confirm both areas"}
+                                                  : placementMode === "aligned"
+                                                    ? "Confirm rare area"
+                                                    : "Confirm both areas"}
                                         </button>
                                     )}
                                 </div>
@@ -1778,7 +1847,7 @@ export function LiveLootCapture({
                                 </dd>
                             </div>
                             <div>
-                                <dt>Recognition crop</dt>
+                                <dt>{normalRecognitionReady ? "Recognition crop" : "Normal crop"}</dt>
                                 <dd className={normalRegionFrameSize ? styles.Active : styles.Warning}>
                                     {normalRegionFrameSize
                                         ? `${normalRegionFrameSize.width} x ${normalRegionFrameSize.height}`
@@ -1798,7 +1867,7 @@ export function LiveLootCapture({
                                 </dd>
                             </div>
                             <div>
-                                <dt>Rare recognition crop</dt>
+                                <dt>{rareRecognitionReady ? "Rare recognition crop" : "Rare crop"}</dt>
                                 <dd className={rareRegionFrameSize ? styles.Active : styles.Warning}>
                                     {rareRegionFrameSize
                                         ? `${rareRegionFrameSize.width} x ${rareRegionFrameSize.height}`
@@ -1821,23 +1890,39 @@ export function LiveLootCapture({
                             </div>
                         </dl>
                         <div className={styles.RegionPreview}>
-                            <span>Normal recognition preview</span>
+                            <span>{normalRecognitionReady ? "Normal recognition preview" : "Normal preview"}</span>
                             <div className={styles.RegionPreviewStage}>
-                                <canvas ref={normalRegionCanvas} aria-label="Loot stack recognition crop" />
+                                <canvas
+                                    ref={normalRegionCanvas}
+                                    aria-label={
+                                        normalRecognitionReady ? "Loot stack recognition crop" : "Loot stack preview"
+                                    }
+                                />
                                 {placementMode !== "localizing" && normalRegionFrameSize && (
                                     <AlignmentGuide frameSize={normalGuideFrameSize} guide={normalAlignmentGuide} />
                                 )}
                             </div>
                         </div>
                         <div className={`${styles.RegionPreview} ${styles.RareRegionPreview}`}>
-                            <span>Rare recognition preview</span>
+                            <span>{rareRecognitionReady ? "Rare recognition preview" : "Rare preview"}</span>
                             <div className={styles.RegionPreviewStage}>
-                                <canvas ref={rareRegionCanvas} aria-label="Rare recognition crop" />
+                                <canvas
+                                    ref={rareRegionCanvas}
+                                    aria-label={
+                                        rareRecognitionReady ? "Rare recognition crop" : "Rare alignment preview"
+                                    }
+                                />
                                 {rareRegionFrameSize && (
                                     <AlignmentGuide frameSize={rareGuideFrameSize} guide={rareAlignmentGuide} />
                                 )}
                             </div>
-                            <p>Provisional recognition - recognized banners are added automatically</p>
+                            <p>
+                                {!calibratedProfile
+                                    ? "Preview only - no calibrated recognition profile"
+                                    : rareRecognitionReady
+                                      ? "Provisional recognition - recognized banners are added automatically"
+                                      : "Align and confirm the rare area to enable provisional recognition"}
+                            </p>
                         </div>
                     </aside>
                 </div>
@@ -1897,9 +1982,9 @@ export function LiveLootCapture({
             )}
             <p className={styles.PrivacyNote}>
                 Capture pixels stay in memory and are never saved or uploaded. Automatic placement scans only the
-                highlighted search area; after placement, normal and rare loot crops are processed by the bundled local
-                OCR worker. Recognized results are added automatically. Only final coordinates, source dimensions, and
-                BDO UI scale are stored.
+                highlighted search area. When recognition is active, confirmed loot crops are processed by the bundled
+                local OCR worker and recognized results are added automatically. Only final coordinates, rare-area
+                confirmation, source dimensions, and BDO UI scale are stored.
             </p>
         </section>
     );

@@ -201,15 +201,16 @@ One event cannot provide separate development and held-out sequences. A provisio
 fixed gold shell inside `x=65..370`, `y=35..80` of the `400x100` crop as an appearance signal. It requires at least 65% of
 that area to pass the calibrated warm-color gate for four consecutive 8 FPS frames. Once confirmed, it holds one event
 active for at least 18 frames and waits 12 detected frames before selecting three OCR frames from `x=40..392`,
-`y=20..92`. Two absent shell frames end an appearance after its minimum lifetime. A shell returning after a longer early
-gap begins confirmation for a separate appearance rather than being merged into the active event. An appearance beginning
-in frame zero is suppressed as a baseline. This permits separate event IDs for later appearances, including an identical
-item, without deduplicating by recognized text.
+`y=20..92`, unless a separately confirmed replacement ends the old event first. Returning-shell confirmation frames are
+OCR-ineligible for the old event. Two absent shell frames end an appearance after its minimum lifetime. A shell returning
+after a longer early gap begins confirmation for a separate appearance rather than being merged into the active event. An
+appearance beginning in frame zero is suppressed as a baseline. This permits separate event IDs for later appearances,
+including an identical item, without deduplicating by recognized text.
 
 The analyzer feeds the existing dictionary-constrained item and quantity OCR path through the same serialized local
 Tesseract worker as normal loot. Recognized rare events are labeled separately in the review feed and inserted
 automatically with the same retry policy as normal loot. The synthetic detector tests cover malformed crops, short shell
 flashes, baseline suppression, delayed OCR selection, and two separated appearances. These are regression tests around
 the one measured event, not a held-out accuracy benchmark. More labeled events across varied scenes, 100% UI-scale data,
-at least one frozen held-out sequence, and repeated-identical-banner coverage remain required before the detector can be
-considered calibrated.
+at least one frozen held-out sequence, and recorded and labeled repeated-identical-banner coverage remain required before
+the detector can be considered calibrated.
