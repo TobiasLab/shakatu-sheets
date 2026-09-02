@@ -1,6 +1,11 @@
 import { describe, expect, it, vi } from "vitest";
 import type { LiveLootRecognitionResult } from "./liveLoot";
-import { acceptLiveLootReviewEntry, appendLiveLootReviewResult, type LiveLootReviewEntry } from "./liveLootReview";
+import {
+    acceptLiveLootReviewEntry,
+    appendLiveLootReviewResult,
+    automaticallyAcceptLiveLootReviewEntry,
+    type LiveLootReviewEntry,
+} from "./liveLootReview";
 
 function entry(id: number, status: LiveLootRecognitionResult["status"] = "recognized"): LiveLootReviewEntry {
     const result: LiveLootRecognitionResult =
@@ -23,7 +28,7 @@ function entry(id: number, status: LiveLootRecognitionResult["status"] = "recogn
                   status: "failed",
                   reason: "ocr-failure",
               };
-    return { id, result, accepted: false, error: "" };
+    return { id, source: "normal", result, accepted: false, error: "" };
 }
 
 describe("appendLiveLootReviewResult", () => {
@@ -59,6 +64,16 @@ describe("appendLiveLootReviewResult", () => {
 });
 
 describe("acceptLiveLootReviewEntry", () => {
+    it("automatically accepts normal-stack and rare-banner results", () => {
+        const accept = vi.fn(() => null);
+        const normal = entry(1);
+        const rare = { ...entry(2), source: "rare" as const };
+
+        expect(automaticallyAcceptLiveLootReviewEntry(normal, accept).accepted).toBe(true);
+        expect(automaticallyAcceptLiveLootReviewEntry(rare, accept).accepted).toBe(true);
+        expect(accept).toHaveBeenCalledTimes(2);
+    });
+
     it("adds a recognized result and marks it accepted", () => {
         const accept = vi.fn(() => null);
 

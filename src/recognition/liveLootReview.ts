@@ -4,6 +4,7 @@ export const maximumLiveLootReviewResults = 50;
 
 export type LiveLootReviewEntry = {
     id: number;
+    source: "normal" | "rare";
     result: LiveLootRecognitionResult;
     accepted: boolean;
     error: string;
@@ -20,6 +21,13 @@ export function acceptLiveLootReviewEntry(
     } catch (error) {
         return { ...entry, accepted: false, error: error instanceof Error ? error.message : String(error) };
     }
+}
+
+export function automaticallyAcceptLiveLootReviewEntry(
+    entry: LiveLootReviewEntry,
+    accept: (itemName: string, quantity: number) => string | null,
+) {
+    return acceptLiveLootReviewEntry(entry, accept);
 }
 
 export function appendLiveLootReviewResult(

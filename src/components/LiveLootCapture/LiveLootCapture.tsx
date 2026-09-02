@@ -33,13 +33,24 @@ import {
 } from "../../recognition/displayCapture";
 import { LiveLootCoordinator, type LiveLootRecognitionResult, type LootRoiFrame } from "../../recognition/liveLoot";
 import { NormalLootLocalizer, type NormalLootSearchFrame } from "../../recognition/liveLootLocalization";
-import { createLiveLootTesseractOcr, type LiveLootTesseractOcr } from "../../recognition/liveLootOcr";
+import {
+    createLiveLootTesseractOcr,
+    type LiveLootTesseractOcr,
+    serializeLiveLootOcrReader,
+} from "../../recognition/liveLootOcr";
 import { findLiveLootProfile } from "../../recognition/liveLootProfiles";
 import {
     acceptLiveLootReviewEntry,
     appendLiveLootReviewResult,
+    automaticallyAcceptLiveLootReviewEntry,
     type LiveLootReviewEntry,
 } from "../../recognition/liveLootReview";
+import {
+    RARE_LOOT_OCR_BOUNDS,
+    RARE_LOOT_OCR_SELECTION,
+    RARE_LOOT_PROFILE,
+    RareLootFrameAnalyzer,
+} from "../../recognition/rareLoot";
 import styles from "./LiveLootCapture.module.css";
 
 type CaptureStatus = "idle" | "requesting" | "connecting" | "capturing";
@@ -47,7 +58,8 @@ type RecognitionStatus = "idle" | "starting" | "active" | "unavailable" | "error
 type PlacementMode = "localizing" | "aligned" | "manual";
 type SourceDimensions = { width: number; height: number };
 type RecognitionPipeline = {
-    coordinator: LiveLootCoordinator;
+    normalCoordinator: LiveLootCoordinator;
+    rareCoordinator: LiveLootCoordinator;
     ocr: LiveLootTesseractOcr;
 };
 type AutomaticRetry = { timerId: number; retriesRemaining: number };
@@ -95,7 +107,7 @@ function AlignmentGuide({ frameSize, guide }: { frameSize: SourceDimensions; gui
                 height: `${(guide.height / frameSize.height) * 100}%`,
             }}
         >
-            <span className={styles.GuideLabel}>Align loot text</span>
+            <span className={styles.GuideLabel}>{guide.rowCenters.length > 0 ? "Item-name rows" : "Text area"}</span>
             {guide.rowCenters.map((center) => (
                 <i
                     key={center}
@@ -147,6 +159,17 @@ function resultDescription(result: LiveLootRecognitionResult) {
     return "No item and quantity pair reached consensus.";
 }
 
+function resultAnnouncement(entry: LiveLootReviewEntry) {
+    const source = entry.source === "rare" ? "rare banner" : "normal loot";
+    const description = resultDescription(entry.result);
+    if (entry.result.status !== "recognized") return `Result ${entry.id + 1}, ${source}: ${description}`;
+    if (entry.accepted) return `Result ${entry.id + 1}, ${source}: ${description}. Added to the session.`;
+    if (entry.error) {
+        return `Result ${entry.id + 1}, ${source}: ${description}. Insertion failed: ${entry.error}. Select Retry add.`;
+    }
+    return `Result ${entry.id + 1}, ${source}: ${description}. Automatic insertion is pending.`;
+}
+
 export function LiveLootCapture({
     sessionId,
     sessionStatus,
@@ -193,6 +216,7 @@ export function LiveLootCapture({
     const recognitionRequestedRef = useRef(false);
     const pendingLocalizationReplay = useRef<LootRoiFrame[]>([]);
     const pendingRecognitionFrames = useRef<LootRoiFrame[]>([]);
+    const pendingRareRecognitionFrames = useRef<LootRoiFrame[]>([]);
     const pendingRecognitionOverflowed = useRef(false);
     const localizer = useRef<NormalLootLocalizer | null>(null);
     const nextReviewResultId = useRef(0);
@@ -223,6 +247,7 @@ export function LiveLootCapture({
     const [recognitionReset, setRecognitionReset] = useState(0);
     const [reviewResults, setReviewResults] = useState<LiveLootReviewEntry[]>([]);
     const [omittedReviewResults, setOmittedReviewResults] = useState(0);
+    const [recognitionAnnouncement, setRecognitionAnnouncement] = useState("");
 
     const isSessionRunning = sessionStatus === "running";
     useLayoutEffect(() => {
@@ -299,6 +324,7 @@ export function LiveLootCapture({
         localizer.current = null;
         pendingLocalizationReplay.current.length = 0;
         pendingRecognitionFrames.current.length = 0;
+        pendingRareRecognitionFrames.current.length = 0;
         pendingRecognitionOverflowed.current = false;
         if (searchRegionCanvas.current) {
             searchRegionCanvas.current.width = 0;
@@ -310,10 +336,12 @@ export function LiveLootCapture({
         recognitionGeneration.current += 1;
         pendingLocalizationReplay.current.length = 0;
         pendingRecognitionFrames.current.length = 0;
+        pendingRareRecognitionFrames.current.length = 0;
         pendingRecognitionOverflowed.current = false;
         const current = recognition.current;
         recognition.current = null;
-        current?.coordinator.stop();
+        current?.normalCoordinator.stop();
+        current?.rareCoordinator.stop();
         if (current) void current.ocr.terminate().catch(() => undefined);
         if (updateStatus && mounted.current) setRecognitionStatus("idle");
     }
@@ -332,7 +360,27 @@ export function LiveLootCapture({
             return;
         }
         try {
-            current.coordinator.pushFrame(frame);
+            current.normalCoordinator.pushFrame(frame);
+        } catch (frameError) {
+            stopRecognition(false);
+            setRecognitionStatus("error");
+            setRecognitionError(frameError instanceof Error ? frameError.message : String(frameError));
+        }
+    }
+
+    function pushRareRecognitionFrame(frame: LootRoiFrame) {
+        const current = recognition.current;
+        if (!current) {
+            if (recognitionRequestedRef.current) {
+                if (pendingRareRecognitionFrames.current.length === MAX_PENDING_RECOGNITION_FRAMES) {
+                    pendingRareRecognitionFrames.current.shift();
+                }
+                pendingRareRecognitionFrames.current.push(frame);
+            }
+            return;
+        }
+        try {
+            current.rareCoordinator.pushFrame(frame);
         } catch (frameError) {
             stopRecognition(false);
             setRecognitionStatus("error");
@@ -369,6 +417,7 @@ export function LiveLootCapture({
         if (!retained) return;
         reviewResultsRef.current = next;
         setReviewResults(next);
+        setRecognitionAnnouncement(resultAnnouncement(entry));
     }
 
     function scheduleAutomaticRetry(entry: LiveLootReviewEntry, retriesRemaining: number) {
@@ -409,6 +458,7 @@ export function LiveLootCapture({
         reviewResultsRef.current = [];
         setReviewResults([]);
         setOmittedReviewResults(0);
+        setRecognitionAnnouncement("");
     }
 
     function queueSettingsSave(settings: LootCaptureSettings) {
@@ -634,6 +684,13 @@ export function LiveLootCapture({
                                 return;
                             setRareRegionFrameSize({ width: frame.width, height: frame.height });
                             drawFrame(rareRegionCanvas.current, frame);
+                            if (regionConfirmedRef.current) {
+                                pushRareRecognitionFrame({
+                                    width: frame.width,
+                                    height: frame.height,
+                                    pixels: frame.pixels,
+                                });
+                            }
                         }
                     },
                     (message) => {
@@ -856,10 +913,11 @@ export function LiveLootCapture({
         recognitionRequestedRef.current = recognitionRequested;
     }, [recognitionRequested]);
 
-    useEffect(() => {
+    useLayoutEffect(() => {
         nextReviewResultId.current = 0;
         localizer.current?.clear();
         pendingRecognitionFrames.current.length = 0;
+        pendingRareRecognitionFrames.current.length = 0;
         clearReviewResults();
     }, [sessionId]);
 
@@ -898,43 +956,57 @@ export function LiveLootCapture({
                     await ocr.terminate();
                     return;
                 }
-                const coordinator = new LiveLootCoordinator({
+                const readText = serializeLiveLootOcrReader(ocr.readText);
+                const appendResult = (source: LiveLootReviewEntry["source"], result: LiveLootRecognitionResult) => {
+                    if (
+                        !mounted.current ||
+                        !sessionRunning.current ||
+                        activeSessionId.current !== sessionId ||
+                        recognitionSessionRunGeneration !== sessionRunGeneration.current ||
+                        generation !== recognitionGeneration.current
+                    )
+                        return;
+                    const id = nextReviewResultId.current;
+                    nextReviewResultId.current += 1;
+                    const pendingEntry: LiveLootReviewEntry = {
+                        id,
+                        source,
+                        result,
+                        accepted: false,
+                        error: "",
+                    };
+                    const entry = automaticallyAcceptLiveLootReviewEntry(pendingEntry, onAcceptRecognitionRef.current);
+                    const appended = appendLiveLootReviewResult(reviewResultsRef.current, entry);
+                    reviewResultsRef.current = appended.results;
+                    setReviewResults(appended.results);
+                    setRecognitionAnnouncement(resultAnnouncement(entry));
+                    scheduleAutomaticRetry(entry, AUTOMATIC_INSERTION_RETRY_DELAYS.length);
+                    if (appended.omittedCount > 0) {
+                        setOmittedReviewResults((current) => current + appended.omittedCount);
+                    }
+                };
+                const normalCoordinator = new LiveLootCoordinator({
                     profile: calibratedProfile.profile,
                     dictionary: itemDictionaryRef.current,
-                    readText: ocr.readText,
-                    onResult: (result) => {
-                        if (
-                            !mounted.current ||
-                            !sessionRunning.current ||
-                            activeSessionId.current !== sessionId ||
-                            recognitionSessionRunGeneration !== sessionRunGeneration.current ||
-                            generation !== recognitionGeneration.current
-                        )
-                            return;
-                        const id = nextReviewResultId.current;
-                        nextReviewResultId.current += 1;
-                        const entry = acceptLiveLootReviewEntry(
-                            {
-                                id,
-                                result,
-                                accepted: false,
-                                error: "",
-                            },
-                            onAcceptRecognitionRef.current,
-                        );
-                        const appended = appendLiveLootReviewResult(reviewResultsRef.current, entry);
-                        reviewResultsRef.current = appended.results;
-                        setReviewResults(appended.results);
-                        scheduleAutomaticRetry(entry, AUTOMATIC_INSERTION_RETRY_DELAYS.length);
-                        if (appended.omittedCount > 0) {
-                            setOmittedReviewResults((current) => current + appended.omittedCount);
-                        }
-                    },
+                    readText,
+                    onResult: (result) => appendResult("normal", result),
                 });
-                const pipeline = { coordinator, ocr };
+                const rareAnalyzer = new RareLootFrameAnalyzer();
+                const rareCoordinator = new LiveLootCoordinator({
+                    profile: RARE_LOOT_PROFILE,
+                    dictionary: itemDictionaryRef.current,
+                    readText,
+                    onResult: (result) => appendResult("rare", result),
+                    analyzeFrame: (frame) => rareAnalyzer.pushFrame(frame),
+                    ocrSelection: RARE_LOOT_OCR_SELECTION,
+                    ocrBounds: RARE_LOOT_OCR_BOUNDS,
+                    eventIdPrefix: "rare",
+                });
+                const pipeline = { normalCoordinator, rareCoordinator, ocr };
                 recognition.current = pipeline;
                 const replay = pendingLocalizationReplay.current.splice(0);
                 const pending = pendingRecognitionFrames.current.splice(0);
+                const pendingRare = pendingRareRecognitionFrames.current.splice(0);
                 const overflowed = pendingRecognitionOverflowed.current;
                 pendingRecognitionOverflowed.current = false;
                 if (!overflowed) {
@@ -946,6 +1018,10 @@ export function LiveLootCapture({
                 for (const frame of pending) {
                     if (recognition.current !== pipeline) break;
                     pushRecognitionFrame(frame);
+                }
+                for (const frame of pendingRare) {
+                    if (recognition.current !== pipeline) break;
+                    pushRareRecognitionFrame(frame);
                 }
                 if (recognition.current === pipeline) setRecognitionStatus("active");
             } catch (setupError) {
@@ -959,6 +1035,7 @@ export function LiveLootCapture({
                     return;
                 pendingLocalizationReplay.current.length = 0;
                 pendingRecognitionFrames.current.length = 0;
+                pendingRareRecognitionFrames.current.length = 0;
                 pendingRecognitionOverflowed.current = false;
                 setRecognitionStatus("error");
                 setRecognitionError(setupError instanceof Error ? setupError.message : String(setupError));
@@ -1295,10 +1372,12 @@ export function LiveLootCapture({
                         pixels.width,
                         pixels.height,
                     );
-                    if (kind === "normal" && cropContext && regionConfirmedRef.current) {
+                    if (cropContext && regionConfirmedRef.current) {
                         try {
                             const frame = cropContext.getImageData(0, 0, pixels.width, pixels.height);
-                            pushRecognitionFrame({ width: pixels.width, height: pixels.height, pixels: frame.data });
+                            const recognitionFrame = { width: pixels.width, height: pixels.height, pixels: frame.data };
+                            if (kind === "normal") pushRecognitionFrame(recognitionFrame);
+                            else pushRareRecognitionFrame(recognitionFrame);
                         } catch (frameError) {
                             stopRecognition(false);
                             setRecognitionStatus("error");
@@ -1518,7 +1597,7 @@ export function LiveLootCapture({
                                             height: `${rareRegion.height * 100}%`,
                                         }}
                                     >
-                                        <span className={styles.OverlayLabel}>Rare preview area</span>
+                                        <span className={styles.OverlayLabel}>Rare recognition area</span>
                                         <AlignmentGuide frameSize={rareGuideFrameSize} guide={rareAlignmentGuide} />
                                     </div>
                                 )}
@@ -1558,8 +1637,8 @@ export function LiveLootCapture({
                                         ? "Waiting for at least two stacked loot notifications. Drag the 800 x 600 auto-search area to recenter the search if needed."
                                         : `Drag the selected ${expectedRegionSize.width} x ${expectedRegionSize.height} area. ${
                                               activeRegionKind === "normal"
-                                                  ? "Align notification text inside the inner guide."
-                                                  : "Align rare-banner text inside the inner guide; rare detection is still preview-only."
+                                                  ? "Each green horizontal line should run through the center of a visible item name."
+                                                  : "Align the rare-banner text inside the inner guide. Rare recognition is provisional."
                                           } Confirm after placing both.`}
                                 </p>
                                 {placementMode === "localizing" ? (
@@ -1717,7 +1796,7 @@ export function LiveLootCapture({
                                 </dd>
                             </div>
                             <div>
-                                <dt>Rare preview crop</dt>
+                                <dt>Rare recognition crop</dt>
                                 <dd className={rareRegionFrameSize ? styles.Active : styles.Warning}>
                                     {rareRegionFrameSize
                                         ? `${rareRegionFrameSize.width} x ${rareRegionFrameSize.height}`
@@ -1749,20 +1828,20 @@ export function LiveLootCapture({
                             </div>
                         </div>
                         <div className={`${styles.RegionPreview} ${styles.RareRegionPreview}`}>
-                            <span>Rare loot preview</span>
+                            <span>Rare recognition preview</span>
                             <div className={styles.RegionPreviewStage}>
-                                <canvas ref={rareRegionCanvas} aria-label="Rare loot preview crop" />
+                                <canvas ref={rareRegionCanvas} aria-label="Rare recognition crop" />
                                 {rareRegionFrameSize && (
                                     <AlignmentGuide frameSize={rareGuideFrameSize} guide={rareAlignmentGuide} />
                                 )}
                             </div>
-                            <p>Preview only - recognition benchmark pending</p>
+                            <p>Provisional recognition - recognized banners are added automatically</p>
                         </div>
                     </aside>
                 </div>
             )}
             <div className={styles.RecognitionAnnouncements} aria-live="polite" aria-atomic="true">
-                {reviewResults[0] ? resultDescription(reviewResults[0].result) : ""}
+                {recognitionAnnouncement}
             </div>
             {reviewResults.length > 0 && (
                 <div className={styles.ReviewFeed}>
@@ -1785,7 +1864,7 @@ export function LiveLootCapture({
                             <li key={review.id}>
                                 <div>
                                     <span className={`${styles.ResultStatus} ${styles[review.result.status]}`}>
-                                        {review.result.status}
+                                        {review.source} {review.result.status}
                                     </span>
                                     <strong>{resultDescription(review.result)}</strong>
                                     {review.result.eventId && <small>{review.result.eventId}</small>}
@@ -1808,16 +1887,16 @@ export function LiveLootCapture({
                         ))}
                     </ul>
                     <p>
-                        Recognized notifications are added automatically. Insertion errors are retried three times and
-                        can also be retried manually; withheld or failed notifications can be entered through the manual
-                        loot form.
+                        Recognized normal notifications and rare banners are added automatically. Insertion errors are
+                        retried three times; withheld or failed notifications can be entered through the manual loot
+                        form.
                     </p>
                 </div>
             )}
             <p className={styles.PrivacyNote}>
                 Capture pixels stay in memory and are never saved or uploaded. Automatic placement scans only the
-                highlighted search area; after placement, only the normal loot-stack crop is processed by the bundled
-                local OCR worker. The rare-loot crop remains a preview. Only final coordinates, source dimensions, and
+                highlighted search area; after placement, normal and rare loot crops are processed by the bundled local
+                OCR worker. Recognized results are added automatically. Only final coordinates, source dimensions, and
                 BDO UI scale are stored.
             </p>
         </section>

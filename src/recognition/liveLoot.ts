@@ -105,12 +105,23 @@ export type LiveLootOcrFrame = {
     frame: number;
     roi: LootRoiFrame;
     observation: LootRowObservation<LootFingerprint>;
+    bounds?: LootOcrBounds;
 };
+
+export type LootOcrBounds = { left: number; right: number; top: number; bottom: number };
 
 export type LiveLootOcrReader = (
     frames: readonly LiveLootOcrFrame[],
     signal: AbortSignal,
 ) => Promise<readonly (readonly string[])[]>;
+
+export type LootOcrSelectionOptions = {
+    frameCount?: number;
+    delayFrames?: number;
+    minimumScoreMultiplier?: number;
+};
+
+export type LiveLootFrameAnalyzer = (frame: LootRoiFrame) => LootDetectedRows<LootFingerprint>;
 
 export type LiveLootCoordinatorOptions = {
     profile: LootDetectionProfile;
@@ -121,6 +132,10 @@ export type LiveLootCoordinatorOptions = {
     maxPendingOcrJobs?: number;
     maxPendingResults?: number;
     retainedFrameCount?: number;
+    analyzeFrame?: LiveLootFrameAnalyzer;
+    ocrSelection?: LootOcrSelectionOptions;
+    ocrBounds?: LootOcrBounds;
+    eventIdPrefix?: string;
 };
 
 export type FingerprintDistance<TFingerprint> = (
@@ -386,6 +401,7 @@ export function rowBirthCount<TFingerprint>(
 export type LootRowTrackerOptions = {
     retainHistory?: boolean;
     maxObservationsPerTrack?: number;
+    eventIdPrefix?: string;
 };
 
 export class LootRowTracker<TFingerprint> {
@@ -396,6 +412,7 @@ export class LootRowTracker<TFingerprint> {
     private readonly releasedTracks = new Set<LootTrack<TFingerprint>>();
     private readonly retainHistory: boolean;
     private readonly maxObservationsPerTrack: number;
+    private readonly eventIdPrefix: string;
     private nextId = 1;
     private emptyFrames = 0;
     private frameCount = 0;
@@ -410,17 +427,21 @@ export class LootRowTracker<TFingerprint> {
     ) {
         this.retainHistory = options.retainHistory ?? true;
         this.maxObservationsPerTrack = options.maxObservationsPerTrack ?? Number.POSITIVE_INFINITY;
+        this.eventIdPrefix = options.eventIdPrefix ?? "detected";
         if (
             this.maxObservationsPerTrack !== Number.POSITIVE_INFINITY &&
             (this.maxObservationsPerTrack < 1 || !Number.isInteger(this.maxObservationsPerTrack))
         ) {
             throw new Error("Maximum loot observations per track must be a positive integer.");
         }
+        if (!/^[a-z][a-z0-9-]*$/.test(this.eventIdPrefix)) {
+            throw new Error("Loot event ID prefixes must use lowercase letters, numbers, and hyphens.");
+        }
     }
 
     private createTrack(firstFrame: number, baseline: boolean) {
         const track: LootTrack<TFingerprint> = {
-            id: `detected-${String(this.nextId).padStart(4, "0")}`,
+            id: `${this.eventIdPrefix}-${String(this.nextId).padStart(4, "0")}`,
             firstFrame,
             baseline,
             observations: [],
@@ -613,7 +634,7 @@ export function trackLootRows<TFingerprint>(
 export function selectLootOcrObservations<TFingerprint>(
     track: LootTrack<TFingerprint>,
     rowThreshold: number,
-    { frameCount = 3, delayFrames = 1, minimumScoreMultiplier = 1 } = {},
+    { frameCount = 3, delayFrames = 1, minimumScoreMultiplier = 1 }: LootOcrSelectionOptions = {},
 ) {
     let run: Array<LootRowObservation<TFingerprint> & { frame: number }> = [];
     for (const observation of track.observations) {
@@ -749,6 +770,9 @@ export class LiveLootCoordinator {
     private readonly candidates = new Set<LootTrack<LootFingerprint>>();
     private readonly deliveries: LootDelivery[] = [];
     private readonly abortController = new AbortController();
+    private readonly analyzeFrame: LiveLootFrameAnalyzer;
+    private readonly ocrSelection: LootOcrSelectionOptions;
+    private readonly ocrFrameCount: number;
     private pendingSummary: LootSummaryDelivery | undefined;
     private activeOcrDelivery: LootOcrDelivery | undefined;
     private state: "active" | "finishing" | "finished" | "stopped" = "active";
@@ -772,6 +796,9 @@ export class LiveLootCoordinator {
         const maxPendingOcrJobs = options.maxPendingOcrJobs ?? 2;
         const maxPendingResults = options.maxPendingResults ?? defaultMaxPendingResults;
         const retainedFrameCount = options.retainedFrameCount ?? defaultRetainedFrameCount;
+        const ocrFrameCount = options.ocrSelection?.frameCount ?? 3;
+        const delayFrames = options.ocrSelection?.delayFrames ?? 1;
+        const minimumScoreMultiplier = options.ocrSelection?.minimumScoreMultiplier ?? 1;
         if (!Number.isInteger(maxPendingOcrJobs) || maxPendingOcrJobs < 1) {
             throw new Error("Maximum pending loot OCR jobs must be a positive integer.");
         }
@@ -781,12 +808,44 @@ export class LiveLootCoordinator {
         if (!Number.isInteger(maxPendingResults) || maxPendingResults < 1) {
             throw new Error("Maximum pending loot results must be a positive integer.");
         }
+        if (!Number.isInteger(ocrFrameCount) || ocrFrameCount < 2) {
+            throw new Error("Loot OCR frame count must be an integer of at least two for temporal consensus.");
+        }
+        if (!Number.isInteger(delayFrames) || delayFrames < 0) {
+            throw new Error("Loot OCR frame delay must be a non-negative integer.");
+        }
+        if (!Number.isFinite(minimumScoreMultiplier) || minimumScoreMultiplier <= 0) {
+            throw new Error("Loot OCR score multiplier must be positive.");
+        }
+        if (retainedFrameCount < ocrFrameCount + 1) {
+            throw new Error("Retained loot frame count must cover selected OCR frames and birth confirmation.");
+        }
+        const bounds = options.ocrBounds;
+        if (
+            bounds &&
+            (!Number.isInteger(bounds.left) ||
+                !Number.isInteger(bounds.right) ||
+                !Number.isInteger(bounds.top) ||
+                !Number.isInteger(bounds.bottom) ||
+                bounds.left < 0 ||
+                bounds.left >= bounds.right ||
+                bounds.right > options.profile.width ||
+                bounds.top < 0 ||
+                bounds.top >= bounds.bottom ||
+                bounds.bottom > options.profile.height)
+        ) {
+            throw new Error("Loot OCR bounds must be valid source pixel coordinates.");
+        }
         this.maxPendingOcrJobs = maxPendingOcrJobs;
         this.maxPendingResults = maxPendingResults;
         this.maximumRetainedFrames = retainedFrameCount;
+        this.analyzeFrame = options.analyzeFrame ?? ((frame) => analyzeLootRoiFrame(frame, options.profile));
+        this.ocrSelection = { frameCount: ocrFrameCount, delayFrames, minimumScoreMultiplier };
+        this.ocrFrameCount = ocrFrameCount;
         this.tracker = new LootRowTracker(options.profile.rowThreshold, lootFingerprintDistance, {
             retainHistory: false,
-            maxObservationsPerTrack: 3,
+            maxObservationsPerTrack: ocrFrameCount,
+            eventIdPrefix: options.eventIdPrefix,
         });
     }
 
@@ -895,8 +954,8 @@ export class LiveLootCoordinator {
     }
 
     private settleCandidate(track: LootTrack<LootFingerprint>) {
-        const selected = selectLootOcrObservations(track, this.options.profile.rowThreshold);
-        if (selected.length !== 3) return false;
+        const selected = selectLootOcrObservations(track, this.options.profile.rowThreshold, this.ocrSelection);
+        if (selected.length !== this.ocrFrameCount) return false;
 
         const metadata = this.resultMetadata(
             track,
@@ -910,7 +969,7 @@ export class LiveLootCoordinator {
             const frames = selected.map((observation) => {
                 const roi = this.frames.get(observation.frame);
                 if (!roi) throw new Error(`Selected loot frame ${observation.frame} is no longer retained.`);
-                return { frame: observation.frame, roi, observation };
+                return { frame: observation.frame, roi, observation, bounds: this.options.ocrBounds };
             });
             this.pendingOcrJobs += 1;
             this.deliveries.push({ kind: "ocr", ...metadata, frames, generation: this.generation });
@@ -1056,8 +1115,8 @@ export class LiveLootCoordinator {
 
     private finishCandidates() {
         for (const track of this.candidates) {
-            const selected = selectLootOcrObservations(track, this.options.profile.rowThreshold);
-            if (selected.length === 3) {
+            const selected = selectLootOcrObservations(track, this.options.profile.rowThreshold, this.ocrSelection);
+            if (selected.length === this.ocrFrameCount) {
                 this.settleCandidate(track);
             } else {
                 const metadata = this.resultMetadata(track, []);
@@ -1079,7 +1138,7 @@ export class LiveLootCoordinator {
     pushFrame(frame: LootRoiFrame) {
         if (this.state !== "active")
             throw new Error("Cannot push loot frames after the coordinator is stopped or finished.");
-        const rows = analyzeLootRoiFrame(frame, this.options.profile);
+        const rows = this.analyzeFrame(frame);
         const frameNumber = this.nextFrame;
         this.nextFrame += 1;
         this.frames.set(frameNumber, frame);
