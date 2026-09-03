@@ -7,6 +7,7 @@ import {
     type NativeCaptureFrame,
     type NativeCaptureSelection,
     saveLootCaptureSettings,
+    setNativeDisplayCapturePreviewEnabled,
     setNativeDisplayCaptureRegion,
     startDebugRoiSampleCollection,
     startNativeDisplayCapture,
@@ -35,7 +36,12 @@ import {
     searchRegionAroundLootRegion,
     stopDisplayCapture,
 } from "../../recognition/displayCapture";
-import { LiveLootCoordinator, type LiveLootRecognitionResult, type LootRoiFrame } from "../../recognition/liveLoot";
+import {
+    LiveLootCoordinator,
+    type LiveLootOcrReader,
+    type LiveLootRecognitionResult,
+    type LootRoiFrame,
+} from "../../recognition/liveLoot";
 import { NormalLootLocalizer, type NormalLootSearchFrame } from "../../recognition/liveLootLocalization";
 import {
     createLiveLootTesseractOcr,
@@ -66,6 +72,17 @@ type RecognitionPipeline = {
     ocr: LiveLootTesseractOcr;
 };
 type AutomaticRetry = { timerId: number; retriesRemaining: number };
+type OcrSource = LiveLootReviewEntry["source"];
+type OcrPipelineDiagnostics = {
+    outstandingJobs: number;
+    peakOutstandingJobs: number;
+};
+type OcrWorkerDiagnostics = {
+    completedJobs: number;
+    totalDurationMs: number;
+    lastDurationMs: number;
+};
+type OcrDiagnostics = Record<OcrSource, OcrPipelineDiagnostics> & { worker: OcrWorkerDiagnostics };
 type LiveLootCaptureProps = {
     sessionId: string;
     sessionStatus: SessionStatus;
@@ -76,7 +93,35 @@ type LiveLootCaptureProps = {
 
 const AUTOMATIC_INSERTION_RETRY_DELAYS = [1_000, 2_000, 4_000] as const;
 const MAX_PENDING_RECOGNITION_FRAMES = 32;
+const NORMAL_MAX_OUTSTANDING_OCR_JOBS = 8;
+const RARE_MAX_OUTSTANDING_OCR_JOBS = 2;
 let nextNativeCaptureToken = Date.now() * 1_000;
+
+function emptyOcrDiagnostics(): OcrDiagnostics {
+    return {
+        normal: { outstandingJobs: 0, peakOutstandingJobs: 0 },
+        rare: { outstandingJobs: 0, peakOutstandingJobs: 0 },
+        worker: { completedJobs: 0, totalDurationMs: 0, lastDurationMs: 0 },
+    };
+}
+
+function sameOcrDiagnostics(left: OcrDiagnostics, right: OcrDiagnostics) {
+    return (
+        left.normal.outstandingJobs === right.normal.outstandingJobs &&
+        left.normal.peakOutstandingJobs === right.normal.peakOutstandingJobs &&
+        left.rare.outstandingJobs === right.rare.outstandingJobs &&
+        left.rare.peakOutstandingJobs === right.rare.peakOutstandingJobs &&
+        left.worker.completedJobs === right.worker.completedJobs &&
+        left.worker.totalDurationMs === right.worker.totalDurationMs &&
+        left.worker.lastDurationMs === right.worker.lastDurationMs
+    );
+}
+
+function formatOcrDuration(diagnostics: OcrWorkerDiagnostics) {
+    if (diagnostics.completedJobs === 0) return "Waiting...";
+    const average = diagnostics.totalDurationMs / diagnostics.completedJobs;
+    return `${(diagnostics.lastDurationMs / 1_000).toFixed(1)}s last / ${(average / 1_000).toFixed(1)}s avg (${diagnostics.completedJobs})`;
+}
 
 function formatSampleCollectionCountdown(deadline: number | null, now: number) {
     const seconds = Math.max(0, Math.ceil(((deadline ?? now) - now) / 1_000));
@@ -201,7 +246,15 @@ function regionsCaptureSelection(
 function resultDescription(result: LiveLootRecognitionResult) {
     if (result.status === "recognized") return `${result.itemName} x ${result.quantity}`;
     if (result.status === "failed") return "Local OCR failed for this notification.";
-    if (result.status === "dropped") return `${result.count} notifications dropped while recognition was busy.`;
+    if (result.status === "dropped") {
+        const cause =
+            result.reason === "backpressure-summary"
+                ? "the OCR job capacity was full"
+                : result.reason === "result-overflow-summary"
+                  ? "recognition results could not be retained"
+                  : "recognition capacity was exceeded";
+        return `${result.count} notifications dropped because ${cause}.`;
+    }
     if (result.reason === "insufficient-observations") return "Notification disappeared before three stable frames.";
     if (result.reason === "item-not-recognized") return "OCR item did not match the active grind spot.";
     if (result.reason === "quantity-not-recognized") return "OCR did not find a stable quantity suffix.";
@@ -241,11 +294,15 @@ export function LiveLootCapture({
     const canvas = useRef<HTMLCanvasElement>(null);
     const normalRegionCanvas = useRef<HTMLCanvasElement>(null);
     const rareRegionCanvas = useRef<HTMLCanvasElement>(null);
+    const pausedNormalRegionCanvas = useRef<HTMLCanvasElement | null>(null);
+    const pausedRareRegionCanvas = useRef<HTMLCanvasElement | null>(null);
     const searchRegionCanvas = useRef<HTMLCanvasElement | null>(null);
     const activeStream = useRef<MediaStream | null>(null);
     const nativeCapture = useRef(false);
     const nativeCaptureToken = useRef<number | null>(null);
     const receivedNativeFrame = useRef(false);
+    const lastNativeSampleBatch = useRef(0);
+    const previewsEnabledRef = useRef(true);
     const sampledFrames = useRef(0);
     const measurementStarted = useRef(performance.now());
     const requestId = useRef(0);
@@ -275,6 +332,7 @@ export function LiveLootCapture({
     const recognitionGeneration = useRef(0);
     const recognitionStartup = useRef<Promise<void> | null>(null);
     const recognitionRequestedRef = useRef(false);
+    const ocrDiagnosticsRef = useRef<OcrDiagnostics>(emptyOcrDiagnostics());
     const sampleCollectionRevision = useRef(0);
     const pendingLocalizationReplay = useRef<LootRoiFrame[]>([]);
     const pendingRecognitionFrames = useRef<LootRoiFrame[]>([]);
@@ -290,6 +348,9 @@ export function LiveLootCapture({
     const [status, setStatus] = useState<CaptureStatus>("idle");
     const [error, setError] = useState("");
     const [sampledFps, setSampledFps] = useState(0);
+    const [previewsEnabled, setPreviewsEnabled] = useState(true);
+    const [previewToggleBusy, setPreviewToggleBusy] = useState(false);
+    const [previewToggleError, setPreviewToggleError] = useState("");
     const [sourceDimensions, setSourceDimensions] = useState<SourceDimensions | null>(null);
     const [normalRegionFrameSize, setNormalRegionFrameSize] = useState<SourceDimensions | null>(null);
     const [rareRegionFrameSize, setRareRegionFrameSize] = useState<SourceDimensions | null>(null);
@@ -309,6 +370,7 @@ export function LiveLootCapture({
     const [recognitionStatus, setRecognitionStatus] = useState<RecognitionStatus>("idle");
     const [recognitionError, setRecognitionError] = useState("");
     const [recognitionReset, setRecognitionReset] = useState(0);
+    const [ocrDiagnostics, setOcrDiagnostics] = useState<OcrDiagnostics>(emptyOcrDiagnostics);
     const [reviewResults, setReviewResults] = useState<LiveLootReviewEntry[]>([]);
     const [omittedReviewResults, setOmittedReviewResults] = useState(0);
     const [recognitionAnnouncement, setRecognitionAnnouncement] = useState("");
@@ -406,9 +468,11 @@ export function LiveLootCapture({
         if (kind === "normal") {
             setNormalRegionFrameSize(null);
             clearCanvas(normalRegionCanvas.current);
+            clearCanvas(pausedNormalRegionCanvas.current);
         } else {
             setRareRegionFrameSize(null);
             clearCanvas(rareRegionCanvas.current);
+            clearCanvas(pausedRareRegionCanvas.current);
         }
     }
 
@@ -438,6 +502,39 @@ export function LiveLootCapture({
         }
     }
 
+    function recordOutstandingOcrJobs(source: OcrSource, outstandingJobs: number) {
+        const diagnostics = ocrDiagnosticsRef.current[source];
+        diagnostics.outstandingJobs = outstandingJobs;
+        diagnostics.peakOutstandingJobs = Math.max(diagnostics.peakOutstandingJobs, outstandingJobs);
+    }
+
+    function publishOcrDiagnostics() {
+        const current = ocrDiagnosticsRef.current;
+        const next = {
+            normal: { ...current.normal },
+            rare: { ...current.rare },
+            worker: { ...current.worker },
+        };
+        setOcrDiagnostics((published) => (sameOcrDiagnostics(published, next) ? published : next));
+    }
+
+    function measuredOcrReader(readText: LiveLootOcrReader, generation: number): LiveLootOcrReader {
+        return async (frames, signal) => {
+            const started = performance.now();
+            try {
+                return await readText(frames, signal);
+            } finally {
+                if (generation === recognitionGeneration.current) {
+                    const diagnostics = ocrDiagnosticsRef.current.worker;
+                    const duration = performance.now() - started;
+                    diagnostics.completedJobs += 1;
+                    diagnostics.totalDurationMs += duration;
+                    diagnostics.lastDurationMs = duration;
+                }
+            }
+        };
+    }
+
     function stopRecognition(updateStatus = true) {
         recognitionGeneration.current += 1;
         pendingLocalizationReplay.current.length = 0;
@@ -449,7 +546,12 @@ export function LiveLootCapture({
         current?.normalCoordinator.stop();
         current?.rareCoordinator.stop();
         if (current) void current.ocr.terminate().catch(() => undefined);
-        if (updateStatus && mounted.current) setRecognitionStatus("idle");
+        recordOutstandingOcrJobs("normal", 0);
+        recordOutstandingOcrJobs("rare", 0);
+        if (mounted.current) {
+            publishOcrDiagnostics();
+            if (updateStatus) setRecognitionStatus("idle");
+        }
     }
 
     function pushRecognitionFrame(frame: LootRoiFrame) {
@@ -467,6 +569,7 @@ export function LiveLootCapture({
         }
         try {
             current.normalCoordinator.pushFrame(frame);
+            recordOutstandingOcrJobs("normal", current.normalCoordinator.pendingOcrJobCount);
         } catch (frameError) {
             stopRecognition(false);
             setRecognitionStatus("error");
@@ -487,6 +590,7 @@ export function LiveLootCapture({
         }
         try {
             current.rareCoordinator.pushFrame(frame);
+            recordOutstandingOcrJobs("rare", current.rareCoordinator.pendingOcrJobCount);
         } catch (frameError) {
             stopRecognition(false);
             setRecognitionStatus("error");
@@ -708,6 +812,10 @@ export function LiveLootCapture({
         setStatus("idle");
         setSavingRegion(false);
         setSampledFps(0);
+        previewsEnabledRef.current = true;
+        setPreviewsEnabled(true);
+        setPreviewToggleBusy(false);
+        setPreviewToggleError("");
         updateSourceDimensions(null);
         clearRegionPreview("normal");
         clearRegionPreview("rare");
@@ -720,6 +828,7 @@ export function LiveLootCapture({
         updateRegionConfirmed(false);
         updateRareRegionConfirmed(false);
         sampledFrames.current = 0;
+        lastNativeSampleBatch.current = 0;
         measurementStarted.current = performance.now();
         configuredSource.current = "";
         setNativeAppliedSelectionKey("");
@@ -738,6 +847,28 @@ export function LiveLootCapture({
     function stopCapture() {
         requestId.current += 1;
         releaseStream();
+    }
+
+    async function togglePreviews() {
+        if (status !== "capturing" || previewToggleBusy) return;
+        const nextEnabled = !previewsEnabledRef.current;
+        const currentRequest = requestId.current;
+        setPreviewToggleBusy(true);
+        setPreviewToggleError("");
+        try {
+            const captureToken = nativeCaptureToken.current;
+            if (captureToken !== null) {
+                await setNativeDisplayCapturePreviewEnabled(captureToken, nextEnabled);
+            }
+            if (!mounted.current || currentRequest !== requestId.current) return;
+            previewsEnabledRef.current = nextEnabled;
+            setPreviewsEnabled(nextEnabled);
+        } catch (toggleError) {
+            if (!mounted.current || currentRequest !== requestId.current) return;
+            setPreviewToggleError(toggleError instanceof Error ? toggleError.message : String(toggleError));
+        } finally {
+            if (mounted.current && currentRequest === requestId.current) setPreviewToggleBusy(false);
+        }
     }
 
     async function toggleSampleCollection() {
@@ -795,14 +926,17 @@ export function LiveLootCapture({
                     (frame) => {
                         if (!mounted.current || !sessionRunning.current || currentRequest !== requestId.current) return;
                         receivedNativeFrame.current = true;
-                        if (frame.kind === "preview") {
-                            const current = sourceDimensionsRef.current;
-                            if (current?.width !== frame.sourceWidth || current.height !== frame.sourceHeight) {
-                                updateSourceDimensions({ width: frame.sourceWidth, height: frame.sourceHeight });
-                            }
-                            setStatus("capturing");
+                        setStatus("capturing");
+                        if (lastNativeSampleBatch.current !== frame.batchId) {
+                            lastNativeSampleBatch.current = frame.batchId;
                             recordSample();
-                            drawFrame(canvas.current, frame);
+                        }
+                        const current = sourceDimensionsRef.current;
+                        if (current?.width !== frame.sourceWidth || current.height !== frame.sourceHeight) {
+                            updateSourceDimensions({ width: frame.sourceWidth, height: frame.sourceHeight });
+                        }
+                        if (frame.kind === "preview") {
+                            if (previewsEnabledRef.current) drawFrame(canvas.current, frame);
                         } else if (frame.kind === "search-region") {
                             if (
                                 placementModeRef.current !== "localizing" ||
@@ -822,8 +956,12 @@ export function LiveLootCapture({
                             if (placementModeRef.current === "localizing") return;
                             if (!frameMatchesRegion(frame, normalCaptureRegionRef.current, sourceDimensionsRef.current))
                                 return;
-                            setNormalRegionFrameSize({ width: frame.width, height: frame.height });
-                            drawFrame(normalRegionCanvas.current, frame);
+                            setNormalRegionFrameSize((currentSize) =>
+                                currentSize?.width === frame.width && currentSize.height === frame.height
+                                    ? currentSize
+                                    : { width: frame.width, height: frame.height },
+                            );
+                            if (previewsEnabledRef.current) drawFrame(normalRegionCanvas.current, frame);
                             if (regionIsReady("normal")) {
                                 pushRecognitionFrame({
                                     width: frame.width,
@@ -835,8 +973,12 @@ export function LiveLootCapture({
                             if (placementModeRef.current === "localizing") return;
                             if (!frameMatchesRegion(frame, rareCaptureRegionRef.current, sourceDimensionsRef.current))
                                 return;
-                            setRareRegionFrameSize({ width: frame.width, height: frame.height });
-                            drawFrame(rareRegionCanvas.current, frame);
+                            setRareRegionFrameSize((currentSize) =>
+                                currentSize?.width === frame.width && currentSize.height === frame.height
+                                    ? currentSize
+                                    : { width: frame.width, height: frame.height },
+                            );
+                            if (previewsEnabledRef.current) drawFrame(rareRegionCanvas.current, frame);
                             if (regionIsReady("rare")) {
                                 pushRareRecognitionFrame({
                                     width: frame.width,
@@ -1083,6 +1225,8 @@ export function LiveLootCapture({
     useEffect(() => {
         stopRecognition(false);
         setRecognitionError("");
+        ocrDiagnosticsRef.current = emptyOcrDiagnostics();
+        setOcrDiagnostics(emptyOcrDiagnostics());
         if (!recognitionRequested || !calibratedProfile) {
             setRecognitionStatus(regionConfirmed && sourceDimensions && !calibratedProfile ? "unavailable" : "idle");
             return;
@@ -1115,7 +1259,7 @@ export function LiveLootCapture({
                     await ocr.terminate();
                     return;
                 }
-                const readText = serializeLiveLootOcrReader(ocr.readText);
+                const readText = serializeLiveLootOcrReader(measuredOcrReader(ocr.readText, generation));
                 const appendResult = (source: LiveLootReviewEntry["source"], result: LiveLootRecognitionResult) => {
                     if (
                         !mounted.current ||
@@ -1156,6 +1300,7 @@ export function LiveLootCapture({
                     dictionary: itemDictionaryRef.current,
                     readText,
                     onResult: (result) => appendResult("normal", result),
+                    maxPendingOcrJobs: NORMAL_MAX_OUTSTANDING_OCR_JOBS,
                 });
                 const rareAnalyzer = new RareLootFrameAnalyzer();
                 const rareCoordinator = new LiveLootCoordinator({
@@ -1163,6 +1308,7 @@ export function LiveLootCapture({
                     dictionary: itemDictionaryRef.current,
                     readText,
                     onResult: (result) => appendResult("rare", result),
+                    maxPendingOcrJobs: RARE_MAX_OUTSTANDING_OCR_JOBS,
                     analyzeFrame: (frame) => rareAnalyzer.pushFrame(frame),
                     ocrSelection: RARE_LOOT_OCR_SELECTION,
                     ocrBounds: RARE_LOOT_OCR_BOUNDS,
@@ -1218,6 +1364,19 @@ export function LiveLootCapture({
             if (generation === recognitionGeneration.current) stopRecognition(false);
         };
     }, [calibratedProfile, recognitionRequested, recognitionReset, sessionId, sourceDimensions]);
+
+    useEffect(() => {
+        if (recognitionStatus !== "active") return;
+        const publish = () => {
+            const pipeline = recognition.current;
+            recordOutstandingOcrJobs("normal", pipeline?.normalCoordinator.pendingOcrJobCount ?? 0);
+            recordOutstandingOcrJobs("rare", pipeline?.rareCoordinator.pendingOcrJobCount ?? 0);
+            publishOcrDiagnostics();
+        };
+        publish();
+        const timer = window.setInterval(publish, 1_000);
+        return () => window.clearInterval(timer);
+    }, [recognitionStatus]);
 
     useEffect(() => {
         if (!supportsTauriApi()) return;
@@ -1462,9 +1621,12 @@ export function LiveLootCapture({
             const scale = Math.min(1, 640 / preview.videoWidth);
             const width = Math.max(1, Math.round(preview.videoWidth * scale));
             const height = Math.max(1, Math.round(preview.videoHeight * scale));
-            if (output.width !== width || output.height !== height) {
-                output.width = width;
-                output.height = height;
+            if (previewsEnabledRef.current) {
+                if (output.width !== width || output.height !== height) {
+                    output.width = width;
+                    output.height = height;
+                }
+                output.getContext("2d")?.drawImage(preview, 0, 0, width, height);
             }
             const currentSource = sourceDimensionsRef.current;
             const sourceChanged =
@@ -1475,8 +1637,6 @@ export function LiveLootCapture({
                 clearRegionPreview("normal");
                 clearRegionPreview("rare");
             }
-            output.getContext("2d")?.drawImage(preview, 0, 0, width, height);
-
             if (!sourceChanged && isSupportedLootSource(preview.videoWidth, preview.videoHeight)) {
                 const localizingAtSampleStart = placementModeRef.current === "localizing";
                 if (localizingAtSampleStart) {
@@ -1545,7 +1705,14 @@ export function LiveLootCapture({
                 const drawBrowserRegion = (kind: LootRegionKind) => {
                     if (localizingAtSampleStart) return;
                     const selected = kind === "normal" ? normalRegionRef.current : rareRegionRef.current;
-                    const crop = kind === "normal" ? normalRegionCanvas.current : rareRegionCanvas.current;
+                    let crop: HTMLCanvasElement | null;
+                    if (previewsEnabledRef.current) {
+                        crop = kind === "normal" ? normalRegionCanvas.current : rareRegionCanvas.current;
+                    } else {
+                        const pausedCrop = kind === "normal" ? pausedNormalRegionCanvas : pausedRareRegionCanvas;
+                        crop = pausedCrop.current ?? document.createElement("canvas");
+                        pausedCrop.current = crop;
+                    }
                     if (!selected || !crop) return;
                     const pixels = normalizedRegionToPixels(selected, preview.videoWidth, preview.videoHeight);
                     if (crop.width !== pixels.width || crop.height !== pixels.height) {
@@ -1675,6 +1842,15 @@ export function LiveLootCapture({
         : placementMode === "aligned"
           ? "Confirm the rare area to enable rare recognition."
           : "Confirm after placing both.";
+    const calibrationInstruction = !previewsEnabled
+        ? "Resume live previews to adjust capture placement or UI scale."
+        : placementMode === "localizing"
+          ? "Waiting for at least two stacked loot notifications. Drag the 800 x 600 auto-search area to recenter the search if needed."
+          : `Drag the selected ${expectedRegionSize.width} x ${expectedRegionSize.height} area. ${
+                activeRegionKind === "normal"
+                    ? "Each green horizontal line should run through the center of a visible item name."
+                    : "The green horizontal line should run through the center of the rare item name. Rare recognition is provisional."
+            } ${placementConfirmationInstruction}`;
 
     return (
         <section className={styles.CapturePanel} aria-labelledby="live-capture-heading">
@@ -1687,9 +1863,27 @@ export function LiveLootCapture({
                 </div>
                 <div className={styles.Actions}>
                     {status !== "idle" ? (
-                        <button className="button" type="button" onClick={stopCapture}>
-                            {status === "capturing" ? "Stop capture" : "Cancel request"}
-                        </button>
+                        <>
+                            {status === "capturing" && (
+                                <button
+                                    className="button"
+                                    type="button"
+                                    disabled={previewToggleBusy}
+                                    onClick={() => void togglePreviews()}
+                                >
+                                    {previewToggleBusy
+                                        ? previewsEnabled
+                                            ? "Pausing previews..."
+                                            : "Resuming previews..."
+                                        : previewsEnabled
+                                          ? "Pause live previews"
+                                          : "Resume live previews"}
+                                </button>
+                            )}
+                            <button className="button" type="button" onClick={stopCapture}>
+                                {status === "capturing" ? "Stop capture" : "Cancel request"}
+                            </button>
+                        </>
                     ) : (
                         <button
                             className="button primary-button"
@@ -1719,19 +1913,24 @@ export function LiveLootCapture({
                     {error}
                 </p>
             )}
+            {previewToggleError && (
+                <p className={styles.Error} role="alert">
+                    Could not update live previews: {previewToggleError}
+                </p>
+            )}
             {recognitionError && (
                 <p className={styles.Error} role="alert">
                     Local recognition stopped: {recognitionError}
                 </p>
             )}
             {status === "capturing" && (
-                <div className={styles.CaptureWorkspace}>
+                <div className={`${styles.CaptureWorkspace} ${previewsEnabled ? "" : styles.PreviewsPaused}`}>
                     <div>
                         <div className={styles.Preview}>
                             <div
                                 className={styles.PreviewStage}
                                 onPointerDown={(event) => {
-                                    if (savingRegion) return;
+                                    if (!previewsEnabledRef.current || savingRegion) return;
                                     draggingRegion.current = true;
                                     if (
                                         placementModeRef.current !== "localizing" ||
@@ -1743,9 +1942,10 @@ export function LiveLootCapture({
                                     moveRegion(event);
                                 }}
                                 onPointerMove={(event) => {
-                                    if (draggingRegion.current) moveRegion(event);
+                                    if (previewsEnabledRef.current && draggingRegion.current) moveRegion(event);
                                 }}
                                 onPointerUp={(event) => {
+                                    if (!draggingRegion.current) return;
                                     draggingRegion.current = false;
                                     const kind = activeRegionKindRef.current;
                                     updateCaptureRegion(
@@ -1761,6 +1961,7 @@ export function LiveLootCapture({
                                     }
                                 }}
                                 onPointerCancel={() => {
+                                    if (!draggingRegion.current) return;
                                     draggingRegion.current = false;
                                     const kind = activeRegionKindRef.current;
                                     updateCaptureRegion(
@@ -1823,6 +2024,12 @@ export function LiveLootCapture({
                                         <AlignmentGuide frameSize={rareGuideFrameSize} guide={rareAlignmentGuide} />
                                     </div>
                                 )}
+                                {!previewsEnabled && (
+                                    <div className={styles.PreviewPaused} role="status">
+                                        <strong>Live previews paused</strong>
+                                        <span>Capture processing continues</span>
+                                    </div>
+                                )}
                             </div>
                         </div>
                         {sourceDimensions && !sourceSupported ? (
@@ -1830,7 +2037,7 @@ export function LiveLootCapture({
                                 Supported sources are 3440 x 1440, 2560 x 1440, and 1920 x 1080.
                             </p>
                         ) : (
-                            <div className={styles.CalibrationPanel}>
+                            <fieldset className={styles.CalibrationPanel} disabled={!previewsEnabled}>
                                 <fieldset className={styles.AreaSelector}>
                                     <legend>Active area</legend>
                                     <div className={styles.AreaSelectorButtons}>
@@ -1854,15 +2061,7 @@ export function LiveLootCapture({
                                         </button>
                                     </div>
                                 </fieldset>
-                                <p className={styles.CalibrationInstruction}>
-                                    {placementMode === "localizing"
-                                        ? "Waiting for at least two stacked loot notifications. Drag the 800 x 600 auto-search area to recenter the search if needed."
-                                        : `Drag the selected ${expectedRegionSize.width} x ${expectedRegionSize.height} area. ${
-                                              activeRegionKind === "normal"
-                                                  ? "Each green horizontal line should run through the center of a visible item name."
-                                                  : "The green horizontal line should run through the center of the rare item name. Rare recognition is provisional."
-                                          } ${placementConfirmationInstruction}`}
-                                </p>
+                                <p className={styles.CalibrationInstruction}>{calibrationInstruction}</p>
                                 {placementMode === "localizing" ? (
                                     <div className={styles.PrecisionControls}>
                                         <span>Automatic placement</span>
@@ -1956,7 +2155,7 @@ export function LiveLootCapture({
                                         </button>
                                     )}
                                 </div>
-                            </div>
+                            </fieldset>
                         )}
                     </div>
                     <aside className={styles.CaptureSidebar}>
@@ -2034,6 +2233,36 @@ export function LiveLootCapture({
                                 <dd className={recognitionStatus === "active" ? styles.Active : styles.Warning}>
                                     {recognitionLabel}
                                 </dd>
+                            </div>
+                            <div>
+                                <dt>Normal OCR jobs</dt>
+                                <dd
+                                    className={
+                                        ocrDiagnostics.normal.outstandingJobs < NORMAL_MAX_OUTSTANDING_OCR_JOBS
+                                            ? styles.Active
+                                            : styles.Warning
+                                    }
+                                >
+                                    {ocrDiagnostics.normal.outstandingJobs} / {NORMAL_MAX_OUTSTANDING_OCR_JOBS}{" "}
+                                    outstanding, peak {ocrDiagnostics.normal.peakOutstandingJobs}
+                                </dd>
+                            </div>
+                            <div>
+                                <dt>Rare OCR jobs</dt>
+                                <dd
+                                    className={
+                                        ocrDiagnostics.rare.outstandingJobs < RARE_MAX_OUTSTANDING_OCR_JOBS
+                                            ? styles.Active
+                                            : styles.Warning
+                                    }
+                                >
+                                    {ocrDiagnostics.rare.outstandingJobs} / {RARE_MAX_OUTSTANDING_OCR_JOBS} outstanding,
+                                    peak {ocrDiagnostics.rare.peakOutstandingJobs}
+                                </dd>
+                            </div>
+                            <div>
+                                <dt>OCR worker job time</dt>
+                                <dd>{formatOcrDuration(ocrDiagnostics.worker)}</dd>
                             </div>
                             <div>
                                 <dt>Item profile</dt>

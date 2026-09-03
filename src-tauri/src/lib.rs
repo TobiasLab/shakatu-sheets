@@ -38,6 +38,7 @@ pub fn run() {
         native_capture::acknowledge_native_display_frame,
         native_capture::load_loot_capture_settings,
         native_capture::save_loot_capture_settings,
+        native_capture::set_native_display_capture_preview_enabled,
         native_capture::set_native_display_capture_region,
         native_capture::start_native_display_capture,
         native_capture::stop_native_display_capture,
@@ -62,6 +63,7 @@ pub fn run() {
         native_capture::acknowledge_native_display_frame,
         native_capture::load_loot_capture_settings,
         native_capture::save_loot_capture_settings,
+        native_capture::set_native_display_capture_preview_enabled,
         native_capture::set_native_display_capture_region,
         native_capture::start_native_display_capture,
         native_capture::stop_native_display_capture

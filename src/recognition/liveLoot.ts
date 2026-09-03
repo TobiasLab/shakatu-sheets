@@ -749,6 +749,7 @@ type LootOcrDelivery = LootResultMetadata & {
     kind: "ocr";
     frames: LiveLootOcrFrame[];
     generation: number;
+    counted: boolean;
 };
 
 type LootResultDelivery = {
@@ -870,12 +871,16 @@ export class LiveLootCoordinator {
         return this.candidates.size;
     }
 
+    get pendingOcrJobCount() {
+        return this.pendingOcrJobs;
+    }
+
     get queuedDeliveryCount() {
         return this.deliveries.length;
     }
 
     get queuedSummaryCount() {
-        return this.pendingSummary ? 1 : 0;
+        return this.deliveries.reduce((count, delivery) => count + (delivery.kind === "summary" ? 1 : 0), 0);
     }
 
     private resultMetadata(track: LootTrack<LootFingerprint>, selectedFrames: number[]): LootResultMetadata {
@@ -943,13 +948,11 @@ export class LiveLootCoordinator {
             firstFrame: result.firstFrame,
             selectedFrames: result.selectedFrames,
         };
-        if (
-            this.pendingSummary ||
-            this.pendingResultEntries + (this.deliveringCallback ? 1 : 0) >= this.maxPendingResults
-        ) {
+        if (this.pendingResultEntries + (this.deliveringCallback ? 1 : 0) >= this.maxPendingResults) {
             this.summarize(metadata, "result");
             return;
         }
+        this.pendingSummary = undefined;
         this.pendingResultEntries += 1;
         this.deliveries.push({ kind: "result", result, generation: this.generation });
     }
@@ -962,9 +965,7 @@ export class LiveLootCoordinator {
             track,
             selected.map(({ frame }) => frame),
         );
-        if (this.pendingSummary) {
-            this.summarize(metadata, this.pendingOcrJobs >= this.maxPendingOcrJobs ? "backpressure" : "result");
-        } else if (this.pendingOcrJobs >= this.maxPendingOcrJobs) {
+        if (this.pendingOcrJobs >= this.maxPendingOcrJobs) {
             this.summarize(metadata, "backpressure");
         } else {
             const frames = selected.map((observation) => {
@@ -972,8 +973,9 @@ export class LiveLootCoordinator {
                 if (!roi) throw new Error(`Selected loot frame ${observation.frame} is no longer retained.`);
                 return { frame: observation.frame, roi, observation, bounds: this.options.ocrBounds };
             });
+            this.pendingSummary = undefined;
             this.pendingOcrJobs += 1;
-            this.deliveries.push({ kind: "ocr", ...metadata, frames, generation: this.generation });
+            this.deliveries.push({ kind: "ocr", ...metadata, frames, generation: this.generation, counted: true });
         }
         this.candidates.delete(track);
         this.tracker.releaseTrack(track);
@@ -1029,6 +1031,13 @@ export class LiveLootCoordinator {
         }
     }
 
+    private releaseOcrDelivery(delivery: LootOcrDelivery) {
+        delivery.frames.length = 0;
+        if (!delivery.counted) return;
+        delivery.counted = false;
+        this.pendingOcrJobs -= 1;
+    }
+
     private async drainDeliveries() {
         if (this.draining) return;
         this.draining = true;
@@ -1077,9 +1086,8 @@ export class LiveLootCoordinator {
                         reason: "ocr-failure",
                     };
                 } finally {
-                    delivery.frames.length = 0;
+                    this.releaseOcrDelivery(delivery);
                     if (this.activeOcrDelivery === delivery) this.activeOcrDelivery = undefined;
-                    this.pendingOcrJobs -= 1;
                 }
                 if (result) this.deliver(result, delivery.generation);
             }
@@ -1182,11 +1190,13 @@ export class LiveLootCoordinator {
         this.state = "stopped";
         this.generation += 1;
         this.abortController.abort();
-        if (this.activeOcrDelivery) this.activeOcrDelivery.frames.length = 0;
+        if (this.activeOcrDelivery) {
+            this.releaseOcrDelivery(this.activeOcrDelivery);
+            this.activeOcrDelivery = undefined;
+        }
         for (const delivery of this.deliveries) {
             if (delivery.kind === "ocr") {
-                delivery.frames.length = 0;
-                this.pendingOcrJobs -= 1;
+                this.releaseOcrDelivery(delivery);
             } else if (delivery.kind === "result") {
                 this.pendingResultEntries -= 1;
             }
