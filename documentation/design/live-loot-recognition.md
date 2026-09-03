@@ -26,7 +26,7 @@ manually retryable. Live validation and calibrated recognition benchmarks for th
 
 ## Goal
 
-Recognize BDO's in-game loot notifications while a session is running and add each new loot event to a reviewable feed.
+Recognize BDO's in-game loot notifications while a session is active and add each new loot event to a reviewable feed.
 The feature should remain local, explicit, and external to the game process. It must not inject into BDO, read process
 memory, upload frames, or create video recordings.
 
@@ -179,7 +179,7 @@ consecutive drops can have the same item and quantity.
 The first prototype shows every result in a recent-event feed and identifies whether it came from the normal stack or rare
 banner. Recognized matches from either source are immediately added to the ledger. Users can remove or edit an inserted
 entry through the ledger before finishing the session. If insertion fails, the app retries it after one, two, and four
-seconds while the same session remains running. An exhausted result remains actionable while retained in the bounded feed,
+seconds while the same session remains active. An exhausted result remains actionable while retained in the bounded feed,
 with the latest validation error and a manual retry control. Withheld and failed recognition results remain visible without
 inventing an item or quantity and require manual entry. Before release, broader benchmark data must establish whether
 automatic insertion needs stricter confidence gating.
@@ -188,8 +188,8 @@ automatic insertion needs stricter confidence gating.
 
 - Capture begins only after an explicit user action and operating-system consent.
 - The interface always shows when capture is active and provides an immediate stop control.
-- Capture stops when the session pauses or finishes, the user leaves the live view, the source ends, or the component is
-  destroyed.
+- Capture and local recognition can start before the timer and continue while it is paused. They stop when the session
+  finishes, the user leaves the live view, the source ends, or the component is destroyed.
 - Full frames, cropped rows, and OCR images remain in memory and are discarded after processing unless the explicit
   debug-only ROI sample action is active.
 - No screenshots or videos are persisted or uploaded by default.

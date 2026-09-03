@@ -14,9 +14,9 @@ use super::{
     market_prices::{load_market_price_records, MarketPriceSnapshot, Region},
     migrate, open_database,
     sessions::{
-        list_finished_session_records, load_active_session_record, load_session_by_id,
-        reopen_session_record, save_session_record, EntrySource, SessionEntry, SessionRecord,
-        SessionStatus, Valuation,
+        delete_finished_session_record, list_finished_session_records, load_active_session_record,
+        load_session_by_id, reopen_session_record, save_session_record, EntrySource, SessionEntry,
+        SessionRecord, SessionStatus, Valuation,
     },
     settings::{load_setting, save_settings, save_settings_if_unchanged},
 };
@@ -205,6 +205,89 @@ fn lists_finished_sessions_with_their_timestamps() {
     assert_eq!(records.len(), 1);
     assert_eq!(records[0].session, finished);
     assert!(records[0].finished_at > 0);
+}
+
+#[test]
+fn deletes_a_finished_session_without_touching_the_active_session() {
+    let mut connection = database();
+    let finished = session(SessionStatus::Finished);
+    save_session_record(&mut connection, &finished).unwrap();
+    connection
+        .execute(
+            "INSERT INTO garmoth_uploads (session_id, status, updated_at)
+             VALUES (?1, 'success', 1000)",
+            [&finished.id],
+        )
+        .unwrap();
+    connection
+        .execute(
+            "INSERT INTO price_snapshots (session_id, region, item_id, sub_id, base_price, fetched_at)
+             VALUES (?1, 'eu', 1, 0, 100, 1000),
+                    (NULL, 'eu', 2, 0, 200, 1000)",
+            [&finished.id],
+        )
+        .unwrap();
+    let mut active = session(SessionStatus::Paused);
+    active.id = "active".into();
+    active.entries[0].id = "active-entry".into();
+    save_session_record(&mut connection, &active).unwrap();
+
+    delete_finished_session_record(&connection, &finished.id).unwrap();
+
+    assert_eq!(load_session_by_id(&connection, &finished.id).unwrap(), None);
+    assert_eq!(
+        load_active_session_record(&connection).unwrap(),
+        Some(active)
+    );
+    assert_eq!(
+        load_garmoth_upload_status(&connection, &finished.id).unwrap(),
+        None
+    );
+    assert_eq!(
+        connection
+            .query_row(
+                "SELECT COUNT(*) FROM session_entries WHERE session_id = ?1",
+                [&finished.id],
+                |row| row.get::<_, i64>(0),
+            )
+            .unwrap(),
+        0
+    );
+    assert_eq!(
+        connection
+            .query_row("SELECT COUNT(*) FROM price_snapshots", [], |row| {
+                row.get::<_, i64>(0)
+            })
+            .unwrap(),
+        1
+    );
+}
+
+#[test]
+fn refuses_to_delete_unfinished_sessions() {
+    let mut connection = database();
+    for (index, status) in [
+        SessionStatus::Idle,
+        SessionStatus::Running,
+        SessionStatus::Paused,
+    ]
+    .into_iter()
+    .enumerate()
+    {
+        let mut active = session(status);
+        active.id = format!("active-{index}");
+        active.entries[0].id = format!("active-entry-{index}");
+        save_session_record(&mut connection, &active).unwrap();
+
+        assert_eq!(
+            delete_finished_session_record(&connection, &active.id).unwrap_err(),
+            format!("finished session {} was not found", active.id)
+        );
+        assert_eq!(
+            load_session_by_id(&connection, &active.id).unwrap(),
+            Some(active)
+        );
+    }
 }
 
 #[test]

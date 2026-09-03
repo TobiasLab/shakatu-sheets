@@ -1,5 +1,6 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
+    deleteFinishedSession,
     type FinishedSessionRecord,
     type GarmothSettings,
     listFinishedSessions,
@@ -29,6 +30,10 @@ export function HistoryView({
     const [error, setError] = useState("");
     const [reopenError, setReopenError] = useState("");
     const [reopening, setReopening] = useState(false);
+    const [deletingId, setDeletingId] = useState<string | null>(null);
+    const [deleteError, setDeleteError] = useState("");
+    const [deleteMessage, setDeleteMessage] = useState("");
+    const [restoreFocus, setRestoreFocus] = useState<{ sessionId: string | null } | null>(null);
     const [grindSpotFilter, setGrindSpotFilter] = useState("all");
     const [garmothSettings, setGarmothSettings] = useState<GarmothSettings | null>(null);
     const [uploading, setUploading] = useState(false);
@@ -36,9 +41,11 @@ export function HistoryView({
     const [uploadError, setUploadError] = useState("");
     const [settingsError, setSettingsError] = useState("");
     const [garmothSettingsLoaded, setGarmothSettingsLoaded] = useState(false);
+    const reloadButton = useRef<HTMLButtonElement>(null);
+    const historySelectButtons = useRef(new Map<string, HTMLButtonElement>());
 
-    async function loadHistory() {
-        setRecords(null);
+    async function loadHistory(showLoading = true) {
+        if (showLoading) setRecords(null);
         setError("");
         try {
             const finished = await listFinishedSessions();
@@ -47,7 +54,7 @@ export function HistoryView({
                 finished.some((record) => record.session.id === current) ? current : (finished[0]?.session.id ?? null),
             );
         } catch (loadError) {
-            setRecords([]);
+            if (showLoading) setRecords([]);
             setError(String(loadError));
         }
     }
@@ -88,6 +95,17 @@ export function HistoryView({
     const uploadCharacter = garmothSettings?.characters.find(
         (character) => character.id === garmothSettings.selectedCharacterId,
     );
+    const actionBusy = uploading || reopening || deletingId !== null;
+
+    useEffect(() => {
+        if (!restoreFocus || deletingId !== null) return;
+        const target = restoreFocus.sessionId
+            ? (historySelectButtons.current.get(restoreFocus.sessionId) ?? reloadButton.current)
+            : reloadButton.current;
+        if (!target) return;
+        target.focus();
+        setRestoreFocus(null);
+    }, [deletingId, restoreFocus, filteredRecords]);
 
     async function reopenSelected() {
         if (!selected) return;
@@ -126,6 +144,34 @@ export function HistoryView({
         }
     }
 
+    async function deleteRecord(record: FinishedSessionRecord) {
+        if (deletingId !== null) return;
+        const spotName = getGrindSpot(record.session.grindSpotId).name;
+        const confirmed = window.confirm(
+            `Delete the ${spotName} session from ${formatTimestamp(record.finishedAt)}? This permanently removes the session and all of its entries.`,
+        );
+        if (!confirmed) return;
+
+        const deletedIndex = filteredRecords.findIndex((candidate) => candidate.session.id === record.session.id);
+        const nextFocusId =
+            filteredRecords[deletedIndex + 1]?.session.id ?? filteredRecords[deletedIndex - 1]?.session.id ?? null;
+        setDeletingId(record.session.id);
+        setDeleteError("");
+        setDeleteMessage("");
+        try {
+            await deleteFinishedSession(record.session.id);
+            setRestoreFocus({ sessionId: nextFocusId });
+            setRecords((current) => current?.filter((candidate) => candidate.session.id !== record.session.id) ?? null);
+            setSelectedId((current) => (current === record.session.id ? null : current));
+            setDeleteMessage(`Deleted the ${spotName} session from ${formatTimestamp(record.finishedAt)}.`);
+            await loadHistory(false);
+        } catch (deleteFailure) {
+            setDeleteError(String(deleteFailure));
+        } finally {
+            setDeletingId(null);
+        }
+    }
+
     return (
         <>
             <header className="topbar">
@@ -138,13 +184,12 @@ export function HistoryView({
                         Grind spot
                         <select
                             value={grindSpotFilter}
-                            disabled={
-                                !databaseLoaded || records === null || records.length === 0 || uploading || reopening
-                            }
+                            disabled={!databaseLoaded || records === null || records.length === 0 || actionBusy}
                             onChange={(event) => {
                                 setGrindSpotFilter(event.target.value);
                                 setSelectedId(null);
                                 setReopenError("");
+                                setDeleteError("");
                                 setUploadMessage("");
                                 setUploadError("");
                             }}
@@ -158,15 +203,22 @@ export function HistoryView({
                         </select>
                     </label>
                     <button
+                        ref={reloadButton}
                         className="button subtle"
                         type="button"
-                        disabled={!databaseLoaded || uploading || reopening}
-                        onClick={loadHistory}
+                        disabled={!databaseLoaded || actionBusy}
+                        onClick={() => void loadHistory()}
                     >
                         Reload
                     </button>
                 </div>
             </header>
+
+            {deleteMessage && (
+                <p className={styles.DeleteStatus} role="status">
+                    {deleteMessage}
+                </p>
+            )}
 
             {!databaseLoaded || records === null ? (
                 <section className={`panel ${styles.HistoryMessage}`}>
@@ -201,34 +253,57 @@ export function HistoryView({
                             </div>
                         </div>
                         <div className={styles.HistoryList}>
+                            {deleteError && (
+                                <p className={styles.ActionError} role="alert">
+                                    Could not delete session: {deleteError}
+                                </p>
+                            )}
                             {filteredRecords.map((record) => {
                                 const totals = calculateTotals(record.session.entries, record.session.elapsedMs);
+                                const selectedRecord = record.session.id === selected?.session.id;
                                 return (
-                                    <button
-                                        className={record.session.id === selected?.session.id ? styles.Selected : ""}
-                                        type="button"
-                                        key={record.session.id}
-                                        disabled={uploading || reopening}
-                                        onClick={() => {
-                                            setSelectedId(record.session.id);
-                                            setReopenError("");
-                                            setUploadMessage("");
-                                            setUploadError("");
-                                        }}
-                                    >
-                                        <span>
-                                            <strong>{formatTimestamp(record.finishedAt)}</strong>
-                                            <small>
-                                                {getGrindSpot(record.session.grindSpotId).name} ·{" "}
-                                                {record.session.region.toUpperCase()} ·{" "}
-                                                {formatDuration(record.session.elapsedMs)}
-                                            </small>
-                                        </span>
-                                        <span className={styles.HistoryValue}>
-                                            <strong>{formatSilver(totals.netPerHour, true)}/h</strong>
-                                            <small>{formatSilver(totals.net, true)} net</small>
-                                        </span>
-                                    </button>
+                                    <div className={styles.HistoryRow} key={record.session.id}>
+                                        <button
+                                            className={`${styles.HistorySelect} ${selectedRecord ? styles.Selected : ""}`}
+                                            type="button"
+                                            aria-pressed={selectedRecord}
+                                            disabled={actionBusy}
+                                            ref={(element) => {
+                                                if (element)
+                                                    historySelectButtons.current.set(record.session.id, element);
+                                                else historySelectButtons.current.delete(record.session.id);
+                                            }}
+                                            onClick={() => {
+                                                setSelectedId(record.session.id);
+                                                setReopenError("");
+                                                setDeleteError("");
+                                                setUploadMessage("");
+                                                setUploadError("");
+                                            }}
+                                        >
+                                            <span>
+                                                <strong>{formatTimestamp(record.finishedAt)}</strong>
+                                                <small>
+                                                    {getGrindSpot(record.session.grindSpotId).name} ·{" "}
+                                                    {record.session.region.toUpperCase()} ·{" "}
+                                                    {formatDuration(record.session.elapsedMs)}
+                                                </small>
+                                            </span>
+                                            <span className={styles.HistoryValue}>
+                                                <strong>{formatSilver(totals.netPerHour, true)}/h</strong>
+                                                <small>{formatSilver(totals.net, true)} net</small>
+                                            </span>
+                                        </button>
+                                        <button
+                                            className={styles.DeleteButton}
+                                            type="button"
+                                            disabled={actionBusy}
+                                            aria-label={`Delete ${getGrindSpot(record.session.grindSpotId).name} session from ${formatTimestamp(record.finishedAt)}`}
+                                            onClick={() => void deleteRecord(record)}
+                                        >
+                                            {deletingId === record.session.id ? "Deleting..." : "Delete"}
+                                        </button>
+                                    </div>
                                 );
                             })}
                         </div>
@@ -249,8 +324,7 @@ export function HistoryView({
                                         disabled={
                                             !databaseLoaded ||
                                             databaseStatus === "saving" ||
-                                            reopening ||
-                                            uploading ||
+                                            actionBusy ||
                                             selected.garmothUploadStatus !== null
                                         }
                                         onClick={reopenSelected}
@@ -260,7 +334,7 @@ export function HistoryView({
                                 </div>
                             </div>
                             {reopenError && (
-                                <p className={styles.ReopenError} role="alert">
+                                <p className={styles.ActionError} role="alert">
                                     {reopenError}
                                 </p>
                             )}
@@ -295,7 +369,12 @@ export function HistoryView({
                                             Loading settings...
                                         </button>
                                     ) : !uploadCharacter ? (
-                                        <button className="button subtle" type="button" onClick={onOpenSettings}>
+                                        <button
+                                            className="button subtle"
+                                            type="button"
+                                            disabled={actionBusy}
+                                            onClick={onOpenSettings}
+                                        >
                                             Open Settings
                                         </button>
                                     ) : (
@@ -303,7 +382,7 @@ export function HistoryView({
                                             className="button primary-button"
                                             type="button"
                                             disabled={
-                                                uploading ||
+                                                actionBusy ||
                                                 selected.garmothUploadStatus !== null ||
                                                 !uploadPreview ||
                                                 uploadPreview.unmatchedEntries.length > 0

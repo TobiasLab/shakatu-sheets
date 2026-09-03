@@ -16,7 +16,7 @@ import {
     supportsNativeDisplayCapture,
     supportsTauriApi,
 } from "../../api/tauri";
-import type { SessionStatus } from "../../domain/session";
+import { isActiveSessionStatus, type SessionStatus } from "../../domain/session";
 import {
     DISPLAY_CAPTURE_OPTIONS,
     defaultLootRegion,
@@ -84,8 +84,10 @@ type OcrWorkerDiagnostics = {
 };
 type OcrDiagnostics = Record<OcrSource, OcrPipelineDiagnostics> & { worker: OcrWorkerDiagnostics };
 type LiveLootCaptureProps = {
+    databaseLoaded: boolean;
     sessionId: string;
     sessionStatus: SessionStatus;
+    grindSpotId: string;
     grindSpotName: string;
     itemDictionary: readonly string[];
     onAcceptRecognition: (itemName: string, quantity: number) => string | null;
@@ -284,8 +286,10 @@ function resultAnnouncement(
 }
 
 export function LiveLootCapture({
+    databaseLoaded,
     sessionId,
     sessionStatus,
+    grindSpotId,
     grindSpotName,
     itemDictionary,
     onAcceptRecognition,
@@ -311,9 +315,6 @@ export function LiveLootCapture({
     const settingsSaveQueue = useRef<Promise<void>>(Promise.resolve());
     const nextSettingsSaveId = useRef(0);
     const mounted = useRef(true);
-    const sessionRunning = useRef(sessionStatus === "running");
-    const previousSessionRunning = useRef(sessionStatus === "running");
-    const sessionRunGeneration = useRef(0);
     const activeSessionId = useRef(sessionId);
     const draggingRegion = useRef(false);
     const activeRegionKindRef = useRef<LootRegionKind>("normal");
@@ -381,16 +382,14 @@ export function LiveLootCapture({
     const [debugSampleCollectionAvailable, setDebugSampleCollectionAvailable] = useState(false);
     const [nativeAppliedSelectionKey, setNativeAppliedSelectionKey] = useState("");
     const debugSampleCollectionCandidate = import.meta.env.DEV && supportsNativeDisplayCapture();
+    const sessionActive = isActiveSessionStatus(sessionStatus);
+    const captureAllowed = databaseLoaded && sessionActive;
 
-    const isSessionRunning = sessionStatus === "running";
     useLayoutEffect(() => {
-        if (previousSessionRunning.current && !isSessionRunning) sessionRunGeneration.current += 1;
-        previousSessionRunning.current = isSessionRunning;
-        sessionRunning.current = isSessionRunning;
         activeSessionId.current = sessionId;
         itemDictionaryRef.current = itemDictionary;
         onAcceptRecognitionRef.current = onAcceptRecognition;
-    }, [isSessionRunning, itemDictionary, onAcceptRecognition, sessionId]);
+    }, [itemDictionary, onAcceptRecognition, sessionId]);
 
     useEffect(() => {
         if (!debugSampleCollectionCandidate) return;
@@ -638,19 +637,12 @@ export function LiveLootCapture({
         if (entry.accepted || entry.result.status !== "recognized" || retriesRemaining < 1) return;
         cancelAutomaticRetry(entry.id);
         const retrySessionId = activeSessionId.current;
-        const retrySessionRunGeneration = sessionRunGeneration.current;
         const delayIndex = AUTOMATIC_INSERTION_RETRY_DELAYS.length - retriesRemaining;
         const timerId = window.setTimeout(() => {
             const pending = automaticRetries.current.get(entry.id);
             if (!pending || pending.timerId !== timerId) return;
             automaticRetries.current.delete(entry.id);
-            if (
-                !mounted.current ||
-                !sessionRunning.current ||
-                activeSessionId.current !== retrySessionId ||
-                sessionRunGeneration.current !== retrySessionRunGeneration
-            )
-                return;
+            if (!mounted.current || activeSessionId.current !== retrySessionId) return;
             const current = reviewResultsRef.current.find((candidate) => candidate.id === entry.id) ?? entry;
             const retried = acceptLiveLootReviewEntry(current, onAcceptRecognitionRef.current);
             replaceReviewEntry(retried, retriesRemaining - 1);
@@ -903,6 +895,7 @@ export function LiveLootCapture({
     }
 
     async function startCapture() {
+        if (!captureAllowed) return;
         stopCapture();
         setError("");
         const useNativeCapture = supportsNativeDisplayCapture();
@@ -924,7 +917,7 @@ export function LiveLootCapture({
                     captureToken,
                     null,
                     (frame) => {
-                        if (!mounted.current || !sessionRunning.current || currentRequest !== requestId.current) return;
+                        if (!mounted.current || currentRequest !== requestId.current) return;
                         receivedNativeFrame.current = true;
                         setStatus("capturing");
                         if (lastNativeSampleBatch.current !== frame.batchId) {
@@ -995,13 +988,13 @@ export function LiveLootCapture({
                         setError(message);
                     },
                 );
-                if (!mounted.current || !sessionRunning.current || currentRequest !== requestId.current) return;
+                if (!mounted.current || currentRequest !== requestId.current) return;
                 if (!receivedNativeFrame.current) setStatus("connecting");
                 return;
             }
 
             stream = await navigator.mediaDevices.getDisplayMedia(DISPLAY_CAPTURE_OPTIONS);
-            if (!mounted.current || !sessionRunning.current || currentRequest !== requestId.current) {
+            if (!mounted.current || currentRequest !== requestId.current) {
                 stopDisplayCapture(stream);
                 return;
             }
@@ -1206,7 +1199,7 @@ export function LiveLootCapture({
         ? findLiveLootProfile(sourceDimensions.width, sourceDimensions.height, uiScalePercent)
         : null;
     const recognitionRequested =
-        sessionStatus === "running" &&
+        captureAllowed &&
         status === "capturing" &&
         calibratedProfile !== null &&
         (placementMode === "localizing" || placementMode === "aligned" || regionConfirmed || rareRegionConfirmed);
@@ -1217,10 +1210,9 @@ export function LiveLootCapture({
     useLayoutEffect(() => {
         nextReviewResultId.current = 0;
         localizer.current?.clear();
-        pendingRecognitionFrames.current.length = 0;
-        pendingRareRecognitionFrames.current.length = 0;
+        stopRecognition(false);
         clearReviewResults();
-    }, [sessionId]);
+    }, [grindSpotId, sessionId]);
 
     useEffect(() => {
         stopRecognition(false);
@@ -1233,29 +1225,17 @@ export function LiveLootCapture({
         }
 
         const generation = recognitionGeneration.current;
-        const recognitionSessionRunGeneration = sessionRunGeneration.current;
         setRecognitionStatus("starting");
         const previousStartup = recognitionStartup.current;
         // Tesseract setup cannot be aborted, so stale starts settle and terminate before a replacement begins.
         const startup = (async () => {
             if (previousStartup) await previousStartup.catch(() => undefined);
-            if (
-                !mounted.current ||
-                !sessionRunning.current ||
-                recognitionSessionRunGeneration !== sessionRunGeneration.current ||
-                generation !== recognitionGeneration.current
-            )
-                return;
+            if (!mounted.current || generation !== recognitionGeneration.current) return;
             let createdOcr: LiveLootTesseractOcr | null = null;
             try {
                 const ocr = await createLiveLootTesseractOcr();
                 createdOcr = ocr;
-                if (
-                    !mounted.current ||
-                    !sessionRunning.current ||
-                    recognitionSessionRunGeneration !== sessionRunGeneration.current ||
-                    generation !== recognitionGeneration.current
-                ) {
+                if (!mounted.current || generation !== recognitionGeneration.current) {
                     await ocr.terminate();
                     return;
                 }
@@ -1263,9 +1243,7 @@ export function LiveLootCapture({
                 const appendResult = (source: LiveLootReviewEntry["source"], result: LiveLootRecognitionResult) => {
                     if (
                         !mounted.current ||
-                        !sessionRunning.current ||
                         activeSessionId.current !== sessionId ||
-                        recognitionSessionRunGeneration !== sessionRunGeneration.current ||
                         generation !== recognitionGeneration.current
                     )
                         return;
@@ -1338,13 +1316,7 @@ export function LiveLootCapture({
                 if (recognition.current === pipeline) setRecognitionStatus("active");
             } catch (setupError) {
                 if (createdOcr) await createdOcr.terminate().catch(() => undefined);
-                if (
-                    !mounted.current ||
-                    !sessionRunning.current ||
-                    recognitionSessionRunGeneration !== sessionRunGeneration.current ||
-                    generation !== recognitionGeneration.current
-                )
-                    return;
+                if (!mounted.current || generation !== recognitionGeneration.current) return;
                 pendingLocalizationReplay.current.length = 0;
                 pendingRecognitionFrames.current.length = 0;
                 pendingRareRecognitionFrames.current.length = 0;
@@ -1363,7 +1335,7 @@ export function LiveLootCapture({
         return () => {
             if (generation === recognitionGeneration.current) stopRecognition(false);
         };
-    }, [calibratedProfile, recognitionRequested, recognitionReset, sessionId, sourceDimensions]);
+    }, [calibratedProfile, grindSpotId, recognitionRequested, recognitionReset, sessionId, sourceDimensions]);
 
     useEffect(() => {
         if (recognitionStatus !== "active") return;
@@ -1567,11 +1539,11 @@ export function LiveLootCapture({
     ]);
 
     useEffect(() => {
-        if (sessionStatus !== "running") {
+        if (!sessionActive) {
             clearAutomaticRetries();
             if (status !== "idle") stopCapture();
         }
-    }, [sessionStatus, status]);
+    }, [sessionActive, status]);
 
     useEffect(() => {
         if (
@@ -1772,7 +1744,6 @@ export function LiveLootCapture({
         };
     }, []);
 
-    const running = sessionStatus === "running";
     const sourceSupported = sourceDimensions
         ? isSupportedLootSource(sourceDimensions.width, sourceDimensions.height)
         : false;
@@ -1888,7 +1859,7 @@ export function LiveLootCapture({
                         <button
                             className="button primary-button"
                             type="button"
-                            disabled={!running}
+                            disabled={!captureAllowed}
                             onClick={startCapture}
                         >
                             Choose capture source
@@ -1897,7 +1868,20 @@ export function LiveLootCapture({
                 </div>
             </div>
 
-            {!running && <p className={styles.Note}>Start the grind session before starting screen capture.</p>}
+            {!databaseLoaded ? (
+                <p className={styles.Note}>Screen capture is available after the active session finishes loading.</p>
+            ) : sessionStatus === "idle" ? (
+                <p className={styles.Note}>
+                    Set up capture and local recognition before starting the timer. Recognized loot is added to this
+                    session.
+                </p>
+            ) : sessionStatus === "paused" ? (
+                <p className={styles.Note}>
+                    The timer is paused. Capture and local recognition remain available for this session.
+                </p>
+            ) : sessionStatus === "finished" ? (
+                <p className={styles.Note}>Start a new session to choose a capture source.</p>
+            ) : null}
             {status === "requesting" && (
                 <p className={styles.Note} role="status">
                     Waiting for the operating-system monitor picker...
@@ -2027,7 +2011,7 @@ export function LiveLootCapture({
                                 {!previewsEnabled && (
                                     <div className={styles.PreviewPaused} role="status">
                                         <strong>Live previews paused</strong>
-                                        <span>Capture processing continues</span>
+                                        <span>Screen capture continues</span>
                                     </div>
                                 )}
                             </div>

@@ -71,6 +71,10 @@ export function listFinishedSessions() {
     return invoke<FinishedSessionRecord[]>("list_finished_sessions");
 }
 
+export function deleteFinishedSession(id: string) {
+    return invoke<void>("delete_finished_session", { id });
+}
+
 export function reopenSession(id: string) {
     return invoke<SessionState>("reopen_session", { id });
 }

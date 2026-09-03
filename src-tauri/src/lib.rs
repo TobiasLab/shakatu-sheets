@@ -24,6 +24,7 @@ pub fn run() {
 
     #[cfg(all(debug_assertions, target_os = "linux"))]
     let builder = builder.invoke_handler(tauri::generate_handler![
+        persistence::sessions::delete_finished_session,
         persistence::sessions::list_finished_sessions,
         persistence::sessions::load_active_session,
         persistence::market_prices::load_market_prices,
@@ -49,6 +50,7 @@ pub fn run() {
 
     #[cfg(not(all(debug_assertions, target_os = "linux")))]
     let builder = builder.invoke_handler(tauri::generate_handler![
+        persistence::sessions::delete_finished_session,
         persistence::sessions::list_finished_sessions,
         persistence::sessions::load_active_session,
         persistence::market_prices::load_market_prices,

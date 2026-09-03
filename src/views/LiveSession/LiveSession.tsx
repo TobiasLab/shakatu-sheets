@@ -152,7 +152,7 @@ export function LiveSessionView({ controller }: { controller: LiveSessionControl
                             disabled={!databaseLoaded}
                             onClick={startOrResume}
                         >
-                            {session.status === "paused" ? "Resume" : "Start session"}
+                            {session.status === "paused" ? "Resume timer" : "Start timer"}
                         </button>
                     )}
                     {session.status === "running" && (
@@ -162,7 +162,7 @@ export function LiveSessionView({ controller }: { controller: LiveSessionControl
                             disabled={!databaseLoaded}
                             onClick={() => dispatch({ type: "pause", now: Date.now() })}
                         >
-                            Pause
+                            Pause timer
                         </button>
                     )}
                     {(session.status === "running" ||
@@ -191,8 +191,10 @@ export function LiveSessionView({ controller }: { controller: LiveSessionControl
             </section>
 
             <LiveLootCapture
+                databaseLoaded={databaseLoaded}
                 sessionId={session.id}
                 sessionStatus={session.status}
+                grindSpotId={session.grindSpotId}
                 grindSpotName={spot.name}
                 itemDictionary={drops.map((drop) => drop.name)}
                 onAcceptRecognition={acceptRecognizedLoot}
