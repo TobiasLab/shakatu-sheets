@@ -117,7 +117,7 @@ pub(crate) async fn load_garmoth_settings(
     state: State<'_, DatabasePath>,
     operations: State<'_, GarmothOperations>,
 ) -> Result<GarmothSettings, String> {
-    let _guard = operations.0.lock().await;
+    let _guard = operations.lock().await;
     let characters = parse_stored_characters(load_setting(&state.0, CHARACTERS_SETTING)?)?;
     let selected_character_id =
         parse_selected_character_id(load_setting(&state.0, SELECTED_CHARACTER_SETTING)?)?;
@@ -141,7 +141,7 @@ pub(crate) async fn save_garmoth_api_key(
     state: State<'_, DatabasePath>,
     operations: State<'_, GarmothOperations>,
 ) -> Result<(), String> {
-    let _guard = operations.0.lock().await;
+    let _guard = operations.lock().await;
     let api_key = validate_api_key(&api_key)?;
     let response = client()?
         .get(format!("{API_BASE_URL}/user/profile"))
@@ -174,7 +174,7 @@ pub(crate) async fn fetch_garmoth_characters(
     state: State<'_, DatabasePath>,
     operations: State<'_, GarmothOperations>,
 ) -> Result<Vec<GarmothCharacter>, String> {
-    let _guard = operations.0.lock().await;
+    let _guard = operations.lock().await;
     let api_key = stored_api_key(&state.0)?;
     let character_ids = parse_character_ids(&character_ids)?;
     let ids = character_ids
@@ -222,7 +222,7 @@ pub(crate) async fn select_garmoth_character(
     state: State<'_, DatabasePath>,
     operations: State<'_, GarmothOperations>,
 ) -> Result<(), String> {
-    let _guard = operations.0.lock().await;
+    let _guard = operations.lock().await;
     let characters = parse_stored_characters(load_setting(&state.0, CHARACTERS_SETTING)?)?;
     if !characters
         .iter()

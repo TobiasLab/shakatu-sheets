@@ -1,9 +1,12 @@
 use std::{
     fs,
     path::{Path, PathBuf},
+    time::Duration,
 };
 
 use rusqlite::Connection;
+
+use crate::garmoth::GarmothOperations;
 
 use super::{
     configure_connection,
@@ -14,9 +17,10 @@ use super::{
     market_prices::{load_market_price_records, MarketPriceSnapshot, Region},
     migrate, open_database,
     sessions::{
-        delete_finished_session_record, list_finished_session_records, load_active_session_record,
-        load_session_by_id, reopen_session_record, save_session_record, EntrySource, SessionEntry,
-        SessionRecord, SessionStatus, Valuation,
+        delete_finished_session_at_path, delete_finished_session_record,
+        list_finished_session_records, load_active_session_record, load_session_by_id,
+        reopen_session_record, save_session_record, EntrySource, SessionEntry, SessionRecord,
+        SessionStatus, Valuation,
     },
     settings::{load_setting, save_settings, save_settings_if_unchanged},
 };
@@ -288,6 +292,37 @@ fn refuses_to_delete_unfinished_sessions() {
             Some(active)
         );
     }
+}
+
+#[test]
+fn serializes_session_deletion_with_garmoth_operations() {
+    tokio::runtime::Builder::new_current_thread()
+        .enable_time()
+        .build()
+        .unwrap()
+        .block_on(async {
+            let (path, mut connection) = temporary_database();
+            let finished = session(SessionStatus::Finished);
+            save_session_record(&mut connection, &finished).unwrap();
+            drop(connection);
+            let operations = GarmothOperations::default();
+            let guard = operations.lock().await;
+            let deletion = delete_finished_session_at_path(&path, &finished.id, &operations);
+            tokio::pin!(deletion);
+
+            assert!(
+                tokio::time::timeout(Duration::from_millis(10), &mut deletion)
+                    .await
+                    .is_err()
+            );
+            drop(guard);
+            deletion.await.unwrap();
+
+            let connection = open_database(&path).unwrap();
+            assert_eq!(load_session_by_id(&connection, &finished.id).unwrap(), None);
+            drop(connection);
+            remove_temporary_database(&path);
+        });
 }
 
 #[test]

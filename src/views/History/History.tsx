@@ -33,7 +33,10 @@ export function HistoryView({
     const [deletingId, setDeletingId] = useState<string | null>(null);
     const [deleteError, setDeleteError] = useState("");
     const [deleteMessage, setDeleteMessage] = useState("");
-    const [restoreFocus, setRestoreFocus] = useState<{ sessionId: string | null } | null>(null);
+    const [restoreFocus, setRestoreFocus] = useState<{
+        sessionId: string | null;
+        target: "select" | "delete";
+    } | null>(null);
     const [grindSpotFilter, setGrindSpotFilter] = useState("all");
     const [garmothSettings, setGarmothSettings] = useState<GarmothSettings | null>(null);
     const [uploading, setUploading] = useState(false);
@@ -43,19 +46,33 @@ export function HistoryView({
     const [garmothSettingsLoaded, setGarmothSettingsLoaded] = useState(false);
     const reloadButton = useRef<HTMLButtonElement>(null);
     const historySelectButtons = useRef(new Map<string, HTMLButtonElement>());
+    const historyDeleteButtons = useRef(new Map<string, HTMLButtonElement>());
+    const historyRequestId = useRef(0);
 
     async function loadHistory(showLoading = true) {
-        if (showLoading) setRecords(null);
+        const requestId = ++historyRequestId.current;
+        if (showLoading) {
+            setRecords(null);
+            setDeleteError("");
+            setDeleteMessage("");
+        }
         setError("");
         try {
             const finished = await listFinishedSessions();
+            if (requestId !== historyRequestId.current) return "";
             setRecords(finished);
             setSelectedId((current) =>
                 finished.some((record) => record.session.id === current) ? current : (finished[0]?.session.id ?? null),
             );
+            return "";
         } catch (loadError) {
-            if (showLoading) setRecords([]);
-            setError(String(loadError));
+            if (requestId !== historyRequestId.current) return "";
+            const detail = String(loadError);
+            if (showLoading) {
+                setRecords([]);
+                setError(detail);
+            }
+            return detail;
         }
     }
 
@@ -100,7 +117,9 @@ export function HistoryView({
     useEffect(() => {
         if (!restoreFocus || deletingId !== null) return;
         const target = restoreFocus.sessionId
-            ? (historySelectButtons.current.get(restoreFocus.sessionId) ?? reloadButton.current)
+            ? ((restoreFocus.target === "select" ? historySelectButtons : historyDeleteButtons).current.get(
+                  restoreFocus.sessionId,
+              ) ?? reloadButton.current)
             : reloadButton.current;
         if (!target) return;
         target.focus();
@@ -121,6 +140,7 @@ export function HistoryView({
 
     async function uploadSelected() {
         if (!selected || !uploadPreview || uploadPreview.unmatchedEntries.length > 0) return;
+        historyRequestId.current += 1;
         setUploading(true);
         setUploadMessage("");
         setUploadError("");
@@ -136,6 +156,7 @@ export function HistoryView({
             );
             if (result.status === "success") setUploadMessage(result.message);
             else setUploadError(result.message);
+            void loadHistory(false);
         } catch (uploadFailure) {
             setUploadError(String(uploadFailure));
             await loadHistory();
@@ -152,23 +173,36 @@ export function HistoryView({
         );
         if (!confirmed) return;
 
+        historyRequestId.current += 1;
         const deletedIndex = filteredRecords.findIndex((candidate) => candidate.session.id === record.session.id);
         const nextFocusId =
             filteredRecords[deletedIndex + 1]?.session.id ?? filteredRecords[deletedIndex - 1]?.session.id ?? null;
+        const deletingSelected = selected?.session.id === record.session.id;
         setDeletingId(record.session.id);
         setDeleteError("");
         setDeleteMessage("");
         try {
             await deleteFinishedSession(record.session.id);
-            setRestoreFocus({ sessionId: nextFocusId });
             setRecords((current) => current?.filter((candidate) => candidate.session.id !== record.session.id) ?? null);
-            setSelectedId((current) => (current === record.session.id ? null : current));
+            if (deletingSelected) {
+                setSelectedId(nextFocusId);
+                setReopenError("");
+                setUploadMessage("");
+                setUploadError("");
+            }
+            setRestoreFocus({ sessionId: nextFocusId, target: deletingSelected ? "select" : "delete" });
             setDeleteMessage(`Deleted the ${spotName} session from ${formatTimestamp(record.finishedAt)}.`);
-            await loadHistory(false);
+            setDeletingId((current) => (current === record.session.id ? null : current));
+            const refreshError = await loadHistory(false);
+            if (refreshError) {
+                setDeleteError(`Session was deleted, but history could not be refreshed: ${refreshError}`);
+            }
         } catch (deleteFailure) {
-            setDeleteError(String(deleteFailure));
+            setDeleteError(`Could not delete session: ${String(deleteFailure)}`);
+            setRestoreFocus({ sessionId: record.session.id, target: "delete" });
+            void loadHistory(false);
         } finally {
-            setDeletingId(null);
+            setDeletingId((current) => (current === record.session.id ? null : current));
         }
     }
 
@@ -219,6 +253,11 @@ export function HistoryView({
                     {deleteMessage}
                 </p>
             )}
+            {deleteError && (
+                <p className={styles.DeleteError} role="alert">
+                    {deleteError}
+                </p>
+            )}
 
             {!databaseLoaded || records === null ? (
                 <section className={`panel ${styles.HistoryMessage}`}>
@@ -253,11 +292,6 @@ export function HistoryView({
                             </div>
                         </div>
                         <div className={styles.HistoryList}>
-                            {deleteError && (
-                                <p className={styles.ActionError} role="alert">
-                                    Could not delete session: {deleteError}
-                                </p>
-                            )}
                             {filteredRecords.map((record) => {
                                 const totals = calculateTotals(record.session.entries, record.session.elapsedMs);
                                 const selectedRecord = record.session.id === selected?.session.id;
@@ -299,6 +333,11 @@ export function HistoryView({
                                             type="button"
                                             disabled={actionBusy}
                                             aria-label={`Delete ${getGrindSpot(record.session.grindSpotId).name} session from ${formatTimestamp(record.finishedAt)}`}
+                                            ref={(element) => {
+                                                if (element)
+                                                    historyDeleteButtons.current.set(record.session.id, element);
+                                                else historyDeleteButtons.current.delete(record.session.id);
+                                            }}
                                             onClick={() => void deleteRecord(record)}
                                         >
                                             {deletingId === record.session.id ? "Deleting..." : "Delete"}

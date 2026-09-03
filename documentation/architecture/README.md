@@ -17,7 +17,8 @@ screenshot bytes or OCR draft data cross the Tauri command boundary.
 The history view requests the 20 newest finished sessions from SQLite, filters them by the selected grind-spot profile,
 and calculates display totals with the same pure frontend function as the live view. Normal saves cannot change finished
 sessions. Reopening is a separate backend command that atomically returns one finished session to a paused state without
-replacing an active session that contains progress.
+replacing an active session that contains progress. Deletion is also a separate backend command, requires the row to still
+be finished, and relies on SQLite foreign-key cascades for session-owned records.
 
 Saved market prices are read from SQLite when the selected region or grind-spot profile changes. The frontend only
 invokes the Arsha network request after the user presses the fetch or refresh button. Successful complete responses are
@@ -27,7 +28,7 @@ Garmoth credentials remain in SQLite and are used only by Rust requests. The fro
 validated character summaries, never the saved key. Character builds are fetched explicitly using the IDs required by
 Garmoth's approved endpoint. Finished-session upload previews map profile drop names to Garmoth keys and reject
 unmatched revenue rows rather than silently omitting them. Backend Garmoth operations are serialized so navigation or
-multiple windows cannot race key replacement, character selection, and uploads.
+multiple windows cannot race key replacement, character selection, uploads, and finished-session deletion.
 
 Uploads are explicit and single-shot. Rust reserves a session as `unknown` before sending the create request and changes
 it to `success` only after a successful response. A connect failure known to occur before transmission releases the
