@@ -31,6 +31,8 @@ the session ID so a session cannot be uploaded concurrently or retried silently 
 - A running session is restored as paused, including elapsed time since its last start.
 - Session entries are replaced inside the same transaction as the session update.
 - Normal saves cannot change finished sessions; the explicit reopen command can return one to a paused state.
+- The explicit delete command removes only finished sessions. Their entries, session-linked price snapshots, and Garmoth
+  upload marker are deleted through foreign-key cascades; unfinished sessions cannot be deleted through this path.
 - Money is stored as integer silver values and time as integer milliseconds.
 - Market snapshots are never refreshed automatically or expired based on age.
 - The latest saved row for each region, item, and enhancement level supplies prices for new entries.
@@ -45,5 +47,6 @@ the session ID so a session cannot be uploaded concurrently or retried silently 
   Preview and region pixels remain in memory and are never written to the database.
 - Connect failures that occur before request transmission release the upload reservation for an explicit retry. Any
   potentially transmitted request without a success response remains `unknown` to prevent duplicate entries. Reserved
-  and uploaded sessions cannot be reopened.
+  and uploaded sessions cannot be reopened. Deletion is serialized with Garmoth operations so it cannot remove a session
+  while its upload request is in flight.
 - Screenshots, OCR output, confidence values, and draft thumbnails are never stored in SQLite.

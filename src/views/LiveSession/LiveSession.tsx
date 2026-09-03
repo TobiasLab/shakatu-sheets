@@ -27,6 +27,14 @@ export function LiveSessionView({ controller }: { controller: LiveSessionControl
     } = controller;
     const timeEditable = session.status === "idle" || session.status === "paused";
     const spotEditable = session.status === "idle" && session.elapsedMs === 0 && session.entries.length === 0;
+    const timerStatusLabel =
+        session.status === "idle"
+            ? "Timer not started"
+            : session.status === "running"
+              ? "Timer running"
+              : session.status === "paused"
+                ? "Timer paused"
+                : "Session finished";
 
     function acceptRecognizedLoot(itemName: string, quantity: number) {
         if (!databaseLoaded) return "The local database is still loading.";
@@ -90,7 +98,7 @@ export function LiveSessionView({ controller }: { controller: LiveSessionControl
                             <option value="na">NA</option>
                         </select>
                     </label>
-                    <span className={`${styles.SessionState} ${styles[session.status]}`}>{session.status}</span>
+                    <span className={`${styles.SessionState} ${styles[session.status]}`}>{timerStatusLabel}</span>
                 </div>
             </header>
 

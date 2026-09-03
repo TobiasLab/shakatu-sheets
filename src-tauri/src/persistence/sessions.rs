@@ -4,6 +4,8 @@ use rusqlite::{params, Connection, OptionalExtension};
 use serde::{Deserialize, Serialize};
 use tauri::State;
 
+use crate::garmoth::GarmothOperations;
+
 use super::{
     garmoth_uploads::{load_garmoth_upload_status, GarmothUploadStatus},
     market_prices::Region,
@@ -383,6 +385,16 @@ pub(super) fn delete_finished_session_record(
     }
 }
 
+pub(super) async fn delete_finished_session_at_path(
+    path: &PathBuf,
+    id: &str,
+    operations: &GarmothOperations,
+) -> Result<(), String> {
+    let _guard = operations.lock().await;
+    let connection = open_database(path)?;
+    delete_finished_session_record(&connection, id)
+}
+
 pub(crate) fn load_session_for_upload(
     path: &PathBuf,
     session_id: &str,
@@ -456,9 +468,12 @@ pub fn list_finished_sessions(
 }
 
 #[tauri::command]
-pub fn delete_finished_session(id: String, state: State<'_, DatabasePath>) -> Result<(), String> {
-    let connection = open_database(&state.0)?;
-    delete_finished_session_record(&connection, &id)
+pub async fn delete_finished_session(
+    id: String,
+    state: State<'_, DatabasePath>,
+    operations: State<'_, GarmothOperations>,
+) -> Result<(), String> {
+    delete_finished_session_at_path(&state.0, &id, &operations).await
 }
 
 #[tauri::command]

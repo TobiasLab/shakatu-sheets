@@ -11,6 +11,12 @@ pub(crate) mod upload;
 #[derive(Default)]
 pub(crate) struct GarmothOperations(tokio::sync::Mutex<()>);
 
+impl GarmothOperations {
+    pub(crate) async fn lock(&self) -> tokio::sync::MutexGuard<'_, ()> {
+        self.0.lock().await
+    }
+}
+
 pub(super) const API_BASE_URL: &str = "https://api.garmoth.com/api/external";
 pub(super) const API_KEY_SETTING: &str = "garmoth.api_key";
 pub(super) const CHARACTER_IDS_SETTING: &str = "garmoth.character_ids";

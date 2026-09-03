@@ -187,7 +187,7 @@ pub(crate) async fn upload_garmoth_session(
     state: State<'_, DatabasePath>,
     operations: State<'_, GarmothOperations>,
 ) -> Result<GarmothUploadResult, String> {
-    let _guard = operations.0.lock().await;
+    let _guard = operations.lock().await;
     validate_upload(&input)?;
     verify_session_values(&input, &state)?;
     let api_key = stored_api_key(&state.0)?;
