@@ -291,6 +291,10 @@ export function setNativeDisplayCaptureRegion(
     });
 }
 
+export function setNativeDisplayCapturePreviewEnabled(captureToken: number, enabled: boolean) {
+    return invoke<void>("set_native_display_capture_preview_enabled", { captureToken, enabled });
+}
+
 export function stopNativeDisplayCapture(captureToken: number) {
     return invoke<void>("stop_native_display_capture", { captureToken });
 }

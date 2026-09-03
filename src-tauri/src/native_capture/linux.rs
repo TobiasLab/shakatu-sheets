@@ -97,6 +97,7 @@ struct CaptureControl {
     capture_token: u64,
     cancelled: AtomicBool,
     finished: AtomicBool,
+    preview_enabled: AtomicBool,
     batches: Mutex<BatchState>,
     pending_session: Mutex<Option<Arc<Session<Screencast>>>>,
     selection: Mutex<Option<NativeCaptureSelection>>,
@@ -113,6 +114,7 @@ impl CaptureControl {
             capture_token,
             cancelled: AtomicBool::new(false),
             finished: AtomicBool::new(false),
+            preview_enabled: AtomicBool::new(true),
             batches: Mutex::new(BatchState::default()),
             pending_session: Mutex::new(None),
             selection: Mutex::new(selection),
@@ -126,7 +128,8 @@ impl CaptureControl {
     fn begin_batch(
         &self,
         selection: Option<NativeCaptureSelection>,
-    ) -> Result<Option<u32>, String> {
+        preview_enabled: bool,
+    ) -> Result<Option<(u32, bool)>, String> {
         let mut batches = self
             .batches
             .lock()
@@ -146,15 +149,16 @@ impl CaptureControl {
             }
             None => (false, false, false),
         };
+        let preview_pending = preview_enabled || selection.is_none();
         batches.pending = Some(PendingBatch {
             batch_id,
             started_at: Instant::now(),
-            preview_pending: true,
+            preview_pending,
             search_pending,
             region_pending,
             rare_region_pending,
         });
-        Ok(Some(batch_id))
+        Ok(Some((batch_id, preview_pending)))
     }
 
     fn acknowledge(&self, capture_id: u32, batch_id: u32, kind: u32) {
@@ -437,6 +441,29 @@ pub(super) fn set_selection(
     Ok(())
 }
 
+pub(super) fn set_preview_enabled(
+    state: &CaptureState,
+    capture_token: u64,
+    enabled: bool,
+) -> Result<(), String> {
+    let inner = state
+        .inner
+        .lock()
+        .map_err(|_| "Capture state is unavailable.")?;
+    let control = inner
+        .capture
+        .as_ref()
+        .ok_or_else(|| "Native display capture is not running.".to_string())?;
+    if control.capture_token != capture_token {
+        return Err("Native display capture request is no longer active.".to_string());
+    }
+    if control.cancelled.load(Ordering::Acquire) || control.finished.load(Ordering::Acquire) {
+        return Err("Native display capture is not running.".to_string());
+    }
+    control.preview_enabled.store(enabled, Ordering::Release);
+    Ok(())
+}
+
 #[cfg(debug_assertions)]
 pub(super) fn start_debug_roi_sample_collection(
     state: &CaptureState,
@@ -713,6 +740,7 @@ fn run_pipewire(
                         return;
                     }
                 };
+                let preview_enabled = control_for_frames.preview_enabled.load(Ordering::Acquire);
                 let selection = match selection_for_source(
                     configured_selection,
                     size.width,
@@ -744,8 +772,9 @@ fn run_pipewire(
                     *source_dimensions = Some((size.width, size.height));
                     control_for_frames.healthy.store(true, Ordering::Release);
                 }
-                let batch_id = match control_for_frames.begin_batch(selection) {
-                    Ok(Some(batch_id)) => batch_id,
+                let (batch_id, send_preview) =
+                    match control_for_frames.begin_batch(selection, preview_enabled) {
+                    Ok(Some(batch)) => batch,
                     Ok(None) => return,
                     Err(error) => {
                         *stream_error_in_process.borrow_mut() = Some(error);
@@ -753,22 +782,26 @@ fn run_pipewire(
                         return;
                     }
                 };
-                let preview = match preview_frame(
-                    pixels,
-                    size.width,
-                    size.height,
-                    stride,
-                    data.format.format(),
-                    control_for_frames.capture_id,
-                    batch_id,
-                ) {
-                    Ok(frame) => frame,
-                    Err(error) => {
-                        control_for_frames.clear_batch(batch_id);
-                        *stream_error_in_process.borrow_mut() = Some(error);
-                        loop_for_frames.quit();
-                        return;
+                let preview = if send_preview {
+                    match preview_frame(
+                        pixels,
+                        size.width,
+                        size.height,
+                        stride,
+                        data.format.format(),
+                        control_for_frames.capture_id,
+                        batch_id,
+                    ) {
+                        Ok(frame) => Some(frame),
+                        Err(error) => {
+                            control_for_frames.clear_batch(batch_id);
+                            *stream_error_in_process.borrow_mut() = Some(error);
+                            loop_for_frames.quit();
+                            return;
+                        }
                     }
+                } else {
+                    None
                 };
                 let batch = BatchIdentity {
                     capture_id: control_for_frames.capture_id,
@@ -843,10 +876,12 @@ fn run_pipewire(
                         .finish_capture(control_for_frames.capture_id, SOURCE_MISMATCH),
                     _ => {}
                 }
-                if frames.send(InvokeResponseBody::Raw(preview)).is_err() {
-                    control_for_frames.clear_batch(batch_id);
-                    loop_for_frames.quit();
-                    return;
+                if let Some(preview) = preview {
+                    if frames.send(InvokeResponseBody::Raw(preview)).is_err() {
+                        control_for_frames.clear_batch(batch_id);
+                        loop_for_frames.quit();
+                        return;
+                    }
                 }
                 if let Some(frame) = search_frame {
                     if frames.send(InvokeResponseBody::Raw(frame)).is_err() {
@@ -1623,9 +1658,10 @@ mod tests {
             height: 100.0 / 1440.0,
         });
         let batch_id = control
-            .begin_batch(Some(regions_selection(settings)))
+            .begin_batch(Some(regions_selection(settings)), true)
             .unwrap()
-            .unwrap();
+            .unwrap()
+            .0;
 
         control.acknowledge(8, batch_id, FRAME_KIND_PREVIEW);
         control.acknowledge(7, batch_id + 1, FRAME_KIND_PREVIEW);
@@ -1655,7 +1691,7 @@ mod tests {
         control.acknowledge(7, batch_id, FRAME_KIND_RARE_REGION);
         assert!(control.batches.lock().unwrap().pending.is_none());
 
-        let next_batch_id = control.begin_batch(None).unwrap().unwrap();
+        let next_batch_id = control.begin_batch(None, true).unwrap().unwrap().0;
         assert_eq!(next_batch_id, batch_id + 1);
         control.acknowledge(7, batch_id, FRAME_KIND_PREVIEW);
         assert!(control.batches.lock().unwrap().pending.is_some());
@@ -1663,18 +1699,23 @@ mod tests {
         assert!(control.batches.lock().unwrap().pending.is_none());
 
         let normal_batch_id = control
-            .begin_batch(Some(regions_selection(selection(3440, 1440, 80, 10, 20))))
+            .begin_batch(
+                Some(regions_selection(selection(3440, 1440, 80, 10, 20))),
+                true,
+            )
             .unwrap()
-            .unwrap();
+            .unwrap()
+            .0;
         control.acknowledge(7, normal_batch_id, FRAME_KIND_PREVIEW);
         assert!(control.batches.lock().unwrap().pending.is_some());
         control.acknowledge(7, normal_batch_id, FRAME_KIND_REGION);
         assert!(control.batches.lock().unwrap().pending.is_none());
 
         let search_batch_id = control
-            .begin_batch(Some(search_selection(100, 200)))
+            .begin_batch(Some(search_selection(100, 200)), true)
             .unwrap()
-            .unwrap();
+            .unwrap()
+            .0;
         control.acknowledge(7, search_batch_id, FRAME_KIND_PREVIEW);
         control.acknowledge(7, search_batch_id, FRAME_KIND_REGION);
         {
@@ -1687,11 +1728,157 @@ mod tests {
         control.acknowledge(7, search_batch_id, FRAME_KIND_SEARCH_REGION);
         assert!(control.batches.lock().unwrap().pending.is_none());
 
-        let failed_batch_id = control.begin_batch(None).unwrap().unwrap();
+        let failed_batch_id = control.begin_batch(None, true).unwrap().unwrap().0;
         control.clear_batch(failed_batch_id - 1);
         assert!(control.batches.lock().unwrap().pending.is_some());
         control.clear_batch(failed_batch_id);
         assert!(control.batches.lock().unwrap().pending.is_none());
+    }
+
+    #[test]
+    fn preview_defaults_enabled_and_is_reforced_without_an_effective_selection() {
+        let control = CaptureControl::new(7, 11, None);
+        assert!(control.preview_enabled.load(Ordering::Acquire));
+
+        control.preview_enabled.store(false, Ordering::Release);
+        let (batch_id, send_preview) = control
+            .begin_batch(None, control.preview_enabled.load(Ordering::Acquire))
+            .unwrap()
+            .unwrap();
+        assert!(send_preview);
+        assert!(
+            control
+                .batches
+                .lock()
+                .unwrap()
+                .pending
+                .as_ref()
+                .unwrap()
+                .preview_pending
+        );
+        control.acknowledge(7, batch_id, FRAME_KIND_PREVIEW);
+
+        let configured = Some(regions_selection(selection(3440, 1440, 80, 10, 20)));
+        let effective = selection_for_source(configured, 2560, 1440).unwrap();
+        let (_, send_preview) = control
+            .begin_batch(effective, control.preview_enabled.load(Ordering::Acquire))
+            .unwrap()
+            .unwrap();
+        assert!(send_preview);
+    }
+
+    #[test]
+    fn disabled_preview_batches_wait_only_for_selected_crops() {
+        let control = CaptureControl::new(7, 11, None);
+        control.preview_enabled.store(false, Ordering::Release);
+        let preview_enabled = control.preview_enabled.load(Ordering::Acquire);
+        let mut settings = selection(3440, 1440, 80, 10, 20);
+        settings.rare_region = Some(NormalizedRegion {
+            x: 1000.0 / 3440.0,
+            y: 1000.0 / 1440.0,
+            width: 400.0 / 3440.0,
+            height: 100.0 / 1440.0,
+        });
+
+        let (region_batch_id, send_preview) = control
+            .begin_batch(Some(regions_selection(settings)), preview_enabled)
+            .unwrap()
+            .unwrap();
+        assert!(!send_preview);
+        {
+            let batches = control.batches.lock().unwrap();
+            let pending = batches.pending.as_ref().unwrap();
+            assert!(!pending.preview_pending);
+            assert!(!pending.search_pending);
+            assert!(pending.region_pending);
+            assert!(pending.rare_region_pending);
+        }
+        control.acknowledge(7, region_batch_id, FRAME_KIND_REGION);
+        assert!(control.batches.lock().unwrap().pending.is_some());
+        control.acknowledge(7, region_batch_id, FRAME_KIND_RARE_REGION);
+        assert!(control.batches.lock().unwrap().pending.is_none());
+
+        let (search_batch_id, send_preview) = control
+            .begin_batch(Some(search_selection(100, 200)), preview_enabled)
+            .unwrap()
+            .unwrap();
+        assert!(!send_preview);
+        {
+            let batches = control.batches.lock().unwrap();
+            let pending = batches.pending.as_ref().unwrap();
+            assert!(!pending.preview_pending);
+            assert!(pending.search_pending);
+            assert!(!pending.region_pending);
+            assert!(!pending.rare_region_pending);
+        }
+        control.acknowledge(7, search_batch_id, FRAME_KIND_SEARCH_REGION);
+        assert!(control.batches.lock().unwrap().pending.is_none());
+    }
+
+    #[test]
+    fn preview_updates_apply_to_the_next_batch_without_changing_pending_acknowledgements() {
+        let control = CaptureControl::new(7, 11, None);
+        let selected = Some(regions_selection(selection(3440, 1440, 80, 10, 20)));
+
+        let (enabled_batch_id, send_preview) = control
+            .begin_batch(selected, control.preview_enabled.load(Ordering::Acquire))
+            .unwrap()
+            .unwrap();
+        assert!(send_preview);
+        control.preview_enabled.store(false, Ordering::Release);
+        assert!(control
+            .begin_batch(selected, control.preview_enabled.load(Ordering::Acquire))
+            .unwrap()
+            .is_none());
+        control.acknowledge(7, enabled_batch_id, FRAME_KIND_REGION);
+        assert!(control.batches.lock().unwrap().pending.is_some());
+        control.acknowledge(7, enabled_batch_id, FRAME_KIND_PREVIEW);
+        assert!(control.batches.lock().unwrap().pending.is_none());
+
+        let (disabled_batch_id, send_preview) = control
+            .begin_batch(selected, control.preview_enabled.load(Ordering::Acquire))
+            .unwrap()
+            .unwrap();
+        assert!(!send_preview);
+        control.preview_enabled.store(true, Ordering::Release);
+        control.acknowledge(7, disabled_batch_id, FRAME_KIND_REGION);
+        assert!(control.batches.lock().unwrap().pending.is_none());
+
+        let (_, send_preview) = control
+            .begin_batch(selected, control.preview_enabled.load(Ordering::Acquire))
+            .unwrap()
+            .unwrap();
+        assert!(send_preview);
+    }
+
+    #[test]
+    fn preview_updates_reject_stale_tokens_and_finished_captures() {
+        let state = CaptureState::default();
+        let control = Arc::new(CaptureControl::new(1, 7, None));
+        state.inner.lock().unwrap().capture = Some(control.clone());
+
+        assert_eq!(
+            set_preview_enabled(&state, 6, false),
+            Err("Native display capture request is no longer active.".to_string())
+        );
+        assert!(control.preview_enabled.load(Ordering::Acquire));
+
+        set_preview_enabled(&state, 7, false).unwrap();
+        assert!(!control.preview_enabled.load(Ordering::Acquire));
+        control.finished.store(true, Ordering::Release);
+        assert_eq!(
+            set_preview_enabled(&state, 7, true),
+            Err("Native display capture is not running.".to_string())
+        );
+        assert!(!control.preview_enabled.load(Ordering::Acquire));
+
+        let replacement = Arc::new(CaptureControl::new(2, 8, None));
+        state.inner.lock().unwrap().capture = Some(replacement.clone());
+        assert_eq!(
+            set_preview_enabled(&state, 7, false),
+            Err("Native display capture request is no longer active.".to_string())
+        );
+        assert!(replacement.preview_enabled.load(Ordering::Acquire));
     }
 
     #[test]

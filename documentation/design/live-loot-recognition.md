@@ -17,9 +17,12 @@ export a strict V1 detector profile containing only validated capture dimensions
 row geometry. The validated 3440x1440, 80%-UI profile is bundled for live capture. Normal jobs begin after automatic
 alignment or manual confirmation, while rare jobs require separate rare-area confirmation. A browser-side adapter
 serializes both paths through one local Tesseract worker and sends recognized, withheld, failed, and overflow results to a
-bounded review feed. Recognized events from both paths are added to the ledger immediately; insertion failures remain
-visible and receive three automatic retries with short backoff before remaining manually retryable. Live validation and
-calibrated recognition benchmarks for the additional profiles remain required.
+bounded review feed. The normal path retains up to eight outstanding OCR jobs, including the active job, so one five-row
+appearance burst does not immediately lose events; the lower-volume rare path retains two. Live diagnostics expose current
+and peak outstanding job counts plus last and average execution time for the shared OCR worker. Recognized events from both
+paths are added to the ledger
+immediately; insertion failures remain visible and receive three automatic retries with short backoff before remaining
+manually retryable. Live validation and calibrated recognition benchmarks for the additional profiles remain required.
 
 ## Goal
 
@@ -40,7 +43,7 @@ game process, or inspect BDO network traffic. User-authorized operating-system s
 - Automatically localized normal loot-stack placement for the validated profile, with manual fallback.
 - Independently positioned and confirmed rare-banner placement selected by the user, with provisional recognition at 80%
   UI scale.
-- User-triggered start and stop controls with a persistent capture indicator.
+- User-triggered start, stop, and live-preview pause controls with a persistent capture indicator.
 - Borderless-windowed mode as the recommended game display mode.
 - The user selects the monitor containing BDO from the operating-system source picker.
 - Known grind-spot item names as the recognition dictionary.
@@ -49,8 +52,8 @@ game process, or inspect BDO network traffic. User-authorized operating-system s
 ## Capture
 
 Capture uses a live operating-system screen-sharing stream rather than repeatedly saving screenshots. The app samples
-approximately 8 frames per second, creates a bounded full-source preview, and copies either the automatic search area or
-the configured notification rectangles at native resolution into memory.
+approximately 8 frames per second, creates a bounded full-source preview when previews are enabled, and copies either the
+automatic search area or the configured notification rectangles at native resolution into memory.
 
 Windows and browser development use `navigator.mediaDevices.getDisplayMedia` inside the Tauri WebView. The call must come
 directly from a user action and requests video without audio. The operating system presents its own source picker and the
@@ -66,8 +69,12 @@ same mapped native PipeWire frame before separate typed region frames cross the 
 placement, PipeWire emits the search crop instead of the exact normal and rare crops. Browser capture performs the same
 mode-specific crops from the native hidden video frame with canvas while retaining the downscaled preview. Protocol V3
 identifies preview, normal, rare, and search frames separately. Frame batches are acknowledged independently to bound
-local IPC work until the frontend has consumed every preview and crop in the batch. Selection and stop commands carry a
-capture token so delayed commands from a previous request cannot modify or terminate a newer capture.
+local IPC work until the frontend has consumed every emitted preview and crop in the batch. Pausing live previews stops
+the Linux backend from creating or sending full-source preview frames while a valid crop selection is active; native ROI
+frames, OCR, diagnostics, and debug sample collection continue. The browser fallback keeps processing ROI frames through
+offscreen canvases while visible canvases remain frozen. Native capture forces a preview frame when no selection matches
+the source so dimension changes can still be detected and recovered. Selection, preview, and stop commands carry a capture
+token so delayed commands from a previous request cannot modify or terminate a newer capture.
 
 Debug Linux builds expose a separate `Save ROI samples for 5 minutes` action after both capture areas are confirmed. It
 writes synchronized normal and rare PNG crops at the existing 8 FPS sampling cadence under the repository's ignored

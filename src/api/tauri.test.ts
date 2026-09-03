@@ -20,6 +20,7 @@ import {
     type LootCaptureSettings,
     type NativeCaptureSelection,
     parseNativeCaptureMessage,
+    setNativeDisplayCapturePreviewEnabled,
     setNativeDisplayCaptureRegion,
     startDebugRoiSampleCollection,
     startNativeDisplayCapture,
@@ -191,6 +192,11 @@ describe("native capture frame protocol", () => {
         expect(tauri.invoke).toHaveBeenLastCalledWith("set_native_display_capture_region", {
             captureToken: 17,
             selection: { mode: "regions", settings },
+        });
+        setNativeDisplayCapturePreviewEnabled(17, false);
+        expect(tauri.invoke).toHaveBeenLastCalledWith("set_native_display_capture_preview_enabled", {
+            captureToken: 17,
+            enabled: false,
         });
     });
 

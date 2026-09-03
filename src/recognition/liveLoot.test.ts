@@ -328,19 +328,78 @@ describe("live loot streaming coordination", () => {
         pushRowSequence(coordinator, [0, 2, 2, 2, 2, 2]);
 
         expect(reads).toHaveLength(1);
+        expect(coordinator.pendingOcrJobCount).toBe(2);
         const finishing = coordinator.finish();
         first.resolve(acceptedReadings);
         await secondReadStarted.promise;
         expect(reads).toHaveLength(2);
+        expect(coordinator.pendingOcrJobCount).toBe(1);
         expect(results.map(({ eventId }) => eventId)).toEqual(["detected-0001"]);
 
         second.resolve(acceptedReadings);
         await finishing;
+        expect(coordinator.pendingOcrJobCount).toBe(0);
         expect(results.map(({ eventId }) => eventId)).toEqual(["detected-0001", "detected-0002"]);
         expect(results.map(({ status }) => status)).toEqual(["recognized", "recognized"]);
     });
 
-    it("drops over-capacity events without invoking OCR for them", async () => {
+    it("retains a simultaneous five-row burst when the pending OCR capacity is eight", async () => {
+        const pending = deferred<readonly (readonly string[])[]>();
+        const results: LiveLootRecognitionResult[] = [];
+        const burstProfile: LootDetectionProfile = {
+            width: 100,
+            height: 240,
+            maxRows: 5,
+            bottomCenter: 200,
+            spacing: 40,
+            rowThreshold: 5,
+        };
+        const burstFrame = (count: number): LootRoiFrame => {
+            const pixels = new Uint8ClampedArray(burstProfile.width * burstProfile.height * 4);
+            pixels[0] = count;
+            return { width: burstProfile.width, height: burstProfile.height, pixels };
+        };
+        const coordinator = new LiveLootCoordinator({
+            profile: burstProfile,
+            dictionary: ["Black Stone"],
+            maxPendingOcrJobs: 8,
+            readText: () => pending.promise,
+            onResult: (result) => results.push(result),
+            analyzeFrame: (frame) => {
+                const count = frame.pixels[0];
+                const observations = Array.from({ length: count }, (_, slot) => {
+                    const projection = new Uint8Array(5);
+                    projection[slot] = 1;
+                    return {
+                        slot,
+                        centerY: burstProfile.bottomCenter - (burstProfile.maxRows - slot - 1) * burstProfile.spacing,
+                        score: 10,
+                        fingerprint: { full: projection, quantity: projection },
+                    };
+                });
+                const fingerprints = observations.map(({ fingerprint }) => fingerprint);
+                return {
+                    count,
+                    strength: count * 10,
+                    fingerprint: fingerprints[fingerprints.length - 1],
+                    fingerprints,
+                    observations,
+                };
+            },
+        });
+
+        for (const count of [0, 5, 5, 5, 5, 5]) coordinator.pushFrame(burstFrame(count));
+
+        expect(coordinator.pendingOcrJobCount).toBe(5);
+        const finishing = coordinator.finish();
+        pending.resolve(acceptedReadings);
+        await finishing;
+
+        expect(results).toHaveLength(5);
+        expect(results.every(({ status }) => status === "recognized")).toBe(true);
+    });
+
+    it("drops over-capacity OCR events without withholding later result deliveries", async () => {
         const pending = deferred<readonly (readonly string[])[]>();
         const reads: Array<readonly LiveLootOcrFrame[]> = [];
         const results: LiveLootRecognitionResult[] = [];
@@ -383,14 +442,74 @@ describe("live loot streaming coordination", () => {
                 itemName: null,
                 quantity: null,
                 status: "dropped",
-                reason: "mixed-overflow-summary",
-                count: 2,
+                reason: "backpressure-summary",
+                count: 1,
                 backpressureCount: 1,
-                resultOverflowCount: 1,
+                resultOverflowCount: 0,
                 firstEventId: "detected-0002",
-                lastEventId: "detected-0003",
-                lastFrame: 9,
+                lastEventId: "detected-0002",
+                lastFrame: 1,
             },
+            {
+                eventId: "detected-0003",
+                firstFrame: 9,
+                selectedFrames: [],
+                itemName: null,
+                quantity: null,
+                status: "withheld",
+                reason: "insufficient-observations",
+            },
+        ]);
+    });
+
+    it("admits new OCR work after capacity reopens behind an overflow summary", async () => {
+        const reads = [
+            deferred<readonly (readonly string[])[]>(),
+            deferred<readonly (readonly string[])[]>(),
+            deferred<readonly (readonly string[])[]>(),
+        ];
+        const secondReadStarted = deferred<void>();
+        const thirdReadStarted = deferred<void>();
+        const results: LiveLootRecognitionResult[] = [];
+        let readCount = 0;
+        const coordinator = new LiveLootCoordinator({
+            profile: streamingProfile,
+            dictionary: ["Black Stone"],
+            maxPendingOcrJobs: 2,
+            readText: () => {
+                const index = readCount;
+                readCount += 1;
+                if (readCount === 2) secondReadStarted.resolve();
+                if (readCount === 3) thirdReadStarted.resolve();
+                return reads[index].promise;
+            },
+            onResult: (result) => results.push(result),
+        });
+
+        pushRowSequence(coordinator, [0, 2, 2, 2, 2, 2]);
+        pushRowSequence(coordinator, [0, 0, 0, 1, 1, 1, 1, 1]);
+        expect(coordinator.pendingOcrJobCount).toBe(2);
+        expect(coordinator.queuedSummaryCount).toBe(1);
+
+        reads[0].resolve(acceptedReadings);
+        await secondReadStarted.promise;
+        expect(coordinator.pendingOcrJobCount).toBe(1);
+        pushRowSequence(coordinator, [0, 0, 0, 1, 1, 1, 1, 1]);
+        expect(coordinator.pendingOcrJobCount).toBe(2);
+        expect(coordinator.queuedSummaryCount).toBe(1);
+
+        const finishing = coordinator.finish();
+        reads[1].resolve(acceptedReadings);
+        await thirdReadStarted.promise;
+        reads[2].resolve(acceptedReadings);
+        await finishing;
+
+        expect(results.map(({ status }) => status)).toEqual(["recognized", "recognized", "dropped", "recognized"]);
+        expect(results.map(({ eventId }) => eventId)).toEqual([
+            "detected-0001",
+            "detected-0002",
+            null,
+            "detected-0004",
         ]);
     });
 
@@ -475,6 +594,7 @@ describe("live loot streaming coordination", () => {
         expect(coordinator.retainedFrameCount).toBe(0);
         expect(coordinator.retainedTrackCount).toBe(0);
         expect(coordinator.pendingCandidateCount).toBe(0);
+        expect(coordinator.pendingOcrJobCount).toBe(0);
         expect(() => coordinator.pushFrame(packedFrame(1))).toThrow("stopped or finished");
         expect(coordinator.finish()).toBe(firstFinish);
 

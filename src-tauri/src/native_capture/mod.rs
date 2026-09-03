@@ -304,6 +304,26 @@ pub fn set_native_display_capture_region(
 }
 
 #[tauri::command]
+pub fn set_native_display_capture_preview_enabled(
+    state: tauri::State<'_, NativeCaptureState>,
+    capture_token: u64,
+    enabled: bool,
+) -> Result<(), String> {
+    if capture_token == 0 {
+        return Err("native display capture token must be positive".into());
+    }
+
+    #[cfg(target_os = "linux")]
+    return linux::set_preview_enabled(&state.capture, capture_token, enabled);
+
+    #[cfg(not(target_os = "linux"))]
+    {
+        let _ = (state, capture_token, enabled);
+        Err("Native display capture is only available on Linux.".to_string())
+    }
+}
+
+#[tauri::command]
 pub fn load_loot_capture_settings(
     state: tauri::State<'_, DatabasePath>,
 ) -> Result<Option<LootCaptureSettings>, String> {

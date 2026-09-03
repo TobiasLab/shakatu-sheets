@@ -25,6 +25,8 @@
 }
 
 .Actions {
+    display: flex;
+    gap: 8px;
     flex: 0 0 auto;
 }
 
@@ -72,6 +74,33 @@
     display: block;
     max-width: 100%;
     max-height: 360px;
+}
+
+.PreviewsPaused canvas {
+    opacity: 0.35;
+}
+
+.PreviewPaused {
+    position: absolute;
+    z-index: 4;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-direction: column;
+    gap: 4px;
+    color: var(--text);
+    background: rgb(2 4 4 / 52%);
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 10px;
+    letter-spacing: 0.08em;
+    text-align: center;
+    text-transform: uppercase;
+}
+
+.PreviewPaused span {
+    color: var(--muted);
+    font-size: 8px;
 }
 
 .RegionOverlay {
@@ -173,10 +202,15 @@
 .CalibrationPanel {
     display: grid;
     gap: 10px;
+    min-width: 0;
     margin-top: 10px;
     padding: 10px;
     border: 1px solid var(--line);
     background: var(--clock-background);
+}
+
+.CalibrationPanel:disabled {
+    opacity: 0.65;
 }
 
 .AreaSelectorButtons,
