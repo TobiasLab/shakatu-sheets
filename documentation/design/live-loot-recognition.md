@@ -69,6 +69,13 @@ identifies preview, normal, rare, and search frames separately. Frame batches ar
 local IPC work until the frontend has consumed every preview and crop in the batch. Selection and stop commands carry a
 capture token so delayed commands from a previous request cannot modify or terminate a newer capture.
 
+Debug Linux builds expose a separate `Save ROI samples for 5 minutes` action after both capture areas are confirmed. It
+writes synchronized normal and rare PNG crops at the existing 8 FPS sampling cadence under the repository's ignored
+`dev-samples/live-loot/` directory. A bounded background encoder drops and reports pairs when storage cannot keep pace,
+rather than delaying capture or recognition. The backend enforces the five-minute deadline and finalizes the run when
+capture ends, the source or selection changes, or the user stops collection early. Each run includes source, UI-scale,
+crop, timing, count, byte-size, and completion metadata in `manifest.json`; it never includes a full-screen frame.
+
 Platform capture remains behind the same start/stop interface:
 
 - Windows Graphics Capture for a selected monitor.
@@ -176,9 +183,11 @@ automatic insertion needs stricter confidence gating.
 - The interface always shows when capture is active and provides an immediate stop control.
 - Capture stops when the session pauses or finishes, the user leaves the live view, the source ends, or the component is
   destroyed.
-- Full frames, cropped rows, and OCR images remain in memory and are discarded after processing.
+- Full frames, cropped rows, and OCR images remain in memory and are discarded after processing unless the explicit
+  debug-only ROI sample action is active.
 - No screenshots or videos are persisted or uploaded by default.
-- Optional diagnostic sample export must require a separate explicit action and show exactly what will be exported.
+- Debug ROI sample collection requires a separate explicit action, identifies the two exported regions, shows its output
+  path and progress, and stops after at most five minutes.
 - Use operating-system capture APIs only; do not inject code, inspect game memory, or interfere with anti-cheat systems.
 - Review BDO's current terms before shipping the feature.
 

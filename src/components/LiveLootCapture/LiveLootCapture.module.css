@@ -314,6 +314,34 @@
     color: var(--gold);
 }
 
+.DevSampleCollector {
+    display: grid;
+    gap: 8px;
+    margin-top: 12px;
+    padding: 12px;
+    border: 1px solid color-mix(in srgb, var(--gold) 55%, var(--line));
+    background: color-mix(in srgb, var(--gold) 6%, var(--clock-background));
+}
+
+.DevSampleCollector > strong {
+    font-size: 12px;
+}
+
+.DevSampleCollector > small,
+.DevSampleCollector > code {
+    color: var(--muted);
+    font-size: 8px;
+    line-height: 1.5;
+}
+
+.DevSampleCollector > code {
+    overflow-wrap: anywhere;
+}
+
+.DevSampleCollector .DevSampleError {
+    color: var(--danger);
+}
+
 .RegionPreview {
     margin-top: 12px;
     padding: 10px;
