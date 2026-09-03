@@ -37,6 +37,10 @@ export type SessionAction =
     | { type: "update-entry"; id: string; quantity: number; unitPrice: number }
     | { type: "remove-entry"; id: string };
 
+export function isActiveSessionStatus(status: SessionStatus) {
+    return status !== "finished";
+}
+
 export function createSession(region: SessionState["region"] = "eu"): SessionState {
     return {
         id: crypto.randomUUID(),

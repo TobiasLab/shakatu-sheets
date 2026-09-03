@@ -366,6 +366,23 @@ pub(super) fn list_finished_session_records(
         .collect()
 }
 
+pub(super) fn delete_finished_session_record(
+    connection: &Connection,
+    id: &str,
+) -> Result<(), String> {
+    let deleted = connection
+        .execute(
+            "DELETE FROM sessions WHERE id = ?1 AND status = 'finished'",
+            [id],
+        )
+        .map_err(|error| error.to_string())?;
+    if deleted == 1 {
+        Ok(())
+    } else {
+        Err(format!("finished session {id} was not found"))
+    }
+}
+
 pub(crate) fn load_session_for_upload(
     path: &PathBuf,
     session_id: &str,
@@ -436,6 +453,12 @@ pub fn list_finished_sessions(
 ) -> Result<Vec<FinishedSessionRecord>, String> {
     let connection = open_database(&state.0)?;
     list_finished_session_records(&connection)
+}
+
+#[tauri::command]
+pub fn delete_finished_session(id: String, state: State<'_, DatabasePath>) -> Result<(), String> {
+    let connection = open_database(&state.0)?;
+    delete_finished_session_record(&connection, &id)
 }
 
 #[tauri::command]

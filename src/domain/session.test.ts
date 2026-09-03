@@ -3,6 +3,7 @@ import {
     calculateTotals,
     createSession,
     getElapsedMs,
+    isActiveSessionStatus,
     pauseRestoredSession,
     reduceSession,
     type SessionEntry,
@@ -23,6 +24,13 @@ function entry(overrides: Partial<SessionEntry>): SessionEntry {
 }
 
 describe("session timing", () => {
+    it("treats idle and paused sessions as active without running the timer", () => {
+        expect(isActiveSessionStatus("idle")).toBe(true);
+        expect(isActiveSessionStatus("running")).toBe(true);
+        expect(isActiveSessionStatus("paused")).toBe(true);
+        expect(isActiveSessionStatus("finished")).toBe(false);
+    });
+
     it("accumulates elapsed time across pauses", () => {
         const running = reduceSession(createSession(), { type: "start", now: 1_000 });
         const paused = reduceSession(running, { type: "pause", now: 6_000 });

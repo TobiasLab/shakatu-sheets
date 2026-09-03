@@ -17,6 +17,7 @@ vi.mock("@tauri-apps/api/core", () => ({
 
 import {
     debugRoiSampleCollectionStatus,
+    deleteFinishedSession,
     type LootCaptureSettings,
     type NativeCaptureSelection,
     parseNativeCaptureMessage,
@@ -38,6 +39,18 @@ function message(kind: number, width: number, height: number, sourceWidth: numbe
     }
     return buffer;
 }
+
+describe("session persistence commands", () => {
+    beforeEach(() => {
+        tauri.invoke.mockReset();
+    });
+
+    it("deletes a finished session by ID", () => {
+        deleteFinishedSession("finished-1");
+
+        expect(tauri.invoke).toHaveBeenCalledWith("delete_finished_session", { id: "finished-1" });
+    });
+});
 
 describe("native capture frame protocol", () => {
     beforeEach(() => {
