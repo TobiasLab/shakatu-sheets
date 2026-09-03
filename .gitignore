@@ -15,6 +15,7 @@ dist-ssr
 agents.md
 /documentation/misc/garmoth-api.md
 mocks/
+/dev-samples/
 
 # Editor directories and files
 .vscode/*

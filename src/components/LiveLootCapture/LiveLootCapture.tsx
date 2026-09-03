@@ -1,12 +1,16 @@
 import { type PointerEvent as ReactPointerEvent, useEffect, useLayoutEffect, useRef, useState } from "react";
 import {
+    type DebugRoiSampleCollectionStatus,
+    debugRoiSampleCollectionStatus,
     type LootCaptureSettings,
     loadLootCaptureSettings,
     type NativeCaptureFrame,
     type NativeCaptureSelection,
     saveLootCaptureSettings,
     setNativeDisplayCaptureRegion,
+    startDebugRoiSampleCollection,
     startNativeDisplayCapture,
+    stopDebugRoiSampleCollection,
     stopNativeDisplayCapture,
     supportsNativeDisplayCapture,
     supportsTauriApi,
@@ -73,6 +77,18 @@ type LiveLootCaptureProps = {
 const AUTOMATIC_INSERTION_RETRY_DELAYS = [1_000, 2_000, 4_000] as const;
 const MAX_PENDING_RECOGNITION_FRAMES = 32;
 let nextNativeCaptureToken = Date.now() * 1_000;
+
+function formatSampleCollectionCountdown(deadline: number | null, now: number) {
+    const seconds = Math.max(0, Math.ceil(((deadline ?? now) - now) / 1_000));
+    return `${String(Math.floor(seconds / 60)).padStart(2, "0")}:${String(seconds % 60).padStart(2, "0")}`;
+}
+
+function formatSampleCollectionBytes(bytes: number) {
+    if (bytes >= 1_000_000_000) return `${(bytes / 1_000_000_000).toFixed(2)} GB`;
+    if (bytes >= 1_000_000) return `${(bytes / 1_000_000).toFixed(1)} MB`;
+    if (bytes >= 1_000) return `${(bytes / 1_000).toFixed(1)} KB`;
+    return `${bytes} B`;
+}
 
 function createNativeCaptureToken() {
     nextNativeCaptureToken += 1;
@@ -148,6 +164,38 @@ function frameMatchesRegion(
         frame.width === pixels.width &&
         frame.height === pixels.height
     );
+}
+
+function regionsCaptureSelection(
+    normalRegion: NormalizedRegion | null,
+    rareRegion: NormalizedRegion | null,
+    source: SourceDimensions | null,
+    uiScalePercent: LootUiScale,
+    rareRegionConfirmed: boolean,
+): NativeCaptureSelection | null {
+    if (!normalRegion || !rareRegion || !source) return null;
+    const normalPixels = normalizedRegionToPixels(normalRegion, source.width, source.height);
+    const rarePixels = normalizedRegionToPixels(rareRegion, source.width, source.height);
+    const expectedNormal = lootRegionSize(uiScalePercent, "normal");
+    const expectedRare = lootRegionSize(uiScalePercent, "rare");
+    if (
+        normalPixels.width !== expectedNormal.width ||
+        normalPixels.height !== expectedNormal.height ||
+        rarePixels.width !== expectedRare.width ||
+        rarePixels.height !== expectedRare.height
+    )
+        return null;
+    return {
+        mode: "regions",
+        settings: {
+            region: normalRegion,
+            rareRegion,
+            rareRegionConfirmed,
+            sourceWidth: source.width,
+            sourceHeight: source.height,
+            uiScalePercent,
+        },
+    };
 }
 
 function resultDescription(result: LiveLootRecognitionResult) {
@@ -227,6 +275,7 @@ export function LiveLootCapture({
     const recognitionGeneration = useRef(0);
     const recognitionStartup = useRef<Promise<void> | null>(null);
     const recognitionRequestedRef = useRef(false);
+    const sampleCollectionRevision = useRef(0);
     const pendingLocalizationReplay = useRef<LootRoiFrame[]>([]);
     const pendingRecognitionFrames = useRef<LootRoiFrame[]>([]);
     const pendingRareRecognitionFrames = useRef<LootRoiFrame[]>([]);
@@ -263,6 +312,13 @@ export function LiveLootCapture({
     const [reviewResults, setReviewResults] = useState<LiveLootReviewEntry[]>([]);
     const [omittedReviewResults, setOmittedReviewResults] = useState(0);
     const [recognitionAnnouncement, setRecognitionAnnouncement] = useState("");
+    const [sampleCollection, setSampleCollection] = useState<DebugRoiSampleCollectionStatus | null>(null);
+    const [sampleCollectionBusy, setSampleCollectionBusy] = useState(false);
+    const [sampleCollectionError, setSampleCollectionError] = useState("");
+    const [sampleCollectionNow, setSampleCollectionNow] = useState(Date.now());
+    const [debugSampleCollectionAvailable, setDebugSampleCollectionAvailable] = useState(false);
+    const [nativeAppliedSelectionKey, setNativeAppliedSelectionKey] = useState("");
+    const debugSampleCollectionCandidate = import.meta.env.DEV && supportsNativeDisplayCapture();
 
     const isSessionRunning = sessionStatus === "running";
     useLayoutEffect(() => {
@@ -273,6 +329,22 @@ export function LiveLootCapture({
         itemDictionaryRef.current = itemDictionary;
         onAcceptRecognitionRef.current = onAcceptRecognition;
     }, [isSessionRunning, itemDictionary, onAcceptRecognition, sessionId]);
+
+    useEffect(() => {
+        if (!debugSampleCollectionCandidate) return;
+        let cancelled = false;
+        const revision = ++sampleCollectionRevision.current;
+        void debugRoiSampleCollectionStatus()
+            .then((current) => {
+                if (cancelled || revision !== sampleCollectionRevision.current) return;
+                setDebugSampleCollectionAvailable(true);
+                if (current.phase !== "idle") setSampleCollection(current);
+            })
+            .catch(() => undefined);
+        return () => {
+            cancelled = true;
+        };
+    }, [debugSampleCollectionCandidate]);
 
     function updateRegion(kind: LootRegionKind, next: NormalizedRegion | null) {
         if (kind === "normal") {
@@ -286,20 +358,24 @@ export function LiveLootCapture({
 
     function updateCaptureRegion(kind: LootRegionKind, next: NormalizedRegion | null) {
         if (kind === "normal") {
+            if (!regionsEqual(normalCaptureRegionRef.current, next)) setNativeAppliedSelectionKey("");
             normalCaptureRegionRef.current = next;
             setNormalCaptureRegion(next);
         } else {
+            if (!regionsEqual(rareCaptureRegionRef.current, next)) setNativeAppliedSelectionKey("");
             rareCaptureRegionRef.current = next;
             setRareCaptureRegion(next);
         }
     }
 
     function updatePlacementMode(next: PlacementMode) {
+        if (placementModeRef.current !== next) setNativeAppliedSelectionKey("");
         placementModeRef.current = next;
         setPlacementMode(next);
     }
 
     function updateSearchRegion(next: NormalizedRegion | null) {
+        if (!regionsEqual(searchRegionRef.current, next)) setNativeAppliedSelectionKey("");
         searchRegionRef.current = next;
         setSearchRegion(next);
     }
@@ -310,6 +386,7 @@ export function LiveLootCapture({
     }
 
     function updateRareRegionConfirmed(next: boolean) {
+        if (rareRegionConfirmedRef.current !== next) setNativeAppliedSelectionKey("");
         rareRegionConfirmedRef.current = next;
         setRareRegionConfirmed(next);
     }
@@ -336,11 +413,14 @@ export function LiveLootCapture({
     }
 
     function updateSourceDimensions(next: SourceDimensions | null) {
+        const current = sourceDimensionsRef.current;
+        if (current?.width !== next?.width || current?.height !== next?.height) setNativeAppliedSelectionKey("");
         sourceDimensionsRef.current = next;
         setSourceDimensions(next);
     }
 
     function updateUiScale(next: LootUiScale) {
+        if (uiScaleRef.current !== next) setNativeAppliedSelectionKey("");
         uiScaleRef.current = next;
         setUiScalePercent(next);
     }
@@ -642,6 +722,7 @@ export function LiveLootCapture({
         sampledFrames.current = 0;
         measurementStarted.current = performance.now();
         configuredSource.current = "";
+        setNativeAppliedSelectionKey("");
     }
 
     function recordSample() {
@@ -657,6 +738,37 @@ export function LiveLootCapture({
     function stopCapture() {
         requestId.current += 1;
         releaseStream();
+    }
+
+    async function toggleSampleCollection() {
+        const captureToken = nativeCaptureToken.current;
+        if (captureToken === null || sampleCollectionBusy) return;
+        const revision = ++sampleCollectionRevision.current;
+        setSampleCollectionBusy(true);
+        setSampleCollectionError("");
+        try {
+            let next: DebugRoiSampleCollectionStatus;
+            if (sampleCollection?.phase === "running") {
+                next = await stopDebugRoiSampleCollection(captureToken);
+            } else {
+                let awaitedSelectionRevision: number;
+                do {
+                    awaitedSelectionRevision = nativeSelectionRevision.current;
+                    await nativeSelectionUpdate.current;
+                } while (awaitedSelectionRevision !== nativeSelectionRevision.current);
+                next = await startDebugRoiSampleCollection(captureToken);
+            }
+            if (!mounted.current || revision !== sampleCollectionRevision.current) return;
+            setSampleCollection(next);
+            setSampleCollectionNow(Date.now());
+        } catch (collectionError) {
+            if (!mounted.current || revision !== sampleCollectionRevision.current) return;
+            setSampleCollectionError(
+                collectionError instanceof Error ? collectionError.message : String(collectionError),
+            );
+        } finally {
+            if (mounted.current && revision === sampleCollectionRevision.current) setSampleCollectionBusy(false);
+        }
     }
 
     async function startCapture() {
@@ -1242,38 +1354,16 @@ export function LiveLootCapture({
                     uiScalePercent: 80,
                 };
             }
-        } else if (placementMode !== "localizing" && normalCaptureRegion && rareCaptureRegion && sourceDimensions) {
-            const normalPixels = normalizedRegionToPixels(
+        } else if (placementMode !== "localizing") {
+            selection = regionsCaptureSelection(
                 normalCaptureRegion,
-                sourceDimensions.width,
-                sourceDimensions.height,
-            );
-            const rarePixels = normalizedRegionToPixels(
                 rareCaptureRegion,
-                sourceDimensions.width,
-                sourceDimensions.height,
+                sourceDimensions,
+                uiScalePercent,
+                rareRegionConfirmed,
             );
-            const expectedNormal = lootRegionSize(uiScalePercent, "normal");
-            const expectedRare = lootRegionSize(uiScalePercent, "rare");
-            if (
-                normalPixels.width === expectedNormal.width &&
-                normalPixels.height === expectedNormal.height &&
-                rarePixels.width === expectedRare.width &&
-                rarePixels.height === expectedRare.height
-            ) {
-                selection = {
-                    mode: "regions",
-                    settings: {
-                        region: normalCaptureRegion,
-                        rareRegion: rareCaptureRegion,
-                        rareRegionConfirmed,
-                        sourceWidth: sourceDimensions.width,
-                        sourceHeight: sourceDimensions.height,
-                        uiScalePercent,
-                    },
-                };
-            }
         }
+        const selectionKey = JSON.stringify(selection);
         const selectionRevision = ++nativeSelectionRevision.current;
         const update = nativeSelectionUpdate.current
             .catch(() => undefined)
@@ -1286,6 +1376,13 @@ export function LiveLootCapture({
                 )
                     return;
                 await setNativeDisplayCaptureRegion(captureToken, selection);
+                if (
+                    mounted.current &&
+                    currentRequest === requestId.current &&
+                    selectionRevision === nativeSelectionRevision.current
+                ) {
+                    setNativeAppliedSelectionKey(selectionKey);
+                }
             });
         nativeSelectionUpdate.current = update;
         void update.catch((regionError) => {
@@ -1316,6 +1413,41 @@ export function LiveLootCapture({
             if (status !== "idle") stopCapture();
         }
     }, [sessionStatus, status]);
+
+    useEffect(() => {
+        if (
+            !debugSampleCollectionAvailable ||
+            sampleCollectionBusy ||
+            (sampleCollection?.phase !== "running" && sampleCollection?.phase !== "finalizing")
+        )
+            return;
+        let cancelled = false;
+        let timer = 0;
+        const revision = sampleCollectionRevision.current;
+        const refresh = async () => {
+            setSampleCollectionNow(Date.now());
+            try {
+                const next = await debugRoiSampleCollectionStatus();
+                if (cancelled || revision !== sampleCollectionRevision.current) return;
+                setSampleCollection(next);
+                setSampleCollectionError("");
+                if (next.phase === "running" || next.phase === "finalizing") {
+                    timer = window.setTimeout(() => void refresh(), 1_000);
+                }
+            } catch (collectionError) {
+                if (cancelled || revision !== sampleCollectionRevision.current) return;
+                setSampleCollectionError(
+                    collectionError instanceof Error ? collectionError.message : String(collectionError),
+                );
+                timer = window.setTimeout(() => void refresh(), 1_000);
+            }
+        };
+        timer = window.setTimeout(() => void refresh(), 1_000);
+        return () => {
+            cancelled = true;
+            window.clearTimeout(timer);
+        };
+    }, [debugSampleCollectionAvailable, sampleCollection?.phase, sampleCollectionBusy]);
 
     useEffect(() => {
         if (status !== "capturing" || nativeCapture.current) return;
@@ -1499,6 +1631,27 @@ export function LiveLootCapture({
     const rareAlignmentGuide = lootAlignmentGuide(uiScalePercent, "rare");
     const normalRecognitionReady = calibratedProfile !== null && (placementMode === "aligned" || regionConfirmed);
     const rareRecognitionReady = calibratedProfile !== null && rareRegionConfirmed;
+    const sampleCaptureSelection =
+        placementMode === "localizing"
+            ? null
+            : regionsCaptureSelection(
+                  normalCaptureRegion,
+                  rareCaptureRegion,
+                  sourceDimensions,
+                  uiScalePercent,
+                  rareRegionConfirmed,
+              );
+    const sampleCollectionActive = sampleCollection?.phase === "running";
+    const sampleCollectionFinalizing = sampleCollection?.phase === "finalizing";
+    const sampleCollectionReady =
+        nativeCapture.current &&
+        normalCaptureRegion !== null &&
+        rareCaptureRegion !== null &&
+        (placementMode === "aligned" || regionConfirmed) &&
+        rareRegionConfirmed &&
+        normalRegionFrameSize !== null &&
+        rareRegionFrameSize !== null &&
+        nativeAppliedSelectionKey === JSON.stringify(sampleCaptureSelection);
     const placementLabel = !calibratedProfile
         ? "No calibrated profile"
         : placementMode === "localizing"
@@ -1889,6 +2042,60 @@ export function LiveLootCapture({
                                 </dd>
                             </div>
                         </dl>
+                        {debugSampleCollectionAvailable && (
+                            <div className={styles.DevSampleCollector}>
+                                <p className="eyebrow">Development only</p>
+                                <strong>ROI sample collection</strong>
+                                <button
+                                    className="button"
+                                    type="button"
+                                    disabled={
+                                        sampleCollectionBusy ||
+                                        sampleCollectionFinalizing ||
+                                        (!sampleCollectionActive && !sampleCollectionReady)
+                                    }
+                                    onClick={() => void toggleSampleCollection()}
+                                >
+                                    {sampleCollectionBusy
+                                        ? "Updating sample collection..."
+                                        : sampleCollectionFinalizing
+                                          ? "Finishing ROI samples..."
+                                          : sampleCollectionActive
+                                            ? "Stop saving ROI samples"
+                                            : "Save ROI samples for 5 minutes"}
+                                </button>
+                                {!sampleCollectionReady && !sampleCollectionActive && !sampleCollectionFinalizing && (
+                                    <small>Confirm both capture areas before collecting samples.</small>
+                                )}
+                                {sampleCollection && sampleCollection.phase !== "idle" && (
+                                    <small>
+                                        {sampleCollection.writtenBatchCount * 2} PNGs,{" "}
+                                        {formatSampleCollectionBytes(sampleCollection.bytesWritten)}
+                                        {sampleCollection.droppedBatchCount > 0
+                                            ? `, ${sampleCollection.droppedBatchCount} dropped pairs`
+                                            : ""}
+                                    </small>
+                                )}
+                                {sampleCollectionActive && (
+                                    <small aria-hidden="true">
+                                        Time remaining:{" "}
+                                        {formatSampleCollectionCountdown(
+                                            sampleCollection.deadlineAtUnixMs,
+                                            sampleCollectionNow,
+                                        )}
+                                    </small>
+                                )}
+                                {sampleCollection?.phase === "finished" && (
+                                    <small role="status">ROI sample collection finished.</small>
+                                )}
+                                {sampleCollection?.path && <code>{sampleCollection.path}</code>}
+                                {(sampleCollectionError || sampleCollection?.error) && (
+                                    <small className={styles.DevSampleError} role="alert">
+                                        {sampleCollectionError || sampleCollection?.error}
+                                    </small>
+                                )}
+                            </div>
+                        )}
                         <div className={styles.RegionPreview}>
                             <span>{normalRecognitionReady ? "Normal recognition preview" : "Normal preview"}</span>
                             <div className={styles.RegionPreviewStage}>
@@ -1981,10 +2188,14 @@ export function LiveLootCapture({
                 </div>
             )}
             <p className={styles.PrivacyNote}>
-                Capture pixels stay in memory and are never saved or uploaded. Automatic placement scans only the
-                highlighted search area. When recognition is active, confirmed loot crops are processed by the bundled
-                local OCR worker and recognized results are added automatically. Only final coordinates, rare-area
-                confirmation, source dimensions, and BDO UI scale are stored.
+                During normal operation, capture pixels stay in memory and are never saved or uploaded.{" "}
+                {debugSampleCollectionAvailable &&
+                    "The explicit development sample action saves only the configured normal and rare crops locally until they are deleted; it never saves the full screen or uploads samples. "}
+                Automatic placement scans only the highlighted search area. Confirmed loot crops are processed by the
+                bundled local OCR worker and recognized results are added automatically.{" "}
+                {debugSampleCollectionAvailable
+                    ? "Outside development sample runs, only final coordinates, rare-area confirmation, source dimensions, and BDO UI scale are stored."
+                    : "Only final coordinates, rare-area confirmation, source dimensions, and BDO UI scale are stored."}
             </p>
         </section>
     );

@@ -119,6 +119,19 @@ export type LootCaptureSettings = {
     uiScalePercent: LootUiScale;
 };
 
+export type DebugRoiSampleCollectionStatus = {
+    phase: "idle" | "running" | "finalizing" | "finished" | "failed";
+    path: string | null;
+    acceptedBatchCount: number;
+    droppedBatchCount: number;
+    writtenBatchCount: number;
+    bytesWritten: number;
+    error: string | null;
+    finishReason: string | null;
+    startedAtUnixMs: number | null;
+    deadlineAtUnixMs: number | null;
+};
+
 export type NativeCaptureSelection =
     | {
           mode: "search";
@@ -288,4 +301,16 @@ export function loadLootCaptureSettings() {
 
 export function saveLootCaptureSettings(settings: LootCaptureSettings) {
     return invoke<void>("save_loot_capture_settings", { settings });
+}
+
+export function startDebugRoiSampleCollection(captureToken: number) {
+    return invoke<DebugRoiSampleCollectionStatus>("start_debug_roi_sample_collection", { captureToken });
+}
+
+export function stopDebugRoiSampleCollection(captureToken: number) {
+    return invoke<DebugRoiSampleCollectionStatus>("stop_debug_roi_sample_collection", { captureToken });
+}
+
+export function debugRoiSampleCollectionStatus() {
+    return invoke<DebugRoiSampleCollectionStatus>("debug_roi_sample_collection_status");
 }

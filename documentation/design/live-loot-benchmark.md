@@ -1,7 +1,8 @@
 # Live Loot Benchmark
 
 The live-loot benchmark uses short, labeled sequences from user-provided recordings. Videos and extracted pixels stay
-outside the repository. Git contains only generalized sampling and recognition code.
+outside tracked source. Git contains only generalized sampling and recognition code; the development collector writes to
+the ignored `dev-samples/live-loot/` directory.
 
 ## Requirements
 

@@ -16,11 +16,14 @@ vi.mock("@tauri-apps/api/core", () => ({
 }));
 
 import {
+    debugRoiSampleCollectionStatus,
     type LootCaptureSettings,
     type NativeCaptureSelection,
     parseNativeCaptureMessage,
     setNativeDisplayCaptureRegion,
+    startDebugRoiSampleCollection,
     startNativeDisplayCapture,
+    stopDebugRoiSampleCollection,
     stopNativeDisplayCapture,
 } from "./tauri";
 
@@ -189,6 +192,17 @@ describe("native capture frame protocol", () => {
             captureToken: 17,
             selection: { mode: "regions", settings },
         });
+    });
+
+    it("controls debug ROI sample collection for the active capture", () => {
+        startDebugRoiSampleCollection(17);
+        expect(tauri.invoke).toHaveBeenLastCalledWith("start_debug_roi_sample_collection", { captureToken: 17 });
+
+        stopDebugRoiSampleCollection(17);
+        expect(tauri.invoke).toHaveBeenLastCalledWith("stop_debug_roi_sample_collection", { captureToken: 17 });
+
+        debugRoiSampleCollectionStatus();
+        expect(tauri.invoke).toHaveBeenLastCalledWith("debug_roi_sample_collection_status");
     });
 
     it("reports acknowledgement failures", async () => {

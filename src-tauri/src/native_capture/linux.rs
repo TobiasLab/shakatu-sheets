@@ -13,6 +13,11 @@ use std::sync::{
 use std::time::{Duration, Instant};
 use tauri::ipc::{Channel, InvokeResponseBody};
 
+#[cfg(debug_assertions)]
+use super::debug_roi_collector::{
+    DebugRoiSampleCollectionStatus, DebugRoiSampleCollector, SampledRoiPair, CAPTURE_ENDED,
+    CAPTURE_REPLACED, SELECTION_CHANGED, SOURCE_MISMATCH,
+};
 use super::{LootCaptureSettings, NativeCaptureSelection};
 #[cfg(test)]
 use super::{NormalizedRegion, PixelRegion};
@@ -48,7 +53,11 @@ struct FrameHeader {
 }
 
 #[derive(Default)]
-pub(super) struct CaptureState(Mutex<CaptureStateInner>);
+pub(super) struct CaptureState {
+    inner: Mutex<CaptureStateInner>,
+    #[cfg(debug_assertions)]
+    pub(super) debug_collector: Arc<DebugRoiSampleCollector>,
+}
 
 #[derive(Default)]
 struct CaptureStateInner {
@@ -91,6 +100,10 @@ struct CaptureControl {
     batches: Mutex<BatchState>,
     pending_session: Mutex<Option<Arc<Session<Screencast>>>>,
     selection: Mutex<Option<NativeCaptureSelection>>,
+    #[cfg(debug_assertions)]
+    healthy: AtomicBool,
+    #[cfg(debug_assertions)]
+    source_dimensions: Mutex<Option<(u32, u32)>>,
 }
 
 impl CaptureControl {
@@ -103,6 +116,10 @@ impl CaptureControl {
             batches: Mutex::new(BatchState::default()),
             pending_session: Mutex::new(None),
             selection: Mutex::new(selection),
+            #[cfg(debug_assertions)]
+            healthy: AtomicBool::new(false),
+            #[cfg(debug_assertions)]
+            source_dimensions: Mutex::new(None),
         }
     }
 
@@ -242,12 +259,16 @@ pub(super) async fn start(
 ) -> Result<(), String> {
     let (control, previous) = {
         let mut state = state
-            .0
+            .inner
             .lock()
             .map_err(|_| "Capture state is unavailable.")?;
         state.install_capture(capture_token, selection)?
     };
     if let Some(previous) = previous {
+        #[cfg(debug_assertions)]
+        state
+            .debug_collector
+            .finish_capture(previous.capture_id, CAPTURE_REPLACED);
         cancel(&previous);
     }
     let mut startup_guard = CaptureStartupGuard {
@@ -328,9 +349,22 @@ pub(super) async fn start(
 
     let errors = frames.clone();
     let worker_control = control.clone();
+    #[cfg(debug_assertions)]
+    let debug_collector = state.debug_collector.clone();
     tauri::async_runtime::spawn_blocking(move || {
-        let result = run_pipewire(node_id, fd, frames, worker_control.clone());
+        let result = run_pipewire(
+            node_id,
+            fd,
+            frames,
+            worker_control.clone(),
+            #[cfg(debug_assertions)]
+            debug_collector.clone(),
+        );
+        #[cfg(debug_assertions)]
+        worker_control.healthy.store(false, Ordering::Release);
         worker_control.finished.store(true, Ordering::Release);
+        #[cfg(debug_assertions)]
+        debug_collector.finish_capture(worker_control.capture_id, CAPTURE_ENDED);
         if let Err(error) = result {
             eprintln!("Native display capture stopped: {error}");
             let _ = errors.send(InvokeResponseBody::Raw(error_frame(&error)));
@@ -341,25 +375,29 @@ pub(super) async fn start(
 }
 
 pub(super) fn stop(state: &CaptureState, capture_token: u64) {
-    let control = state.0.lock().ok().and_then(|mut state| {
-        state.latest_capture_token = state.latest_capture_token.max(capture_token);
-        if state
+    let control = state.inner.lock().ok().and_then(|mut inner| {
+        inner.latest_capture_token = inner.latest_capture_token.max(capture_token);
+        if inner
             .capture
             .as_ref()
             .is_some_and(|control| control.capture_token == capture_token)
         {
-            state.capture.take()
+            inner.capture.take()
         } else {
             None
         }
     });
     if let Some(control) = control {
+        #[cfg(debug_assertions)]
+        state
+            .debug_collector
+            .finish_capture(control.capture_id, CAPTURE_ENDED);
         cancel(&control);
     }
 }
 
 pub(super) fn acknowledge_frame(state: &CaptureState, capture_id: u32, batch_id: u32, kind: u32) {
-    if let Ok(state) = state.0.lock() {
+    if let Ok(state) = state.inner.lock() {
         if let Some(control) = state.capture.as_ref() {
             control.acknowledge(capture_id, batch_id, kind);
         }
@@ -371,11 +409,11 @@ pub(super) fn set_selection(
     capture_token: u64,
     selection: Option<NativeCaptureSelection>,
 ) -> Result<(), String> {
-    let state = state
-        .0
+    let inner = state
+        .inner
         .lock()
         .map_err(|_| "Capture state is unavailable.")?;
-    let control = state
+    let control = inner
         .capture
         .as_ref()
         .ok_or_else(|| "Native display capture is not running.".to_string())?;
@@ -385,10 +423,138 @@ pub(super) fn set_selection(
     if control.cancelled.load(Ordering::Acquire) || control.finished.load(Ordering::Acquire) {
         return Err("Native display capture is not running.".to_string());
     }
-    *control
+    let mut current_selection = control
         .selection
         .lock()
-        .map_err(|_| "Capture selection state is unavailable.")? = selection;
+        .map_err(|_| "Capture selection state is unavailable.")?;
+    if *current_selection != selection {
+        #[cfg(debug_assertions)]
+        state
+            .debug_collector
+            .finish_capture(control.capture_id, SELECTION_CHANGED);
+        *current_selection = selection;
+    }
+    Ok(())
+}
+
+#[cfg(debug_assertions)]
+pub(super) fn start_debug_roi_sample_collection(
+    state: &CaptureState,
+    capture_token: u64,
+) -> Result<DebugRoiSampleCollectionStatus, String> {
+    let control = state
+        .inner
+        .lock()
+        .map_err(|_| "Capture state is unavailable.".to_string())?
+        .capture
+        .clone()
+        .ok_or_else(|| "Native display capture is not running.".to_string())?;
+    if control.capture_token != capture_token {
+        return Err("Native display capture request is no longer active.".to_string());
+    }
+    if control.cancelled.load(Ordering::Acquire)
+        || control.finished.load(Ordering::Acquire)
+        || !control.healthy.load(Ordering::Acquire)
+    {
+        return Err("Native display capture is not healthy.".to_string());
+    }
+    let selection = *control
+        .selection
+        .lock()
+        .map_err(|_| "Capture selection state is unavailable.".to_string())?;
+    let NativeCaptureSelection::Regions { settings } = selection
+        .ok_or_else(|| "Debug ROI collection requires an active regions selection.".to_string())?
+    else {
+        return Err("Debug ROI collection requires an active regions selection.".to_string());
+    };
+    if settings.rare_region.is_none() || !settings.rare_region_confirmed {
+        return Err(
+            "Debug ROI collection requires configured and confirmed normal and rare regions."
+                .to_string(),
+        );
+    }
+    let source_dimensions = *control
+        .source_dimensions
+        .lock()
+        .map_err(|_| "Capture source state is unavailable.".to_string())?;
+    if source_dimensions != Some((settings.source_width, settings.source_height)) {
+        return Err(
+            "Native display capture source does not match the regions selection.".to_string(),
+        );
+    }
+    let pending = state.debug_collector.start(
+        control.capture_id,
+        capture_token,
+        NativeCaptureSelection::Regions { settings },
+        settings,
+    )?;
+
+    if let Err((reason, error)) = revalidate_debug_roi_capture(
+        state,
+        &control,
+        NativeCaptureSelection::Regions { settings },
+        source_dimensions,
+    ) {
+        let status = pending.abort(reason);
+        return Err(format!(
+            "Debug ROI sample collection stopped during startup: {error} Status: {:?}, finish reason: {:?}.",
+            status.phase, status.finish_reason
+        ));
+    }
+
+    Ok(pending.complete())
+}
+
+#[cfg(debug_assertions)]
+fn revalidate_debug_roi_capture(
+    state: &CaptureState,
+    control: &Arc<CaptureControl>,
+    expected_selection: NativeCaptureSelection,
+    expected_source_dimensions: Option<(u32, u32)>,
+) -> Result<(), (u8, String)> {
+    let inner = state.inner.lock().map_err(|_| {
+        (
+            CAPTURE_ENDED,
+            "capture state became unavailable".to_string(),
+        )
+    })?;
+    if !inner
+        .capture
+        .as_ref()
+        .is_some_and(|current| Arc::ptr_eq(current, control))
+    {
+        return Err((CAPTURE_REPLACED, "native capture was replaced".to_string()));
+    }
+    if control.cancelled.load(Ordering::Acquire)
+        || control.finished.load(Ordering::Acquire)
+        || !control.healthy.load(Ordering::Acquire)
+    {
+        return Err((
+            CAPTURE_ENDED,
+            "native capture is no longer healthy".to_string(),
+        ));
+    }
+    let selection = *control.selection.lock().map_err(|_| {
+        (
+            SELECTION_CHANGED,
+            "capture selection became unavailable".to_string(),
+        )
+    })?;
+    if selection != Some(expected_selection) {
+        return Err((SELECTION_CHANGED, "capture selection changed".to_string()));
+    }
+    let source_dimensions = *control.source_dimensions.lock().map_err(|_| {
+        (
+            SOURCE_MISMATCH,
+            "capture source dimensions became unavailable".to_string(),
+        )
+    })?;
+    if source_dimensions != expected_source_dimensions {
+        return Err((
+            SOURCE_MISMATCH,
+            "capture source dimensions changed".to_string(),
+        ));
+    }
     Ok(())
 }
 
@@ -421,6 +587,7 @@ fn run_pipewire(
     fd: std::os::fd::OwnedFd,
     frames: Channel<InvokeResponseBody>,
     control: Arc<CaptureControl>,
+    #[cfg(debug_assertions)] debug_collector: Arc<DebugRoiSampleCollector>,
 ) -> Result<(), String> {
     pw::init();
     let mainloop = pw::main_loop::MainLoopRc::new(None).map_err(capture_error)?;
@@ -537,7 +704,7 @@ fn run_pipewire(
                     loop_for_frames.quit();
                     return;
                 };
-                let selection = match control_for_frames.selection.lock() {
+                let configured_selection = match control_for_frames.selection.lock() {
                     Ok(selection) => *selection,
                     Err(_) => {
                         *stream_error_in_process.borrow_mut() =
@@ -546,7 +713,11 @@ fn run_pipewire(
                         return;
                     }
                 };
-                let selection = match selection_for_source(selection, size.width, size.height) {
+                let selection = match selection_for_source(
+                    configured_selection,
+                    size.width,
+                    size.height,
+                ) {
                     Ok(selection) => selection,
                     Err(error) => {
                         *stream_error_in_process.borrow_mut() = Some(error);
@@ -554,6 +725,12 @@ fn run_pipewire(
                         return;
                     }
                 };
+                #[cfg(debug_assertions)]
+                if matches!(configured_selection, Some(NativeCaptureSelection::Regions { .. }))
+                    && selection.is_none()
+                {
+                    debug_collector.finish_capture(control_for_frames.capture_id, SOURCE_MISMATCH);
+                }
                 if last_source_frame_in_process.get().is_none() {
                     eprintln!(
                         "Native display capture received first frame: memory={memory_type:?}, bytes={}, stride={stride}",
@@ -562,6 +739,11 @@ fn run_pipewire(
                 }
                 let source_frame_time = Instant::now();
                 last_source_frame_in_process.set(Some(source_frame_time));
+                #[cfg(debug_assertions)]
+                if let Ok(mut source_dimensions) = control_for_frames.source_dimensions.lock() {
+                    *source_dimensions = Some((size.width, size.height));
+                    control_for_frames.healthy.store(true, Ordering::Release);
+                }
                 let batch_id = match control_for_frames.begin_batch(selection) {
                     Ok(Some(batch_id)) => batch_id,
                     Ok(None) => return,
@@ -641,6 +823,26 @@ fn run_pipewire(
                         return;
                     }
                 };
+                #[cfg(debug_assertions)]
+                match (selection, region_frame.as_ref(), rare_region_frame.as_ref()) {
+                    (
+                        Some(selection @ NativeCaptureSelection::Regions { .. }),
+                        Some(region_frame),
+                        Some(rare_region_frame),
+                    ) => debug_collector.enqueue_pair(SampledRoiPair {
+                        capture_id: control_for_frames.capture_id,
+                        selection,
+                        source_width: size.width,
+                        source_height: size.height,
+                        batch_id,
+                        normal_frame: region_frame,
+                        rare_frame: rare_region_frame,
+                        payload_offset: FRAME_HEADER_BYTES,
+                    }),
+                    (Some(NativeCaptureSelection::Regions { .. }), _, _) => debug_collector
+                        .finish_capture(control_for_frames.capture_id, SOURCE_MISMATCH),
+                    _ => {}
+                }
                 if frames.send(InvokeResponseBody::Raw(preview)).is_err() {
                     control_for_frames.clear_batch(batch_id);
                     loop_for_frames.quit();
@@ -1363,6 +1565,36 @@ mod tests {
         );
     }
 
+    #[cfg(debug_assertions)]
+    #[test]
+    fn debug_collector_revalidation_detects_replacement_and_selection_changes() {
+        let state = CaptureState::default();
+        let settings = selection(1920, 1080, 80, 10, 20);
+        let expected_selection = regions_selection(settings);
+        let control = Arc::new(CaptureControl::new(4, 9, Some(expected_selection)));
+        control.healthy.store(true, Ordering::Release);
+        *control.source_dimensions.lock().unwrap() = Some((1920, 1080));
+        state.inner.lock().unwrap().capture = Some(control.clone());
+
+        revalidate_debug_roi_capture(&state, &control, expected_selection, Some((1920, 1080)))
+            .unwrap();
+
+        state.inner.lock().unwrap().capture = Some(Arc::new(CaptureControl::new(5, 10, None)));
+        let (reason, error) =
+            revalidate_debug_roi_capture(&state, &control, expected_selection, Some((1920, 1080)))
+                .unwrap_err();
+        assert_eq!(reason, CAPTURE_REPLACED);
+        assert!(error.contains("replaced"));
+
+        state.inner.lock().unwrap().capture = Some(control.clone());
+        *control.selection.lock().unwrap() = None;
+        let (reason, error) =
+            revalidate_debug_roi_capture(&state, &control, expected_selection, Some((1920, 1080)))
+                .unwrap_err();
+        assert_eq!(reason, SELECTION_CHANGED);
+        assert!(error.contains("selection changed"));
+    }
+
     #[test]
     fn validates_signed_and_padded_strides() {
         assert!(validated_stride(-16, 4)
@@ -1466,7 +1698,7 @@ mod tests {
     fn finished_capture_rejects_selection_updates() {
         let state = CaptureState::default();
         let control = Arc::new(CaptureControl::new(1, 7, None));
-        state.0.lock().unwrap().capture = Some(control.clone());
+        state.inner.lock().unwrap().capture = Some(control.clone());
 
         assert_eq!(
             set_selection(&state, 6, None),
@@ -1486,18 +1718,18 @@ mod tests {
         let state = CaptureState::default();
         let control = Arc::new(CaptureControl::new(1, 7, None));
         {
-            let mut inner = state.0.lock().unwrap();
+            let mut inner = state.inner.lock().unwrap();
             inner.latest_capture_token = 7;
             inner.capture = Some(control.clone());
         }
 
         stop(&state, 6);
         assert!(!control.cancelled.load(Ordering::Acquire));
-        assert!(state.0.lock().unwrap().capture.is_some());
+        assert!(state.inner.lock().unwrap().capture.is_some());
 
         stop(&state, 7);
         assert!(control.cancelled.load(Ordering::Acquire));
-        assert!(state.0.lock().unwrap().capture.is_none());
+        assert!(state.inner.lock().unwrap().capture.is_none());
     }
 
     #[test]

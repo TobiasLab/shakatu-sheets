@@ -1,3 +1,5 @@
+#[cfg(all(debug_assertions, target_os = "linux"))]
+mod debug_roi_collector;
 #[cfg(target_os = "linux")]
 mod linux;
 
@@ -347,6 +349,32 @@ pub fn stop_native_display_capture(
 
     #[cfg(not(target_os = "linux"))]
     let _ = (state, capture_token);
+}
+
+#[cfg(all(debug_assertions, target_os = "linux"))]
+#[tauri::command]
+pub fn start_debug_roi_sample_collection(
+    state: tauri::State<'_, NativeCaptureState>,
+    capture_token: u64,
+) -> Result<debug_roi_collector::DebugRoiSampleCollectionStatus, String> {
+    linux::start_debug_roi_sample_collection(&state.capture, capture_token)
+}
+
+#[cfg(all(debug_assertions, target_os = "linux"))]
+#[tauri::command]
+pub fn stop_debug_roi_sample_collection(
+    state: tauri::State<'_, NativeCaptureState>,
+    capture_token: u64,
+) -> Result<debug_roi_collector::DebugRoiSampleCollectionStatus, String> {
+    state.capture.debug_collector.stop(capture_token)
+}
+
+#[cfg(all(debug_assertions, target_os = "linux"))]
+#[tauri::command]
+pub fn debug_roi_sample_collection_status(
+    state: tauri::State<'_, NativeCaptureState>,
+) -> debug_roi_collector::DebugRoiSampleCollectionStatus {
+    state.capture.debug_collector.status()
 }
 
 #[cfg(test)]
