@@ -29,6 +29,14 @@ function counts(ratios: number[]) {
 }
 
 describe("rare loot frame analysis", () => {
+    it("rejects sustained gold scenery without a horizontal banner edge", () => {
+        const frame = rareFrame();
+        for (let offset = 0; offset < frame.pixels.length; offset += 4) frame.pixels.set([180, 120, 40, 255], offset);
+        const analyzer = new RareLootFrameAnalyzer();
+        analyzer.pushFrame(rareFrame());
+        for (let index = 0; index < 40; index += 1) expect(analyzer.pushFrame(frame).count).toBe(0);
+    });
+
     it("rejects malformed frame dimensions and buffers", () => {
         const analyzer = new RareLootFrameAnalyzer();
         expect(() => analyzer.pushFrame({ ...rareFrame(), width: 399 })).toThrow("400x100");

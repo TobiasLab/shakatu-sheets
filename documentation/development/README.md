@@ -60,3 +60,7 @@ PipeWire portal, the installed webview, Garmoth, or the game's FPS.
 
 Set `UI_SMOKE_SOAK_SECONDS=30` when running `npm run test:ui` to exercise sustained synthetic frame delivery. This is
 separate from the real-game 30-minute resource/recognition acceptance run.
+
+
+For detection changes, replay developer ROI samples with `npm run benchmark:loot:roi -- /path/to/dev-samples/live-loot --ocr`. Add `--validation` for the reserved split. See the [ROI replay documentation](../design/live-loot-benchmark.md#roi-sample-replay)
+for scoring limits and optional JSON reports. Captured PNGs stay outside tracked source.

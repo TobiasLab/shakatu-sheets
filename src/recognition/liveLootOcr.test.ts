@@ -159,6 +159,13 @@ describe("preprocessLootOcrFrame", () => {
         expect(outputPixel(output, 14, 10)).toEqual([255, 255, 255, 255]);
     });
 
+    it("retains gold lettering only for an explicitly gold OCR job", () => {
+        const frame = sourceFrame();
+        setPixel(frame, 2, 0, 230, 200, 110);
+        expect(blackPixelCount(preprocessLootOcrFrame(frame, 12, 170))).toBe(0);
+        expect(blackPixelCount(preprocessLootOcrFrame(frame, 12, 170, undefined, "gold"))).toBe(16);
+    });
+
     it("is monotonically more selective across the supported thresholds", () => {
         const frame = sourceFrame();
         setPixel(frame, 2, 0, 130);

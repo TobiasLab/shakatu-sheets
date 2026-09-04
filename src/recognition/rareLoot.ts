@@ -23,7 +23,7 @@ export const RARE_LOOT_PROFILE: LootDetectionProfile = {
 };
 
 export const RARE_LOOT_OCR_SELECTION = { frameCount: 3, delayFrames: 12 } as const;
-export const RARE_LOOT_OCR_BOUNDS = { left: 40, right: 392, top: 20, bottom: 92 } as const;
+export const RARE_LOOT_OCR_BOUNDS = { left: 112, right: 392, top: 49, bottom: 65 } as const;
 
 const fingerprint: LootFingerprint = {
     full: new Uint8Array([1]),
@@ -67,6 +67,24 @@ function shellRatio(frame: LootRoiFrame) {
     return warmPixels / ((SHELL_RIGHT - SHELL_LEFT) * (SHELL_BOTTOM - SHELL_TOP));
 }
 
+function hasBannerBorder(frame: LootRoiFrame) {
+    // The entrance has a long, level gold edge above the text. Gold scenery alone is insufficient.
+    for (let y = 34; y <= 37; y += 1) {
+        let edgePixels = 0;
+        for (let x = 120; x < 320; x += 1) {
+            const offset = (y * frame.width + x) * 4;
+            const above = offset - frame.width * 4 * 3;
+            const light =
+                (frame.pixels[offset] * 77 + frame.pixels[offset + 1] * 150 + frame.pixels[offset + 2] * 29) >> 8;
+            const background =
+                (frame.pixels[above] * 77 + frame.pixels[above + 1] * 150 + frame.pixels[above + 2] * 29) >> 8;
+            if (light - background >= 25) edgePixels += 1;
+        }
+        if (edgePixels >= 130) return true;
+    }
+    return false;
+}
+
 /**
  * Provisional detector calibrated from one 3440x1440, 80%-UI rare banner. It confirms the distinctive gold shell,
  * keeps the event alive through its later readable phase, and suppresses a banner already active in the first frame.
@@ -84,7 +102,7 @@ export class RareLootFrameAnalyzer {
 
     pushFrame(frame: LootRoiFrame): LootDetectedRows {
         validateFrame(frame);
-        const shellVisible = shellRatio(frame) >= SHELL_CONFIRM_RATIO;
+        const shellVisible = hasBannerBorder(frame) && shellRatio(frame) >= SHELL_CONFIRM_RATIO;
         const baselineFrame = this.frameCount === 0;
         this.frameCount += 1;
 

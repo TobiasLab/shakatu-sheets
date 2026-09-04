@@ -11,6 +11,7 @@ export function preprocessLootOcrFrame(
     centerY: number,
     threshold: LootOcrThreshold,
     bounds?: LootOcrBounds,
+    textColor: "white" | "gold" = "white",
 ): LootRoiFrame {
     const { width, height, pixels } = frame;
     if (!Number.isSafeInteger(width) || width <= 0 || !Number.isSafeInteger(height) || height <= 0) {
@@ -67,7 +68,7 @@ export function preprocessLootOcrFrame(
             const blue = pixels[sourceOffset + 2];
             const luminance = (red * 77 + green * 150 + blue * 29) >> 8;
             const chroma = Math.max(red, green, blue) - Math.min(red, green, blue);
-            if (luminance < threshold || chroma > 65) continue;
+            if (luminance < threshold || chroma > (textColor === "gold" ? 140 : 65)) continue;
 
             const targetLeft = padding + (x - left) * scale;
             const targetTop = padding + (y - top) * scale;
@@ -265,6 +266,7 @@ export async function createLiveLootTesseractOcr({
                     centerY,
                     threshold,
                     source.bounds,
+                    source.textColor,
                 );
                 source = undefined;
 
