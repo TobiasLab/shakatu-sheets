@@ -13,7 +13,7 @@ workspace. They measure particular components, not the game's FPS or the user's 
 - Disable preview conversion, transport, and painting outside visible setup. One metadata preview still reports the
   initial source or changed dimensions. A hidden stream with no selection cannot create an empty pending batch.
 - Keep the capture controller alive across page changes. Stop and release it on Finish, explicit Stop, or application
-  unmount. Suppress clock/diagnostic UI timers while hidden; retain timestamp-based elapsed time.
+  unmount. Suppress clock/diagnostic UI timers while hidden, including when setup is closed; retain timestamp-based elapsed time.
 - Resize OCR canvases only when dimensions change. Preserve the existing single serialized worker, tracking profiles,
   three-frame consensus, bounded queues, retries, and recognition failure reporting.
 - Separate Rust capture commands, geometry, lifecycle, PipeWire processing, encoding, diagnostics, and debug writing.
@@ -27,9 +27,9 @@ workspace. They measure particular components, not the game's FPS or the user's 
 | Release crop microbenchmark, 1,000 BGRx crops of 453×389 from a 3440×1440 buffer | Scalar reference: 777.82 ms; row conversion: 99.50 ms; **7.82× faster** |
 | Earlier run of the same benchmark | 789.60 ms / 87.99 ms; **8.97× faster** |
 | Existing recorded end-to-end recognition benchmark | Development: 24/24; held-out test: 11/11; no missed, invented, wrong, or withheld events |
-| Frontend unit tests | 172 passed |
+| Frontend unit tests | 186 passed after detection improvements and review fixes |
 | Rust unit tests | 73 passed; timing benchmark ignored by default and run separately |
-| Browser interaction checks | Timer transitions, no timer-triggered saves, navigation and minimized preview suppression, continued frame acknowledgments, late-frame rejection after Finish, manual entry, themes, minimum width |
+| Browser interaction checks | Timer transitions, no timer-triggered saves, navigation and minimized preview suppression, continued frame acknowledgments, late-frame rejection after Finish, hidden diagnostics, screenshot-state isolation between sessions, manual entry, themes, minimum width |
 | Static checks | Biome, TypeScript/production build, Rust formatting, Clippy with warnings denied |
 | Linux packaging | AppImage builds successfully |
 

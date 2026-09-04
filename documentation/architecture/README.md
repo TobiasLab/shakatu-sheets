@@ -10,9 +10,10 @@ The frontend sends the complete session snapshot after each meaningful state cha
 validates the snapshot and replaces the session entries in one transaction.
 
 Manual screenshot recognition stays in the frontend. Tesseract.js loads its bundled English model, worker, and WASM core
-from `public/ocr`, while canvas preprocessing and profile icon comparison produce a transient review draft. Confirming a
-valid draft applies one guarded session transition; normal snapshot persistence then stores the imported entries. No
-screenshot bytes or OCR draft data cross the Tauri command boundary.
+from `public/ocr`, while canvas preprocessing and profile icon comparison produce a transient review draft. The draft
+belongs to one session and resets when that session changes. Confirming a valid draft applies one guarded session
+transition; normal snapshot persistence then stores the imported entries. No screenshot bytes or OCR draft data cross
+the Tauri command boundary.
 
 The history view requests the 20 newest finished sessions from SQLite, filters them by the selected grind-spot profile,
 and calculates display totals with the same pure frontend function as the live view. Normal saves cannot change finished

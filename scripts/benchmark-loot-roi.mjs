@@ -128,15 +128,6 @@ function compare(expected, results, ocr) {
 }
 
 let worker;
-if (useOcr) {
-    const { createWorker, OEM, PSM } = await import("tesseract.js");
-    worker = await createWorker("eng", OEM.LSTM_ONLY, {
-        langPath: fileURLToPath(new URL("../public/ocr", import.meta.url)),
-        cacheMethod: "none",
-        gzip: true,
-    });
-    await worker.setParameters({ tessedit_pageseg_mode: PSM.SINGLE_LINE });
-}
 const report = {
     split,
     ocr: useOcr,
@@ -145,18 +136,35 @@ const report = {
 };
 let failed = false;
 try {
+    if (useOcr) {
+        const { createWorker, OEM, PSM } = await import("tesseract.js");
+        worker = await createWorker("eng", OEM.LSTM_ONLY, {
+            langPath: fileURLToPath(new URL("../public/ocr", import.meta.url)),
+            cacheMethod: "none",
+            gzip: true,
+        });
+        await worker.setParameters({ tessedit_pageseg_mode: PSM.SINGLE_LINE });
+    }
     for (const run of annotations.runs.filter((run) => run.split === split)) {
         if (!/^run-\d+-\d+-\d+$/.test(run.id)) throw new Error("Invalid run directory.");
         const directory = join(root, run.id);
         const manifest = JSON.parse(await readFile(join(directory, "manifest.json"), "utf8"));
+        if (
+            manifest.version !== 1 ||
+            manifest.sourceDimensions?.width !== artifact.capture.sourceWidth ||
+            manifest.sourceDimensions?.height !== artifact.capture.sourceHeight ||
+            manifest.uiScalePercent !== artifact.capture.uiScalePercent ||
+            manifest.targetFps !== artifact.capture.sampleFps
+        )
+            throw new Error(`${run.id}: unsupported capture profile.`);
         const normalIds = await batchIds(join(directory, "normal"));
         const rareIds = await batchIds(join(directory, "rare"));
         if (normalIds.length !== rareIds.length || normalIds.some((id, index) => id !== rareIds[index]))
             throw new Error(`${run.id}: normal/rare batches do not match.`);
         for (const kind of ["normal", "rare"]) {
             const profile = kind === "normal" ? artifact.profile : RARE_LOOT_PROFILE;
-            const crop = manifest[`${kind}Crop`].pixels;
-            if (crop.width !== profile.width || crop.height !== profile.height)
+            const crop = manifest[`${kind}Crop`]?.pixels;
+            if (crop?.width !== profile.width || crop?.height !== profile.height)
                 throw new Error(`${run.id}: unsupported ${kind} geometry.`);
             const analyzer = new RareLootFrameAnalyzer();
             const results = [];

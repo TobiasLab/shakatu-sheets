@@ -282,6 +282,7 @@ export function useLiveLootCapture({
     const windowVisible = useWindowVisible();
     const [setupOpen, setSetupOpen] = useState(false);
     const [diagnosticsOpen, setDiagnosticsOpen] = useState(false);
+    const diagnosticsRequested = setupOpen && diagnosticsOpen && visible && windowVisible;
     const previewUpdates = useRef(Promise.resolve());
     const setupButton = useRef<HTMLButtonElement>(null);
     const video = useRef<HTMLVideoElement>(null);
@@ -300,8 +301,8 @@ export function useLiveLootCapture({
     const sampledFrames = useRef(0);
     const diagnosticsVisible = useRef(false);
     useLayoutEffect(() => {
-        diagnosticsVisible.current = diagnosticsOpen && visible && windowVisible;
-    }, [diagnosticsOpen, visible, windowVisible]);
+        diagnosticsVisible.current = diagnosticsRequested;
+    }, [diagnosticsRequested]);
     const measurementStarted = useRef(performance.now());
     const requestId = useRef(0);
     const nativeSelectionUpdate = useRef<Promise<void>>(Promise.resolve());
@@ -1388,7 +1389,7 @@ export function useLiveLootCapture({
     }, [calibratedProfile, grindSpotId, recognitionRequested, recognitionReset, sessionId, sourceDimensions]);
 
     useEffect(() => {
-        if (recognitionStatus !== "active" || !diagnosticsOpen || !visible || !windowVisible) return;
+        if (recognitionStatus !== "active" || !diagnosticsRequested) return;
         const publish = () => {
             const pipeline = recognition.current;
             recordOutstandingOcrJobs("normal", pipeline?.normalCoordinator.pendingOcrJobCount ?? 0);
@@ -1398,7 +1399,7 @@ export function useLiveLootCapture({
         publish();
         const timer = window.setInterval(publish, 1_000);
         return () => window.clearInterval(timer);
-    }, [recognitionStatus, diagnosticsOpen, visible, windowVisible]);
+    }, [recognitionStatus, diagnosticsRequested]);
 
     useEffect(() => {
         if (!supportsTauriApi()) return;
