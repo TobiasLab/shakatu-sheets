@@ -1339,6 +1339,7 @@ export function useLiveLootCapture({
                     analyzeFrame: (frame) => rareAnalyzer.pushFrame(frame),
                     ocrSelection: RARE_LOOT_OCR_SELECTION,
                     ocrBounds: RARE_LOOT_OCR_BOUNDS,
+                    ocrTextColor: "gold",
                     eventIdPrefix: "rare",
                 });
                 const pipeline = { normalCoordinator, rareCoordinator, ocr };

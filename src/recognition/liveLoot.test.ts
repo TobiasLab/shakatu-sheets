@@ -8,9 +8,11 @@ import {
     type LootDetectionProfile,
     type LootRoiFrame,
     LootRowTracker,
+    lootFingerprintDistance,
     parseLootItem,
     parseLootQuantity,
     recognizeLootReplay,
+    rowBirthCount,
     selectLootOcrObservations,
     trackLootRows,
 } from "./liveLoot";
@@ -973,5 +975,80 @@ describe("live loot streaming coordination", () => {
             firstEventId: "detected-0005",
             lastEventId: "detected-0007",
         });
+    });
+});
+
+describe("notification evidence regressions", () => {
+    it("rejects bright neutral texture spread above and below the text baseline", () => {
+        const frame = packedFrame(0);
+        for (let y = 60; y <= 80; y += 2) {
+            for (let x = 28; x < 94; x += 4) frame.pixels.fill(255, (y * 100 + x) * 4, (y * 100 + x) * 4 + 4);
+        }
+        expect(analyzeLootRoiFrame(frame, streamingProfile).count).toBe(0);
+    });
+
+    it("rejects warm scenery even when its edges fall on the text baseline", () => {
+        const frame = packedFrame(1);
+        for (let x = 28; x < 94; x += 4) frame.pixels.set([180, 160, 130, 255], (70 * 100 + x) * 4);
+        expect(analyzeLootRoiFrame(frame, streamingProfile).count).toBe(0);
+    });
+
+    it("ignores scenery beyond text whitespace without ignoring another quantity digit", () => {
+        const full = new Uint8Array(80);
+        full.fill(3, 0, 25);
+        full.set([6, 2, 4], 27);
+        const base = { full, quantity: full.slice(20) };
+        const scenery = full.slice();
+        scenery.fill(10, 45);
+        expect(lootFingerprintDistance(base, { full: scenery, quantity: scenery.slice(20) })).toBeCloseTo(0);
+        const extraDigit = full.slice();
+        extraDigit.set([10, 4, 3, 10, 6], 32);
+        expect(lootFingerprintDistance(base, { full: extraDigit, quantity: extraDigit.slice(20) })).toBeGreaterThan(
+            0.1,
+        );
+    });
+
+    it("waits for visually consistent OCR frames within the same event", () => {
+        const track = {
+            id: "camera-motion",
+            firstFrame: 0,
+            baseline: false,
+            observations: [0, 0.05, 0.3, 0.31, 0.32].map((fingerprint, frame) => ({
+                frame,
+                slot: 4,
+                centerY: 204,
+                score: 300,
+                fingerprint,
+            })),
+        };
+        expect(
+            selectLootOcrObservations(track, 100, undefined, distance).map((observation) => observation.frame),
+        ).toEqual([2, 3, 4]);
+    });
+
+    it("requires a changed row to remain different from its predecessor", () => {
+        expect(rowBirthCount(row([0]), row([0.15]), row([0.02]), 100, distance)).toBe(0);
+        expect(rowBirthCount(row([0]), row([0.15]), row([0.16]), 100, distance)).toBe(1);
+    });
+
+    it("retains a readable new drop when older rows expire in the same frame", () => {
+        const previous = row([1, 2, 3]);
+        const current = row([3, 4], [200, 110]);
+        expect(rowBirthCount(previous, current, current, 100, distance)).toBe(1);
+    });
+
+    it("allows a strongly different shorter item while the existing stack loses brightness", () => {
+        const previous = row([1, 2, 3], [600, 600, 600]);
+        const current = row([2.2, 3, 4], [300, 300, 250]);
+        const next = row([3, 4, 3], [300, 250, 300]);
+        expect(rowBirthCount(previous, current, next, 100, distance)).toBe(1);
+    });
+
+    it("accepts trailing OCR punctuation but rejects ambiguous quantities and trailing words", () => {
+        expect(parseLootQuantity("Embers of Ynix - Armor x1 .")).toBe(1);
+        expect(parseLootItem("Embers of Ynix = Armor x1 .", ["Embers of Ynix - Armor"])).toBe("Embers of Ynix - Armor");
+        for (const suffix of ["1.5", "1,000", "1 extra", "-1", "1 2"]) {
+            expect(parseLootQuantity(`Black Stone x ${suffix}`)).toBeNull();
+        }
     });
 });

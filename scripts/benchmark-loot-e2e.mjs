@@ -64,7 +64,7 @@ export async function runLootE2eBenchmark({ manifestPath, profileOutput, develop
 
     console.log(`Development row geometry: bottom ${geometry.bottomCenter}px, spacing ${geometry.spacing}px`);
     console.log(`Development row threshold: ${geometry.threshold} (${geometry.errors} slot errors)`);
-    console.log("OCR window: first 3 consecutive detected rows after the entrance frame");
+    console.log("OCR window: first 3 consecutive, visually consistent rows after the entrance frame");
 
     const { createWorker, OEM, PSM } = await import("tesseract.js");
     const worker = await createWorker("eng", OEM.LSTM_ONLY, {
@@ -80,7 +80,7 @@ export async function runLootE2eBenchmark({ manifestPath, profileOutput, develop
         for (const sequence of prepared) {
             const predictions = [];
             for (const track of sequence.tracks) {
-                const selected = selectOcrObservations(track, geometry.threshold);
+                const selected = selectOcrObservations(track, geometry.threshold, undefined, lootFingerprintDistance);
                 const readingsByFrame = [];
                 const rawReadings = [];
                 for (const observation of selected) {

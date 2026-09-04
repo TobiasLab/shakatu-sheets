@@ -6,7 +6,7 @@ Linux capture feasibility is established. The first native-resolution offline pi
 and recognizes items and quantities exactly on its held-out sequence without label-selected crops. For the validated
 3440x1440 80% profile, live capture now searches an `800x600` native-resolution area and automatically locks the exact
 `362x311` normal-stack crop after three stable observations. Manual placement remains available. A provisional detector
-also recognizes appearances of the fixed gold rare-banner shell in the separately positioned `400x100` crop, delays OCR
+also recognizes appearances of the fixed gold rare-banner shell and its horizontal border in the separately positioned `400x100` crop, delays OCR
 until its text is readable, and presents dictionary-constrained results in the review feed. Recognized rare results are
 added to the ledger automatically, although the detector has only one calibration event and no held-out sequence.
 A browser-safe production module now analyzes packed RGBA crops, tracks notification identities, selects stable OCR frames,
@@ -154,8 +154,10 @@ threshold.
 ### Provisional Rare-Banner Recognition
 
 At 3440x1440 and 80% UI scale, the rare analyzer measures the fixed gold shell independently of the normal row detector.
-It requires four consecutive shell observations, emits one synthetic row for the duration of the appearance, and waits 12
-detected frames before selecting three OCR frames from `x=40..392`, `y=20..92`. A minimum active lifetime keeps the
+It requires four consecutive observations of both a warm shell and a long horizontal entrance border. Gold scenery alone
+is insufficient. It emits one synthetic row for the appearance and waits 12 detected frames before selecting three OCR
+frames from the text-only bounds `x=112..392`, `y=49..65`. Gold OCR jobs retain warmer lettering than normal jobs; the
+normal white-text filter otherwise erases much of this banner’s text. A minimum active lifetime keeps the
 synthetic row available after the gold entrance shell fades and before the text disappears unless a separately confirmed
 replacement appears. Frames used to confirm a replacement remain tracking-only and cannot be selected as OCR evidence for
 the old event. Two absent frames end a sufficiently old appearance; a new confirmed shell after a longer early gap starts
@@ -164,8 +166,27 @@ begins in the first captured frame is treated as a baseline and suppressed until
 
 The active grind spot's item names remain the only OCR candidates, and the existing terminal quantity parser reads the
 displayed `x <number>` suffix. Normal and rare coordinators serialize requests through one Tesseract worker. The current
-gold-color, timing, and crop gates were measured from one event and are deliberately marked provisional; 100% UI scale and
+gold-color, border, timing, and crop gates were measured from one positive live-sample event and are deliberately marked provisional; 100% UI scale and
 other source resolutions do not start recognition because they have no bundled calibrated profile.
+
+### Live-Sample Detection Gates
+
+Normal rows retain the existing calibrated edge-score scale, with an additional text-presence check: the leading text
+must contain enough bright neutral strokes concentrated around the baseline, compared with its upper and lower margins.
+This rejects grass and combat textures without raising the threshold for short or compressed item names. Row fingerprints
+use the central glyph band and exclude scenery after a trailing whitespace gap. The gap itself remains part of the
+comparison so an appended quantity digit still changes identity. Fingerprints are computed only for detected rows, and
+quantity projections reuse the full projection.
+
+A temporary fingerprint change that returns to the previous identity is not a replacement unless the stack shifts. A
+strongly different, shorter new item may still be confirmed while fading older rows reduce total brightness. Baseline
+suppression and distinct event IDs for repeated identical drops remain in place.
+
+OCR now requires three consecutive observations whose neighboring fingerprints are visually consistent, after the
+entrance delay. Failed stability checks wait within the existing bounded frame window; they do not create a new event.
+Acceptance still requires the same item/quantity pair from at least two distinct frames. Trailing OCR punctuation is
+allowed, while decimals, separators inside quantities, and trailing words remain rejected. No two-frame fallback or
+single-frame acceptance was introduced.
 
 ## Event Tracking
 

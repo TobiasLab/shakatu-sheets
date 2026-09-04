@@ -125,7 +125,7 @@ Development annotations calibrate only row geometry and the occupancy threshold.
 frames, the frozen calibration, and `itemDictionary`: an ordered stack tracker assigns event IDs, treats frame-zero rows
 as baselines, preserves retained identities when rows shift upward, and confirms detected births against the following
 frame before appending them at the bottom. Each event uses the first three consecutive detected row observations after its
-entrance frame. OCR accepts only an item-and-quantity pair supported by at least two distinct frames, so independently
+entrance frame, with adjacent fingerprints required to remain visually consistent. OCR accepts only an item-and-quantity pair supported by at least two distinct frames, so independently
 conflicting item and quantity readings cannot be combined. Labels are joined only after inference for chronological
 scoring. The tracker and end-to-end commands decode packed RGBA frames and call the browser-safe production analyzer,
 tracker, and OCR parsers in `src/recognition/liveLoot.ts`; the benchmark is therefore a replay adapter around the production
@@ -200,9 +200,10 @@ geometry only, not a validated recognition profile.
 
 One event cannot provide separate development and held-out sequences. A provisional production analyzer now uses the
 fixed gold shell inside `x=65..370`, `y=35..80` of the `400x100` crop as an appearance signal. It requires at least 65% of
-that area to pass the calibrated warm-color gate for four consecutive 8 FPS frames. Once confirmed, it holds one event
-active for at least 18 frames and waits 12 detected frames before selecting three OCR frames from `x=40..392`,
-`y=20..92`, unless a separately confirmed replacement ends the old event first. Returning-shell confirmation frames are
+that area to pass the calibrated warm-color gate, together with a long horizontal entrance border, for four consecutive
+8 FPS frames. Once confirmed, it holds one event
+active for at least 18 frames and waits 12 detected frames before selecting three OCR frames from the text-only bounds `x=112..392`,
+`y=49..65`, unless a separately confirmed replacement ends the old event first. Returning-shell confirmation frames are
 OCR-ineligible for the old event. Two absent shell frames end an appearance after its minimum lifetime. A shell returning
 after a longer early gap begins confirmation for a separate appearance rather than being merged into the active event. An
 appearance beginning in frame zero is suppressed as a baseline. This permits separate event IDs for later appearances,
@@ -215,3 +216,59 @@ flashes, baseline suppression, delayed OCR selection, and two separated appearan
 the one measured event, not a held-out accuracy benchmark. More labeled events across varied scenes, 100% UI-scale data,
 at least one frozen held-out sequence, and recorded and labeled repeated-identical-banner coverage remain required before
 the detector can be considered calibrated.
+
+
+## ROI Sample Replay
+
+Replay the developer collector’s paired PNG runs with the actual `LiveLootCoordinator`, bundled detection profile,
+production OCR preprocessing, local Tesseract worker, and production consensus parser:
+
+```sh
+npm run benchmark:loot:roi -- /path/to/dev-samples/live-loot --ocr --output /tmp/loot-development.json
+npm run benchmark:loot:roi -- /path/to/dev-samples/live-loot --validation --ocr --output /tmp/loot-validation.json
+```
+
+The directory must contain version-1 `annotations.json` and run directories with `manifest.json`, `normal/minute-*`, and
+`rare/minute-*`. The replay validates contiguous, matching normal/rare batch IDs and crop dimensions. It streams frames
+through a bounded decoder and waits for pending OCR before advancing, so these are accuracy measurements, not a live
+throughput benchmark. Omit `--ocr` for detection and selected-window diagnostics. Output files must not already exist.
+
+Only explicitly reviewed event lists are scored. Empty event arrays on unreviewed normal runs are **not** negative labels.
+The small manually inspected development intervals in `scripts/fixtures/loot-roi-cases.json` add coverage for scenery,
+simultaneous identical drops, three consecutive drops, camera movement, and arrivals overlapping expiry. Those labels
+contain batch IDs and expected items, not captured pixels. They are development regression cases, not an independent
+accuracy estimate. Original PNGs and generated reports remain outside tracked source.
+
+The supplied corpus contains 5,996 paired batches: 4,539 development and 1,457 validation batches, all at 8 FPS and 80% UI
+scale. The third run was reserved from threshold tuning. It is a negative rare-event recording from the same grinding
+session, not an independent positive rare benchmark. There is only one annotated positive rare event. Most normal events
+still lack ground-truth labels, so recognized-event counts and fewer warnings must not be reported as overall accuracy.
+
+
+### Live-Sample Results (2026-09-04)
+
+Compared with commit `004ef2f`, using the same streaming coordinator replay and all 5,996 paired batches:
+
+| Measurement | Before | After |
+| --- | ---: | ---: |
+| Normal insufficient-observation warnings, development | 30 | 5 |
+| Normal insufficient-observation warnings, validation | 9 | 0 |
+| Rare insufficient-observation warnings, all runs | 17 | 0 |
+| False rare candidates, development | 69 | 0 |
+| False rare candidates, validation | 20 | 0 |
+
+The one annotated rare event was correctly recognized as `Embers of Ynix - Armor x 1`, using batches 6348–6350. All ten
+normal events in the manually reviewed development intervals were recognized with the correct quantity, with no missed
+or extra candidates in those intervals. The older recording still passes all 35 labeled end-to-end cases
+(24 development and 11 existing regression-test events). That existing test set is a regression suite, not a fresh
+holdout for this change.
+
+Across the unreviewed normal runs, 170, 206, and 111 events were accepted respectively. Those are diagnostic counts, not
+verified correct totals. Five short candidates remain withheld, including a notification truncated by the end of the
+second recording. Three other normal candidates reach OCR but lack item/quantity consensus. Live compositor scheduling,
+other grind spots, additional rare items, and other UI scales still need gameplay validation.
+
+A local detector-only timing check over the older diverse-stack frames measured about 0.264 ms/frame after the change
+versus 0.336 ms/frame before (60 warmup frames, three alternating 500-frame passes, same Node process). This is not a
+whole-app or game-FPS measurement. Computing fingerprints only for detected rows and reusing quantity projections offsets
+the extra text-presence checks.

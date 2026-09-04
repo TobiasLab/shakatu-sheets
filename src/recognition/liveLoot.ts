@@ -106,6 +106,7 @@ export type LiveLootOcrFrame = {
     roi: LootRoiFrame;
     observation: LootRowObservation<LootFingerprint>;
     bounds?: LootOcrBounds;
+    textColor?: "white" | "gold";
 };
 
 export type LootOcrBounds = { left: number; right: number; top: number; bottom: number };
@@ -135,6 +136,7 @@ export type LiveLootCoordinatorOptions = {
     analyzeFrame?: LiveLootFrameAnalyzer;
     ocrSelection?: LootOcrSelectionOptions;
     ocrBounds?: LootOcrBounds;
+    ocrTextColor?: "white" | "gold";
     eventIdPrefix?: string;
 };
 
@@ -163,7 +165,7 @@ function luminance(frame: LootRoiFrame, offset: number) {
     return (frame.pixels[offset] * 77 + frame.pixels[offset + 1] * 150 + frame.pixels[offset + 2] * 29) >> 8;
 }
 
-function isGlyphPixel(frame: LootRoiFrame, offset: number) {
+function isGlyphPixel(frame: LootRoiFrame, offset: number, strict = false) {
     const { pixels, width } = frame;
     const light = luminance(frame, offset);
     const chroma =
@@ -171,19 +173,40 @@ function isGlyphPixel(frame: LootRoiFrame, offset: number) {
         Math.min(pixels[offset], pixels[offset + 1], pixels[offset + 2]);
     const horizontal = Math.min(luminance(frame, offset - 8), luminance(frame, offset + 8));
     const vertical = Math.min(luminance(frame, offset - width * 8), luminance(frame, offset + width * 8));
-    return light >= 115 && chroma <= 55 && light - Math.min(horizontal, vertical) >= 18;
+    return (
+        light >= (strict ? 140 : 115) && chroma <= (strict ? 25 : 55) && light - Math.min(horizontal, vertical) >= 18
+    );
 }
 
-function rowScore(frame: LootRoiFrame, centerY: number) {
+function rowScore(frame: LootRoiFrame, centerY: number, rowThreshold: number) {
     let score = 0;
+    let textScore = 0;
+    let surrounding = 0;
+    let surroundingRows = 0;
     const left = Math.round(frame.width * 0.22);
     const right = Math.round(frame.width * 0.96);
+    const textLeft = Math.round(frame.width * 0.27);
+    const textRight = Math.round(frame.width * 0.58);
     for (let y = centerY - 6; y <= centerY + 6; y += 1) {
         for (let x = left; x < right; x += 1) {
-            if (isGlyphPixel(frame, (y * frame.width + x) * 4)) score += 1;
+            if (!isGlyphPixel(frame, (y * frame.width + x) * 4)) continue;
+            score += 1;
+            if (x >= textLeft && x < textRight) {
+                if (isGlyphPixel(frame, (y * frame.width + x) * 4, true)) textScore += 1;
+            }
         }
     }
-    return score;
+    for (const y of [centerY - 9, centerY - 8, centerY + 8, centerY + 9]) {
+        if (y < 2 || y >= frame.height - 2) continue;
+        surroundingRows += 1;
+        for (let x = textLeft; x < textRight; x += 1) {
+            if (isGlyphPixel(frame, (y * frame.width + x) * 4, true)) surrounding += 1;
+        }
+    }
+    // Compare the start of the text with its margins, away from the icon and exposed scenery.
+    return textScore >= Math.max(1, rowThreshold / 4) && textScore * surroundingRows >= surrounding * 13 * 1.5
+        ? score
+        : 0;
 }
 
 function rowFingerprint(frame: LootRoiFrame, centerY: number): LootFingerprint {
@@ -195,19 +218,20 @@ function rowFingerprint(frame: LootRoiFrame, centerY: number): LootFingerprint {
         const projection = new Uint8Array(right - startX);
         for (let x = startX; x < right; x += 1) {
             let brightPixels = 0;
-            for (let y = centerY - 9; y <= centerY + 9; y += 1) {
+            for (let y = centerY - 6; y <= centerY + 6; y += 1) {
                 const offset = (y * frame.width + x) * 4;
                 const chroma =
                     Math.max(frame.pixels[offset], frame.pixels[offset + 1], frame.pixels[offset + 2]) -
                     Math.min(frame.pixels[offset], frame.pixels[offset + 1], frame.pixels[offset + 2]);
-                if (luminance(frame, offset) >= 150 && chroma <= 40) brightPixels += 1;
+                if (luminance(frame, offset) >= 150 && chroma <= 25 && isGlyphPixel(frame, offset)) brightPixels += 1;
             }
             projection[x - startX] = brightPixels;
         }
         return projection;
     }
 
-    return { full: project(left), quantity: project(quantityLeft) };
+    const full = project(left);
+    return { full, quantity: full.slice(quantityLeft - left) };
 }
 
 export function analyzeLootRoiFrame(
@@ -223,29 +247,29 @@ export function analyzeLootRoiFrame(
     }
 
     const scores = Array.from({ length: profile.maxRows }, (_, slot) =>
-        rowScore(frame, profile.bottomCenter - (profile.maxRows - slot - 1) * profile.spacing),
-    );
-    const fingerprints = Array.from({ length: profile.maxRows }, (_, slot) =>
-        rowFingerprint(frame, profile.bottomCenter - (profile.maxRows - slot - 1) * profile.spacing),
+        rowScore(frame, profile.bottomCenter - (profile.maxRows - slot - 1) * profile.spacing, profile.rowThreshold),
     );
     const detected = scores.map((score) => score >= profile.rowThreshold);
     let count = 0;
     for (let slot = profile.maxRows - 1; slot >= 0 && detected[slot]; slot -= 1) count += 1;
+    const fingerprints = Array.from({ length: count }, (_, index) =>
+        rowFingerprint(frame, profile.bottomCenter - (count - index - 1) * profile.spacing),
+    );
     const observations: LootRowObservation<LootFingerprint>[] = [];
     for (let slot = profile.maxRows - count; slot < profile.maxRows; slot += 1) {
         observations.push({
             slot,
             centerY: profile.bottomCenter - (profile.maxRows - slot - 1) * profile.spacing,
             score: scores[slot],
-            fingerprint: fingerprints[slot],
+            fingerprint: fingerprints[slot - (profile.maxRows - count)],
         });
     }
 
     return {
         count,
         strength: scores.slice(profile.maxRows - count).reduce((total, score) => total + score, 0),
-        fingerprint: count === 0 ? undefined : fingerprints[profile.maxRows - 1],
-        fingerprints: count === 0 ? [] : fingerprints.slice(profile.maxRows - count),
+        fingerprint: fingerprints[count - 1],
+        fingerprints,
         observations,
     };
 }
@@ -253,12 +277,29 @@ export function analyzeLootRoiFrame(
 export function lootFingerprintDistance(left: LootFingerprint | undefined, right: LootFingerprint | undefined) {
     if (!left || !right) return 0;
 
-    function cosineDistance(leftProjection: Uint8Array, rightProjection: Uint8Array) {
+    function textExtent(projection: Uint8Array) {
+        let seenGlyph = false;
+        let gap = 0;
+        for (let index = 0; index < projection.length; index += 1) {
+            if (projection[index] > 0) {
+                seenGlyph = true;
+                gap = 0;
+            } else if (seenGlyph && ++gap >= 8) {
+                return index + 1;
+            }
+        }
+        return projection.length;
+    }
+
+    // Use either row's trailing whitespace to exclude scenery. Include the gap itself so an extra quantity digit
+    // still changes identity (for example x 9 versus x 90).
+    const extent = Math.min(textExtent(left.full), textExtent(right.full));
+    function cosineDistance(leftProjection: Uint8Array, rightProjection: Uint8Array, length: number) {
         if (leftProjection.length !== rightProjection.length) return 1;
         let dot = 0;
         let leftLength = 0;
         let rightLength = 0;
-        for (let index = 0; index < leftProjection.length; index += 1) {
+        for (let index = 0; index < length; index += 1) {
             dot += leftProjection[index] * rightProjection[index];
             leftLength += leftProjection[index] ** 2;
             rightLength += rightProjection[index] ** 2;
@@ -267,7 +308,10 @@ export function lootFingerprintDistance(left: LootFingerprint | undefined, right
         return 1 - dot / Math.sqrt(leftLength * rightLength);
     }
 
-    return Math.max(cosineDistance(left.full, right.full), cosineDistance(left.quantity, right.quantity));
+    return Math.max(
+        cosineDistance(left.full, right.full, extent),
+        cosineDistance(left.quantity, right.quantity, Math.max(0, extent - (left.full.length - left.quantity.length))),
+    );
 }
 
 export function stackShifted<TFingerprint>(
@@ -366,7 +410,7 @@ export function rowBirthCount<TFingerprint>(
     if (
         alignedBirths > additions &&
         stationaryDistance - bestDistance >= 0.1 &&
-        averageStrength >= rowThreshold * 2 &&
+        averageStrength >= rowThreshold &&
         (current.count < previous.count || strengthChange >= -rowThreshold / 2)
     ) {
         return confirmedBirthCount(alignedBirths);
@@ -385,11 +429,23 @@ export function rowBirthCount<TFingerprint>(
     }
     if (current.count !== previous.count) return 0;
 
+    const shifted = stackShifted(previous.fingerprints, current.fingerprints, distance);
+    if (
+        next?.count === current.count &&
+        distance(next.fingerprint, previous.fingerprint) < maximumContinuityDistance &&
+        !shifted &&
+        !stackShifted(current.fingerprints, next.fingerprints, distance) &&
+        strengthChange < rowThreshold * 2
+    )
+        return 0;
     const replacementEvidence =
-        distance(current.fingerprint, previous.fingerprint) >= 0.1 ||
-        stackShifted(previous.fingerprints, current.fingerprints, distance) ||
-        strengthChange >= rowThreshold * 2;
-    return replacementEvidence && averageStrength >= rowThreshold * 2 && strengthChange >= -rowThreshold / 2
+        distance(current.fingerprint, previous.fingerprint) >= 0.1 || shifted || strengthChange >= rowThreshold * 2;
+    // A different, shorter item can lower total brightness while older rows fade. A large identity change still
+    // needs the normal lookahead confirmation; brightness loss alone must not veto that new drop.
+    const strongIdentityChange = distance(current.fingerprint, previous.fingerprint) >= 0.3;
+    return replacementEvidence &&
+        averageStrength >= rowThreshold * 2 &&
+        (strengthChange >= -rowThreshold / 2 || strongIdentityChange)
         ? confirmedBirthCount(1)
         : 0;
 }
@@ -635,6 +691,7 @@ export function selectLootOcrObservations<TFingerprint>(
     track: LootTrack<TFingerprint>,
     rowThreshold: number,
     { frameCount = 3, delayFrames = 1, minimumScoreMultiplier = 1 }: LootOcrSelectionOptions = {},
+    distance?: FingerprintDistance<TFingerprint>,
 ) {
     let run: Array<LootRowObservation<TFingerprint> & { frame: number }> = [];
     for (const observation of track.observations) {
@@ -642,7 +699,13 @@ export function selectLootOcrObservations<TFingerprint>(
         const eligible =
             observation.frame >= track.firstFrame + delayFrames &&
             observation.score >= rowThreshold * minimumScoreMultiplier;
-        if (!eligible || (previous && observation.frame !== previous.frame + 1)) run = [];
+        if (
+            !eligible ||
+            (previous &&
+                (observation.frame !== previous.frame + 1 ||
+                    (distance?.(previous.fingerprint, observation.fingerprint) ?? 0) > 0.1))
+        )
+            run = [];
         if (!eligible) continue;
         run.push(observation);
         if (run.length === frameCount) return run;
@@ -655,7 +718,7 @@ function normalizeItem(value: string) {
 }
 
 export function parseLootQuantity(text: string) {
-    const suffix = text.match(/x\s*(\d+|[|Il])\s*$/i)?.[1];
+    const suffix = text.match(/x\s*(\d+|[|Il])\s*[.,:;!?]*\s*$/i)?.[1];
     if (!suffix) return null;
     if (/^[|Il]$/i.test(suffix)) return 1;
     const quantity = Number(suffix);
@@ -679,7 +742,7 @@ function editDistance(left: string, right: string) {
 }
 
 export function parseLootItem(text: string, dictionary: readonly string[]) {
-    const reading = text.match(/^(.*?)\s+x\s*(?:\d+|[|Il])\s*$/i)?.[1];
+    const reading = text.match(/^(.*?)\s+x\s*(?:\d+|[|Il])\s*[.,:;!?]*\s*$/i)?.[1];
     if (!reading) return null;
     const normalized = normalizeItem(reading);
     const candidates = dictionary
@@ -958,7 +1021,12 @@ export class LiveLootCoordinator {
     }
 
     private settleCandidate(track: LootTrack<LootFingerprint>) {
-        const selected = selectLootOcrObservations(track, this.options.profile.rowThreshold, this.ocrSelection);
+        const selected = selectLootOcrObservations(
+            track,
+            this.options.profile.rowThreshold,
+            this.ocrSelection,
+            lootFingerprintDistance,
+        );
         if (selected.length !== this.ocrFrameCount) return false;
 
         const metadata = this.resultMetadata(
@@ -971,7 +1039,13 @@ export class LiveLootCoordinator {
             const frames = selected.map((observation) => {
                 const roi = this.frames.get(observation.frame);
                 if (!roi) throw new Error(`Selected loot frame ${observation.frame} is no longer retained.`);
-                return { frame: observation.frame, roi, observation, bounds: this.options.ocrBounds };
+                return {
+                    frame: observation.frame,
+                    roi,
+                    observation,
+                    bounds: this.options.ocrBounds,
+                    textColor: this.options.ocrTextColor,
+                };
             });
             this.pendingSummary = undefined;
             this.pendingOcrJobs += 1;
@@ -1124,7 +1198,12 @@ export class LiveLootCoordinator {
 
     private finishCandidates() {
         for (const track of this.candidates) {
-            const selected = selectLootOcrObservations(track, this.options.profile.rowThreshold, this.ocrSelection);
+            const selected = selectLootOcrObservations(
+                track,
+                this.options.profile.rowThreshold,
+                this.ocrSelection,
+                lootFingerprintDistance,
+            );
             if (selected.length === this.ocrFrameCount) {
                 this.settleCandidate(track);
             } else {
@@ -1225,7 +1304,7 @@ export async function recognizeLootReplay<TFingerprint>(options: {
     );
     const results: LootRecognitionResult[] = [];
     for (const track of tracks) {
-        const selected = selectLootOcrObservations(track, options.rowThreshold);
+        const selected = selectLootOcrObservations(track, options.rowThreshold, undefined, options.distance);
         const rawReadings = selected.length > 0 ? await options.readText(track, selected) : [];
         if (rawReadings.length !== selected.length) {
             throw new Error("Loot OCR readings must match the selected frame count.");
