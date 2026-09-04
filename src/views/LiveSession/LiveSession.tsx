@@ -185,7 +185,7 @@ export function LiveSessionView({
                         <summary>
                             Import a screenshot <span>Marni tracker</span>
                         </summary>
-                        <MarniImport controller={controller} />
+                        <MarniImport key={session.id} controller={controller} />
                     </details>
                 </div>
                 <LootLedger

@@ -58,13 +58,14 @@ await send("Page.addScriptToEvaluateOnNewDocument", {
     window.isTauri = true;
     const calls = window.__calls = [];
     const callbacks = new Map();
+    let nextCallbackId = 0;
     const listeners = new Map();
     window.__TAURI_EVENT_PLUGIN_INTERNALS__ = { unregisterListener(event, id) { listeners.delete(id); } };
     window.__resize = () => { for (const [id, args] of listeners) callbacks.get(args.handler)?.({event: args.event, payload:{width:1280,height:820}, id}); };
     window.__minimized = false;
     window.__TAURI_INTERNALS__ = {
         metadata: { currentWindow: { label: "main" }, currentWebview: { label: "main" } },
-        transformCallback(fn) { const id = callbacks.size + 1; callbacks.set(id, fn); return id; },
+        transformCallback(fn) { const id = ++nextCallbackId; callbacks.set(id, fn); return id; },
         unregisterCallback(id) { callbacks.delete(id); },
         async invoke(command, args = {}) {
             calls.push({ command, args });
@@ -106,13 +107,34 @@ try {
     if (process.env.UI_SCREENSHOT_ONLY === "1") {
         console.log(`Screenshot saved: ${output}/desk-idle.png`);
     } else {
+        await click("Import a screenshot Marni tracker");
+        await evaluate(`(() => {
+            const input = document.querySelector('input[type=file]');
+            const files = new DataTransfer();
+            files.items.add(new File(['invalid image'], 'invalid.png', {type:'image/png'}));
+            input.files = files.files;
+            input.dispatchEvent(new Event('change', {bubbles:true}));
+        })()`);
+        await until("document.body.textContent.includes('Could not decode screenshot')");
+        await click("Import a screenshot Marni tracker");
         await click("Start timer");
         await until("window.__session.status === 'running'");
         await click("Choose capture source");
         await until(
             "window.__calls.some(c => c.command === 'set_native_display_capture_preview_enabled' && c.args.enabled)",
         );
+        await click("Advanced diagnostics");
+        const sampledRate =
+            "[...document.querySelectorAll('dt')].find(e => e.textContent === 'Sampled rate')?.nextElementSibling.textContent";
+        await delay(1100);
+        await evaluate("window.__emitFrame()");
+        await until(`(${sampledRate})?.includes('FPS')`);
+        const visibleRate = await evaluate(sampledRate);
         await click("Close setup");
+        await delay(2100);
+        await evaluate("window.__emitFrame()");
+        await delay(100);
+        assert.equal(await evaluate(sampledRate), visibleRate, "Hidden diagnostics must not keep refreshing");
         await until(
             "window.__calls.filter(c => c.command === 'set_native_display_capture_preview_enabled').at(-1)?.args.enabled === false",
         );
@@ -188,7 +210,15 @@ try {
             await evaluate("document.body.textContent.includes('Capture off')"),
             "Late frames must not revive a finished capture",
         );
+        assert(
+            await evaluate("document.body.textContent.includes('Could not decode screenshot')"),
+            "Navigation must preserve screenshot state within the same session",
+        );
         await click("New session");
+        assert(
+            await evaluate("!document.body.textContent.includes('Could not decode screenshot')"),
+            "A new session must clear previous screenshot state",
+        );
         await click("Add loot or expense Manual entry");
         await screenshot("manual-entry");
         await evaluate(
@@ -220,7 +250,7 @@ try {
         );
         assert.equal(errors.length, 0, JSON.stringify(errors));
         console.log(
-            `UI smoke passed: timer, navigation, capture lifecycle, preview suppression, minimization, minimum width. Screenshots: ${output}`,
+            `UI smoke passed: timer, navigation, capture lifecycle, preview suppression, hidden diagnostics, screenshot state, minimization, minimum width. Screenshots: ${output}`,
         );
     }
 } finally {

@@ -219,7 +219,7 @@ export function MarniImport({ controller }: { controller: LiveSessionController 
                         <button
                             className="button primary-button"
                             type="button"
-                            disabled={elapsedMs === null || selectedItems.length === 0}
+                            disabled={!canImport || elapsedMs === null || selectedItems.length === 0}
                             onClick={applyImport}
                         >
                             Import {selectedItems.length} items

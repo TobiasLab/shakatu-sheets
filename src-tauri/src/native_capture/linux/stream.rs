@@ -84,7 +84,9 @@ pub(super) fn run_pipewire(
                 let Some(mut buffer) = stream.dequeue_buffer() else {
                     return;
                 };
-                if let Some(metrics) = data.diagnostics.as_mut() { metrics.source_frame(); }
+                if let Some(metrics) = data.diagnostics.as_mut() {
+                    metrics.source_frame();
+                }
                 let now = Instant::now();
                 if !producer_limits_samples(&data.format) && !sample_due(data.next_sample, now) {
                     return;
@@ -275,38 +277,36 @@ pub(super) fn run_pipewire(
                         .finish_capture(control_for_frames.capture_id, SOURCE_MISMATCH),
                     _ => {}
                 }
-                let packing_duration = packing_started.map(|start| start.elapsed()).unwrap_or_default();
+                let packing_duration = packing_started
+                    .map(|start| start.elapsed())
+                    .unwrap_or_default();
                 let sending_started = data.diagnostics.as_ref().map(|_| Instant::now());
-                let bytes = if data.diagnostics.is_some() { [&preview, &search_frame, &region_frame, &rare_region_frame].iter().filter_map(|frame| frame.as_ref()).map(|frame| frame.len()).sum() } else { 0 };
-                if let Some(preview) = preview {
-                    if frames.send(InvokeResponseBody::Raw(preview)).is_err() {
-                        control_for_frames.clear_batch(batch_id);
-                        loop_for_frames.quit();
-                        return;
-                    }
-                }
-                if let Some(frame) = search_frame {
+                let bytes = if data.diagnostics.is_some() {
+                    [&preview, &search_frame, &region_frame, &rare_region_frame]
+                        .iter()
+                        .filter_map(|frame| frame.as_ref())
+                        .map(|frame| frame.len())
+                        .sum()
+                } else {
+                    0
+                };
+                for frame in [preview, search_frame, region_frame, rare_region_frame]
+                    .into_iter()
+                    .flatten()
+                {
                     if frames.send(InvokeResponseBody::Raw(frame)).is_err() {
                         control_for_frames.clear_batch(batch_id);
                         loop_for_frames.quit();
                         return;
                     }
                 }
-                if let Some(frame) = region_frame {
-                    if frames.send(InvokeResponseBody::Raw(frame)).is_err() {
-                        control_for_frames.clear_batch(batch_id);
-                        loop_for_frames.quit();
-                        return;
-                    }
+                if let Some(metrics) = data.diagnostics.as_mut() {
+                    metrics.sample(
+                        bytes,
+                        packing_duration,
+                        sending_started.map(|start| start.elapsed()).unwrap_or_default(),
+                    );
                 }
-                if let Some(frame) = rare_region_frame {
-                    if frames.send(InvokeResponseBody::Raw(frame)).is_err() {
-                        control_for_frames.clear_batch(batch_id);
-                        loop_for_frames.quit();
-                        return;
-                    }
-                }
-                if let Some(metrics) = data.diagnostics.as_mut() { metrics.sample(bytes, packing_duration, sending_started.map(|start| start.elapsed()).unwrap_or_default()); }
                 data.published_source_dimensions = Some((size.width, size.height));
                 data.next_sample = Some(next_sample_deadline(data.next_sample, source_frame_time));
             })
