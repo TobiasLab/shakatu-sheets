@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useLayoutEffect, useState } from "react";
 import { reopenSession } from "./api/tauri";
 import { AppShell, type AppView } from "./components/AppShell/AppShell";
 import { useLiveSession } from "./hooks/useLiveSession";
@@ -9,8 +9,13 @@ import { LiveSessionView } from "./views/LiveSession/LiveSession";
 import { SettingsView } from "./views/Settings/Settings";
 
 export function App() {
+    const [captureSetupRequest, setCaptureSetupRequest] = useState(0);
+    const [captureStatus, setCaptureStatus] = useState("Capture off");
     const [view, setView] = useState<AppView>("live");
     const { theme, setTheme } = useTheme();
+    useLayoutEffect(() => {
+        window.scrollTo(0, 0);
+    }, [view]);
     const persistedSession = usePersistedSession();
     const liveSession = useLiveSession(
         persistedSession.session,
@@ -28,11 +33,19 @@ export function App() {
         <AppShell
             view={view}
             onViewChange={setView}
-            theme={theme}
-            onThemeChange={setTheme}
             databaseStatus={persistedSession.databaseStatus}
             databaseError={persistedSession.databaseError}
+            sessionStatus={persistedSession.session.status}
+            captureStatus={captureStatus}
         >
+            <div hidden={view !== "live"}>
+                <LiveSessionView
+                    controller={liveSession}
+                    visible={view === "live"}
+                    captureSetupRequest={captureSetupRequest}
+                    onCaptureStatusChange={setCaptureStatus}
+                />
+            </div>
             {view === "history" ? (
                 <HistoryView
                     databaseLoaded={persistedSession.databaseLoaded}
@@ -41,10 +54,15 @@ export function App() {
                     onOpenSettings={() => setView("settings")}
                 />
             ) : view === "settings" ? (
-                <SettingsView />
-            ) : (
-                <LiveSessionView controller={liveSession} />
-            )}
+                <SettingsView
+                    theme={theme}
+                    onThemeChange={setTheme}
+                    onOpenCapture={() => {
+                        setView("live");
+                        setCaptureSetupRequest((request) => request + 1);
+                    }}
+                />
+            ) : null}
         </AppShell>
     );
 }

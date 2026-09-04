@@ -1,5 +1,6 @@
 .LedgerPanel {
     min-width: 0;
+    width: 100%;
     align-self: start;
 }
 
@@ -17,7 +18,7 @@
     padding: 10px 12px;
     border-bottom: 1px solid var(--row-line);
     font-family: "IBM Plex Mono", monospace;
-    font-size: 10px;
+    font-size: 12px;
 }
 
 .LedgerRow:last-child {
@@ -65,7 +66,7 @@
 .ItemName strong {
     overflow: hidden;
     font-family: "Inter", "Avenir Next", system-ui, sans-serif;
-    font-size: 11px;
+    font-size: 13px;
     text-overflow: ellipsis;
     white-space: nowrap;
 }
@@ -73,13 +74,13 @@
 .ItemName span {
     margin-top: 3px;
     color: var(--muted);
-    font-size: 8px;
+    font-size: 11px;
     text-transform: uppercase;
 }
 
 .EntryValue {
     flex: 0 0 auto;
-    font-size: 10px;
+    font-size: 12px;
     text-align: right;
     white-space: nowrap;
 }
@@ -95,7 +96,7 @@
 .EntryEditor label {
     min-width: 0;
     color: var(--muted);
-    font-size: 7px;
+    font-size: 11px;
     letter-spacing: 0.08em;
     text-transform: uppercase;
 }
@@ -105,7 +106,7 @@
     margin-top: 3px;
     padding: 6px 7px;
     font-family: "IBM Plex Mono", monospace;
-    font-size: 9px;
+    font-size: 11px;
 }
 
 .RemoveButton {
@@ -145,7 +146,7 @@
 .EmptyLedger p {
     max-width: 220px;
     margin: 5px 0 0;
-    font-size: 10px;
+    font-size: 12px;
     line-height: 1.5;
 }
 

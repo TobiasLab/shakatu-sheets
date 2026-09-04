@@ -139,7 +139,9 @@ export function LootLedger({
                     <p className="eyebrow">Session entries</p>
                     <h2>Loot ledger</h2>
                 </div>
-                <span>{entries.length} items</span>
+                <span>
+                    {entries.length} {entries.length === 1 ? "item" : "items"}
+                </span>
             </div>
             {entries.length === 0 ? (
                 <div className={styles.EmptyLedger}>

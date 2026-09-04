@@ -38,7 +38,10 @@ Garmoth grind tracker. Reserved and uploaded sessions cannot be reopened.
 
 Rust remains feature-oriented: `persistence` groups SQLite infrastructure with session, market-price, settings, and
 Garmoth-upload storage; `garmoth` separates account settings from uploads; and `native_capture` keeps its cross-platform
-command boundary separate from the Linux implementation. `lib.rs` is the composition root and explicitly registers every
+command boundary separate from validated geometry and the Linux implementation. Linux capture is split into
+lifecycle/backpressure (`linux/mod.rs`), portal-stream processing (`linux/stream.rs`), pixel conversion and binary
+encoding (`linux/frame.rs`), and opt-in aggregate diagnostics. Debug ROI collection separates lifecycle/admission
+from its writer and tests. `lib.rs` is the composition root and explicitly registers every
 command.
 
 Live loot capture uses a versioned local binary channel for a bounded preview and an optional native-resolution region
@@ -48,3 +51,20 @@ position it.
 
 There is no service layer or plugin system. New boundaries should only be added when a feature cannot remain clear within
 the current structure.
+
+
+The grind desk stays mounted when History or Settings is selected. Its `useLiveLootCapture` hook owns capture,
+recognition, and pending insertion retries; the component renders setup and review controls. Finishing a session or
+explicitly stopping capture tears the pipeline down. Navigation and minimization do not stop recognition. Preview
+requests are serialized and follow setup visibility, page visibility, and window minimization. One metadata preview
+still announces a new capture source or changed dimensions; an unconfigured hidden stream does not send repeated
+previews or create an empty acknowledgment batch.
+
+Timer state lives only in the clock and earnings components, ticks once per second while visible, and derives elapsed
+time from timestamps. It never dispatches a session mutation. Session persistence remains ordered and transaction-backed.
+
+PipeWire is requested at a maximum of 8 FPS, at native source dimensions. Known bounded producer rates bypass downstream sampling so arrival jitter cannot drop valid frames. For producers
+without a usable rate limit, a deadline-based consumer gate tolerates 3 ms of jitter and limits processing to 8 FPS. Crops validate contiguous rows before
+conversion, retain source stride handling and exact channel/alpha conversion, and preserve the version 3 binary header.
+Recognition profiles, event tracking, OCR consensus, bounded queues, and command payloads are unchanged. OCR canvases
+are resized only when dimensions change and still cleared and released after each job. There are no schema migrations.

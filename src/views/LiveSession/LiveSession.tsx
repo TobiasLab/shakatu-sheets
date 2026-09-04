@@ -4,28 +4,34 @@ import { LootLedger } from "../../components/LootLedger/LootLedger";
 import { MarniImport } from "../../components/MarniImport/MarniImport";
 import { grindSpots } from "../../data/grindSpots";
 import { createEntry, type SessionState } from "../../domain/session";
-import { formatDuration, formatSilver, formatTimestamp } from "../../format";
+import { formatTimestamp } from "../../format";
 import type { LiveSessionController } from "../../hooks/useLiveSession";
 import styles from "./LiveSession.module.css";
+import { SessionClock, SessionMetrics } from "./SessionSummary";
 
-export function LiveSessionView({ controller }: { controller: LiveSessionController }) {
+export function LiveSessionView({
+    controller,
+    visible,
+    onCaptureStatusChange,
+    captureSetupRequest,
+}: {
+    controller: LiveSessionController;
+    visible: boolean;
+    captureSetupRequest: number;
+    onCaptureStatusChange: (status: string) => void;
+}) {
     const {
         session,
         dispatch,
         databaseLoaded,
-        elapsedMs,
-        totals,
         editingDisabled,
         spot,
         drops,
         marketItemIds,
         changeRegion,
         changeGrindSpot,
-        startOrResume,
-        setCompletedHours,
         market,
     } = controller;
-    const timeEditable = session.status === "idle" || session.status === "paused";
     const spotEditable = session.status === "idle" && session.elapsedMs === 0 && session.entries.length === 0;
     const timerStatusLabel =
         session.status === "idle"
@@ -69,7 +75,7 @@ export function LiveSessionView({ controller }: { controller: LiveSessionControl
         <>
             <header className="topbar">
                 <div>
-                    <p className="eyebrow">Live grind ledger</p>
+                    <p className="eyebrow">Your grind, at a glance</p>
                     <h1>{spot.name}</h1>
                 </div>
                 <div className={styles.SessionMeta}>
@@ -102,103 +108,13 @@ export function LiveSessionView({ controller }: { controller: LiveSessionControl
                 </div>
             </header>
 
-            <section className={styles.MetricsGrid} aria-label="Session summary">
-                <article className={`${styles.Metric} ${styles.Primary}`}>
-                    <span>Net silver / hour</span>
-                    <strong>{formatSilver(totals.netPerHour, true)}</strong>
-                    <small>after market tax and expenses</small>
-                </article>
-                <article className={styles.Metric}>
-                    <span>Session net</span>
-                    <strong>{formatSilver(totals.net, true)}</strong>
-                    <small>{formatSilver(totals.net)} silver</small>
-                </article>
-                <article className={styles.Metric}>
-                    <span>Gross value</span>
-                    <strong>{formatSilver(totals.gross, true)}</strong>
-                    <small>before deductions</small>
-                </article>
-                <article className={styles.Metric}>
-                    <span>Expenses</span>
-                    <strong>{formatSilver(totals.expenses, true)}</strong>
-                    <small>consumables and fees</small>
-                </article>
-            </section>
-
-            <section className={styles.SessionClock}>
-                {timeEditable ? (
-                    <form className={styles.CompletedHours} onSubmit={setCompletedHours}>
-                        <label>
-                            <span>Completed hours</span>
-                            <input
-                                key={session.elapsedMs}
-                                name="completedHours"
-                                type="number"
-                                min="0"
-                                step="0.01"
-                                inputMode="decimal"
-                                required
-                                disabled={!databaseLoaded}
-                                defaultValue={(session.elapsedMs / 3_600_000).toFixed(2)}
-                            />
-                        </label>
-                        <button className="button" type="submit" disabled={!databaseLoaded}>
-                            Save hours
-                        </button>
-                    </form>
-                ) : (
-                    <div>
-                        <span>Elapsed session</span>
-                        <time>{formatDuration(elapsedMs)}</time>
-                    </div>
-                )}
-                <div className={styles.ClockActions}>
-                    {session.status !== "running" && session.status !== "finished" && (
-                        <button
-                            className="button primary-button"
-                            type="button"
-                            disabled={!databaseLoaded}
-                            onClick={startOrResume}
-                        >
-                            {session.status === "paused" ? "Resume timer" : "Start timer"}
-                        </button>
-                    )}
-                    {session.status === "running" && (
-                        <button
-                            className="button"
-                            type="button"
-                            disabled={!databaseLoaded}
-                            onClick={() => dispatch({ type: "pause", now: Date.now() })}
-                        >
-                            Pause timer
-                        </button>
-                    )}
-                    {(session.status === "running" ||
-                        session.status === "paused" ||
-                        (session.status === "idle" && session.elapsedMs > 0)) && (
-                        <button
-                            className="button subtle"
-                            type="button"
-                            disabled={!databaseLoaded}
-                            onClick={() => dispatch({ type: "finish", now: Date.now() })}
-                        >
-                            Finish
-                        </button>
-                    )}
-                    {session.status === "finished" && (
-                        <button
-                            className="button"
-                            type="button"
-                            disabled={!databaseLoaded}
-                            onClick={() => dispatch({ type: "reset" })}
-                        >
-                            New session
-                        </button>
-                    )}
-                </div>
-            </section>
+            <SessionClock controller={controller} visible={visible} />
+            <SessionMetrics controller={controller} visible={visible} />
 
             <LiveLootCapture
+                visible={visible}
+                setupRequest={captureSetupRequest}
+                onStatusChange={onCaptureStatusChange}
                 databaseLoaded={databaseLoaded}
                 sessionId={session.id}
                 sessionStatus={session.status}
@@ -207,8 +123,6 @@ export function LiveSessionView({ controller }: { controller: LiveSessionControl
                 itemDictionary={drops.map((drop) => drop.name)}
                 onAcceptRecognition={acceptRecognizedLoot}
             />
-
-            <MarniImport controller={controller} />
 
             <section className={styles.MarketSnapshot} aria-live="polite">
                 <div>
@@ -260,7 +174,20 @@ export function LiveSessionView({ controller }: { controller: LiveSessionControl
             </section>
 
             <div className={styles.ContentGrid}>
-                <EntryForm {...controller} />
+                <div className={styles.EntryTools}>
+                    <details className={styles.ToolPanel}>
+                        <summary>
+                            Add loot or expense <span>Manual entry</span>
+                        </summary>
+                        <EntryForm {...controller} />
+                    </details>
+                    <details className={styles.ToolPanel}>
+                        <summary>
+                            Import a screenshot <span>Marni tracker</span>
+                        </summary>
+                        <MarniImport controller={controller} />
+                    </details>
+                </div>
                 <LootLedger
                     entries={session.entries}
                     grindSpotId={session.grindSpotId}

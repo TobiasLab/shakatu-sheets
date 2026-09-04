@@ -1,6 +1,5 @@
 import type { ReactNode } from "react";
 import type { DatabaseStatus } from "../../hooks/usePersistedSession";
-import type { Theme } from "../../hooks/useTheme";
 import styles from "./AppShell.module.css";
 
 export type AppView = "live" | "history" | "settings";
@@ -14,7 +13,7 @@ function ViewNavigation({ view, onChange }: { view: AppView; onChange: (view: Ap
                 aria-current={view === "live" ? "page" : undefined}
                 onClick={() => onChange("live")}
             >
-                Live session
+                Grind desk
             </button>
             <button
                 className={view === "history" ? styles.Active : ""}
@@ -36,32 +35,19 @@ function ViewNavigation({ view, onChange }: { view: AppView; onChange: (view: Ap
     );
 }
 
-function ThemeSelector({ theme, onChange }: { theme: Theme; onChange: (theme: Theme) => void }) {
-    return (
-        <label className={styles.ThemeSelector}>
-            Theme
-            <select value={theme} onChange={(event) => onChange(event.target.value as Theme)}>
-                <option value="light">Light</option>
-                <option value="moss">Moss green</option>
-                <option value="dark">Dark</option>
-            </select>
-        </label>
-    );
-}
-
 export function AppShell({
     view,
     onViewChange,
-    theme,
-    onThemeChange,
+    sessionStatus,
+    captureStatus,
     databaseStatus,
     databaseError,
     children,
 }: {
     view: AppView;
     onViewChange: (view: AppView) => void;
-    theme: Theme;
-    onThemeChange: (theme: Theme) => void;
+    sessionStatus: string;
+    captureStatus: string;
     databaseStatus: DatabaseStatus;
     databaseError: string;
     children: ReactNode;
@@ -77,15 +63,31 @@ export function AppShell({
                     </div>
                 </div>
                 <ViewNavigation view={view} onChange={onViewChange} />
-                <div className={styles.DesktopTheme}>
-                    <ThemeSelector theme={theme} onChange={onThemeChange} />
-                </div>
+                <button className={styles.SessionPresence} type="button" onClick={() => onViewChange("live")}>
+                    <span className="eyebrow">Your session</span>
+                    <strong>
+                        {sessionStatus === "running"
+                            ? "On the grind"
+                            : sessionStatus === "paused"
+                              ? "Taking a break"
+                              : sessionStatus === "finished"
+                                ? "Session complete"
+                                : "Ready when you are"}
+                    </strong>
+                    <span>{captureStatus}</span>
+                </button>
                 <div className={`${styles.DatabaseState} ${styles[databaseStatus]}`}>
-                    <div className={styles.StatusHeading}>
-                        <span className={styles.StatusDot} /> Local database
-                    </div>
-                    <strong>{databaseStatus}</strong>
-                    <small>{databaseError || "Session data stored on this device"}</small>
+                    <span>
+                        <i className={styles.StatusDot} />
+                        {databaseStatus === "ready"
+                            ? "Saved on this device"
+                            : databaseStatus === "saving"
+                              ? "Saving…"
+                              : databaseStatus === "loading"
+                                ? "Loading session…"
+                                : "Could not save"}
+                    </span>
+                    {databaseError && <small role="alert">{databaseError}</small>}
                 </div>
                 <div className={styles.LicenseNote}>
                     Local only <span>AGPL-3.0</span>
@@ -95,7 +97,6 @@ export function AppShell({
             <main className={styles.Workspace}>
                 <div className={styles.MobileNavigation}>
                     <ViewNavigation view={view} onChange={onViewChange} />
-                    <ThemeSelector theme={theme} onChange={onThemeChange} />
                 </div>
                 {children}
             </main>

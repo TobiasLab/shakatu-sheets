@@ -1,20 +1,12 @@
 import { type Dispatch, type FormEvent, useEffect, useState } from "react";
 import { type DropTemplate, getGrindSpot, getGrindSpotDrops, getMarketItemIds } from "../data/grindSpots";
-import {
-    calculateTotals,
-    createEntry,
-    getElapsedMs,
-    type SessionAction,
-    type SessionState,
-    type Valuation,
-} from "../domain/session";
+import { createEntry, type SessionAction, type SessionState, type Valuation } from "../domain/session";
 import { useMarketPrices } from "./useMarketPrices";
 
 export function useLiveSession(session: SessionState, dispatch: Dispatch<SessionAction>, databaseLoaded: boolean) {
     const spot = getGrindSpot(session.grindSpotId);
     const drops = getGrindSpotDrops(session.grindSpotId);
     const marketItemIds = getMarketItemIds(session.grindSpotId);
-    const [now, setNow] = useState(Date.now());
     const [selectedDrop, setSelectedDrop] = useState<DropTemplate>(spot.trash);
     const [quantity, setQuantity] = useState("1");
     const [unitPrice, setUnitPrice] = useState(String(spot.trash.unitPrice));
@@ -36,14 +28,6 @@ export function useLiveSession(session: SessionState, dispatch: Dispatch<Session
         setValuation(spot.trash.valuation);
     }, [session.grindSpotId, spot.trash]);
 
-    useEffect(() => {
-        if (session.status !== "running") return;
-        const timer = window.setInterval(() => setNow(Date.now()), 250);
-        return () => window.clearInterval(timer);
-    }, [session.status]);
-
-    const elapsedMs = getElapsedMs(session, now);
-    const totals = calculateTotals(session.entries, elapsedMs);
     const editingDisabled = !databaseLoaded || session.status === "finished";
 
     function chooseDrop(drop: DropTemplate) {
@@ -89,7 +73,6 @@ export function useLiveSession(session: SessionState, dispatch: Dispatch<Session
 
     function startOrResume() {
         const timestamp = Date.now();
-        setNow(timestamp);
         dispatch({ type: session.status === "paused" ? "resume" : "start", now: timestamp });
     }
 
@@ -110,8 +93,6 @@ export function useLiveSession(session: SessionState, dispatch: Dispatch<Session
         spot,
         drops,
         marketItemIds,
-        elapsedMs,
-        totals,
         editingDisabled,
         selectedDrop,
         quantity,
