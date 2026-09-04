@@ -1,201 +1,155 @@
 .AppShell {
     display: grid;
-    grid-template-columns: 230px minmax(0, 1fr);
+    grid-template-columns: 184px minmax(0, 1fr);
     min-height: 100vh;
 }
-
 .Sidebar {
+    position: sticky;
+    top: 0;
+    height: 100vh;
+    padding: 30px 18px 20px;
     border-right: 1px solid var(--line);
-    padding: 28px 20px;
     background: var(--sidebar);
     display: flex;
     flex-direction: column;
 }
-
 .Brand {
     display: flex;
-    gap: 12px;
     align-items: center;
-    padding: 0 8px 38px;
+    gap: 10px;
+    margin-bottom: 46px;
 }
-
 .BrandMark {
-    width: 42px;
-    height: 42px;
-    border: 1px solid var(--accent-border);
     display: grid;
     place-items: center;
-    color: var(--mint);
-    font-family: "IBM Plex Mono", monospace;
-    font-size: 13px;
-    transform: rotate(-3deg);
+    width: 36px;
+    height: 42px;
+    border: 1px solid var(--accent-border);
+    border-radius: 12px 12px 4px 4px;
+    color: var(--gold);
+    font-family: Georgia, serif;
+    font-size: 18px;
 }
-
 .Brand strong,
 .Brand span {
     display: block;
-    line-height: 1.05;
 }
-
 .Brand strong {
-    font-size: 17px;
+    font-size: 16px;
+    letter-spacing: -0.04em;
 }
-
 .Brand span {
+    margin-top: 2px;
     color: var(--muted);
-    font-size: 13px;
-    letter-spacing: 0.15em;
+    font-size: 10px;
+    letter-spacing: 0.2em;
     text-transform: uppercase;
 }
-
 .ViewNavigation {
     display: grid;
-    gap: 5px;
+    gap: 8px;
 }
-
 .ViewNavigation button {
+    padding: 13px 14px;
     border: 1px solid transparent;
+    border-radius: 7px;
     background: transparent;
     color: var(--muted);
-    padding: 10px 12px;
     text-align: left;
     cursor: pointer;
-    font-size: 11px;
-    text-transform: uppercase;
-    letter-spacing: 0.1em;
+    font-size: 13px;
 }
-
 .ViewNavigation button:hover {
-    color: var(--navigation-hover);
-    border-color: var(--line);
+    color: var(--text);
+    background: var(--surface-raised);
 }
-
 .ViewNavigation button.Active {
+    background: var(--accent-surface);
     color: var(--mint);
     border-color: var(--accent-border);
-    background: var(--accent-surface);
 }
-
-.MobileNavigation {
-    display: none;
-}
-
-.DesktopTheme {
-    margin-top: 22px;
-}
-
-.ThemeSelector {
+.SessionPresence {
     display: grid;
-    gap: 6px;
+    gap: 9px;
+    margin-top: 34px;
+    padding: 16px 10px;
+    border: 0;
+    border-top: 1px solid var(--line);
+    background: transparent;
+    text-align: left;
+    cursor: pointer;
+}
+.SessionPresence strong {
+    font-size: 13px;
+    font-weight: 500;
+}
+.SessionPresence > span:last-child {
     color: var(--muted);
-    font-size: 9px;
-    letter-spacing: 0.1em;
-    text-transform: uppercase;
+    font-size: 11px;
+    line-height: 1.5;
 }
-
-.ThemeSelector select {
-    padding: 8px 28px 8px 9px;
-    font-size: 10px;
-    text-transform: none;
-    letter-spacing: normal;
-}
-
 .DatabaseState {
     margin-top: auto;
-    padding: 15px;
-    border: 1px solid var(--line);
-    background: var(--database-gradient);
-    display: grid;
-    gap: 5px;
-}
-
-.DatabaseState strong {
-    font-family: "IBM Plex Mono", monospace;
-    font-size: 12px;
-    text-transform: uppercase;
-}
-
-.DatabaseState small {
+    padding: 16px 0 0;
     color: var(--muted);
-    font-size: 9px;
-    line-height: 1.4;
-}
-
-.DatabaseState.ready .StatusDot {
-    background: var(--mint);
-    box-shadow: 0 0 10px var(--accent-glow);
-}
-
-.DatabaseState.error .StatusDot {
-    background: var(--danger);
-    box-shadow: 0 0 10px var(--danger-glow);
-}
-
-.StatusHeading {
     font-size: 10px;
-    color: var(--muted);
-    text-transform: uppercase;
-    letter-spacing: 0.1em;
-    margin-bottom: 6px;
 }
-
+.DatabaseState small {
+    display: block;
+    margin-top: 8px;
+    color: var(--danger);
+    line-height: 1.5;
+    overflow-wrap: anywhere;
+}
 .StatusDot {
     display: inline-block;
-    width: 6px;
-    height: 6px;
+    width: 5px;
+    height: 5px;
+    margin-right: 6px;
     border-radius: 50%;
     background: var(--gold);
-    margin-right: 7px;
-    box-shadow: 0 0 10px var(--gold-glow);
 }
-
+.ready .StatusDot {
+    background: var(--mint);
+}
+.error .StatusDot {
+    background: var(--danger);
+}
 .LicenseNote {
     display: flex;
     justify-content: space-between;
-    color: var(--license-text);
-    font-size: 10px;
-    padding: 18px 3px 0;
-    text-transform: uppercase;
-    letter-spacing: 0.08em;
+    padding-top: 15px;
+    color: var(--muted);
+    font-size: 9px;
 }
-
 .Workspace {
-    padding: 34px clamp(24px, 4vw, 58px) 50px;
+    width: 100%;
+    max-width: 1600px;
+    margin: 0 auto;
+    padding: 32px clamp(20px, 3vw, 48px) 48px;
     min-width: 0;
 }
-
+.MobileNavigation {
+    display: none;
+}
 @media (max-width: 760px) {
     .AppShell {
         display: block;
     }
-
     .Sidebar {
         display: none;
     }
-
     .Workspace {
-        padding: 22px 14px 35px;
+        padding: 18px;
     }
-
     .MobileNavigation {
-        display: grid;
-        grid-template-columns: minmax(0, 1fr) 92px;
-        gap: 9px;
-        align-items: end;
-        margin-bottom: 22px;
+        display: block;
+        margin-bottom: 24px;
     }
-
     .MobileNavigation .ViewNavigation {
-        grid-template-columns: repeat(3, minmax(0, 1fr));
+        grid-template-columns: repeat(3, 1fr);
     }
-
-    .MobileNavigation .ViewNavigation button {
-        min-width: 0;
-        padding-inline: 5px;
+    .MobileNavigation button {
         text-align: center;
-    }
-
-    .DesktopTheme {
-        display: none;
     }
 }

@@ -268,8 +268,8 @@ export async function createLiveLootTesseractOcr({
                 );
                 source = undefined;
 
-                canvas.width = processed.width;
-                canvas.height = processed.height;
+                if (canvas.width !== processed.width) canvas.width = processed.width;
+                if (canvas.height !== processed.height) canvas.height = processed.height;
                 let imageData: LiveLootOcrImageData | undefined = context.createImageData(
                     processed.width,
                     processed.height,

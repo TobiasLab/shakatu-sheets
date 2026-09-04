@@ -1,225 +1,239 @@
 .SessionMeta {
     display: flex;
     align-items: flex-end;
-    gap: 12px;
+    gap: 10px;
+    flex-wrap: wrap;
 }
-
 .SessionMeta label {
-    font-size: 10px;
+    font-size: 11px;
     color: var(--muted);
-    text-transform: uppercase;
-    letter-spacing: 0.12em;
 }
-
 .SessionMeta select {
     display: block;
-    margin-top: 5px;
-    padding: 8px 32px 8px 10px;
+    margin-top: 6px;
+    padding: 8px 10px;
+    max-width: 240px;
 }
-
 .SessionState {
-    padding: 8px 11px;
-    border: 1px solid var(--line);
-    font-family: "IBM Plex Mono", monospace;
-    font-size: 10px;
-    text-transform: uppercase;
+    padding: 10px 0;
+    font-size: 11px;
     color: var(--muted);
 }
-
 .SessionState.running {
     color: var(--mint);
-    border-color: var(--accent-border);
 }
-
 .SessionState.paused {
     color: var(--gold);
 }
-
-.MetricsGrid {
-    display: grid;
-    grid-template-columns: 1.25fr repeat(3, 1fr);
-    border: 1px solid var(--line);
-    background: var(--surface);
-}
-
-.Metric {
-    min-width: 0;
-    padding: 20px 22px;
-    border-right: 1px solid var(--line);
-    display: grid;
-    gap: 5px;
-}
-
-.Metric:last-child {
-    border: 0;
-}
-
-.Metric.Primary {
-    background: var(--primary-gradient);
-}
-
-.Metric span,
-.SessionClock span {
-    color: var(--muted);
-    font-size: 10px;
-    text-transform: uppercase;
-    letter-spacing: 0.12em;
-}
-
-.Metric strong {
-    font:
-        500 clamp(22px, 3vw, 34px) / 1 "IBM Plex Mono",
-        monospace;
-    letter-spacing: -0.05em;
-}
-
-.Metric.Primary strong {
-    color: var(--mint);
-}
-
-.Metric small {
-    color: var(--metric-note);
-    font-size: 10px;
-}
-
 .SessionClock {
-    margin: 13px 0;
-    padding: 17px 20px;
-    border: 1px solid var(--line);
-    background: var(--clock-background);
     display: flex;
-    justify-content: space-between;
     align-items: center;
+    gap: 20px;
+    margin: 12px 0;
+    padding: 10px 0;
+    border-block: 1px solid var(--line);
 }
-
-.SessionClock time {
-    display: block;
-    font:
-        500 25px "IBM Plex Mono",
-        monospace;
-    margin-top: 3px;
-    letter-spacing: 0.06em;
-}
-
-.CompletedHours {
+.ClockReadout {
     display: flex;
-    align-items: flex-end;
-    gap: 8px;
+    align-items: center;
+    gap: 18px;
 }
-
-.CompletedHours label > span {
-    display: block;
-    margin-bottom: 3px;
+.ClockReadout span {
+    font-size: 11px;
+    color: var(--muted);
 }
-
-.CompletedHours input {
-    width: 110px;
-    padding: 7px 9px;
-    font:
-        500 18px "IBM Plex Mono",
-        monospace;
+.SessionClock time {
+    font-size: 23px;
+    font-variant-numeric: tabular-nums;
+    letter-spacing: 0.04em;
 }
-
 .ClockActions {
     display: flex;
     gap: 8px;
+    margin-left: auto;
 }
-
-.MarketSnapshot {
-    margin-bottom: 13px;
-    padding: 16px 20px;
+.ManualTime {
+    position: relative;
+    color: var(--muted);
+    font-size: 11px;
+}
+.CompletedHours {
+    position: absolute;
+    z-index: 5;
+    top: 28px;
+    left: 0;
+    width: 260px;
+    padding: 16px;
     border: 1px solid var(--line-strong);
-    background: var(--market-gradient);
+    border-radius: 8px;
+    background: var(--surface-raised);
     display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 20px;
+    gap: 8px;
+    align-items: flex-end;
 }
-
-.MarketSnapshot strong,
+.CompletedHours label {
+    flex: 1;
+    min-width: 0;
+}
+.CompletedHours label span {
+    display: block;
+    margin-bottom: 8px;
+}
+.CompletedHours input {
+    width: 100%;
+    padding: 8px;
+}
+.MetricsGrid {
+    display: grid;
+    grid-template-columns: 1.4fr 1fr;
+    position: relative;
+    margin: 0 0 16px;
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    background: var(--surface);
+    overflow: hidden;
+}
+.Metric {
+    min-width: 0;
+    padding: 20px 24px;
+    display: grid;
+    align-content: start;
+    gap: 9px;
+}
+.Metric.Primary {
+    border-right: 1px solid var(--line);
+    background: var(--accent-surface);
+}
+.Metric span {
+    font-size: 12px;
+    color: var(--muted);
+}
+.Metric strong {
+    font-size: clamp(30px, 3.5vw, 44px);
+    font-weight: 500;
+    letter-spacing: -0.055em;
+    font-variant-numeric: tabular-nums;
+    line-height: 1.1;
+}
+.Metric.Primary strong {
+    color: var(--mint);
+}
+.Metric small {
+    color: var(--muted);
+    font-size: 11px;
+}
+.Breakdown {
+    grid-column: 1 / -1;
+    border-top: 1px solid var(--line);
+    padding: 11px 28px;
+    font-size: 11px;
+    color: var(--muted);
+}
+.Breakdown dl {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 30px;
+    margin: 14px 0 4px;
+}
+.Breakdown dl div {
+    display: grid;
+    gap: 6px;
+}
+.Breakdown dd {
+    margin: 0;
+    color: var(--text);
+    font-size: 15px;
+    font-variant-numeric: tabular-nums;
+}
+.MarketSnapshot {
+    display: flex;
+    justify-content: space-between;
+    gap: 16px;
+    align-items: center;
+    padding: 10px 2px;
+    margin-bottom: 12px;
+}
+.MarketSnapshot strong {
+    font-size: 12px;
+    font-weight: 500;
+}
 .MarketSnapshot span {
     display: block;
-}
-
-.MarketSnapshot strong {
-    font-size: 13px;
-}
-
-.MarketSnapshot span {
     margin-top: 4px;
     color: var(--muted);
-    font-size: 10px;
+    font-size: 11px;
 }
-
-.MarketSnapshot .MarketError {
+.MarketError {
     color: var(--danger);
 }
-
 .ContentGrid {
-    display: grid;
-    grid-template-columns: minmax(0, 1.55fr) minmax(280px, 0.7fr);
-    gap: 13px;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
 }
-
+.EntryTools {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+    align-items: start;
+}
+.ToolPanel {
+    min-width: 0;
+    border: 1px solid var(--line);
+    border-radius: 9px;
+    background: var(--surface);
+    overflow: hidden;
+}
+.ToolPanel > summary {
+    padding: 15px 18px;
+    font-size: 13px;
+}
+.ToolPanel > summary span {
+    float: right;
+    color: var(--muted);
+    font-size: 11px;
+}
+.ToolPanel[open] {
+    grid-column: 1 / -1;
+}
+.ToolPanel[open] > summary {
+    border-bottom: 1px solid var(--line);
+}
+.ToolPanel :global(.panel) {
+    border: 0;
+}
 @media (max-width: 1050px) {
-    .MetricsGrid {
-        grid-template-columns: 1fr 1fr;
+    .SessionMeta {
+        justify-content: flex-start;
     }
-
-    .Metric:nth-child(2) {
-        border-right: 0;
+    .SessionState {
+        display: none;
     }
-
-    .Metric:nth-child(-n + 2) {
-        border-bottom: 1px solid var(--line);
+    .Metric {
+        padding: 22px;
     }
-
-    .ContentGrid {
+}
+@media (max-width: 760px) {
+    .SessionClock {
+        flex-wrap: wrap;
+    }
+    .ClockActions {
+        margin-left: 0;
+        width: 100%;
+    }
+    .ClockActions button {
+        flex: 1;
+    }
+    .EntryTools {
         grid-template-columns: 1fr;
     }
-}
-
-@media (max-width: 760px) {
-    .MetricsGrid {
-        grid-template-columns: 1fr 1fr;
-    }
-
     .Metric {
-        padding: 16px;
+        padding: 18px;
     }
-
-    .SessionClock {
-        align-items: flex-start;
-        gap: 15px;
-        flex-direction: column;
+    .Metric strong {
+        font-size: 30px;
     }
-
     .MarketSnapshot {
         align-items: flex-start;
-        flex-direction: column;
-    }
-
-    .MarketSnapshot :global(.button) {
-        width: 100%;
-    }
-
-    .ClockActions {
-        width: 100%;
-    }
-
-    .CompletedHours {
-        width: 100%;
-    }
-
-    .CompletedHours label {
-        flex: 1;
-    }
-
-    .CompletedHours input {
-        width: 100%;
-    }
-
-    .ClockActions :global(.button) {
-        flex: 1;
     }
 }

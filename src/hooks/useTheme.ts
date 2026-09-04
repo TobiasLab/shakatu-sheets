@@ -8,7 +8,8 @@ const LEGACY_THEME_STORAGE_KEY = "shakatu-sheets-theme";
 function readSavedTheme(): Theme {
     const savedTheme = localStorage.getItem(THEME_STORAGE_KEY);
     if (savedTheme === "light" || savedTheme === "moss" || savedTheme === "dark") return savedTheme;
-    return localStorage.getItem(LEGACY_THEME_STORAGE_KEY) === "light" ? "light" : "moss";
+    const legacy = localStorage.getItem(LEGACY_THEME_STORAGE_KEY);
+    return legacy === "light" ? "light" : legacy ? "moss" : "dark";
 }
 
 export function useTheme() {

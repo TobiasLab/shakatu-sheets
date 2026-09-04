@@ -1,6 +1,7 @@
 # Design
 
-The application uses a normal desktop window rather than an in-game overlay. The current flow is deliberately small:
+The application uses a normal desktop window rather than an in-game overlay. The grind desk puts session time and earnings first. Charcoal and gold is the default for new installations; saved
+light, moss, and dark preferences are retained. The current flow is:
 
 1. Select a grind spot and region.
 2. Optionally fetch or refresh that profile's regional market prices.
@@ -34,3 +35,16 @@ Live notification capture and recognition is described in the
 [live loot recognition plan](live-loot-recognition.md).
 The local video sampling and annotation contract is described in the
 [live loot benchmark guide](live-loot-benchmark.md).
+
+
+The desk shows net silver/hour and session net prominently, with gross, expenses, and tax available under Value breakdown.
+Manual elapsed time is under Enter hours. Add loot or expense and Import a screenshot expose their forms on demand.
+History retains its spot-filtered list and selected-session detail, including explicit reopen, delete, and Garmoth actions.
+Settings groups appearance, capture guidance, and Garmoth connection/character controls. The sidebar keeps session/capture
+status visible and shows a quiet save indicator, elevating persistence failures to an alert.
+
+Capture source selection opens setup; confirming both areas closes it and returns keyboard focus to the setup button.
+Setup can be reopened while recognition continues. Live previews run only while setup is visible; tracking continues
+across navigation and minimization. Unaccepted, withheld, or failed notifications appear in Needs attention; accepted
+loot appears in the ledger. Advanced diagnostics and privacy details use separate disclosures. No new automatic network
+requests or graphics/animation dependencies are introduced.

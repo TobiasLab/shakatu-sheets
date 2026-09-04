@@ -6,9 +6,18 @@ import {
     saveGarmothApiKey,
     selectGarmothCharacter,
 } from "../../api/tauri";
+import type { Theme } from "../../hooks/useTheme";
 import styles from "./Settings.module.css";
 
-export function SettingsView() {
+export function SettingsView({
+    theme,
+    onThemeChange,
+    onOpenCapture,
+}: {
+    theme: Theme;
+    onThemeChange: (theme: Theme) => void;
+    onOpenCapture: () => void;
+}) {
     const [settings, setSettings] = useState<GarmothSettings | null>(null);
     const [characterIds, setCharacterIds] = useState("");
     const [selectedCharacterId, setSelectedCharacterId] = useState("");
@@ -85,6 +94,45 @@ export function SettingsView() {
                 </div>
             </header>
 
+            <div className={styles.Preferences}>
+                <section className="panel">
+                    <div className="panel-heading">
+                        <div>
+                            <p className="eyebrow">Make yourself at home</p>
+                            <h2>Appearance</h2>
+                        </div>
+                    </div>
+                    <div className={styles.SettingsForm}>
+                        <label>
+                            Theme
+                            <select value={theme} onChange={(event) => onThemeChange(event.target.value as Theme)}>
+                                <option value="dark">Charcoal & gold</option>
+                                <option value="moss">Moss green</option>
+                                <option value="light">Light</option>
+                            </select>
+                        </label>
+                    </div>
+                </section>
+                <section className="panel">
+                    <div className="panel-heading">
+                        <div>
+                            <p className="eyebrow">While you play</p>
+                            <h2>Capture</h2>
+                        </div>
+                    </div>
+                    <div className={styles.SettingsForm}>
+                        <p>
+                            Tracking continues while you browse or minimize. Live previews run only when setup is open
+                            and visible.
+                        </p>
+                        <button type="button" className="button" onClick={onOpenCapture}>
+                            Go to capture setup
+                        </button>
+                    </div>
+                </section>
+            </div>
+            <h2 className={styles.SectionTitle}>Garmoth integration</h2>
+            <p className={styles.SectionNote}>Connect your account to publish finished sessions when you choose.</p>
             <div className={styles.SettingsGrid}>
                 <section className="panel">
                     <div className="panel-heading">
@@ -114,8 +162,8 @@ export function SettingsView() {
                             />
                         </label>
                         <p>
-                            The key is sent only to the Rust backend, stored in this app&apos;s local SQLite database,
-                            and used in Garmoth&apos;s <code>apiKey</code> header. It is never displayed again.
+                            Your key stays on this device and is used only to connect to Garmoth. It is never displayed
+                            again.
                         </p>
                         <button className="button primary-button" type="submit" disabled={busy !== null}>
                             {busy === "key" ? "Validating..." : "Validate and save key"}

@@ -1,6 +1,7 @@
 .CapturePanel {
     margin-bottom: 13px;
     padding: 18px 20px;
+    border-radius: 10px;
     border: 1px solid var(--line-strong);
     background: var(--surface);
 }
@@ -589,4 +590,10 @@
     .ReviewFeed ul {
         max-height: 280px;
     }
+}
+
+.CaptureSidebar details > summary {
+    padding-bottom: 12px;
+    color: var(--muted);
+    font-size: 12px;
 }

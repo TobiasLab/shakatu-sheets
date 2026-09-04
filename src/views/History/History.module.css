@@ -12,7 +12,7 @@
 
 .HistoryActions label {
     color: var(--muted);
-    font-size: 10px;
+    font-size: 12px;
     letter-spacing: 0.12em;
     text-transform: uppercase;
 }
@@ -66,7 +66,7 @@
     border-left: 1px solid var(--row-line);
     color: var(--muted);
     background: transparent;
-    font-size: 9px;
+    font-size: 11px;
     cursor: pointer;
 }
 
@@ -83,13 +83,13 @@
 }
 
 .HistoryList strong {
-    font-size: 11px;
+    font-size: 13px;
 }
 
 .HistoryList small {
     margin-top: 4px;
     color: var(--muted);
-    font-size: 9px;
+    font-size: 11px;
 }
 
 .HistoryValue {
@@ -111,7 +111,7 @@
 .DetailActions > span {
     color: var(--muted);
     font-family: "IBM Plex Mono", monospace;
-    font-size: 10px;
+    font-size: 12px;
 }
 
 .ActionError {
@@ -119,19 +119,19 @@
     padding: 10px 19px;
     border-bottom: 1px solid var(--line);
     color: var(--danger);
-    font-size: 11px;
+    font-size: 13px;
 }
 
 .DeleteStatus {
     margin: 0 0 13px;
     color: var(--mint);
-    font-size: 11px;
+    font-size: 13px;
 }
 
 .DeleteError {
     margin: 0 0 13px;
     color: var(--danger);
-    font-size: 11px;
+    font-size: 13px;
 }
 
 .HistorySummary {
@@ -156,7 +156,7 @@
 
 .HistorySummary span {
     color: var(--muted);
-    font-size: 9px;
+    font-size: 11px;
     text-transform: uppercase;
     letter-spacing: 0.1em;
 }
@@ -192,7 +192,7 @@
 
 .UploadHeading span {
     color: var(--muted);
-    font-size: 9px;
+    font-size: 11px;
     letter-spacing: 0.1em;
     text-transform: uppercase;
 }
@@ -214,13 +214,13 @@
     border: 1px solid var(--line);
     color: var(--text-soft);
     font-family: "IBM Plex Mono", monospace;
-    font-size: 9px;
+    font-size: 11px;
 }
 
 .GarmothUpload p {
     margin: 12px 0 0;
     color: var(--muted);
-    font-size: 10px;
+    font-size: 12px;
     line-height: 1.5;
 }
 
@@ -240,7 +240,7 @@
     padding: 12px 18px;
     border-bottom: 1px solid var(--row-line);
     font-family: "IBM Plex Mono", monospace;
-    font-size: 11px;
+    font-size: 13px;
 }
 
 .HistoryEntry span,
@@ -261,7 +261,7 @@
 .HistoryEntry span small {
     margin-top: 3px;
     color: var(--muted);
-    font-size: 9px;
+    font-size: 11px;
 }
 
 .HistoryMessage {
@@ -275,7 +275,7 @@
 
 .HistoryMessage p {
     max-width: 640px;
-    font-size: 11px;
+    font-size: 13px;
 }
 
 .ErrorMessage strong {
