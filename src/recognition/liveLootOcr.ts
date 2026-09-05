@@ -1,5 +1,11 @@
 import { createWorker, OEM, PSM } from "tesseract.js";
-import type { LiveLootOcrFrame, LiveLootOcrReader, LootOcrBounds, LootRoiFrame } from "./liveLoot";
+import {
+    type LiveLootOcrFrame,
+    type LiveLootOcrReader,
+    type LootOcrBounds,
+    type LootRoiFrame,
+    parseLootQuantity,
+} from "./liveLoot";
 
 export type LootOcrThreshold = 130 | 150 | 170;
 
@@ -12,6 +18,7 @@ export function preprocessLootOcrFrame(
     threshold: LootOcrThreshold,
     bounds?: LootOcrBounds,
     textColor: "white" | "gold" = "white",
+    scale: 2 | 4 = textColor === "gold" ? 4 : 2,
 ): LootRoiFrame {
     const { width, height, pixels } = frame;
     if (!Number.isSafeInteger(width) || width <= 0 || !Number.isSafeInteger(height) || height <= 0) {
@@ -47,7 +54,7 @@ export function preprocessLootOcrFrame(
     ) {
         throw new Error("Loot OCR bounds must be valid source pixel coordinates.");
     }
-    const scale = 4;
+    if (scale !== 2 && scale !== 4) throw new Error("Loot OCR enlargement must be 2 or 4.");
     const padding = 10;
     const outputWidth = (right - left) * scale + padding * 2;
     const outputHeight = (bottom - top) * scale + padding * 2;
@@ -84,6 +91,26 @@ export function preprocessLootOcrFrame(
     }
 
     return { width: outputWidth, height: outputHeight, pixels: output };
+}
+
+export async function readLootOcrFrame(
+    textColor: "white" | "gold" | undefined,
+    recognize: (threshold: LootOcrThreshold, scale: 2 | 4) => Promise<string>,
+): Promise<string[]> {
+    async function read(scale: 2 | 4) {
+        const readings: string[] = [];
+        for (const threshold of thresholds) readings.push(await recognize(threshold, scale));
+        return readings;
+    }
+
+    const readings = await read(textColor === "gold" ? 4 : 2);
+    if (textColor === "gold") return readings;
+    const quantities = readings.map(parseLootQuantity);
+    if (quantities.some((quantity) => quantity !== null && quantities.filter((other) => other === quantity).length > 1))
+        return readings;
+
+    const retried = await read(4);
+    return retried.some((text) => parseLootQuantity(text) !== null) ? retried : readings;
 }
 
 export type LiveLootOcrWorkerOptions = {
@@ -255,36 +282,39 @@ export async function createLiveLootTesseractOcr({
         const readings: string[][] = [];
         const frameCount = job.frames?.length ?? 0;
         for (let frameIndex = 0; frameIndex < frameCount; frameIndex += 1) {
-            const frameReadings: string[] = [];
-            for (const threshold of thresholds) {
-                if (closed) throw closedError();
-                let source = job.frames?.[frameIndex];
-                if (!source) throw closedError();
-                const centerY = source.observation.centerY;
-                let processed: LootRoiFrame | undefined = preprocessLootOcrFrame(
-                    source.roi,
-                    centerY,
-                    threshold,
-                    source.bounds,
-                    source.textColor,
-                );
-                source = undefined;
+            const frameReadings = await readLootOcrFrame(
+                job.frames?.[frameIndex]?.textColor,
+                async (threshold, scale) => {
+                    if (closed) throw closedError();
+                    let source = job.frames?.[frameIndex];
+                    if (!source) throw closedError();
+                    const centerY = source.observation.centerY;
+                    let processed: LootRoiFrame | undefined = preprocessLootOcrFrame(
+                        source.roi,
+                        centerY,
+                        threshold,
+                        source.bounds,
+                        source.textColor,
+                        scale,
+                    );
+                    source = undefined;
 
-                if (canvas.width !== processed.width) canvas.width = processed.width;
-                if (canvas.height !== processed.height) canvas.height = processed.height;
-                let imageData: LiveLootOcrImageData | undefined = context.createImageData(
-                    processed.width,
-                    processed.height,
-                );
-                imageData.data.set(processed.pixels);
-                context.putImageData(imageData, 0, 0);
-                processed = undefined;
-                imageData = undefined;
+                    if (canvas.width !== processed.width) canvas.width = processed.width;
+                    if (canvas.height !== processed.height) canvas.height = processed.height;
+                    let imageData: LiveLootOcrImageData | undefined = context.createImageData(
+                        processed.width,
+                        processed.height,
+                    );
+                    imageData.data.set(processed.pixels);
+                    context.putImageData(imageData, 0, 0);
+                    processed = undefined;
+                    imageData = undefined;
 
-                const result = await worker.recognize(canvas);
-                if (closed) throw closedError();
-                frameReadings.push(result.data.text.trim());
-            }
+                    const result = await worker.recognize(canvas);
+                    if (closed) throw closedError();
+                    return result.data.text.trim();
+                },
+            );
             readings.push(frameReadings);
         }
         return readings;

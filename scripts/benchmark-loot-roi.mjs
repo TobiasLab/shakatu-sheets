@@ -4,7 +4,7 @@ import { setTimeout as delay } from "node:timers/promises";
 import { fileURLToPath } from "node:url";
 import { parseArgs } from "node:util";
 import { LiveLootCoordinator } from "../src/recognition/liveLoot.ts";
-import { preprocessLootOcrFrame } from "../src/recognition/liveLootOcr.ts";
+import { preprocessLootOcrFrame, readLootOcrFrame } from "../src/recognition/liveLootOcr.ts";
 import { findLiveLootProfile, findRareLootGeometry } from "../src/recognition/liveLootProfiles.ts";
 import {
     RARE_LOOT_OCR_SELECTION,
@@ -146,14 +146,14 @@ try {
                     if (!worker) return frames.map(() => []);
                     const readings = [];
                     for (const frame of frames) {
-                        const texts = [];
-                        for (const threshold of [130, 150, 170]) {
+                        const texts = await readLootOcrFrame(frame.textColor, async (threshold, scale) => {
                             const image = preprocessLootOcrFrame(
                                 frame.roi,
                                 frame.observation.centerY,
                                 threshold,
                                 frame.bounds,
                                 frame.textColor,
+                                scale,
                             );
                             const grayscale = Buffer.alloc(image.width * image.height);
                             for (let i = 0; i < grayscale.length; i += 1) grayscale[i] = image.pixels[i * 4];
@@ -161,8 +161,8 @@ try {
                                 Buffer.from(`P5\n${image.width} ${image.height}\n255\n`),
                                 grayscale,
                             ]);
-                            texts.push((await worker.recognize(pgm)).data.text.trim());
-                        }
+                            return (await worker.recognize(pgm)).data.text.trim();
+                        });
                         readings.push(texts);
                     }
                     return readings;

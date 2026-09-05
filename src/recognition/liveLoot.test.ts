@@ -233,6 +233,44 @@ describe("live loot replay recognition", () => {
         expect(results[0]).toMatchObject({ itemName: null, quantity: null });
     });
 
+    it.each(["Branch of Abundance x 4", "Ancient Spirit Dust x 1"])(
+        "withholds a temporal majority contradicted consistently by one frame: %s",
+        async (conflict) => {
+            const results = await recognizeLootReplay({
+                rows: [row([]), row([1]), row([1]), row([1]), row([1])],
+                rowThreshold: 100,
+                distance,
+                dictionary: ["Branch of Abundance", "Ancient Spirit Dust"],
+                readText: async () => [
+                    [conflict, conflict, "noise"],
+                    ["Branch of Abundance x 6", "Branch of Abundance x &", "noise"],
+                    ["Branch of Abundance x 6", "Branch of Abundance x 6", "Branch of Abundance x 6"],
+                ],
+            });
+            expect(results[0]).toMatchObject({ itemName: null, quantity: null });
+        },
+    );
+
+    it("retains temporal support when a third frame is unreadable or has one conflicting pass", async () => {
+        for (const thirdFrame of [
+            ["noise", "noise", "noise"],
+            ["Branch of Abundance x 5", "noise", "noise"],
+        ]) {
+            const results = await recognizeLootReplay({
+                rows: [row([]), row([1]), row([1]), row([1]), row([1])],
+                rowThreshold: 100,
+                distance,
+                dictionary: ["Branch of Abundance"],
+                readText: async () => [
+                    ["Branch of Abundance x 6", "Branch of Abundance x &", "Branch of Abundance x 6"],
+                    thirdFrame,
+                    ["Branch of Abundance x 6", "Branch of Abundance x B", "Branch of Abundance x"],
+                ],
+            });
+            expect(results[0]).toMatchObject({ itemName: "Branch of Abundance", quantity: 6 });
+        }
+    });
+
     it("recognizes joined quantity markers only with a close, unambiguous item match", () => {
         const dictionary = ["Twilight of the End - Earring", "Black Stone", "Ancient Phoenix"];
         expect(parseLootItem("Twilight of the End = Earringsx 1", dictionary)).toBe("Twilight of the End - Earring");

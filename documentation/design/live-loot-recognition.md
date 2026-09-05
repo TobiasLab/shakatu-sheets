@@ -227,7 +227,12 @@ use the central glyph band and exclude scenery after a trailing whitespace gap. 
 comparison so an appended quantity digit still changes identity. Fingerprints are computed only for detected rows, and
 quantity projections reuse the full projection. Normal OCR uses the earliest trailing whitespace boundary across its
 three selected projections, including the full gap, and can extend to the detector's full text envelope for long names.
-Explicit rare OCR bounds remain separate.
+Explicit rare OCR bounds remain separate. Normal text is enlarged 2× for Tesseract, while gold rare text retains 4×
+enlargement. The native source crops and the three luminance thresholds (130, 150, 170) are unchanged. A normal frame
+without two matching parsed quantities retries those thresholds once at 4×; a retry with no parsed quantity preserves
+the original readings. Gold frames do not retry. Both live OCR and the ROI replay use `readLootOcrFrame` for this policy.
+The smaller normal images reduce the observed ×10/×110 and ×6/×8 conflicts in the
+[paired scale corpus](live-loot-scales-2026-09-05.md), while the bounded retry preserves less readable glyphs.
 
 A temporary fingerprint change that returns to the previous identity is not a replacement unless the stack shifts. A
 strongly different, shorter new item may be confirmed at the detector threshold while older rows lose brightness.
@@ -237,7 +242,10 @@ Baseline suppression and distinct event IDs for repeated identical drops remain 
 
 OCR now requires three consecutive observations whose neighboring fingerprints are visually consistent, after the
 entrance delay. Failed stability checks wait within the existing bounded frame window; they do not create a new event.
-Acceptance still requires the same item/quantity pair from at least two distinct frames. Trailing OCR punctuation is
+Acceptance still requires a unique leading item/quantity pair from at least two distinct frames. A majority of threshold
+passes within any selected frame that reads a different pair vetoes acceptance, even if the other two frames agree.
+Unreadable passes do not count as conflicting pairs. This guards against similar-looking rows changing identity inside
+one track; it does not repair the underlying track alignment. Trailing OCR punctuation is
 allowed, including terminal dash artifacts, while decimals, separators inside quantities, and trailing words remain
 rejected. No two-frame fallback or single-frame acceptance was introduced.
 
