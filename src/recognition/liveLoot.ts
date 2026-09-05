@@ -718,7 +718,7 @@ function normalizeItem(value: string) {
 }
 
 export function parseLootQuantity(text: string) {
-    const suffix = text.match(/x\s*(\d+|[|Il])\s*[.,:;!?]*\s*$/i)?.[1];
+    const suffix = text.match(/x\s*(\d+|[|Il])\s*[.,:;!?"'“”‘’]*\s*$/i)?.[1];
     if (!suffix) return null;
     if (/^[|Il]$/i.test(suffix)) return 1;
     const quantity = Number(suffix);
@@ -742,9 +742,12 @@ function editDistance(left: string, right: string) {
 }
 
 export function parseLootItem(text: string, dictionary: readonly string[]) {
-    const reading = text.match(/^(.*?)\s+x\s*(?:\d+|[|Il])\s*[.,:;!?]*\s*$/i)?.[1];
+    const reading = text.match(/^(.*?)x\s*(?:\d+|[|Il])\s*[.,:;!?"'“”‘’]*\s*$/i)?.[1];
     if (!reading) return null;
     const normalized = normalizeItem(reading);
+    const joinedMarker = !/\s$/.test(reading);
+    // A missing space needs a much closer dictionary match; an item's final "x" is not a quantity marker.
+    if (joinedMarker && dictionary.some((item) => normalizeItem(item) === `${normalized}x`)) return null;
     const candidates = dictionary
         .map((item) => {
             const candidate = normalizeItem(item);
@@ -754,7 +757,8 @@ export function parseLootItem(text: string, dictionary: readonly string[]) {
             };
         })
         .sort((left, right) => left.distance - right.distance);
-    if (candidates[0]?.distance > 0.35 || candidates[0]?.distance === candidates[1]?.distance) return null;
+    if (candidates[0]?.distance > (joinedMarker ? 0.1 : 0.35) || candidates[0]?.distance === candidates[1]?.distance)
+        return null;
     return candidates[0]?.item ?? null;
 }
 

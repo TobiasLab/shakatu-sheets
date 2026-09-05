@@ -1,0 +1,73 @@
+{
+    "version": 1,
+    "itemDictionary": [
+        "Branch of Abundance",
+        "Black Stone",
+        "Ancient Spirit Dust",
+        "Caphras Stone",
+        "Corrupt Oil of Immortality",
+        "Nev's Fragment",
+        "WON Origin Shard",
+        "WON Wandering Origin Crystal",
+        "Silent Fragment of Origin",
+        "Silent Crystal of Origin",
+        "Twilight of the End - Earring",
+        "Apeiron Earring",
+        "Broken Vestige of Goldroot",
+        "Fusion Shard",
+        "Refined Origin of Hunger",
+        "Refined Essence of Devouring",
+        "Sunset Primordial Pigment - Edana",
+        "Sunset Primordial Luster - Edana",
+        "Crimson Primordial Luster - Sovereign",
+        "Crimson Primordial Pigment - Sovereign",
+        "Violet Primordial Luster - Sovereign",
+        "Violet Primordial Pigment - Sovereign",
+        "Violet Primordial Pigment - Edana",
+        "Violet Primordial Luster - Edana",
+        "Embers of Ynix - Armor"
+    ],
+    "runs": [
+        {
+            "id": "run-1788546792943-431670-0001",
+            "split": "development"
+        },
+        {
+            "id": "run-1788547757579-492174-0001",
+            "split": "development"
+        },
+        {
+            "id": "run-1788603947977-1942988-0001",
+            "split": "validation",
+            "rareReviewed": true,
+            "rareEvents": [
+                {
+                    "firstBatchId": 1972,
+                    "lastBatchId": 1984,
+                    "item": "Twilight of the End - Earring",
+                    "quantity": 1
+                }
+            ]
+        },
+        {
+            "id": "run-1788603961654-1942988-0002",
+            "split": "development",
+            "rareReviewed": true,
+            "rareEvents": [
+                {
+                    "firstBatchId": 2371,
+                    "lastBatchId": 2382,
+                    "item": "Twilight of the End - Earring",
+                    "quantity": 1
+                },
+                {
+                    "firstBatchId": 2494,
+                    "lastBatchId": 2506,
+                    "item": "Twilight of the End - Earring",
+                    "quantity": 1
+                }
+            ]
+        }
+    ],
+    "note": "2026-09-05 corpus: Aphrodon Temple dictionary. Two development rare events and one held-out rare event visually reviewed. Long runs and all normal runs are unreviewed overall. Validation run reserved before parser tuning; no screenshots included."
+}

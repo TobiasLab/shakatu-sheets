@@ -241,9 +241,9 @@ simultaneous identical drops, three consecutive drops, camera movement, and arri
 contain batch IDs and expected items, not captured pixels. They are development regression cases, not an independent
 accuracy estimate. Original PNGs and generated reports remain outside tracked source.
 
-The supplied corpus contains 5,996 paired batches: 4,539 development and 1,457 validation batches, all at 8 FPS and 80% UI
+The 2026-09-04 corpus contained 5,996 paired batches: 4,539 development and 1,457 validation batches, all at 8 FPS and 80% UI
 scale. The third run was reserved from threshold tuning. It is a negative rare-event recording from the same grinding
-session, not an independent positive rare benchmark. There is only one annotated positive rare event. Most normal events
+session, not an independent positive rare benchmark. That corpus had only one annotated positive rare event. Most normal events
 still lack ground-truth labels, so recognized-event counts and fewer warnings must not be reported as overall accuracy.
 
 
@@ -274,3 +274,46 @@ A local detector-only timing check over the older diverse-stack frames measured 
 versus 0.336 ms/frame before (60 warmup frames, three alternating 500-frame passes, same Node process). This is not a
 whole-app or game-FPS measurement. Computing fingerprints only for detected rows and reusing quantity projections offsets
 the extra text-presence checks.
+
+
+### Refreshed ROI Corpus (2026-09-05)
+
+The replacement corpus has 5,127 paired batches at 3440×1440/80%: 4,984 development and 143 validation batches. The short
+`run-1788603947977-1942988-0001` run was reserved before parser tuning. It contains one visually reviewed rare earring event;
+`run-1788603961654-1942988-0002` contains two development earring events. All three are Twilight of the End - Earring ×1.
+The two longer runs and normal event lists remain unreviewed overall. Two selected normal failures were inspected directly.
+
+The production detector and selected OCR frames are unchanged. The parser now recovers a quantity marker joined to the
+item name (for example, `Earringx 1`) only when normalized dictionary edit distance is at most 10%, rather than the existing
+35% limit for separated markers. Tied matches are still rejected, and a known item's final `x` is not treated as a marker.
+Terminal straight/curly quote artifacts are accepted alongside the existing punctuation. Quantities still require an
+explicit terminal marker, a positive safe integer, and multi-frame item/quantity consensus. Trailing words, malformed
+quantities, and conflicting ×10/×100 readings remain withheld. No OCR passes, frame buffers, or model changes were added.
+
+Compared with main at `4ec086b`, using the same Aphrodon Temple dictionary and all 5,127 paired batches:
+
+| Measurement | Before | After |
+| --- | ---: | ---: |
+| Correct development rare events | 1 / 2 | 2 / 2 |
+| Correct reserved rare events | 1 / 1 | 1 / 1 |
+| Extra rare candidates in the two reviewed short runs | 0 | 0 |
+| Inspected normal ×10 at batch 1597 in run 1788547757579 | Withheld | Correct |
+| Inspected normal ×10/×100 ambiguity at batch 1875 in that run | Withheld | Withheld |
+
+Every previously accepted item/quantity pair, candidate count, and selected-frame list was unchanged. Normal accepted
+counts increased from 409 to 410; those are diagnostics, not verified accuracy totals. Seven insufficient-observation
+normal candidates and one ambiguous normal quantity remain withheld. The older labeled end-to-end benchmark also retains all 35 correct events (24 development and 11 existing regression
+events); that older test split is not a fresh holdout. The small reserved sample comes from the same
+recording session and item as development; it does not establish accuracy for other rare items, grind spots, or Windows.
+
+Text-only labels are stored in `scripts/fixtures/loot-roi-2026-09-05.json`. Use `--annotations` to replay the original sample
+directory without adding or changing files there:
+
+```sh
+npm run benchmark:loot:roi -- /path/to/roi_live_samples/dev-samples/live-loot --annotations scripts/fixtures/loot-roi-2026-09-05.json --ocr --output /tmp/loot-development.json
+npm run benchmark:loot:roi -- /path/to/roi_live_samples/dev-samples/live-loot --annotations scripts/fixtures/loot-roi-2026-09-05.json --validation --ocr --output /tmp/loot-validation.json
+```
+
+The labels score only the three reviewed rare events. Raw-reading regression tests cover the recovered normal case and
+continued withholding of quantity ambiguity. Original PNGs, analytical contact sheets, and full replay reports remain
+outside tracked source.

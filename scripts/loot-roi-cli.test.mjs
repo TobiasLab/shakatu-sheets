@@ -41,55 +41,64 @@ test.each([
 });
 
 const ffmpegAvailable = spawnSync("ffmpeg", ["-version"]).status === 0;
-test.skipIf(!ffmpegAvailable).each([3440, 2560])(
-    "ROI replay accepts paired native crops from %ix1440 at 80%%",
-    async (width) => {
-        const root = await mkdtemp(join(tmpdir(), "loot-roi-test-"));
-        try {
-            const id = "run-1-1-0001";
-            const manifest = { ...capture, sourceDimensions: { width, height: 1440 } };
-            for (const [kind, cropWidth, cropHeight] of [
-                ["normal", 362, 311],
-                ["rare", 400, 100],
-            ]) {
-                const folder = join(root, id, kind, "minute-000");
-                await mkdir(folder, { recursive: true });
-                await exec("ffmpeg", [
-                    "-v",
-                    "error",
-                    "-f",
-                    "lavfi",
-                    "-i",
-                    `color=black:s=${cropWidth}x${cropHeight},format=rgb24`,
-                    "-frames:v",
-                    "1",
-                    "-threads",
-                    "1",
-                    join(folder, "frame-000001.png"),
-                ]);
-                manifest[`${kind}Crop`] = { pixels: { width: cropWidth, height: cropHeight } };
-            }
-            await writeFile(join(root, id, "manifest.json"), JSON.stringify(manifest));
-            await writeFile(
-                join(root, "annotations.json"),
-                JSON.stringify({
-                    version: 1,
-                    itemDictionary: ["Gold Bar 1G"],
-                    runs: [{ id, split: "development" }],
-                }),
-            );
-            const { stdout } = await exec(process.execPath, [runner, "--script", script, root]);
-            expect(
-                stdout
-                    .trim()
-                    .split("\n")
-                    .map((line) => JSON.parse(line)),
-            ).toEqual([
-                expect.objectContaining({ run: id, kind: "normal", frames: 1, candidates: 0, ocrJobs: 0 }),
-                expect.objectContaining({ run: id, kind: "rare", frames: 1, candidates: 0, ocrJobs: 0 }),
+test.skipIf(!ffmpegAvailable).each([
+    [3440, false],
+    [2560, false],
+    [3440, true],
+    [2560, true],
+])("ROI replay accepts paired %ix1440 crops (external labels: %s)", async (width, externalLabels) => {
+    const root = await mkdtemp(join(tmpdir(), "loot-roi-test-"));
+    try {
+        const id = "run-1-1-0001";
+        const manifest = { ...capture, sourceDimensions: { width, height: 1440 } };
+        for (const [kind, cropWidth, cropHeight] of [
+            ["normal", 362, 311],
+            ["rare", 400, 100],
+        ]) {
+            const folder = join(root, id, kind, "minute-000");
+            await mkdir(folder, { recursive: true });
+            await exec("ffmpeg", [
+                "-v",
+                "error",
+                "-f",
+                "lavfi",
+                "-i",
+                `color=black:s=${cropWidth}x${cropHeight},format=rgb24`,
+                "-frames:v",
+                "1",
+                "-threads",
+                "1",
+                join(folder, "frame-000001.png"),
             ]);
-        } finally {
-            await rm(root, { recursive: true, force: true });
+            manifest[`${kind}Crop`] = { pixels: { width: cropWidth, height: cropHeight } };
         }
-    },
-);
+        await writeFile(join(root, id, "manifest.json"), JSON.stringify(manifest));
+        const labelsPath = join(root, externalLabels ? "reviewed labels.json" : "annotations.json");
+        await writeFile(
+            labelsPath,
+            JSON.stringify({
+                version: 1,
+                itemDictionary: ["Gold Bar 1G"],
+                runs: [{ id, split: "development" }],
+            }),
+        );
+        const { stdout } = await exec(process.execPath, [
+            runner,
+            "--script",
+            script,
+            root,
+            ...(externalLabels ? ["--annotations", labelsPath] : []),
+        ]);
+        expect(
+            stdout
+                .trim()
+                .split("\n")
+                .map((line) => JSON.parse(line)),
+        ).toEqual([
+            expect.objectContaining({ run: id, kind: "normal", frames: 1, candidates: 0, ocrJobs: 0 }),
+            expect.objectContaining({ run: id, kind: "rare", frames: 1, candidates: 0, ocrJobs: 0 }),
+        ]);
+    } finally {
+        await rm(root, { recursive: true, force: true });
+    }
+});
