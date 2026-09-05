@@ -9,7 +9,7 @@ describe("grind spot profiles", () => {
             ["sycraia-lower-revamp", "Sycraia Ruins Lower Level", "Underwater Ancient Weapon Power Stone", 107_900, 20],
             ["stars-end-revamp", "Star's End", "Corrupted Sanguine Crystal", 155_000, 17],
             ["zephyros-castle", "Zephyrus Castle", "Hardened Lava Chunk", 126_980, 25],
-            ["aphrodon-temple", "Aphrodon Temple", "Branch of Abundance", 155_127, 24],
+            ["aphrodon-temple", "Aphrodon Temple", "Branch of Abundance", 155_127, 25],
             ["hermesia-inner-castle", "Hermesia Inner Castle", "Black Crystal Fragment", 160_539, 26],
             ["magaia-temple", "Magaia Temple", "Elion Follower's Helmet", 181_042, 28],
         ]);
@@ -46,7 +46,7 @@ describe("grind spot profiles", () => {
             [
                 "aphrodon-temple",
                 213,
-                `980127_0 16001_0 721002_0 721003_0 1178_0 821460_0 821430_0 15294_0 821318_0 761803_0
+                `980127_0 767249_0 16001_0 721002_0 721003_0 1178_0 821460_0 821430_0 15294_0 821318_0 761803_0
                 821422_0 11898_0 980139_0 821471_0 767337_0 767338_0 767353_0 821459_0 821341_0 767293_0
                 821342_0 767294_0 767296_0 821343_0 821462_0`,
             ],
@@ -73,5 +73,15 @@ describe("grind spot profiles", () => {
         });
 
         expect(actual).toEqual(expected.map(([id, garmothId, keys]) => [id, garmothId, keys.trim().split(/\s+/)]));
+    });
+});
+
+it("values the landscape frame as a vendor drop with the verified global export key", () => {
+    expect(getGrindSpotDrops("aphrodon-temple").find(({ name }) => name === "Empty Picture Frame")).toEqual({
+        name: "Empty Picture Frame",
+        icon: "/items/767249.webp",
+        garmothKey: "767249_0",
+        valuation: "vendor",
+        unitPrice: 15_348,
     });
 });

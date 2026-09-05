@@ -656,7 +656,7 @@ fn ocr_diagnostics_require_a_matching_collection_and_resolve_saved_frames() {
     let log = fs::read_to_string(temp.0.join("ocr-issues.jsonl")).unwrap();
     assert_eq!(log.lines().count(), 2);
     let record: serde_json::Value = serde_json::from_str(log.lines().next().unwrap()).unwrap();
-    assert_eq!(record["version"], 1);
+    assert_eq!(record["version"], 2);
     assert_eq!(
         record["selectedFrames"][0]["file"],
         "rare/minute-02/frame-0000000008.png"
@@ -749,4 +749,65 @@ fn ocr_diagnostics_preserve_results_while_finalizing_pending_pngs() {
     assert!(record["selectedFrames"][0]["file"].is_null());
     run.phase.store(PHASE_FINISHED, Ordering::Release);
     assert!(!collector.log_ocr_issue(issue()).unwrap());
+}
+
+#[test]
+fn accepted_ocr_diagnostics_validate_quantities_and_pass_metadata() {
+    let temp = TempDir::new("ocr-accepted");
+    let collector = DebugRoiSampleCollector::default();
+    let mut value = diagnostic_json(&temp.0);
+    value["status"] = serde_json::json!("recognized");
+    value["reason"] = serde_json::Value::Null;
+    value["itemName"] = serde_json::json!("Branch of Abundance");
+    value["quantity"] = serde_json::json!(6);
+    value["selectedFrames"][0]["centerY"] = serde_json::json!(255);
+    value["selectedFrames"][0]["bounds"] =
+        serde_json::json!({"left": 100, "right": 320, "top": 240, "bottom": 270});
+    value["selectedFrames"][0]["passes"] =
+        serde_json::json!([{"threshold":150,"scale":4,"region":"quantity","text":"6"}]);
+    assert!(!collector
+        .log_ocr_issue(serde_json::from_value(value.clone()).unwrap())
+        .unwrap());
+    let (sender, _) = mpsc::sync_channel(1);
+    let run = Arc::new(test_run(&temp.0, sender, settings()));
+    collector.active.store(Some(run.clone()));
+    value["source"] = serde_json::json!("normal");
+    assert!(collector
+        .log_ocr_issue(serde_json::from_value(value.clone()).unwrap())
+        .unwrap());
+    let written: serde_json::Value = serde_json::from_str(
+        fs::read_to_string(temp.0.join("ocr-issues.jsonl"))
+            .unwrap()
+            .trim(),
+    )
+    .unwrap();
+    assert_eq!(written["status"], "recognized");
+    assert_eq!(written["quantity"], 6);
+    assert_eq!(
+        written["selectedFrames"][0]["passes"][0]["region"],
+        "quantity"
+    );
+    let mut outside = value.clone();
+    outside["selectedFrames"][0]["bounds"]["right"] =
+        serde_json::json!(run.normal_pixels.width + 1);
+    assert!(collector
+        .log_ocr_issue(serde_json::from_value(outside).unwrap())
+        .unwrap_err()
+        .contains("exceed the collected ROI"));
+    for invalid_quantity in [0_u64, 9_007_199_254_740_992] {
+        let mut invalid = value.clone();
+        invalid["quantity"] = serde_json::json!(invalid_quantity);
+        assert!(collector
+            .log_ocr_issue(serde_json::from_value(invalid).unwrap())
+            .is_err());
+    }
+    let mut invalid = value.clone();
+    invalid["selectedFrames"][0]["bounds"]["right"] = serde_json::json!(99);
+    assert!(collector
+        .log_ocr_issue(serde_json::from_value(invalid).unwrap())
+        .is_err());
+    value["selectedFrames"][0]["passes"][0]["scale"] = serde_json::json!(100);
+    assert!(collector
+        .log_ocr_issue(serde_json::from_value(value).unwrap())
+        .is_err());
 }

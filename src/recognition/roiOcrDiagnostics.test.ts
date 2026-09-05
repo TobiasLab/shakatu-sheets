@@ -42,14 +42,14 @@ function recorder(source: "normal" | "rare" = "normal") {
 }
 
 describe("ROI OCR diagnostics", () => {
-    it("does not log uncollected frames or successful recognition", () => {
+    it("logs accepted events only while samples are collected", () => {
         const { diagnostics, issues } = recorder();
         diagnostics.observe(frame());
         diagnostics.result(withheld(0));
         diagnostics.frameFailure(new Error("analysis"));
         diagnostics.observe(frame(22));
         diagnostics.result({ ...withheld(1), status: "recognized", reason: null, itemName: "Loot", quantity: 1 });
-        expect(issues).toEqual([]);
+        expect(issues).toMatchObject([{ status: "recognized", itemName: "Loot", quantity: 1 }]);
     });
 
     it.each(["normal", "rare"] as const)(
@@ -170,5 +170,91 @@ describe("ROI OCR diagnostics", () => {
             firstFrame: { frame: null, batchId: 12 },
             error: "worker missing",
         });
+    });
+});
+
+it("logs exact rows and completed passes even when OCR fails partway through", async () => {
+    const { diagnostics, issues } = recorder();
+    diagnostics.observe(frame(44));
+    const source = ocrFrame(0);
+    source.bounds = { left: 2, right: 20, top: 5, bottom: 15 };
+    const read = diagnostics.wrap(async (frames) => {
+        frames[0].diagnostics?.passes.push({ threshold: 150, scale: 2, region: "line", text: "Loot x ?" });
+        throw new Error("failed second pass");
+    });
+    await expect(read([source], new AbortController().signal)).rejects.toThrow("failed second pass");
+    diagnostics.result({ ...withheld(0, [0]), status: "failed", reason: "ocr-failure" });
+    expect(issues[0].selectedFrames[0]).toMatchObject({
+        batchId: 44,
+        centerY: 10,
+        bounds: source.bounds,
+        textColor: "white",
+        passes: [{ threshold: 150, scale: 2, region: "line", text: "Loot x ?" }],
+    });
+});
+
+it("records accepted quantities with separate raw-pass and final-reading metadata", async () => {
+    const { diagnostics, issues } = recorder();
+    diagnostics.observe(frame(8));
+    const source = ocrFrame(0);
+    await diagnostics.wrap(async (frames) => {
+        frames[0].diagnostics?.passes.push({ threshold: 150, scale: 4, region: "quantity", text: "6" });
+        return [["Loot x 6", "Loot x 6", "Loot x 6"]];
+    })([source], new AbortController().signal);
+    diagnostics.result({ ...withheld(0, [0]), status: "recognized", reason: null, itemName: "Loot", quantity: 6 });
+    expect(issues[0]).toMatchObject({
+        status: "recognized",
+        itemName: "Loot",
+        quantity: 6,
+        selectedFrames: [
+            {
+                centerY: 10,
+                passes: [{ region: "quantity", text: "6" }],
+                readings: ["Loot x 6", "Loot x 6", "Loot x 6"],
+            },
+        ],
+    });
+});
+
+it("keeps both OCR stages and separates later rows that reuse the same captured batches", async () => {
+    const { diagnostics, issues } = recorder();
+    for (let index = 0; index < 5; index++) diagnostics.observe(frame(100 + index));
+    const reader = diagnostics.wrap(async (frames) => {
+        for (const frame of frames)
+            frame.diagnostics?.passes.push({ threshold: 150, scale: 2, region: "line", text: "Loot x 2" });
+        return frames.map(() => ["Loot x 2"]);
+    });
+    const signal = new AbortController().signal;
+    await reader([0, 1, 2].map(ocrFrame), signal);
+    await reader([3, 4].map(ocrFrame), signal);
+    diagnostics.result({
+        ...withheld(0, [0, 1, 2, 3, 4]),
+        status: "recognized",
+        reason: null,
+        itemName: "Loot",
+        quantity: 2,
+    });
+    const nextRow = ocrFrame(3);
+    nextRow.observation.centerY = 30;
+    await diagnostics.wrap(async () => [["Other loot x 1"]])([nextRow], signal);
+    diagnostics.result({ ...withheld(3, [3]), eventId: "loot-2" });
+    expect(
+        issues[0].selectedFrames.map(({ batchId, centerY, readings, passes }) => ({
+            batchId,
+            centerY,
+            readings,
+            passes,
+        })),
+    ).toEqual(
+        [100, 101, 102, 103, 104].map((batchId) => ({
+            batchId,
+            centerY: 10,
+            readings: ["Loot x 2"],
+            passes: [{ threshold: 150, scale: 2, region: "line", text: "Loot x 2" }],
+        })),
+    );
+    expect(issues[1]).toMatchObject({
+        eventId: "loot-2",
+        selectedFrames: [{ batchId: 103, centerY: 30, readings: ["Other loot x 1"], passes: [] }],
     });
 });

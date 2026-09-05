@@ -1,15 +1,32 @@
-import type { LiveLootOcrReader, LiveLootRecognitionResult, LootRoiFrame } from "./liveLoot";
+import type {
+    LiveLootOcrReader,
+    LiveLootRecognitionResult,
+    LootOcrBounds,
+    LootOcrPass,
+    LootRoiFrame,
+} from "./liveLoot";
 
 type RoiSampleReference = NonNullable<LootRoiFrame["sample"]>;
-type DiagnosticFrame = { frame: number | null; batchId: number | null; readings: string[] };
+type DiagnosticFrame = {
+    frame: number | null;
+    batchId: number | null;
+    readings: string[];
+    centerY?: number;
+    bounds?: LootOcrBounds;
+    quantityBounds?: LootOcrBounds;
+    textColor?: "white" | "gold";
+    passes?: LootOcrPass[];
+};
 export type RoiOcrIssue = {
     captureToken: number;
     collectionPath: string;
     source: "normal" | "rare";
     generation: number;
     eventId: string | null;
-    status: Exclude<LiveLootRecognitionResult["status"], "recognized">;
-    reason: NonNullable<LiveLootRecognitionResult["reason"]> | "frame-analysis-failure" | "ocr-startup-failure";
+    status: LiveLootRecognitionResult["status"];
+    itemName: string | null;
+    quantity: number | null;
+    reason: LiveLootRecognitionResult["reason"] | "frame-analysis-failure" | "ocr-startup-failure";
     firstFrame: DiagnosticFrame;
     selectedFrames: DiagnosticFrame[];
     lastFrame: DiagnosticFrame | null;
@@ -21,7 +38,7 @@ export type RoiOcrIssue = {
 export class RoiOcrDiagnostics {
     private nextFrame = 0;
     private readonly samples = new Map<number, RoiSampleReference>();
-    private readonly readings = new Map<number, string[]>();
+    private readonly readings = new Map<number, Partial<DiagnosticFrame>>();
     private readonly errors = new Map<number, string>();
 
     constructor(
@@ -42,14 +59,16 @@ export class RoiOcrDiagnostics {
 
     wrap(reader: LiveLootOcrReader): LiveLootOcrReader {
         return async (frames, signal) => {
+            for (const frame of frames) {
+                if (this.samples.has(frame.frame)) frame.diagnostics = { passes: [] };
+            }
             try {
                 const result = await reader(frames, signal);
                 frames.forEach((frame, index) => {
                     if (this.samples.has(frame.frame))
-                        this.readings.set(
-                            frame.frame,
-                            (result[index] ?? []).slice(0, 3).map((text) => text.slice(0, 512)),
-                        );
+                        this.readings.set(frame.frame, {
+                            readings: (result[index] ?? []).slice(0, 3).map((text) => text.slice(0, 512)),
+                        });
                 });
                 return result;
             } catch (error) {
@@ -58,6 +77,19 @@ export class RoiOcrDiagnostics {
                 }
                 throw error;
             } finally {
+                for (const frame of frames) {
+                    if (this.samples.has(frame.frame))
+                        this.readings.set(frame.frame, {
+                            ...this.readings.get(frame.frame),
+                            centerY: frame.observation.centerY,
+                            bounds: frame.bounds,
+                            quantityBounds: frame.observation.fingerprint.digits?.bounds,
+                            textColor: frame.textColor ?? "white",
+                            passes: frame.diagnostics?.passes
+                                .slice(0, 9)
+                                .map((pass) => ({ ...pass, text: pass.text.slice(0, 512) })),
+                        });
+                }
                 for (const map of [this.readings, this.errors]) {
                     while (map.size > 128) {
                         const oldest = map.keys().next().value;
@@ -74,7 +106,7 @@ export class RoiOcrDiagnostics {
             this.samples.get(result.firstFrame);
         // Selected frames are chronological; prefer the latest run when an event spans collections.
         for (const frame of result.selectedFrames) reference = this.samples.get(frame) ?? reference;
-        if (reference && result.status !== "recognized") {
+        if (reference) {
             const describe = (frame: number): DiagnosticFrame => {
                 const sample = this.samples.get(frame);
                 return {
@@ -84,7 +116,8 @@ export class RoiOcrDiagnostics {
                         sample.captureToken === reference.captureToken
                             ? sample.batchId
                             : null,
-                    readings: this.readings.get(frame) ?? [],
+                    readings: [],
+                    ...this.readings.get(frame),
                 };
             };
             this.emit({
@@ -94,6 +127,8 @@ export class RoiOcrDiagnostics {
                 generation: this.generation,
                 eventId: result.eventId,
                 status: result.status,
+                itemName: result.itemName,
+                quantity: result.quantity,
                 reason: result.reason,
                 firstFrame: describe(result.firstFrame),
                 selectedFrames: result.selectedFrames.map(describe),
@@ -133,6 +168,8 @@ export function roiOcrFailure(
         generation,
         eventId: null,
         status: "failed",
+        itemName: null,
+        quantity: null,
         reason,
         firstFrame: { frame, batchId: sample.batchId, readings: [] },
         selectedFrames: [],

@@ -11,6 +11,7 @@
         "benchmark:loot:track": "vite-node --script scripts/benchmark-loot-tracker.mjs",
         "benchmark:loot:ocr": "vite-node --script scripts/benchmark-loot-ocr.mjs",
         "benchmark:loot:roi": "vite-node --script scripts/benchmark-loot-roi.mjs",
+        "benchmark:loot:identity": "vite-node --script scripts/benchmark-loot-identity.mjs",
         "benchmark:loot:e2e": "vite-node --script scripts/benchmark-loot-e2e.mjs",
         "benchmark:marni": "node scripts/benchmark-marni.mjs",
         "bundle:windows": "tauri build --bundles nsis",

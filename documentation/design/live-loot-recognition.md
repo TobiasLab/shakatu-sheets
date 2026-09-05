@@ -1,5 +1,10 @@
 # Live Loot Recognition Plan
 
+The current OCR policy and measured 80%/100% corpus results are documented in
+[OCR accuracy improvements](live-loot-digit-tracking.md). Normal recognition uses three initial frames and up to two
+supplementary frames only for unresolved results. Debug collection logs recognized events as well as failures, with exact
+row bounds and per-pass metadata in version 2 `ocr-issues.jsonl` records.
+
 ## Status
 
 Linux capture feasibility is established. The first native-resolution offline pipeline tracks events, selects OCR frames,
@@ -92,12 +97,13 @@ rather than delaying capture or recognition. The backend enforces the 30-minute 
 capture ends, the source or selection changes, or the user stops collection early. Each run includes source, UI-scale,
 crop, timing, count, byte-size, and completion metadata in `manifest.json`; it never includes a full-screen frame.
 
-While the collector is running, normal and rare recognition also record withheld results (insufficient observations,
-unrecognized items/quantities, or conflicting readings), OCR errors, frame-analysis/startup errors, and dropped-result
-summaries in the run's `ocr-issues.jsonl`. Successful results and ordinary frames without a loot candidate are not logged.
-Each JSON line has schema `version: 1`, a logging timestamp, source, recognition generation/event ID, status/reason,
-first and selected frames, raw OCR readings where available, and an error message for failed OCR calls. Dropped summaries
-include a count and last frame; they describe a range, not an individual record for every dropped event.
+While the collector is running, normal and rare recognition record recognized and withheld results, OCR errors,
+frame-analysis/startup errors, and dropped-result summaries in the run's `ocr-issues.jsonl`. Ordinary frames without a
+loot candidate are not logged. Version 2 records contain a logging timestamp, source, recognition generation/event ID,
+status/reason, final item/quantity, first and selected frames, row centers, crop bounds, text color, and individual raw
+OCR passes with their threshold, enlargement, and region. Final readings remain separate from raw passes. Partial OCR
+failures keep completed-pass metadata. Dropped summaries include a count and last frame rather than an entry for each
+dropped event. Older payloads without the new optional metadata remain accepted.
 
 `batchId` identifies the native capture batch used in `normal|rare/minute-XX/frame-NNNNNNNNNN.png`; `frame` is the
 zero-based index within that source's recognition generation, not the PNG number. Startup failures have no recognition
@@ -226,11 +232,13 @@ This rejects grass and combat textures without raising the threshold for short o
 use the central glyph band and exclude scenery after a trailing whitespace gap. The gap itself remains part of the
 comparison so an appended quantity digit still changes identity. Fingerprints are computed only for detected rows, and
 quantity projections reuse the full projection. Normal OCR uses the earliest trailing whitespace boundary across its
-three selected projections, including the full gap, and can extend to the detector's full text envelope for long names.
+three original projections, including the full gap, and can extend to the detector's full text envelope for long names.
 Explicit rare OCR bounds remain separate. Normal text is enlarged 2× for Tesseract, while gold rare text retains 4×
 enlargement. The native source crops and the three luminance thresholds (130, 150, 170) are unchanged. A normal frame
 without two matching parsed quantities retries those thresholds once at 4×; a retry with no parsed quantity preserves
-the original readings. Gold frames do not retry. Both live OCR and the ROI replay use `readLootOcrFrame` for this policy.
+the original readings. A localized digits-only pass can corroborate an unresolved quantity already present in the full-line
+readings; it cannot invent a quantity or replace a conflicting parsed number. Gold frames do not retry. Both live OCR and
+the ROI replay use `readLootOcrFrame` for this policy.
 The smaller normal images reduce the observed ×10/×110 and ×6/×8 conflicts in the
 [paired scale corpus](live-loot-scales-2026-09-05.md), while the bounded retry preserves less readable glyphs.
 
@@ -240,14 +248,17 @@ Discriminative, confirmed stack shifts also survive that loss. A stationary stac
 confirmed birth does not create another event; count growth and distinct consecutive replacements remain countable.
 Baseline suppression and distinct event IDs for repeated identical drops remain in place.
 
-OCR now requires three consecutive observations whose neighboring fingerprints are visually consistent, after the
-entrance delay. Failed stability checks wait within the existing bounded frame window; they do not create a new event.
-Acceptance still requires a unique leading item/quantity pair from at least two distinct frames. A majority of threshold
-passes within any selected frame that reads a different pair vetoes acceptance, even if the other two frames agree.
-Unreadable passes do not count as conflicting pairs. This guards against similar-looking rows changing identity inside
-one track; it does not repair the underlying track alignment. Trailing OCR punctuation is
-allowed, including terminal dash artifacts, while decimals, separators inside quantities, and trailing words remain
-rejected. No two-frame fallback or single-frame acceptance was introduced.
+OCR starts with three consecutive observations whose neighboring fingerprints are visually consistent after the entrance
+delay. Normal tracking retains a bounded six-observation window and may select two clearer supplementary frames. It reads
+the original three first and uses supplementary frames only for unresolved results, preserving all original readings and
+requiring a strict majority across the combined frame set. A confident conflicting item/quantity pair in any frame vetoes
+acceptance. A later different run cannot replace the first usable three observations. Short tracks are flushed before
+retained evidence expires, at track expiry, or at finish.
+
+Digit shapes refine ambiguous row assignments and the existing recovery check after one empty frame. Near-identical
+whole-row matches retain priority, and the projection-based birth rules remain unchanged. Unreadable passes are not conflicting pairs. Trailing OCR punctuation remains allowed, including terminal
+dash artifacts, while decimals, separators inside quantities, and trailing words remain rejected. There is no standalone
+two-frame or single-frame acceptance. See the [measured policy](live-loot-digit-tracking.md) for limits and remaining failures.
 
 ## Event Tracking
 
