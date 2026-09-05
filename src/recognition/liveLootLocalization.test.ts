@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { normalizedRegionToPixels } from "./displayCapture";
 import { LiveLootCoordinator, type LiveLootRecognitionResult } from "./liveLoot";
-import { NormalLootLocalizer, type NormalLootSearchFrame } from "./liveLootLocalization";
+import { type LootSearchFrame, NormalLootLocalizer } from "./liveLootLocalization";
 
 const SEARCH_WIDTH = 800;
 const SEARCH_HEIGHT = 600;
@@ -13,7 +13,7 @@ function searchFrame(
     sourceCropY = 500,
     rowCount = 2,
     marker = 0,
-): NormalLootSearchFrame {
+): LootSearchFrame {
     const pixels = new Uint8ClampedArray(SEARCH_WIDTH * SEARCH_HEIGHT * 4);
     if (regionX !== null) {
         for (const center of [48, 87, 126, 165, 204].slice(5 - rowCount)) {
@@ -41,7 +41,7 @@ function searchFrame(
     };
 }
 
-function locate(frames: NormalLootSearchFrame[]) {
+function locate(frames: LootSearchFrame[]) {
     const localizer = new NormalLootLocalizer();
     let result = null;
     for (const frame of frames) result = localizer.pushFrame(frame) ?? result;

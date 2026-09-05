@@ -219,15 +219,18 @@ it("keeps search areas inside both new source resolutions", () => {
                 height: 600,
             });
         }
-        const exact = normalizedRegionToPixels(defaultLootRegion(width, height, 80), width, height);
-        const search = normalizedRegionToPixels(
-            searchRegionAroundLootRegion(defaultLootRegion(width, height, 80), width, height),
-            width,
-            height,
-        );
-        expect(search.x).toBeLessThanOrEqual(exact.x);
-        expect(search.y).toBeLessThanOrEqual(exact.y);
-        expect(search.x + 800).toBeGreaterThanOrEqual(exact.x + exact.width);
-        expect(search.y + 600).toBeGreaterThanOrEqual(exact.y + exact.height);
+        for (const kind of ["normal", "rare"] as const) {
+            const region = defaultLootRegion(width, height, 80, kind);
+            const exact = normalizedRegionToPixels(region, width, height);
+            const search = normalizedRegionToPixels(
+                searchRegionAroundLootRegion(region, width, height, kind),
+                width,
+                height,
+            );
+            expect(search.x).toBeLessThanOrEqual(exact.x);
+            expect(search.y).toBeLessThanOrEqual(exact.y);
+            expect(search.x + 800).toBeGreaterThanOrEqual(exact.x + exact.width);
+            expect(search.y + 600).toBeGreaterThanOrEqual(exact.y + exact.height);
+        }
     }
 });

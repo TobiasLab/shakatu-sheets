@@ -230,10 +230,7 @@ export function LiveLootCapture(props: LiveLootCaptureProps) {
                                 onPointerDown={(event) => {
                                     if (!previewsEnabledRef.current || savingRegion) return;
                                     draggingRegion.current = true;
-                                    if (
-                                        placementModeRef.current !== "localizing" ||
-                                        activeRegionKindRef.current === "rare"
-                                    ) {
+                                    if (placementModeRef.current !== "localizing") {
                                         updateCaptureRegion(activeRegionKindRef.current, null);
                                     }
                                     event.currentTarget.setPointerCapture(event.pointerId);
@@ -248,7 +245,7 @@ export function LiveLootCapture(props: LiveLootCaptureProps) {
                                     const kind = activeRegionKindRef.current;
                                     updateCaptureRegion(
                                         kind,
-                                        placementModeRef.current === "localizing" && kind === "normal"
+                                        placementModeRef.current === "localizing"
                                             ? null
                                             : kind === "normal"
                                               ? normalRegionRef.current
@@ -264,7 +261,7 @@ export function LiveLootCapture(props: LiveLootCaptureProps) {
                                     const kind = activeRegionKindRef.current;
                                     updateCaptureRegion(
                                         kind,
-                                        placementModeRef.current === "localizing" && kind === "normal"
+                                        placementModeRef.current === "localizing"
                                             ? null
                                             : kind === "normal"
                                               ? normalRegionRef.current
@@ -275,9 +272,7 @@ export function LiveLootCapture(props: LiveLootCaptureProps) {
                                 <canvas ref={canvas} aria-label="Sampled capture preview" />
                                 {sourceSupported && placementMode === "localizing" && searchRegion && (
                                     <div
-                                        className={`${styles.RegionOverlay} ${styles.SearchRegionOverlay} ${
-                                            activeRegionKind === "normal" ? styles.ActiveRegionOverlay : ""
-                                        }`}
+                                        className={`${styles.RegionOverlay} ${styles.SearchRegionOverlay} ${styles.ActiveRegionOverlay}`}
                                         style={{
                                             left: `${searchRegion.x * 100}%`,
                                             top: `${searchRegion.y * 100}%`,
@@ -288,40 +283,47 @@ export function LiveLootCapture(props: LiveLootCaptureProps) {
                                         <span className={styles.OverlayLabel}>Auto-search area</span>
                                     </div>
                                 )}
-                                {sourceSupported && placementMode !== "localizing" && normalRegion && (
-                                    <div
-                                        className={`${styles.RegionOverlay} ${styles.NormalRegionOverlay} ${
-                                            activeRegionKind === "normal" ? styles.ActiveRegionOverlay : ""
-                                        }`}
-                                        style={{
-                                            left: `${normalRegion.x * 100}%`,
-                                            top: `${normalRegion.y * 100}%`,
-                                            width: `${normalRegion.width * 100}%`,
-                                            height: `${normalRegion.height * 100}%`,
-                                        }}
-                                    >
-                                        <span className={styles.OverlayLabel}>Capture envelope</span>
-                                        <AlignmentGuide frameSize={normalGuideFrameSize} guide={normalAlignmentGuide} />
-                                    </div>
-                                )}
-                                {sourceSupported && rareRegion && (
-                                    <div
-                                        className={`${styles.RegionOverlay} ${styles.RareRegionOverlay} ${
-                                            activeRegionKind === "rare" ? styles.ActiveRegionOverlay : ""
-                                        }`}
-                                        style={{
-                                            left: `${rareRegion.x * 100}%`,
-                                            top: `${rareRegion.y * 100}%`,
-                                            width: `${rareRegion.width * 100}%`,
-                                            height: `${rareRegion.height * 100}%`,
-                                        }}
-                                    >
-                                        <span className={styles.OverlayLabel}>
-                                            {rareRecognitionReady ? "Rare recognition area" : "Rare alignment area"}
-                                        </span>
-                                        <AlignmentGuide frameSize={rareGuideFrameSize} guide={rareAlignmentGuide} />
-                                    </div>
-                                )}
+                                {sourceSupported &&
+                                    (placementMode !== "localizing" || activeRegionKind !== "normal") &&
+                                    normalRegion && (
+                                        <div
+                                            className={`${styles.RegionOverlay} ${styles.NormalRegionOverlay} ${
+                                                activeRegionKind === "normal" ? styles.ActiveRegionOverlay : ""
+                                            }`}
+                                            style={{
+                                                left: `${normalRegion.x * 100}%`,
+                                                top: `${normalRegion.y * 100}%`,
+                                                width: `${normalRegion.width * 100}%`,
+                                                height: `${normalRegion.height * 100}%`,
+                                            }}
+                                        >
+                                            <span className={styles.OverlayLabel}>Capture envelope</span>
+                                            <AlignmentGuide
+                                                frameSize={normalGuideFrameSize}
+                                                guide={normalAlignmentGuide}
+                                            />
+                                        </div>
+                                    )}
+                                {sourceSupported &&
+                                    (placementMode !== "localizing" || activeRegionKind !== "rare") &&
+                                    rareRegion && (
+                                        <div
+                                            className={`${styles.RegionOverlay} ${styles.RareRegionOverlay} ${
+                                                activeRegionKind === "rare" ? styles.ActiveRegionOverlay : ""
+                                            }`}
+                                            style={{
+                                                left: `${rareRegion.x * 100}%`,
+                                                top: `${rareRegion.y * 100}%`,
+                                                width: `${rareRegion.width * 100}%`,
+                                                height: `${rareRegion.height * 100}%`,
+                                            }}
+                                        >
+                                            <span className={styles.OverlayLabel}>
+                                                {rareRecognitionReady ? "Rare recognition area" : "Rare alignment area"}
+                                            </span>
+                                            <AlignmentGuide frameSize={rareGuideFrameSize} guide={rareAlignmentGuide} />
+                                        </div>
+                                    )}
                                 {!previewsEnabled && (
                                     <div className={styles.PreviewPaused} role="status">
                                         <strong>Live previews paused</strong>
@@ -342,7 +344,7 @@ export function LiveLootCapture(props: LiveLootCaptureProps) {
                                         <button
                                             className="button"
                                             type="button"
-                                            disabled={savingRegion}
+                                            disabled={savingRegion || placementMode === "localizing"}
                                             aria-pressed={activeRegionKind === "normal"}
                                             onClick={() => selectRegionKind("normal")}
                                         >
@@ -433,9 +435,9 @@ export function LiveLootCapture(props: LiveLootCaptureProps) {
                                                 className="button"
                                                 type="button"
                                                 disabled={savingRegion}
-                                                onClick={() => beginAutomaticLocalization(normalRegion)}
+                                                onClick={beginAutomaticLocalization}
                                             >
-                                                Relocate automatically
+                                                Adjust automatically
                                             </button>
                                         )}
                                     {placementMode !== "localizing" && (

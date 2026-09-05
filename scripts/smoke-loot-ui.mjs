@@ -89,11 +89,15 @@ await send("Page.addScriptToEvaluateOnNewDocument", {
                 [3,1,1,1,640,${previewHeight},${sourceWidth},${sourceHeight},0,0].forEach((v,i)=>new DataView(frame).setUint32(i*4,v,true));
                 let batch = 1;
                 window.__emitFrame = () => { new DataView(frame).setUint32(12,batch++,true); args.frames.onmessage(frame.slice(0)); };
-                window.__emitSearch = (selection) => {
+                window.__emitSearch = (selection, rare = false) => {
                     const data = new ArrayBuffer(40 + 800 * 600 * 4);
                     [3,4,1,batch++,800,600,${sourceWidth},${sourceHeight},Math.round(selection.region.x * ${sourceWidth}),Math.round(selection.region.y * ${sourceHeight})].forEach((v,i)=>new DataView(data).setUint32(i*4,v,true));
                     const pixels = new Uint8ClampedArray(data,40);
-                    for (const center of [165,204]) for (let y=100+center-6;y<100+center+7;y++) for(let x=200;x<468;x++) pixels.set([220,220,220,255],(y*800+x)*4);
+                    if (rare) {
+                        const paint = (left,top,right,bottom) => { for(let y=top;y<bottom;y++) for(let x=left;x<right;x++) pixels.set([180,125,35,255],(y*800+x)*4); };
+                        paint(265,235,570,280);
+                        paint(320,234,520,238);
+                    } else for (const center of [165,204]) for (let y=100+center-6;y<100+center+7;y++) for(let x=200;x<468;x++) pixels.set([220,220,220,255],(y*800+x)*4);
                     args.frames.onmessage(data);
                 };
                 setTimeout(window.__emitFrame,50);
@@ -140,6 +144,34 @@ try {
         );
         if (process.env.UI_SMOKE_SOURCE) {
             await until(
+                "window.__calls.filter(c => c.command === 'set_native_display_capture_region').at(-1)?.args.selection?.mode === 'regions'",
+            );
+            assert.equal(
+                await evaluate(
+                    "window.__calls.some(c => c.command === 'set_native_display_capture_region' && c.args.selection?.mode === 'search')",
+                ),
+                false,
+                "Capture must start in manual mode",
+            );
+            for (const scale of [100, 80]) {
+                await evaluate(`(() => {
+                    const select = [...document.querySelectorAll('select')].find(s => [...s.options].some(o => o.value === '80'));
+                    select.value = '${scale}';
+                    select.dispatchEvent(new Event('change', { bubbles: true }));
+                })()`);
+                await until(
+                    `[...document.querySelectorAll('button')].some(b => b.textContent === 'Adjust automatically') === ${scale === 80}`,
+                );
+            }
+            assert.equal(
+                await evaluate(
+                    "window.__calls.some(c => c.command === 'set_native_display_capture_region' && c.args.selection?.mode === 'search')",
+                ),
+                false,
+                "Changing UI scale must not start search",
+            );
+            await click("Adjust automatically");
+            await until(
                 "window.__calls.some(c => c.command === 'set_native_display_capture_region' && c.args.selection?.mode === 'search')",
             );
             const selection = await evaluate(
@@ -157,7 +189,8 @@ try {
             );
             assert.equal(Math.round(region.x * sourceWidth), Math.round(selection.region.x * sourceWidth) + 219);
             assert.equal(Math.round(region.y * sourceHeight), Math.round(selection.region.y * sourceHeight) + 100);
-            await click("Relocate automatically");
+            await click("Loot stack");
+            await click("Adjust automatically");
             await until(
                 "window.__calls.filter(c => c.command === 'set_native_display_capture_region').at(-1)?.args.selection?.mode === 'search'",
             );
@@ -169,7 +202,46 @@ try {
             await until(
                 "window.__calls.filter(c => c.command === 'set_native_display_capture_region').at(-1)?.args.selection?.mode === 'regions'",
             );
-            console.info(`Auto-search aligned and relocated at ${source} on the ${backend} capability path`);
+            await click("Rare loot");
+            await click("Adjust automatically");
+            await until(
+                "window.__calls.filter(c => c.command === 'set_native_display_capture_region').at(-1)?.args.selection?.mode === 'search'",
+            );
+            await click("Adjust manually");
+            await until(
+                "window.__calls.filter(c => c.command === 'set_native_display_capture_region').at(-1)?.args.selection?.mode === 'regions'",
+            );
+            await click("Adjust automatically");
+            await until(
+                "window.__calls.filter(c => c.command === 'set_native_display_capture_region').at(-1)?.args.selection?.mode === 'search'",
+            );
+            const rareSelection = await evaluate(
+                "window.__calls.filter(c => c.command === 'set_native_display_capture_region').at(-1).args.selection",
+            );
+            await evaluate(`for (let i=0;i<3;i++) window.__emitSearch(${JSON.stringify(rareSelection)},true)`);
+            await until(
+                "window.__calls.filter(c => c.command === 'set_native_display_capture_region').at(-1)?.args.selection?.mode === 'regions'",
+            );
+            await click("Confirm both areas");
+            await until(
+                "window.__calls.filter(c => c.command === 'save_loot_capture_settings').at(-1)?.args.settings.rareRegionConfirmed === true",
+            );
+            const rareRegion = await evaluate(
+                "window.__calls.filter(c => c.command === 'save_loot_capture_settings').at(-1).args.settings.rareRegion",
+            );
+            assert.equal(
+                Math.round(rareRegion.x * sourceWidth),
+                Math.round(rareSelection.region.x * sourceWidth) + 200,
+            );
+            assert.equal(
+                Math.round(rareRegion.y * sourceHeight),
+                Math.round(rareSelection.region.y * sourceHeight) + 200,
+            );
+            await until("[...document.querySelectorAll('button')].some(b => b.textContent === 'Set up capture')");
+            await click("Set up capture");
+            console.info(
+                `Manual default, normal relocation, and rare search/cancel/confirm passed at ${source} on ${backend}`,
+            );
         }
         await click("Advanced diagnostics");
         const sampledRate =

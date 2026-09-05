@@ -16,7 +16,7 @@ const MIN_LOCAL_CROP_X = 99;
 const SIGNAL_LEFT_FROM_CROP = -19;
 const SIGNAL_RIGHT_FROM_CROP = 249;
 
-export type NormalLootSearchFrame = LootRoiFrame & {
+export type LootSearchFrame = LootRoiFrame & {
     sourceWidth: number;
     sourceHeight: number;
     cropX: number;
@@ -39,7 +39,7 @@ function luminance(pixels: Uint8ClampedArray, offset: number) {
     return (pixels[offset] * 77 + pixels[offset + 1] * 150 + pixels[offset + 2] * 29) >> 8;
 }
 
-function buildGlyphIntegral(frame: NormalLootSearchFrame) {
+function buildGlyphIntegral(frame: LootSearchFrame) {
     const { pixels, width, height } = frame;
     const stride = width + 1;
     const integral = new Uint32Array(stride * (height + 1));
@@ -71,7 +71,7 @@ function rectangleSum(integral: Uint32Array, stride: number, left: number, top: 
     );
 }
 
-function locateCandidate(frame: NormalLootSearchFrame): Candidate | null {
+function locateCandidate(frame: LootSearchFrame): Candidate | null {
     const integral = buildGlyphIntegral(frame);
     const stride = frame.width + 1;
     let best: Candidate | null = null;
@@ -136,7 +136,7 @@ function upperMedian(values: number[]) {
     return values[Math.floor(values.length / 2)];
 }
 
-function cropFrame(frame: NormalLootSearchFrame, x: number, y: number): LootRoiFrame | null {
+function cropFrame(frame: LootSearchFrame, x: number, y: number): LootRoiFrame | null {
     const localX = x - frame.cropX;
     const localY = y - frame.cropY;
     if (localX < 0 || localY < 0 || localX + CROP_WIDTH > frame.width || localY + CROP_HEIGHT > frame.height) {
@@ -151,7 +151,7 @@ function cropFrame(frame: NormalLootSearchFrame, x: number, y: number): LootRoiF
     return { width: CROP_WIDTH, height: CROP_HEIGHT, pixels };
 }
 
-function validateSearchFrame(frame: NormalLootSearchFrame) {
+export function validateSearchFrame(frame: LootSearchFrame) {
     const metadata = [frame.width, frame.height, frame.sourceWidth, frame.sourceHeight, frame.cropX, frame.cropY];
     if (
         !(frame.pixels instanceof Uint8ClampedArray) ||
@@ -166,13 +166,13 @@ function validateSearchFrame(frame: NormalLootSearchFrame) {
         frame.pixels.length !== frame.width * frame.height * 4
     ) {
         throw new Error(
-            "Normal loot localization requires a valid 800x600 RGBA search frame from a supported source (3440x1440, 2560x1440, or 1920x1080).",
+            "Loot localization requires a valid 800x600 RGBA search frame from a supported source (3440x1440, 2560x1440, or 1920x1080).",
         );
     }
 }
 
 export class NormalLootLocalizer {
-    private readonly history: NormalLootSearchFrame[] = [];
+    private readonly history: LootSearchFrame[] = [];
     private readonly candidates: Array<Candidate | null> = [];
     private incomingFrameCount = 0;
 
@@ -184,7 +184,7 @@ export class NormalLootLocalizer {
         return this.candidates.length;
     }
 
-    pushFrame(frame: NormalLootSearchFrame): NormalLootLocalization | null {
+    pushFrame(frame: LootSearchFrame): NormalLootLocalization | null {
         validateSearchFrame(frame);
         const previous = this.history[0];
         if (previous && (previous.sourceWidth !== frame.sourceWidth || previous.sourceHeight !== frame.sourceHeight)) {

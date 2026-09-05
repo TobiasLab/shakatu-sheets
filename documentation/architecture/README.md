@@ -72,8 +72,8 @@ PipeWire is requested at a maximum of 8 FPS, at native source dimensions. Known 
 without a usable rate limit, a deadline-based consumer gate tolerates 3 ms of jitter and limits processing to 8 FPS. Crops validate contiguous rows before
 conversion, retain source stride handling and exact channel/alpha conversion, and preserve the version 3 binary header.
 Normal/rare geometry is selected together by explicit resolution/UI-scale registry entries. The 3440×1440 and
-2560×1440 entries share the same native ROI geometry at 80% UI scale. Automatic localization is separately enabled
-at 80% UI scale for all three supported source resolutions, using actual
+2560×1440 entries share the same native ROI geometry at 80% UI scale. Manual placement is the default. The selected normal or rare
+area can be adjusted automatically at 80% UI scale for all three supported source resolutions, using actual
 source dimensions for normalization. 1920×1080 OCR remains unavailable pending calibration. Event tracking,
 OCR consensus, and bounded queues are unchanged. OCR canvases
 are resized only when dimensions change and still cleared and released after each job. There are no schema migrations.
