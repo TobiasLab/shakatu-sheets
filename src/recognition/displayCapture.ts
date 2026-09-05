@@ -118,8 +118,8 @@ export function positionLootSearchRegion(
     sourceWidth: number,
     sourceHeight: number,
 ): NormalizedRegion {
-    if (sourceWidth !== 3440 || sourceHeight !== 1440) {
-        throw new Error("Automatic loot localization is calibrated for a 3440x1440 source.");
+    if (!isSupportedLootSource(sourceWidth, sourceHeight)) {
+        throw new Error("Automatic loot localization requires a supported source: 3440x1440, 2560x1440, or 1920x1080.");
     }
     if (![normalizedCenterX, normalizedCenterY].every(Number.isFinite)) {
         throw new Error("The search-region center is invalid.");

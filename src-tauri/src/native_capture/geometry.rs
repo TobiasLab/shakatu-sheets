@@ -2,7 +2,6 @@ use serde::{Deserialize, Serialize};
 
 const DEFAULT_UI_SCALE_PERCENT: u32 = 80;
 const SUPPORTED_SOURCE_DIMENSIONS: [(u32, u32); 3] = [(3440, 1440), (2560, 1440), (1920, 1080)];
-const SEARCH_SOURCE_DIMENSIONS: (u32, u32) = (3440, 1440);
 const SEARCH_UI_SCALE_PERCENT: u32 = 80;
 const SEARCH_REGION_DIMENSIONS: (u32, u32) = (800, 600);
 
@@ -207,9 +206,9 @@ impl NativeCaptureSelection {
         else {
             return Err("capture selection is not in search mode".into());
         };
-        if (source_width, source_height) != SEARCH_SOURCE_DIMENSIONS {
+        if !SUPPORTED_SOURCE_DIMENSIONS.contains(&(source_width, source_height)) {
             return Err(format!(
-                "unsupported search capture source {source_width}x{source_height}; supported source is 3440x1440"
+                "unsupported search capture source {source_width}x{source_height}; supported sources are 3440x1440, 2560x1440, and 1920x1080"
             ));
         }
         if ui_scale_percent != SEARCH_UI_SCALE_PERCENT {
@@ -416,11 +415,40 @@ mod tests {
     }
 
     #[test]
+    fn validates_search_crops_at_all_supported_source_edges() {
+        for (source_width, source_height) in SUPPORTED_SOURCE_DIMENSIONS {
+            for (x, y) in [(0, 0), (source_width - 800, source_height - 600)] {
+                let selection = NativeCaptureSelection::Search {
+                    region: NormalizedRegion {
+                        x: x as f64 / source_width as f64,
+                        y: y as f64 / source_height as f64,
+                        width: 800.0 / source_width as f64,
+                        height: 600.0 / source_height as f64,
+                    },
+                    source_width,
+                    source_height,
+                    ui_scale_percent: 80,
+                };
+                assert_eq!(
+                    selection.search_pixel_region().unwrap(),
+                    PixelRegion {
+                        x,
+                        y,
+                        width: 800,
+                        height: 600
+                    }
+                );
+                selection.validate().unwrap();
+            }
+        }
+    }
+
+    #[test]
     fn rejects_unsupported_search_sources_scales_and_crop_sizes() {
-        assert!(search_selection(2560, 1440, 80, 800, 600)
+        assert!(search_selection(2561, 1440, 80, 800, 600)
             .validate()
             .unwrap_err()
-            .contains("supported source is 3440x1440"));
+            .contains("supported sources are 3440x1440, 2560x1440, and 1920x1080"));
         assert!(search_selection(3440, 1440, 100, 800, 600)
             .validate()
             .unwrap_err()

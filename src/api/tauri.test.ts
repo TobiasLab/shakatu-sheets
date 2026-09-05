@@ -109,6 +109,27 @@ describe("native capture frame protocol", () => {
         });
     });
 
+    it("accepts bounded search frames at each supported source resolution", () => {
+        for (const [width, height] of [
+            [3440, 1440],
+            [2560, 1440],
+            [1920, 1080],
+        ]) {
+            const frame = message(4, 800, 600, width, height);
+            new DataView(frame).setUint32(32, width - 800, true);
+            new DataView(frame).setUint32(36, height - 600, true);
+            expect(parseNativeCaptureMessage(frame)).toMatchObject({
+                kind: "search-region",
+                sourceWidth: width,
+                sourceHeight: height,
+                cropX: width - 800,
+                cropY: height - 600,
+            });
+            new DataView(frame).setUint32(32, width - 799, true);
+            expect(() => parseNativeCaptureMessage(frame)).toThrow(/invalid/);
+        }
+    });
+
     it("rejects malformed and unsupported frames", () => {
         expect(() => parseNativeCaptureMessage(new ArrayBuffer(39))).toThrow(/invalid/);
         expect(() => parseNativeCaptureMessage(message(1, 641, 1, 3440, 1440))).toThrow(/invalid/);
@@ -124,7 +145,7 @@ describe("native capture frame protocol", () => {
         expect(() => parseNativeCaptureMessage(outOfBounds)).toThrow(/invalid/);
         expect(() => parseNativeCaptureMessage(message(4, 799, 600, 3440, 1440))).toThrow(/invalid/);
         expect(() => parseNativeCaptureMessage(message(4, 800, 599, 3440, 1440))).toThrow(/invalid/);
-        expect(() => parseNativeCaptureMessage(message(4, 800, 600, 2560, 1440))).toThrow(/invalid/);
+        expect(() => parseNativeCaptureMessage(message(4, 800, 600, 2561, 1440))).toThrow(/invalid/);
         const searchOutOfBounds = message(4, 800, 600, 3440, 1440);
         new DataView(searchOutOfBounds).setUint32(32, 2641, true);
         expect(() => parseNativeCaptureMessage(searchOutOfBounds)).toThrow(/invalid/);

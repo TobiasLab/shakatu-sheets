@@ -80,6 +80,7 @@ export function LiveLootCapture(props: LiveLootCaptureProps) {
         uiScalePercent,
         changeUiScale,
         calibratedProfile,
+        automaticLocalizationAvailable,
         beginAutomaticLocalization,
         regionConfirmed,
         confirmRegion,
@@ -425,16 +426,18 @@ export function LiveLootCapture(props: LiveLootCaptureProps) {
                                             <option value={100}>100%</option>
                                         </select>
                                     </label>
-                                    {placementMode !== "localizing" && calibratedProfile && normalRegion && (
-                                        <button
-                                            className="button"
-                                            type="button"
-                                            disabled={savingRegion}
-                                            onClick={() => beginAutomaticLocalization(normalRegion)}
-                                        >
-                                            Relocate automatically
-                                        </button>
-                                    )}
+                                    {placementMode !== "localizing" &&
+                                        automaticLocalizationAvailable &&
+                                        normalRegion && (
+                                            <button
+                                                className="button"
+                                                type="button"
+                                                disabled={savingRegion}
+                                                onClick={() => beginAutomaticLocalization(normalRegion)}
+                                            >
+                                                Relocate automatically
+                                            </button>
+                                        )}
                                     {placementMode !== "localizing" && (
                                         <button
                                             className="button"

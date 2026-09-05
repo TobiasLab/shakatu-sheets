@@ -3,8 +3,7 @@
 ## Status
 
 Linux capture feasibility is established. The first native-resolution offline pipeline tracks events, selects OCR frames,
-and recognizes items and quantities exactly on its held-out sequence without label-selected crops. For the validated
-3440x1440 80% profile, live capture now searches an `800x600` native-resolution area and automatically locks the exact
+and recognizes items and quantities exactly on its held-out sequence without label-selected crops. At 80% UI scale on 3440x1440, 2560x1440, and 1920x1080 sources, live capture searches an `800x600` native-resolution area and automatically locks the exact
 `362x311` normal-stack crop after three stable observations. Manual placement remains available. A provisional detector
 also recognizes appearances of the fixed gold rare-banner shell and its horizontal border in the separately positioned `400x100` crop, delays OCR
 until its text is readable, and presents dictionary-constrained results in the review feed. Recognized rare results are
@@ -14,7 +13,7 @@ and resolves dictionary-constrained replay readings. Its incremental coordinator
 confirms births with one-frame lookahead, reports backpressure explicitly, and suppresses stale results after cancellation.
 The offline benchmark uses the same production detector, tracker, and parsers. Passing held-out E2E runs can atomically
 export a strict V1 detector profile containing only validated capture dimensions, UI scale, 8 FPS cadence, and OCR-safe
-row geometry. The validated 3440x1440, 80%-UI profile is bundled for live capture. Normal jobs begin after automatic
+row geometry. The validated 3440x1440, 80%-UI profile is bundled for live capture and shared with 2560x1440 at 80%: both use the same native ROI pixel geometry. Normal jobs begin after automatic
 alignment or manual confirmation, while rare jobs require separate rare-area confirmation. A browser-side adapter
 serializes both paths through one local Tesseract worker and sends recognized, withheld, failed, and overflow results to a
 bounded review feed. The normal path retains up to eight outstanding OCR jobs, including the active job, so one five-row
@@ -37,10 +36,9 @@ game process, or inspect BDO network traffic. User-authorized operating-system s
 
 - English BDO client.
 - 80% and 100% UI scale capture profiles; only 80% currently has a labeled recognition benchmark.
-- Capture sources at `3440x1440`, `2560x1440`, and `1920x1080`, with independently calibrated recognition benchmarks
-  required before release.
+- Capture sources at `3440x1440`, `2560x1440`, and `1920x1080`, with real-game recognition validation required before release. The two 1440p aspect ratios share OCR settings at 80%; 1080p remains uncalibrated.
 - Native Linux portal/PipeWire and Windows 11 x64 WGC; Windows hardware acceptance remains pending.
-- Automatically localized normal loot-stack placement for the validated profile, with manual fallback.
+- Automatically localized normal loot-stack placement at 80% UI scale on all three source resolutions, with manual fallback.
 - Independently positioned and confirmed rare-banner placement selected by the user, with provisional recognition at 80%
   UI scale.
 - User-triggered start, stop, and live-preview pause controls with a persistent capture indicator.
@@ -97,7 +95,7 @@ a restore token, but the application must never attempt to bypass capture consen
 The user selects the BDO UI scale and positions two fixed rectangles on the preview. The normal stack uses `362x311` at
 80% and a proportional `453x389` at 100%. The rare banner uses `400x100` at 80% and a provisional proportional `500x125`
 at 100%. Each rectangle can be selected, dragged, reset, and nudged by one source pixel independently. On the validated
-3440x1440 80% profile, an inner guide marks the approximately `x=78..350`, `y=36..216` portion of the normal envelope used
+1440p 80% profile, an inner guide marks the approximately `x=78..350`, `y=36..216` portion of the normal envelope used
 by row detection and OCR. Its green horizontal lines must pass through the center of each visible item name. A second
 inner guide marks the measured rare-banner text extent at approximately `x=52..388`, `y=20..92` within the 80% rare
 envelope, with a green line at `y=57` that must pass through the center of the rare item name. Both guides scale
@@ -118,7 +116,7 @@ from both paths are added automatically and remain visible in the bounded review
 
 ### Automatic Normal-Stack Localization
 
-Automatic placement is enabled only for the bundled `3440x1440`, 80%-UI profile. Capture begins with an `800x600` search
+Automatic placement is enabled at 80% UI scale for `3440x1440`, `2560x1440`, and `1920x1080` on both Linux and Windows. Capture begins with an `800x600` search
 area centered around the saved normal region, or the default region when no saved placement exists. The user can drag this
 larger area to recenter the search without switching to manual pixel placement.
 
@@ -132,8 +130,12 @@ history are replayed. While the single Tesseract worker starts, capture retains 
 crop.
 
 If localization cannot establish confidence, capture remains in search mode rather than guessing. The user can choose
-manual placement at any time. Other resolutions and 100% UI scale continue to use manual placement until separately
-calibrated localization benchmarks exist.
+manual placement at any time. 100% UI scale continues to use manual placement. Search normalization uses actual source
+dimensions and resets retained observations when those dimensions change. The 800x600 search and 362x311 output stay at
+native resolution; the existing 80% glyph geometry and lock thresholds are unchanged. Synthetic tests exercise translated
+signals and source edges at all three resolutions, and browser fixtures verify native search-to-regions selection for
+both backends. Gameplay accuracy at the added resolutions remains unmeasured. Auto-placement is independent of the OCR
+profile registry: 2560x1440 shares the existing 3440x1440 normal and rare settings at 80%, while 1920x1080 still reports no calibrated OCR profile and does not insert recognized loot. Changing only the aspect ratio does not change the crop-local OCR geometry. The original labeled calibration remains from 3440x1440; reuse does not claim a separate measured result at 2560x1440.
 
 ## Recognition Pipeline
 

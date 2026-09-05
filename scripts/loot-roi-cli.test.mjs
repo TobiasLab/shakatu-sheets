@@ -18,7 +18,7 @@ const capture = {
 
 test.each([
     ["version", { version: 2 }],
-    ["resolution", { sourceDimensions: { width: 2560, height: 1440 } }],
+    ["resolution", { sourceDimensions: { width: 1920, height: 1080 } }],
     ["UI scale", { uiScalePercent: 100 }],
     ["sample rate", { targetFps: 30 }],
 ])("ROI replay rejects unsupported %s before decoding", async (_name, change) => {

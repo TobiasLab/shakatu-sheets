@@ -187,9 +187,8 @@ version for every hardware run. Use a release build for performance and a debug 
 | Samples | Record a complete five-minute paired run, explicit early stop, source resize/replacement, unwritable path, and queue-pressure stop. Manifests/PNG batch IDs match, stopping drains admitted pairs, and Windows replay agrees with Linux. No collector API in release. |
 | Data/installer | Clean standard user, Unicode/spaces in profile path, runtime present/absent, offline runtime-present install; upgrade with data, close immediately after ledger edit, forced termination/reopen, SQLite error/retry, and uninstall/reinstall data retention. Check signed public artifacts. |
 
-Uncalibrated profiles remain unavailable until this evidence exists. Add a distinct normal artifact and rare geometry per
-validated combination in `src/recognition/liveLootProfiles.ts`; do not automatically enable the current 3440×1440/80%
-localizer on a newly registered profile. This repository has no available labeled Windows corpus to perform that work.
+Uncalibrated profiles remain unavailable until this evidence exists. Reuse the 1440p/80% normal and rare geometry for both 3440×1440 and 2560×1440; add distinct settings only when pixel geometry changes in `src/recognition/liveLootProfiles.ts`. Auto-search is enabled independently at 80% UI scale on
+all three source resolutions; its availability does not establish OCR calibration or measured localization accuracy. This repository has no available labeled Windows corpus to perform that work.
 
 References: [Tauri prerequisites](https://v2.tauri.app/start/prerequisites/),
 [Windows installers](https://v2.tauri.app/distribute/windows-installer/),
@@ -197,3 +196,7 @@ References: [Tauri prerequisites](https://v2.tauri.app/start/prerequisites/),
 [WebDriver](https://v2.tauri.app/develop/tests/webdriver/),
 [WGC minimum interval](https://learn.microsoft.com/en-us/uwp/api/windows.graphics.capture.graphicscapturesession.minupdateinterval),
 [AWS-LC Windows assembly requirements](https://github.com/aws/aws-lc-rs/blob/main/aws-lc-rs/README.md).
+
+Auto-search uses the same 800×600 native area on Windows and Linux at 3440×1440, 2560×1440, and 1920×1080, with 80% BDO
+UI scale. It returns a 362×311 crop after stable multi-row alignment. No source pixels are rescaled. 2560×1440 at 80% shares the existing 3440×1440 OCR settings on both platforms. OCR at 1920×1080 remains unavailable
+until profile calibration; 100% UI scale uses manual placement.

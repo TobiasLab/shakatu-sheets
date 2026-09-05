@@ -191,8 +191,7 @@ export function parseNativeCaptureMessage(message: ArrayBuffer): NativeCaptureFr
         kind !== 4 ||
         (width === LOOT_SEARCH_REGION_SIZE.width &&
             height === LOOT_SEARCH_REGION_SIZE.height &&
-            sourceWidth === 3440 &&
-            sourceHeight === 1440 &&
+            isSupportedLootSource(sourceWidth, sourceHeight) &&
             cropX + width <= sourceWidth &&
             cropY + height <= sourceHeight);
     if (
