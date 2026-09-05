@@ -12,11 +12,13 @@ export type LootDetectionProfile = {
     bottomCenter: number;
     spacing: number;
     rowThreshold: number;
+    pixelScale?: 1 | 1.25;
 };
 
 export type LootFingerprint = {
     full: Uint8Array;
     quantity: Uint8Array;
+    textGap?: number;
 };
 
 export type LootRowObservation<TFingerprint = LootFingerprint> = {
@@ -152,12 +154,14 @@ function validateProfile(profile: LootDetectionProfile) {
             (value) => Number.isInteger(value) && value > 0,
         ) ||
         !Number.isFinite(profile.rowThreshold) ||
-        profile.rowThreshold < 0
+        profile.rowThreshold < 0 ||
+        (profile.pixelScale !== undefined && profile.pixelScale !== 1 && profile.pixelScale !== 1.25)
     ) {
         throw new Error("Loot detection profile values are invalid.");
     }
     const topCenter = profile.bottomCenter - (profile.maxRows - 1) * profile.spacing;
-    if (topCenter < 9 || profile.bottomCenter > profile.height - 10) {
+    const margin = Math.round(9 * (profile.pixelScale ?? 1));
+    if (topCenter < margin || profile.bottomCenter > profile.height - margin - 1) {
         throw new Error("Loot detection row geometry exceeds the ROI bounds.");
     }
 }
@@ -166,20 +170,23 @@ function luminance(frame: LootRoiFrame, offset: number) {
     return (frame.pixels[offset] * 77 + frame.pixels[offset + 1] * 150 + frame.pixels[offset + 2] * 29) >> 8;
 }
 
-function isGlyphPixel(frame: LootRoiFrame, offset: number, strict = false) {
+function isGlyphPixel(frame: LootRoiFrame, offset: number, strict = false, scale = 1) {
     const { pixels, width } = frame;
     const light = luminance(frame, offset);
     const chroma =
         Math.max(pixels[offset], pixels[offset + 1], pixels[offset + 2]) -
         Math.min(pixels[offset], pixels[offset + 1], pixels[offset + 2]);
-    const horizontal = Math.min(luminance(frame, offset - 8), luminance(frame, offset + 8));
-    const vertical = Math.min(luminance(frame, offset - width * 8), luminance(frame, offset + width * 8));
+    const step = Math.round(2 * scale) * 4;
+    const horizontal = Math.min(luminance(frame, offset - step), luminance(frame, offset + step));
+    const vertical = Math.min(luminance(frame, offset - width * step), luminance(frame, offset + width * step));
     return (
         light >= (strict ? 140 : 115) && chroma <= (strict ? 25 : 55) && light - Math.min(horizontal, vertical) >= 18
     );
 }
 
-function rowScore(frame: LootRoiFrame, centerY: number, rowThreshold: number) {
+function rowScore(frame: LootRoiFrame, centerY: number, rowThreshold: number, scale: number) {
+    const halfBand = Math.round(6 * scale);
+    const edge = Math.round(2 * scale);
     let score = 0;
     let textScore = 0;
     let surrounding = 0;
@@ -188,29 +195,32 @@ function rowScore(frame: LootRoiFrame, centerY: number, rowThreshold: number) {
     const right = Math.round(frame.width * 0.96);
     const textLeft = Math.round(frame.width * 0.27);
     const textRight = Math.round(frame.width * 0.58);
-    for (let y = centerY - 6; y <= centerY + 6; y += 1) {
+    for (let y = centerY - halfBand; y <= centerY + halfBand; y += 1) {
         for (let x = left; x < right; x += 1) {
-            if (!isGlyphPixel(frame, (y * frame.width + x) * 4)) continue;
+            if (!isGlyphPixel(frame, (y * frame.width + x) * 4, false, scale)) continue;
             score += 1;
             if (x >= textLeft && x < textRight) {
-                if (isGlyphPixel(frame, (y * frame.width + x) * 4, true)) textScore += 1;
+                if (isGlyphPixel(frame, (y * frame.width + x) * 4, true, scale)) textScore += 1;
             }
         }
     }
-    for (const y of [centerY - 9, centerY - 8, centerY + 8, centerY + 9]) {
-        if (y < 2 || y >= frame.height - 2) continue;
+    for (const delta of [-9, -8, 8, 9]) {
+        const y = centerY + Math.round(delta * scale);
+        if (y < edge || y >= frame.height - edge) continue;
         surroundingRows += 1;
         for (let x = textLeft; x < textRight; x += 1) {
-            if (isGlyphPixel(frame, (y * frame.width + x) * 4, true)) surrounding += 1;
+            if (isGlyphPixel(frame, (y * frame.width + x) * 4, true, scale)) surrounding += 1;
         }
     }
     // Compare the start of the text with its margins, away from the icon and exposed scenery.
-    return textScore >= Math.max(1, rowThreshold / 4) && textScore * surroundingRows >= surrounding * 13 * 1.5
+    return textScore >= Math.max(1, rowThreshold / 4) &&
+        textScore * surroundingRows >= surrounding * (2 * halfBand + 1) * 1.5
         ? score
         : 0;
 }
 
-function rowFingerprint(frame: LootRoiFrame, centerY: number): LootFingerprint {
+function rowFingerprint(frame: LootRoiFrame, centerY: number, scale: number): LootFingerprint {
+    const halfBand = Math.round(6 * scale);
     const left = Math.round(frame.width * 0.27);
     const right = Math.round(frame.width * 0.96);
     const quantityLeft = Math.round(frame.width * 0.58);
@@ -219,12 +229,13 @@ function rowFingerprint(frame: LootRoiFrame, centerY: number): LootFingerprint {
         const projection = new Uint8Array(right - startX);
         for (let x = startX; x < right; x += 1) {
             let brightPixels = 0;
-            for (let y = centerY - 6; y <= centerY + 6; y += 1) {
+            for (let y = centerY - halfBand; y <= centerY + halfBand; y += 1) {
                 const offset = (y * frame.width + x) * 4;
                 const chroma =
                     Math.max(frame.pixels[offset], frame.pixels[offset + 1], frame.pixels[offset + 2]) -
                     Math.min(frame.pixels[offset], frame.pixels[offset + 1], frame.pixels[offset + 2]);
-                if (luminance(frame, offset) >= 150 && chroma <= 25 && isGlyphPixel(frame, offset)) brightPixels += 1;
+                if (luminance(frame, offset) >= 150 && chroma <= 25 && isGlyphPixel(frame, offset, false, scale))
+                    brightPixels += 1;
             }
             projection[x - startX] = brightPixels;
         }
@@ -232,7 +243,7 @@ function rowFingerprint(frame: LootRoiFrame, centerY: number): LootFingerprint {
     }
 
     const full = project(left);
-    return { full, quantity: full.slice(quantityLeft - left) };
+    return { full, quantity: full.slice(quantityLeft - left), textGap: Math.round(8 * scale) };
 }
 
 export function analyzeLootRoiFrame(
@@ -247,14 +258,20 @@ export function analyzeLootRoiFrame(
         throw new Error("Loot ROI pixels must be tightly packed RGBA data.");
     }
 
+    const scale = profile.pixelScale ?? 1;
     const scores = Array.from({ length: profile.maxRows }, (_, slot) =>
-        rowScore(frame, profile.bottomCenter - (profile.maxRows - slot - 1) * profile.spacing, profile.rowThreshold),
+        rowScore(
+            frame,
+            profile.bottomCenter - (profile.maxRows - slot - 1) * profile.spacing,
+            profile.rowThreshold,
+            scale,
+        ),
     );
     const detected = scores.map((score) => score >= profile.rowThreshold);
     let count = 0;
     for (let slot = profile.maxRows - 1; slot >= 0 && detected[slot]; slot -= 1) count += 1;
     const fingerprints = Array.from({ length: count }, (_, index) =>
-        rowFingerprint(frame, profile.bottomCenter - (count - index - 1) * profile.spacing),
+        rowFingerprint(frame, profile.bottomCenter - (count - index - 1) * profile.spacing, scale),
     );
     const observations: LootRowObservation<LootFingerprint>[] = [];
     for (let slot = profile.maxRows - count; slot < profile.maxRows; slot += 1) {
@@ -275,14 +292,14 @@ export function analyzeLootRoiFrame(
     };
 }
 
-function lootTextExtent(projection: Uint8Array) {
+function lootTextExtent(projection: Uint8Array, textGap = 8) {
     let seenGlyph = false;
     let gap = 0;
     for (let index = 0; index < projection.length; index += 1) {
         if (projection[index] > 0) {
             seenGlyph = true;
             gap = 0;
-        } else if (seenGlyph && ++gap >= 8) {
+        } else if (seenGlyph && ++gap >= textGap) {
             return index + 1;
         }
     }
@@ -294,7 +311,7 @@ export function lootFingerprintDistance(left: LootFingerprint | undefined, right
 
     // Use either row's trailing whitespace to exclude scenery. Include the gap itself so an extra quantity digit
     // still changes identity (for example x 9 versus x 90).
-    const extent = Math.min(lootTextExtent(left.full), lootTextExtent(right.full));
+    const extent = Math.min(lootTextExtent(left.full, left.textGap), lootTextExtent(right.full, right.textGap));
     function cosineDistance(leftProjection: Uint8Array, rightProjection: Uint8Array, length: number) {
         if (leftProjection.length !== rightProjection.length) return 1;
         let dot = 0;
@@ -1046,11 +1063,13 @@ export class LiveLootCoordinator {
         if (this.pendingOcrJobs >= this.maxPendingOcrJobs) {
             this.summarize(metadata, "backpressure");
         } else {
+            const padding = Math.round(12 * (this.options.profile.pixelScale ?? 1));
             const normalRight = Math.min(
                 Math.round(this.options.profile.width * 0.96),
                 ...selected.map(
                     (observation) =>
-                        Math.round(this.options.profile.width * 0.27) + lootTextExtent(observation.fingerprint.full),
+                        Math.round(this.options.profile.width * 0.27) +
+                        lootTextExtent(observation.fingerprint.full, observation.fingerprint.textGap),
                 ),
             );
             const frames = selected.map((observation) => {
@@ -1066,8 +1085,8 @@ export class LiveLootCoordinator {
                             ? {
                                   left: Math.round(roi.width * 0.25),
                                   right: normalRight,
-                                  top: Math.max(0, observation.centerY - 12),
-                                  bottom: Math.min(roi.height, observation.centerY + 12),
+                                  top: Math.max(0, observation.centerY - padding),
+                                  bottom: Math.min(roi.height, observation.centerY + padding),
                               }
                             : undefined),
                     textColor: this.options.ocrTextColor,

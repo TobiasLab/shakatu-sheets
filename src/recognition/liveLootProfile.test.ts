@@ -75,6 +75,20 @@ describe("live-loot profile artifacts", () => {
         ).toThrow(/bottomCenter/);
     });
 
+    it("round-trips explicit glyph scale and rejects unsupported values", () => {
+        const base = artifact(3440, 1440, 100);
+        const scaled = { ...base, profile: { ...base.profile, pixelScale: 1.25 } };
+        expect(parseLiveLootProfileArtifact(JSON.stringify(scaled))).toEqual(scaled);
+        for (const pixelScale of [0, 2, Number.NaN, "1.25"]) {
+            expect(() =>
+                validateLiveLootProfileArtifact({
+                    ...base,
+                    profile: { ...base.profile, pixelScale },
+                }),
+            ).toThrow(/pixelScale/);
+        }
+    });
+
     it("rejects missing and unknown keys at every artifact level", () => {
         const value = artifact();
         expect(() => validateLiveLootProfileArtifact({ ...value, label: "private" })).toThrow(/exactly/);

@@ -6,9 +6,10 @@ fullscreen, HDR, ARM64, and capture of protected content are outside the release
 
 The implementation is ready for native validation, **not verified Windows release support**. This Linux workspace can
 build the complete Windows executable and check shared behavior, but cannot run D3D11, WebView2, the picker, or BDO.
-The six requested resolution/scale combinations are acceptance targets; only 3440×1440 at 80% currently has a normal
-recognition profile. Its rare detector remains provisional. The other five combinations must not be advertised as
-supported detection until calibrated and scored. Manual session tracking and screenshot import remain available.
+The six requested resolution/scale combinations remain native acceptance targets. Recognition is enabled at
+3440×1440 and 2560×1440 with 80% and 100% BDO UI scale; 1920×1080 remains preview-only. The 80% calibration comes from
+3440×1440, and the 100% geometry is derived from it pending genuine 100% gameplay validation. Rare detection remains
+provisional. See [UI-scale support and evidence](../design/live-loot-ui-scale.md).
 
 ## Verification in this workspace
 
@@ -187,15 +188,15 @@ version for every hardware run. Use a release build for performance and a debug 
 | Samples | Record a complete 30-minute paired run, explicit early stop, source resize/replacement, unwritable path, and queue-pressure stop. Manifests/PNG batch IDs match, stopping drains admitted pairs, and Windows replay agrees with Linux. No collector API in release. |
 | Data/installer | Clean standard user, Unicode/spaces in profile path, runtime present/absent, offline runtime-present install; upgrade with data, close immediately after ledger edit, forced termination/reopen, SQLite error/retry, and uninstall/reinstall data retention. Check signed public artifacts. |
 
-The 3440×1440 and 2560×1440 profiles share normal and rare OCR settings at 80% UI scale because their native ROI pixel
+The 3440×1440 and 2560×1440 profiles share normal and rare OCR settings at each UI scale because their native ROI pixel
 geometry is the same. Add distinct settings in `src/recognition/liveLootProfiles.ts` only when that geometry changes.
 OCR at 1920×1080 remains unavailable pending calibration. Reusing settings does not establish measured gameplay accuracy;
 this repository has no labeled Windows corpus for the hardware acceptance checks above.
 
 Manual placement is the default. **Adjust automatically** searches the selected normal or rare area using the same
-800×600 native capture on both platforms at all three resolutions with 80% BDO UI scale. Normal search returns a 362×311
-crop; rare search returns a 400×100 crop for user confirmation. Rare search needs real-game acceptance with positive
-banners and gold scenery. 100% UI scale uses manual placement.
+800×600 native capture on both platforms at all three resolutions with 80% or 100% BDO UI scale. Normal search returns
+a 362×311 or 453×389 crop; rare search returns a 400×100 or 500×125 crop for user confirmation. Rare search and the new
+100% geometry need real-game acceptance with positive banners and negative scenes.
 
 References: [Tauri prerequisites](https://v2.tauri.app/start/prerequisites/),
 [Windows installers](https://v2.tauri.app/distribute/windows-installer/),

@@ -767,7 +767,9 @@ export function useLiveLootCapture({
     }
 
     function createLocalizer() {
-        return activeRegionKindRef.current === "rare" ? new RareLootLocalizer() : new NormalLootLocalizer();
+        return activeRegionKindRef.current === "rare"
+            ? new RareLootLocalizer(uiScaleRef.current)
+            : new NormalLootLocalizer(uiScaleRef.current);
     }
 
     function lockAutomaticLocalization(region: NormalizedRegion, replayFrames: LootRoiFrame[]) {
@@ -856,7 +858,13 @@ export function useLiveLootCapture({
             return;
         let nextSearch: NormalizedRegion;
         try {
-            nextSearch = searchRegionAroundLootRegion(anchor, currentSource.width, currentSource.height, kind);
+            nextSearch = searchRegionAroundLootRegion(
+                anchor,
+                currentSource.width,
+                currentSource.height,
+                kind,
+                uiScaleRef.current,
+            );
         } catch (localizationError) {
             setError(localizationError instanceof Error ? localizationError.message : String(localizationError));
             return;
@@ -1678,7 +1686,7 @@ export function useLiveLootCapture({
                     region: searchRegion,
                     sourceWidth: sourceDimensions.width,
                     sourceHeight: sourceDimensions.height,
-                    uiScalePercent: 80,
+                    uiScalePercent,
                 };
             }
         } else if (placementMode !== "localizing") {

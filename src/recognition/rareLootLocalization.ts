@@ -1,12 +1,13 @@
-import { pixelRegionToNormalized } from "./displayCapture";
+import { type LootUiScale, pixelRegionToNormalized } from "./displayCapture";
 import { type LootSearchFrame, validateSearchFrame } from "./liveLootLocalization";
-import { RARE_LOOT_GEOMETRY } from "./rareLoot";
+import { RARE_LOOT_GEOMETRY, RARE_LOOT_GEOMETRY_100, type RareLootGeometry } from "./rareLoot";
 
 type Candidate = { x: number; y: number; score: number };
 
 // Integral sums keep the bounded search linear in its pixel count instead of rescanning each candidate's shell.
-function locateBanner(frame: LootSearchFrame): Candidate | null {
-    const { borderOffset } = RARE_LOOT_GEOMETRY;
+function locateBanner(frame: LootSearchFrame, geometry: RareLootGeometry): Candidate | null {
+    const { borderOffset } = geometry;
+    const margin = Math.round((8 * geometry.width) / 400);
     const stride = frame.width + 1;
     const warm = new Uint32Array(stride * (frame.height + 1));
     const edges = new Uint32Array(warm.length);
@@ -34,7 +35,7 @@ function locateBanner(frame: LootSearchFrame): Candidate | null {
         pixels[y * stride + x + width] -
         pixels[(y + height) * stride + x] +
         pixels[y * stride + x];
-    const { shell, border, width, height, borderMinPixels } = RARE_LOOT_GEOMETRY;
+    const { shell, border, width, height, borderMinPixels } = geometry;
     const shellWidth = shell.right - shell.left;
     const shellHeight = shell.bottom - shell.top;
     const candidates: Candidate[] = [];
@@ -49,11 +50,11 @@ function locateBanner(frame: LootSearchFrame): Candidate | null {
             }
             if (edge < borderMinPixels) continue;
             const surround =
-                (sum(warm, x + shell.left - 8, y + shell.top, 8, shellHeight) +
-                    sum(warm, x + shell.right, y + shell.top, 8, shellHeight) +
-                    sum(warm, x + shell.left, y + shell.top - 8, shellWidth, 8) +
-                    sum(warm, x + shell.left, y + shell.bottom, shellWidth, 8)) /
-                (16 * (shellWidth + shellHeight));
+                (sum(warm, x + shell.left - margin, y + shell.top, margin, shellHeight) +
+                    sum(warm, x + shell.right, y + shell.top, margin, shellHeight) +
+                    sum(warm, x + shell.left, y + shell.top - margin, shellWidth, margin) +
+                    sum(warm, x + shell.left, y + shell.bottom, shellWidth, margin)) /
+                (2 * margin * (shellWidth + shellHeight));
             const score = fill - surround;
             if (score < 0.3) continue;
             const candidate = { x, y, score };
@@ -75,13 +76,18 @@ function locateBanner(frame: LootSearchFrame): Candidate | null {
 export class RareLootLocalizer {
     private readonly observations: Candidate[] = [];
     private source = "";
+    private readonly geometry: RareLootGeometry;
+
+    constructor(uiScalePercent: LootUiScale = 80) {
+        this.geometry = uiScalePercent === 100 ? RARE_LOOT_GEOMETRY_100 : RARE_LOOT_GEOMETRY;
+    }
 
     pushFrame(frame: LootSearchFrame) {
         validateSearchFrame(frame);
         const source = `${frame.sourceWidth}x${frame.sourceHeight}`;
         if (source !== this.source) this.clear();
         this.source = source;
-        const candidate = locateBanner(frame);
+        const candidate = locateBanner(frame, this.geometry);
         if (!candidate) {
             this.observations.length = 0;
             return null;
@@ -95,8 +101,8 @@ export class RareLootLocalizer {
             {
                 x: candidate.x,
                 y: candidate.y,
-                width: RARE_LOOT_GEOMETRY.width,
-                height: RARE_LOOT_GEOMETRY.height,
+                width: this.geometry.width,
+                height: this.geometry.height,
             },
             frame.sourceWidth,
             frame.sourceHeight,

@@ -6,6 +6,8 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 
 const output = process.env.UI_SMOKE_OUTPUT ?? join(tmpdir(), "shakatu-ui");
+const uiScale = Number(process.env.UI_SMOKE_SCALE ?? 80);
+if (![80, 100].includes(uiScale)) throw new Error("Unsupported smoke UI scale");
 const backend = process.env.UI_SMOKE_BACKEND === "windows" ? "windows" : "linux";
 const source = process.env.UI_SMOKE_SOURCE ?? "3440x1440";
 if (!["3440x1440", "2560x1440", "1920x1080"].includes(source)) throw new Error("Unsupported smoke source");
@@ -95,9 +97,18 @@ await send("Page.addScriptToEvaluateOnNewDocument", {
                     const pixels = new Uint8ClampedArray(data,40);
                     if (rare) {
                         const paint = (left,top,right,bottom) => { for(let y=top;y<bottom;y++) for(let x=left;x<right;x++) pixels.set([180,125,35,255],(y*800+x)*4); };
-                        paint(265,235,570,280);
-                        paint(320,234,520,238);
-                    } else for (const center of [165,204]) for (let y=100+center-6;y<100+center+7;y++) for(let x=200;x<468;x++) pixels.set([220,220,220,255],(y*800+x)*4);
+                        if (selection.uiScalePercent === 100) {
+                            paint(281,244,663,300);
+                            paint(350,243,600,248);
+                        } else {
+                            paint(265,235,570,280);
+                            paint(320,234,520,238);
+                        }
+                    } else {
+                        const factor = selection.uiScalePercent / 80;
+                        const centers = selection.uiScalePercent === 100 ? [206,255] : [165,204];
+                        for (const center of centers) for (let y=100+center-Math.round(6*factor);y<=100+center+Math.round(6*factor);y++) for(let x=219+Math.round(-19*factor);x<219+Math.round(249*factor);x++) pixels.set([220,220,220,255],(y*800+x)*4);
+                    }
                     args.frames.onmessage(data);
                 };
                 setTimeout(window.__emitFrame,50);
@@ -153,14 +164,14 @@ try {
                 false,
                 "Capture must start in manual mode",
             );
-            for (const scale of [100, 80]) {
+            for (const scale of [80, 100, uiScale]) {
                 await evaluate(`(() => {
                     const select = [...document.querySelectorAll('select')].find(s => [...s.options].some(o => o.value === '80'));
                     select.value = '${scale}';
                     select.dispatchEvent(new Event('change', { bubbles: true }));
                 })()`);
                 await until(
-                    `[...document.querySelectorAll('button')].some(b => b.textContent === 'Adjust automatically') === ${scale === 80}`,
+                    `[...document.querySelectorAll('button')].some(b => b.textContent === 'Adjust automatically') === true`,
                 );
             }
             assert.equal(
@@ -179,6 +190,7 @@ try {
             );
             assert.equal(selection.sourceWidth, sourceWidth);
             assert.equal(selection.sourceHeight, sourceHeight);
+            assert.equal(selection.uiScalePercent, uiScale);
             await evaluate(`for (let i=0;i<6;i++) window.__emitSearch(${JSON.stringify(selection)})`);
             await until("document.body.textContent.includes('Auto-aligned')");
             await until(
@@ -187,7 +199,12 @@ try {
             const region = await evaluate(
                 "window.__calls.filter(c => c.command === 'save_loot_capture_settings').at(-1).args.settings.region",
             );
-            assert.equal(Math.round(region.x * sourceWidth), Math.round(selection.region.x * sourceWidth) + 219);
+            assert.ok(
+                Math.abs(Math.round(region.x * sourceWidth) - (Math.round(selection.region.x * sourceWidth) + 219)) <=
+                    1,
+            );
+            assert.equal(Math.round(region.width * sourceWidth), uiScale === 80 ? 362 : 453);
+            assert.equal(Math.round(region.height * sourceHeight), uiScale === 80 ? 311 : 389);
             assert.equal(Math.round(region.y * sourceHeight), Math.round(selection.region.y * sourceHeight) + 100);
             await click("Loot stack");
             await click("Adjust automatically");
@@ -237,10 +254,12 @@ try {
                 Math.round(rareRegion.y * sourceHeight),
                 Math.round(rareSelection.region.y * sourceHeight) + 200,
             );
+            assert.equal(Math.round(rareRegion.width * sourceWidth), uiScale === 80 ? 400 : 500);
+            assert.equal(Math.round(rareRegion.height * sourceHeight), uiScale === 80 ? 100 : 125);
             await until("[...document.querySelectorAll('button')].some(b => b.textContent === 'Set up capture')");
             await click("Set up capture");
             console.info(
-                `Manual default, normal relocation, and rare search/cancel/confirm passed at ${source} on ${backend}`,
+                `Manual default, normal relocation, and rare search/cancel/confirm passed at ${source}, ${uiScale}% UI scale on ${backend}`,
             );
         }
         await click("Advanced diagnostics");

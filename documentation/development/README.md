@@ -74,7 +74,8 @@ PipeWire portal, Windows capture, the installed webview, Garmoth, or the game's 
 
 Set `UI_SMOKE_BACKEND=linux` or `windows` and `UI_SMOKE_SOURCE=1920x1080` or `2560x1440` to also verify synthetic
 manual startup, explicit normal relocation, rare search/cancellation/confirmation, and the transition to exact ROI capture
-at 80% BDO UI scale.
+at 80% BDO UI scale. Set `UI_SMOKE_SCALE=100` to exercise 100% native search requests, normal/rare crop sizes, and
+automatic placement. These are synthetic browser fixtures, not native gameplay validation.
 
 Set `UI_SMOKE_SOAK_SECONDS=30` when running `npm run test:ui` to exercise sustained synthetic frame delivery. This is
 separate from the real-game 30-minute resource/recognition acceptance run.

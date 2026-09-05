@@ -144,9 +144,10 @@ export function searchRegionAroundLootRegion(
     sourceWidth: number,
     sourceHeight: number,
     kind: LootRegionKind = "normal",
+    uiScalePercent: LootUiScale = 80,
 ): NormalizedRegion {
     const pixels = normalizedRegionToPixels(region, sourceWidth, sourceHeight);
-    const expected = lootRegionSize(80, kind);
+    const expected = lootRegionSize(uiScalePercent, kind);
     if (pixels.width !== expected.width || pixels.height !== expected.height) {
         throw new Error(
             `Automatic loot localization requires an exact ${expected.width}x${expected.height} ${kind} loot region.`,

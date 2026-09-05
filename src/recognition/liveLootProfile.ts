@@ -40,16 +40,28 @@ function nonNegativeSafeInteger(value: unknown, name: string): number {
 export function validateLootDetectionProfile(value: unknown): LootDetectionProfile {
     const profile = exactObject(
         value,
-        ["width", "height", "maxRows", "bottomCenter", "spacing", "rowThreshold"],
+        [
+            "width",
+            "height",
+            "maxRows",
+            "bottomCenter",
+            "spacing",
+            "rowThreshold",
+            ...(typeof value === "object" && value !== null && "pixelScale" in value ? ["pixelScale"] : []),
+        ],
         "profile",
     );
-    const validated = {
+    if (profile.pixelScale !== undefined && profile.pixelScale !== 1 && profile.pixelScale !== 1.25) {
+        throw new Error("profile.pixelScale must be 1 or 1.25.");
+    }
+    const validated: LootDetectionProfile = {
         width: positiveSafeInteger(profile.width, "profile.width"),
         height: positiveSafeInteger(profile.height, "profile.height"),
         maxRows: positiveSafeInteger(profile.maxRows, "profile.maxRows"),
         bottomCenter: positiveSafeInteger(profile.bottomCenter, "profile.bottomCenter"),
         spacing: positiveSafeInteger(profile.spacing, "profile.spacing"),
         rowThreshold: nonNegativeSafeInteger(profile.rowThreshold, "profile.rowThreshold"),
+        ...(profile.pixelScale === undefined ? {} : { pixelScale: profile.pixelScale }),
     };
     const topCenter = validated.bottomCenter - (validated.maxRows - 1) * validated.spacing;
     if (!Number.isSafeInteger(topCenter) || topCenter < 12 || validated.bottomCenter > validated.height - 12) {
