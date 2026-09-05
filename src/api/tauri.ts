@@ -143,7 +143,7 @@ export type NativeCaptureSelection =
           region: NormalizedRegion;
           sourceWidth: number;
           sourceHeight: number;
-          uiScalePercent: 80;
+          uiScalePercent: LootUiScale;
       }
     | { mode: "regions"; settings: LootCaptureSettings };
 

@@ -3,9 +3,10 @@
 ## Status
 
 Linux capture feasibility is established. The first native-resolution offline pipeline tracks events, selects OCR frames,
-and recognizes items and quantities exactly on its held-out sequence without label-selected crops. At 80% UI scale
+and recognizes items and quantities exactly on its held-out sequence without label-selected crops. At 80% and 100% UI scale
 on 3440x1440, 2560x1440, and 1920x1080 sources, optional automatic adjustment searches an `800x600` native area.
-Normal adjustment locks a `362x311` crop after stable observations; rare adjustment places a `400x100` crop for confirmation.
+Normal adjustment locks a `362x311` (80%) or `453x389` (100%) crop after stable observations; rare adjustment places a
+`400x100` or `500x125` crop for confirmation.
 Manual placement is the default for both areas. A provisional detector
 also recognizes appearances of the fixed gold rare-banner shell and its horizontal border in the separately positioned `400x100` crop, delays OCR
 until its text is readable, and presents dictionary-constrained results in the review feed. Recognized rare results are
@@ -18,7 +19,8 @@ confirms births with one-frame lookahead, reports backpressure explicitly, and s
 The offline benchmark uses the same production detector, tracker, and parsers. Passing held-out E2E runs can atomically
 export a strict V1 detector profile containing only validated capture dimensions, UI scale, 8 FPS cadence, and OCR-safe
 row geometry. The validated 3440x1440, 80%-UI profile is bundled for live capture and shared with 2560x1440 at 80%:
-both use the same native ROI pixel geometry. Normal jobs begin after automatic
+both use the same native ROI pixel geometry. Both 1440p widths also enable a native 100% variant derived from the
+80% measurements; its gameplay accuracy is not yet measured. See [UI-scale support](live-loot-ui-scale.md). Normal jobs begin after automatic
 alignment or manual confirmation, while rare jobs require separate rare-area confirmation. A browser-side adapter
 serializes both paths through one local Tesseract worker and sends recognized, withheld, failed, and overflow results to a
 bounded review feed. The normal path retains up to eight outstanding OCR jobs, including the active job, so one five-row
@@ -42,11 +44,10 @@ game process, or inspect BDO network traffic. User-authorized operating-system s
 - English BDO client.
 - 80% and 100% UI scale capture profiles; only 80% currently has a labeled recognition benchmark.
 - Capture sources at `3440x1440`, `2560x1440`, and `1920x1080`, with real-game recognition validation required
-  before release. The two 1440p aspect ratios share OCR settings at 80%; 1080p remains uncalibrated.
+  before release. The two 1440p aspect ratios share OCR settings at each UI scale; 1080p remains uncalibrated.
 - Native Linux portal/PipeWire and Windows 11 x64 WGC; Windows hardware acceptance remains pending.
-- Automatically localized normal loot-stack placement at 80% UI scale on all three source resolutions, with manual fallback.
-- Independently positioned and confirmed rare-banner placement selected by the user, with provisional recognition at 80%
-  UI scale.
+- Automatically localized normal loot-stack placement at 80% and 100% UI scale on all three source resolutions, with manual fallback.
+- Independently positioned and confirmed rare-banner placement selected by the user, with provisional recognition at both UI scales on the two 1440p sources.
 - User-triggered start, stop, and live-preview pause controls with a persistent capture indicator.
 - Borderless-windowed mode as the recommended game display mode.
 - The user selects the monitor containing BDO from the operating-system source picker.
@@ -137,31 +138,32 @@ Supported sources are `3440x1440`, `2560x1440`, and `1920x1080`. Persist only va
 rectangles, an explicit rare-area confirmation flag, source dimensions, and UI scale, never preview or captured pixels.
 Legacy settings default the confirmation flag to false even if they contain an automatically saved rare rectangle, so the
 user must explicitly confirm that placement before rare recognition starts. A dimension mismatch disables cropping and
-requires a supported profile or recalibration. The two 1440p widths share normal and provisional rare geometry at 80% UI
-scale; other combinations still require calibration. Geometry is not synthesized by scaling the existing detector.
+requires a supported profile or recalibration. The two 1440p widths share normal and provisional rare geometry at each UI
+scale. The 100% variant scales pixel measurements, including stroke bands and OCR padding, while retaining original
+capture pixels. Its settings remain provisional pending genuine 100% gameplay calibration.
 The normal rectangle and a separately confirmed rare rectangle feed independent event analyzers and
 serialized jobs through the same local OCR worker. Automatic normal localization never implicitly confirms the rare
-placement. 3440x1440 and 2560x1440 at 80% share the bundled normal and provisional rare detector geometry. Recognized results
+placement. 3440x1440 and 2560x1440 share the normal and provisional rare detector geometry at each UI scale. Recognized results
 from both paths are added automatically and remain visible in the bounded review feed.
 
 ### Optional Automatic Placement
 
 Capture opens in manual placement, including after source or UI-scale changes. Select **Loot stack** or **Rare loot**
-and click **Adjust automatically** to start search. This is available at 80% UI scale for `3440x1440`, `2560x1440`, and
+and click **Adjust automatically** to start search. This is available at 80% and 100% UI scale for `3440x1440`, `2560x1440`, and
 `1920x1080` on Linux and Windows. The selected area uses an `800x600` search centered around its current region. Drag this
 larger area to recenter the search without switching to manual pixel placement. **Adjust manually** cancels search.
 
-Rare search uses the existing 80% gold-shell and horizontal-border geometry to score candidates inside the bounded area.
+Rare search uses the selected scale's gold-shell and horizontal-border geometry to score candidates inside the bounded area.
 It rejects weak shell contrast and competing locations, and requires three consecutive observations all within three source
-pixels of each other before placing a 400x100 crop. Missing signals, cancellation, and source changes reset stability. The user confirms
+pixels of each other before placing a 400x100 (80%) or 500x125 (100%) crop. Missing signals, cancellation, and source changes reset stability. The user confirms
 the areas before rare OCR starts; search frames are not replayed into rare recognition. Gold scenery and synthetic
 banners are covered by tests, but real rare-banner placement accuracy remains unmeasured.
 
 Normal search retains the existing algorithm below.
 
 The localizer evaluates every second sampled frame, scores the five calibrated row centers, and requires at least two
-visible rows. It locks only after three of the latest four candidates agree within 12 source pixels. Retained search history
-is bounded to 12 frames. On lock, the localizer converts the median candidate to the exact normalized `362x311` region and
+visible rows. It locks only after three of the latest four candidates agree within 12 source pixels at 80% or 15 at 100%. Retained search history
+is bounded to 12 frames. On lock, the localizer converts the median candidate to the exact normalized `362x311` (80%) or `453x389` (100%) region and
 switches native capture from search mode to exact normal and rare crops. It persists the normal result and preserves a
 previously confirmed rare position; otherwise the user must align and confirm the rare area before rare frames feed
 recognition. The first retained search frame establishes the event baseline, and later notifications in the retained
@@ -169,12 +171,12 @@ history are replayed. While the single Tesseract worker starts, capture retains 
 crop.
 
 If localization cannot establish confidence, capture remains in search mode rather than guessing. The user can choose
-manual placement at any time. 100% UI scale continues to use manual placement. Search normalization uses actual source
-dimensions and resets retained observations when those dimensions change. The 800x600 search and 362x311 output stay at
+manual placement at any time. Both UI scales support automatic placement. Search normalization uses actual source
+dimensions and resets retained observations when those dimensions change. The 800x600 search and scale-specific output stay at
 native resolution; the existing 80% glyph geometry and lock thresholds are unchanged. Synthetic tests exercise translated
 signals and source edges at all three resolutions, and browser fixtures verify native search-to-regions selection for
 both backends. Gameplay accuracy at the added resolutions remains unmeasured. Auto-placement is independent of the OCR
-profile registry: 2560x1440 shares the existing 3440x1440 normal and rare settings at 80%, while 1920x1080 still
+profile registry: 2560x1440 shares the existing 3440x1440 normal and rare settings at each UI scale, while 1920x1080 still
 reports no calibrated OCR profile and does not insert recognized loot. Changing only the aspect ratio does not
 change the crop-local OCR geometry. The original labeled calibration remains from 3440x1440; reuse does not claim a
 separate measured result at 2560x1440.
@@ -212,8 +214,9 @@ begins in the first captured frame is treated as a baseline and suppressed until
 
 The active grind spot's item names remain the only OCR candidates, and the existing terminal quantity parser reads the
 displayed `x <number>` suffix. Normal and rare coordinators serialize requests through one Tesseract worker. The current
-gold-color, border, timing, and crop gates were measured from one positive live-sample event and are deliberately marked provisional; 100% UI scale and
-other source resolutions do not start recognition because they have no bundled calibrated profile.
+gold-color, border, timing, and crop gates were measured from one positive 80% live-sample event and remain provisional.
+The 100% variant scales geometry without changing temporal gates. 1920x1080 does not start recognition because it has
+no bundled recognition profile.
 
 ### Live-Sample Detection Gates
 

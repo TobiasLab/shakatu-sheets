@@ -1,14 +1,13 @@
 import {
     isSupportedLootSource,
     LOOT_SEARCH_REGION_SIZE,
+    type LootUiScale,
+    lootRegionSize,
     type NormalizedRegion,
     pixelRegionToNormalized,
 } from "./displayCapture";
 import type { LootRoiFrame } from "./liveLoot";
 
-const CROP_WIDTH = 362;
-const CROP_HEIGHT = 311;
-const ROW_CENTERS = [48, 87, 126, 165, 204] as const;
 const MAX_HISTORY = 12;
 const MAX_CANDIDATES = 4;
 const LOCK_DISTANCE = 12;
@@ -39,21 +38,27 @@ function luminance(pixels: Uint8ClampedArray, offset: number) {
     return (pixels[offset] * 77 + pixels[offset + 1] * 150 + pixels[offset + 2] * 29) >> 8;
 }
 
-function buildGlyphIntegral(frame: LootSearchFrame) {
+function buildGlyphIntegral(frame: LootSearchFrame, scale: number) {
+    const edge = Math.round(2 * scale);
+    const margin = Math.round(8 * scale);
+    const step = edge * 4;
     const { pixels, width, height } = frame;
     const stride = width + 1;
     const integral = new Uint32Array(stride * (height + 1));
     for (let y = 0; y < height; y += 1) {
         let rowTotal = 0;
         for (let x = 0; x < width; x += 1) {
-            if (x >= 2 && x < width - 2 && y >= 8 && y < height - 8) {
+            if (x >= edge && x < width - edge && y >= margin && y < height - margin) {
                 const offset = (y * width + x) * 4;
                 const light = luminance(pixels, offset);
                 const chroma =
                     Math.max(pixels[offset], pixels[offset + 1], pixels[offset + 2]) -
                     Math.min(pixels[offset], pixels[offset + 1], pixels[offset + 2]);
-                const horizontal = Math.min(luminance(pixels, offset - 8), luminance(pixels, offset + 8));
-                const vertical = Math.min(luminance(pixels, offset - width * 8), luminance(pixels, offset + width * 8));
+                const horizontal = Math.min(luminance(pixels, offset - step), luminance(pixels, offset + step));
+                const vertical = Math.min(
+                    luminance(pixels, offset - width * step),
+                    luminance(pixels, offset + width * step),
+                );
                 if (light >= 115 && chroma <= 55 && light - Math.min(horizontal, vertical) >= 18) rowTotal += 1;
             }
             integral[(y + 1) * stride + x + 1] = integral[y * stride + x + 1] + rowTotal;
@@ -71,28 +76,40 @@ function rectangleSum(integral: Uint32Array, stride: number, left: number, top: 
     );
 }
 
-function locateCandidate(frame: LootSearchFrame): Candidate | null {
-    const integral = buildGlyphIntegral(frame);
+function locateCandidate(frame: LootSearchFrame, uiScalePercent: LootUiScale): Candidate | null {
+    const scale = uiScalePercent / 80;
+    const { width: cropWidth, height: cropHeight } = lootRegionSize(uiScalePercent);
+    const bottom = Math.round(204 * scale);
+    const spacing = Math.round(39 * scale);
+    const centers = Array.from({ length: 5 }, (_, index) => bottom - (4 - index) * spacing);
+    const halfBand = Math.round(6 * scale);
+    const signalLeft = Math.round(SIGNAL_LEFT_FROM_CROP * scale);
+    const signalRight = Math.round(SIGNAL_RIGHT_FROM_CROP * scale);
+    const integral = buildGlyphIntegral(frame, scale);
     const stride = frame.width + 1;
     let best: Candidate | null = null;
 
-    for (let cropY = 0; cropY <= frame.height - CROP_HEIGHT; cropY += 1) {
-        for (let localCropX = MIN_LOCAL_CROP_X; localCropX + CROP_WIDTH <= frame.width; localCropX += 2) {
-            const scores = ROW_CENTERS.map((center) =>
+    for (let cropY = 0; cropY <= frame.height - cropHeight; cropY += 1) {
+        for (
+            let localCropX = Math.round(MIN_LOCAL_CROP_X * scale);
+            localCropX + cropWidth <= frame.width;
+            localCropX += 2
+        ) {
+            const scores = centers.map((center) =>
                 rectangleSum(
                     integral,
                     stride,
-                    localCropX + SIGNAL_LEFT_FROM_CROP,
-                    cropY + center - 6,
-                    localCropX + SIGNAL_RIGHT_FROM_CROP,
-                    cropY + center + 7,
+                    localCropX + signalLeft,
+                    cropY + center - halfBand,
+                    localCropX + signalRight,
+                    cropY + center + halfBand + 1,
                 ),
             );
             let candidateQuality = 0;
             let candidateRows = 0;
             let total = 0;
             let minimum = Number.POSITIVE_INFINITY;
-            for (let rowCount = 1; rowCount <= ROW_CENTERS.length; rowCount += 1) {
+            for (let rowCount = 1; rowCount <= centers.length; rowCount += 1) {
                 const score = scores[scores.length - rowCount];
                 total += score;
                 minimum = Math.min(minimum, score);
@@ -114,17 +131,19 @@ function locateCandidate(frame: LootSearchFrame): Candidate | null {
         }
     }
 
-    return best && best.quality >= 350 && best.rowCount >= 2 ? best : null;
+    return best && best.quality >= 350 * scale * scale && best.rowCount >= 2 ? best : null;
 }
 
-function lockedCandidates(candidates: readonly (Candidate | null)[]) {
+function lockedCandidates(candidates: readonly (Candidate | null)[], scale: number) {
     const qualifying = candidates.filter((candidate): candidate is Candidate => candidate !== null);
     let best: Candidate[] = [];
     for (let mask = 0; mask < 1 << qualifying.length; mask += 1) {
         const cluster = qualifying.filter((_, index) => (mask & (1 << index)) !== 0);
         if (cluster.length < 3 || cluster.length < best.length) continue;
         const clustered = cluster.every((left, index) =>
-            cluster.slice(index + 1).every((right) => Math.hypot(left.x - right.x, left.y - right.y) <= LOCK_DISTANCE),
+            cluster
+                .slice(index + 1)
+                .every((right) => Math.hypot(left.x - right.x, left.y - right.y) <= LOCK_DISTANCE * scale),
         );
         if (clustered && cluster.length > best.length) best = cluster;
     }
@@ -136,19 +155,20 @@ function upperMedian(values: number[]) {
     return values[Math.floor(values.length / 2)];
 }
 
-function cropFrame(frame: LootSearchFrame, x: number, y: number): LootRoiFrame | null {
+function cropFrame(frame: LootSearchFrame, x: number, y: number, uiScalePercent: LootUiScale): LootRoiFrame | null {
+    const { width: cropWidth, height: cropHeight } = lootRegionSize(uiScalePercent);
     const localX = x - frame.cropX;
     const localY = y - frame.cropY;
-    if (localX < 0 || localY < 0 || localX + CROP_WIDTH > frame.width || localY + CROP_HEIGHT > frame.height) {
+    if (localX < 0 || localY < 0 || localX + cropWidth > frame.width || localY + cropHeight > frame.height) {
         return null;
     }
-    const pixels = new Uint8ClampedArray(CROP_WIDTH * CROP_HEIGHT * 4);
-    const rowBytes = CROP_WIDTH * 4;
-    for (let row = 0; row < CROP_HEIGHT; row += 1) {
+    const pixels = new Uint8ClampedArray(cropWidth * cropHeight * 4);
+    const rowBytes = cropWidth * 4;
+    for (let row = 0; row < cropHeight; row += 1) {
         const sourceOffset = ((localY + row) * frame.width + localX) * 4;
         pixels.set(frame.pixels.subarray(sourceOffset, sourceOffset + rowBytes), row * rowBytes);
     }
-    return { width: CROP_WIDTH, height: CROP_HEIGHT, pixels };
+    return { width: cropWidth, height: cropHeight, pixels };
 }
 
 export function validateSearchFrame(frame: LootSearchFrame) {
@@ -176,6 +196,8 @@ export class NormalLootLocalizer {
     private readonly candidates: Array<Candidate | null> = [];
     private incomingFrameCount = 0;
 
+    constructor(private readonly uiScalePercent: LootUiScale = 80) {}
+
     get retainedFrameCount() {
         return this.history.length;
     }
@@ -195,18 +217,19 @@ export class NormalLootLocalizer {
         this.incomingFrameCount += 1;
         if (this.incomingFrameCount % 2 !== 0) return null;
 
-        this.candidates.push(locateCandidate(frame));
+        this.candidates.push(locateCandidate(frame, this.uiScalePercent));
         if (this.candidates.length > MAX_CANDIDATES) this.candidates.shift();
-        const cluster = lockedCandidates(this.candidates);
+        const cluster = lockedCandidates(this.candidates, this.uiScalePercent / 80);
         if (!cluster) return null;
 
         const x = upperMedian(cluster.map((candidate) => candidate.x));
         const y = upperMedian(cluster.map((candidate) => candidate.y));
         const replayFrames = this.history
-            .map((retained) => cropFrame(retained, x, y))
+            .map((retained) => cropFrame(retained, x, y, this.uiScalePercent))
             .filter((retained): retained is LootRoiFrame => retained !== null);
+        const { width: cropWidth, height: cropHeight } = lootRegionSize(this.uiScalePercent);
         const region = pixelRegionToNormalized(
-            { x, y, width: CROP_WIDTH, height: CROP_HEIGHT },
+            { x, y, width: cropWidth, height: cropHeight },
             frame.sourceWidth,
             frame.sourceHeight,
         );

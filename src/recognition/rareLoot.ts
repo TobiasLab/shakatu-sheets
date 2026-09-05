@@ -69,6 +69,18 @@ export const RARE_LOOT_GEOMETRY = validateRareLootGeometry({
     ocrBounds: { left: 112, right: 392, top: 49, bottom: 65 },
 });
 
+// Native 100% geometry derived from the 80% shell; gameplay validation remains pending.
+export const RARE_LOOT_GEOMETRY_100 = validateRareLootGeometry({
+    width: 500,
+    height: 125,
+    textCenterY: 71,
+    shell: { left: 81, right: 463, top: 44, bottom: 100 },
+    border: { left: 150, right: 400, top: 43, bottom: 48 },
+    borderOffset: 4,
+    borderMinPixels: 163,
+    ocrBounds: { left: 140, right: 490, top: 61, bottom: 81 },
+});
+
 export function rareLootDetectionProfile(geometry: RareLootGeometry): LootDetectionProfile {
     return {
         width: geometry.width,

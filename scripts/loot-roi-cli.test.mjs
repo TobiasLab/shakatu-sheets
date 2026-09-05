@@ -19,7 +19,7 @@ const capture = {
 test.each([
     ["version", { version: 2 }],
     ["resolution", { sourceDimensions: { width: 1920, height: 1080 } }],
-    ["UI scale", { uiScalePercent: 100 }],
+    ["UI scale", { uiScalePercent: 90 }],
     ["sample rate", { targetFps: 30 }],
 ])("ROI replay rejects unsupported %s before decoding", async (_name, change) => {
     const root = await mkdtemp(join(tmpdir(), "loot-roi-test-"));
@@ -42,18 +42,20 @@ test.each([
 
 const ffmpegAvailable = spawnSync("ffmpeg", ["-version"]).status === 0;
 test.skipIf(!ffmpegAvailable).each([
-    [3440, false],
-    [2560, false],
-    [3440, true],
-    [2560, true],
-])("ROI replay accepts paired %ix1440 crops (external labels: %s)", async (width, externalLabels) => {
+    [3440, false, 80],
+    [2560, false, 80],
+    [3440, true, 80],
+    [2560, true, 80],
+    [3440, true, 100],
+    [2560, true, 100],
+])("replays %ix1440 crops (external: %s, scale: %i)", async (width, externalLabels, uiScalePercent) => {
     const root = await mkdtemp(join(tmpdir(), "loot-roi-test-"));
     try {
         const id = "run-1-1-0001";
-        const manifest = { ...capture, sourceDimensions: { width, height: 1440 } };
+        const manifest = { ...capture, uiScalePercent, sourceDimensions: { width, height: 1440 } };
         for (const [kind, cropWidth, cropHeight] of [
-            ["normal", 362, 311],
-            ["rare", 400, 100],
+            ["normal", uiScalePercent === 80 ? 362 : 453, uiScalePercent === 80 ? 311 : 389],
+            ["rare", uiScalePercent === 80 ? 400 : 500, uiScalePercent === 80 ? 100 : 125],
         ]) {
             const folder = join(root, id, kind, "minute-000");
             await mkdir(folder, { recursive: true });

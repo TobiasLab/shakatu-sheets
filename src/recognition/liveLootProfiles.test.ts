@@ -30,10 +30,16 @@ describe("findLiveLootProfile", () => {
         expect(findRareLootGeometry(1920, 1080, 80)).toBeNull();
     });
 
-    it("does not substitute a profile for uncalibrated capture combinations", () => {
-        expect(findLiveLootProfile(3440, 1440, 100)).toBeNull();
-        expect(findLiveLootProfile(2560, 1440, 100)).toBeNull();
+    it("provides native 100% normal and rare geometry for both 1440p widths", () => {
+        for (const width of [2560, 3440]) {
+            expect(findLiveLootProfile(width, 1440, 100)).toMatchObject({
+                capture: { sourceWidth: width, uiScalePercent: 100 },
+                profile: { width: 453, height: 389, bottomCenter: 255, spacing: 49, pixelScale: 1.25 },
+            });
+            expect(findRareLootGeometry(width, 1440, 100)).toMatchObject({ width: 500, height: 125 });
+        }
         expect(findLiveLootProfile(1920, 1080, 80)).toBeNull();
+        expect(findLiveLootProfile(1920, 1080, 100)).toBeNull();
     });
 });
 
@@ -52,8 +58,7 @@ describe("localization availability", () => {
             [2560, 1440, 100],
             [3440, 1440, 100],
         ] as const) {
-            expect(supportsAutomaticLootLocalization(width, height, scale)).toBe(false);
-            expect(findRareLootGeometry(width, height, scale)).toBeNull();
+            expect(supportsAutomaticLootLocalization(width, height, scale)).toBe(true);
         }
     });
 });
