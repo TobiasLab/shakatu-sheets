@@ -152,9 +152,9 @@ Known limitations remain:
 
 ## Local Verification And Reproduction
 
-Local checks: Biome, 253 frontend tests, TypeScript/Vite production build, Rust formatting, 80 Rust tests (one optional
+Local checks: Biome, 254 frontend tests, TypeScript/Vite production build, Rust formatting, 80 Rust tests (one optional
 microbenchmark ignored), and Rust Clippy. Retry tests cover preserving weak primary readings, hard pass limits, unchanged
-gold behavior, conflicting quantities, and cancellation during the retry. No GitHub CI was added.
+gold behavior, conflicting quantities, live retry canvas dimensions/filtering, and cancellation during the retry. No GitHub CI was added.
 
 Reproduce the complete ROI replay with the original corpus available:
 

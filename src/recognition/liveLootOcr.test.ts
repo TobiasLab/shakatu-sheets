@@ -378,6 +378,42 @@ describe("createLiveLootTesseractOcr", () => {
         expect(canvas.canvas).toMatchObject({ width: 0, height: 0 });
     });
 
+    it("renders the full-size retry with the same crop and white-text filtering", async () => {
+        installDocument();
+        const canvas = testCanvas();
+        const roi = sourceFrame(20, 30);
+        setPixel(roi, 2, 3, 230);
+        setPixel(roi, 4, 3, 230, 200, 110);
+        const before = roi.pixels.slice();
+        let calls = 0;
+        const worker = mockWorker(async () =>
+            textResult(++calls <= 3 ? "Branch of Abundance x §" : "Branch of Abundance x 6"),
+        );
+        const reader = await createLiveLootTesseractOcr({
+            workerFactory: async () => worker,
+            canvasFactory: () => canvas.canvas,
+        });
+        const frame = {
+            ...ocrFrame(0, roi, 15),
+            bounds: { left: 1, right: 19, top: 2, bottom: 29 },
+        };
+
+        expect(await reader.readText([frame], new AbortController().signal)).toEqual([
+            Array.from({ length: 3 }, () => "Branch of Abundance x 6"),
+        ]);
+        expect(canvas.images).toHaveLength(6);
+        for (const [index, pixels] of canvas.images.entries()) {
+            const scale = index < 3 ? 2 : 4;
+            const width = 18 * scale + 20;
+            const height = 27 * scale + 20;
+            expect(pixels).toHaveLength(width * height * 4);
+            expect(blackPixelCount({ width, height, pixels })).toBe(scale * scale);
+        }
+        expect(roi.pixels).toEqual(before);
+        expect(canvas.canvas).toMatchObject({ width: 0, height: 0 });
+        await reader.terminate();
+    });
+
     it("cancels during the full-size retry without starting another pass", async () => {
         installDocument();
         const canvas = testCanvas();
