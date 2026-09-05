@@ -72,7 +72,8 @@ choose another directory. `UI_SMOKE_URL` overrides the default Vite URL. The bro
 PipeWire portal, Windows capture, the installed webview, Garmoth, or the game's FPS.
 
 Set `UI_SMOKE_BACKEND=linux` or `windows` and `UI_SMOKE_SOURCE=1920x1080` or `2560x1440` to also verify synthetic
-auto-search alignment, relocation, and the transition to exact ROI capture at 80% BDO UI scale.
+manual startup, explicit normal relocation, rare search/cancellation/confirmation, and the transition to exact ROI capture
+at 80% BDO UI scale.
 
 Set `UI_SMOKE_SOAK_SECONDS=30` when running `npm run test:ui` to exercise sustained synthetic frame delivery. This is
 separate from the real-game 30-minute resource/recognition acceptance run.

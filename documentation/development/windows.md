@@ -192,8 +192,10 @@ geometry is the same. Add distinct settings in `src/recognition/liveLootProfiles
 OCR at 1920×1080 remains unavailable pending calibration. Reusing settings does not establish measured gameplay accuracy;
 this repository has no labeled Windows corpus for the hardware acceptance checks above.
 
-Auto-search uses the same 800×600 native area on both platforms at all three resolutions with 80% BDO UI scale. It returns
-a 362×311 crop after stable multi-row alignment without rescaling pixels. 100% UI scale uses manual placement.
+Manual placement is the default. **Adjust automatically** searches the selected normal or rare area using the same
+800×600 native capture on both platforms at all three resolutions with 80% BDO UI scale. Normal search returns a 362×311
+crop; rare search returns a 400×100 crop for user confirmation. Rare search needs real-game acceptance with positive
+banners and gold scenery. 100% UI scale uses manual placement.
 
 References: [Tauri prerequisites](https://v2.tauri.app/start/prerequisites/),
 [Windows installers](https://v2.tauri.app/distribute/windows-installer/),

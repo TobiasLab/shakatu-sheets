@@ -4,9 +4,9 @@
 
 Linux capture feasibility is established. The first native-resolution offline pipeline tracks events, selects OCR frames,
 and recognizes items and quantities exactly on its held-out sequence without label-selected crops. At 80% UI scale
-on 3440x1440, 2560x1440, and 1920x1080 sources, live capture searches an `800x600` native-resolution area and
-automatically locks the exact
-`362x311` normal-stack crop after three stable observations. Manual placement remains available. A provisional detector
+on 3440x1440, 2560x1440, and 1920x1080 sources, optional automatic adjustment searches an `800x600` native area.
+Normal adjustment locks a `362x311` crop after stable observations; rare adjustment places a `400x100` crop for confirmation.
+Manual placement is the default for both areas. A provisional detector
 also recognizes appearances of the fixed gold rare-banner shell and its horizontal border in the separately positioned `400x100` crop, delays OCR
 until its text is readable, and presents dictionary-constrained results in the review feed. Recognized rare results are
 added to the ledger automatically, although the detector has only one calibration event and no held-out sequence.
@@ -111,19 +111,27 @@ Supported sources are `3440x1440`, `2560x1440`, and `1920x1080`. Persist only va
 rectangles, an explicit rare-area confirmation flag, source dimensions, and UI scale, never preview or captured pixels.
 Legacy settings default the confirmation flag to false even if they contain an automatically saved rare rectangle, so the
 user must explicitly confirm that placement before rare recognition starts. A dimension mismatch disables cropping and
-requires a supported profile or recalibration. Each resolution/scale entry pairs a normal profile with a validated rare geometry. Only 3440×1440 at 80% currently has
-an entry; its rare geometry is still provisional. Other resolution/scale combinations require representative recordings
-and independent held-out evaluation before registration. Geometry is not synthesized by scaling the existing detector. The normal rectangle and a separately confirmed rare rectangle feed independent event analyzers and
+requires a supported profile or recalibration. The two 1440p widths share normal and provisional rare geometry at 80% UI
+scale; other combinations still require calibration. Geometry is not synthesized by scaling the existing detector.
+The normal rectangle and a separately confirmed rare rectangle feed independent event analyzers and
 serialized jobs through the same local OCR worker. Automatic normal localization never implicitly confirms the rare
-placement. Only 3440x1440 at 80% currently has bundled normal and provisional rare detector geometry. Recognized results
+placement. 3440x1440 and 2560x1440 at 80% share the bundled normal and provisional rare detector geometry. Recognized results
 from both paths are added automatically and remain visible in the bounded review feed.
 
-### Automatic Normal-Stack Localization
+### Optional Automatic Placement
 
-Automatic placement is enabled at 80% UI scale for `3440x1440`, `2560x1440`, and `1920x1080` on both Linux and
-Windows. Capture begins with an `800x600` search
-area centered around the saved normal region, or the default region when no saved placement exists. The user can drag this
-larger area to recenter the search without switching to manual pixel placement.
+Capture opens in manual placement, including after source or UI-scale changes. Select **Loot stack** or **Rare loot**
+and click **Adjust automatically** to start search. This is available at 80% UI scale for `3440x1440`, `2560x1440`, and
+`1920x1080` on Linux and Windows. The selected area uses an `800x600` search centered around its current region. Drag this
+larger area to recenter the search without switching to manual pixel placement. **Adjust manually** cancels search.
+
+Rare search uses the existing 80% gold-shell and horizontal-border geometry to score candidates inside the bounded area.
+It rejects weak shell contrast and competing locations, and requires three consecutive observations within three source
+pixels before placing a 400x100 crop. Missing signals, cancellation, and source changes reset stability. The user confirms
+the areas before rare OCR starts; search frames are not replayed into rare recognition. Gold scenery and synthetic
+banners are covered by tests, but real rare-banner placement accuracy remains unmeasured.
+
+Normal search retains the existing algorithm below.
 
 The localizer evaluates every second sampled frame, scores the five calibrated row centers, and requires at least two
 visible rows. It locks only after three of the latest four candidates agree within 12 source pixels. Retained search history
