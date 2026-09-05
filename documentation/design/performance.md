@@ -76,6 +76,16 @@ missed/duplicate loot, and source/placement changes. If the negotiated stream ca
 resolution/cadence on a particular portal/compositor, investigate its negotiation before treating this target as met.
 
 Actual BDO FPS, native desktop capture under the user's compositor, long-running gameplay resource use, and Windows
-runtime behavior have **not** been verified in this workspace. Only the Linux Rust target is installed. Keep Windows
-and Linux live-capture smoke tests as release acceptance work. No worker migration or further OCR algorithm changes
+runtime behavior have **not** been verified in this workspace. The full Windows executable was cross-compiled on Linux on 2026-09-05 using cargo-xwin and LLVM.
+That verifies compilation and linking, not Windows runtime behavior or game performance. Keep Windows and Linux live-capture smoke tests as release acceptance work. No worker migration or further OCR algorithm changes
 were made without representative evidence of a main-thread bottleneck and replay validation.
+
+## Windows capture implementation
+
+WGC uses two frame-pool buffers, a bounded wake queue, and the same one-outstanding-batch control. D3D11 staging textures
+match the exact ROI dimensions; repeated preview work is disabled outside visible setup, and visible previews are reduced
+on the GPU before readback. Requesting a 125 ms producer interval is best effort, with an 8 FPS consumer fallback.
+GPU/device selection and cross-adapter copies on hybrid systems require actual measurements. Windows aggregate logs
+rotate in the app log directory; packing time includes GPU wait/readback, while IPC, analysis, and OCR have separate
+measurements. No minimized-WebView2 throughput or BDO frame-time result is claimed. The
+[Windows release protocol](../development/windows.md#release-gates) includes both.

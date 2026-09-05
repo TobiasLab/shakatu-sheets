@@ -30,39 +30,41 @@ export function App() {
     }
 
     return (
-        <AppShell
-            view={view}
-            onViewChange={setView}
-            databaseStatus={persistedSession.databaseStatus}
-            databaseError={persistedSession.databaseError}
-            sessionStatus={persistedSession.session.status}
-            captureStatus={captureStatus}
-        >
-            <div hidden={view !== "live"}>
-                <LiveSessionView
-                    controller={liveSession}
-                    visible={view === "live"}
-                    captureSetupRequest={captureSetupRequest}
-                    onCaptureStatusChange={setCaptureStatus}
-                />
-            </div>
-            {view === "history" ? (
-                <HistoryView
-                    databaseLoaded={persistedSession.databaseLoaded}
-                    databaseStatus={persistedSession.databaseStatus}
-                    onReopen={reopenFinishedSession}
-                    onOpenSettings={() => setView("settings")}
-                />
-            ) : view === "settings" ? (
-                <SettingsView
-                    theme={theme}
-                    onThemeChange={setTheme}
-                    onOpenCapture={() => {
-                        setView("live");
-                        setCaptureSetupRequest((request) => request + 1);
-                    }}
-                />
-            ) : null}
-        </AppShell>
+        <div inert={persistedSession.closing}>
+            <AppShell
+                view={view}
+                onViewChange={setView}
+                databaseStatus={persistedSession.databaseStatus}
+                databaseError={persistedSession.databaseError}
+                sessionStatus={persistedSession.session.status}
+                captureStatus={captureStatus}
+            >
+                <div hidden={view !== "live"}>
+                    <LiveSessionView
+                        controller={liveSession}
+                        visible={view === "live"}
+                        captureSetupRequest={captureSetupRequest}
+                        onCaptureStatusChange={setCaptureStatus}
+                    />
+                </div>
+                {view === "history" ? (
+                    <HistoryView
+                        databaseLoaded={persistedSession.databaseLoaded}
+                        databaseStatus={persistedSession.databaseStatus}
+                        onReopen={reopenFinishedSession}
+                        onOpenSettings={() => setView("settings")}
+                    />
+                ) : view === "settings" ? (
+                    <SettingsView
+                        theme={theme}
+                        onThemeChange={setTheme}
+                        onOpenCapture={() => {
+                            setView("live");
+                            setCaptureSetupRequest((request) => request + 1);
+                        }}
+                    />
+                ) : null}
+            </AppShell>
+        </div>
     );
 }

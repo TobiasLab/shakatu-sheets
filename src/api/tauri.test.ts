@@ -251,3 +251,18 @@ describe("native capture frame protocol", () => {
         expect(tauri.invoke).not.toHaveBeenCalledWith("acknowledge_native_display_frame", expect.anything());
     });
 });
+
+describe("native capture capability routing", () => {
+    it("uses backend capabilities instead of the webview user agent", async () => {
+        const { nativeCaptureCapabilities } = await import("./tauri");
+        const capabilities = {
+            backend: "windows",
+            available: false,
+            reason: "Disabled by policy",
+            debugRoiSamples: false,
+        };
+        tauri.invoke.mockResolvedValueOnce(capabilities);
+        expect(await nativeCaptureCapabilities()).toEqual(capabilities);
+        expect(tauri.invoke).toHaveBeenLastCalledWith("native_capture_capabilities");
+    });
+});

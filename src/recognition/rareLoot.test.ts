@@ -184,3 +184,28 @@ describe("rare loot frame analysis", () => {
         ]);
     });
 });
+
+describe("calibrated rare geometry", () => {
+    it("rejects geometry that reads outside the frame", async () => {
+        const { RARE_LOOT_GEOMETRY, validateRareLootGeometry } = await import("./rareLoot");
+        expect(() => validateRareLootGeometry({ ...RARE_LOOT_GEOMETRY, borderOffset: 35 })).toThrow();
+        expect(() =>
+            validateRareLootGeometry({
+                ...RARE_LOOT_GEOMETRY,
+                ocrBounds: { left: 0, right: 401, top: 40, bottom: 70 },
+            }),
+        ).toThrow();
+    });
+    it("uses the configured frame dimensions without silently rescaling pixels", async () => {
+        const { RARE_LOOT_GEOMETRY, rareLootDetectionProfile } = await import("./rareLoot");
+        const geometry = { ...RARE_LOOT_GEOMETRY, width: 500, height: 125, textCenterY: 60 };
+        const analyzer = new RareLootFrameAnalyzer(geometry);
+        expect(
+            analyzer.pushFrame({ width: 500, height: 125, pixels: new Uint8ClampedArray(500 * 125 * 4) }).count,
+        ).toBe(0);
+        expect(rareLootDetectionProfile(geometry).bottomCenter).toBe(60);
+        expect(() =>
+            analyzer.pushFrame({ width: 400, height: 100, pixels: new Uint8ClampedArray(400 * 100 * 4) }),
+        ).toThrow();
+    });
+});

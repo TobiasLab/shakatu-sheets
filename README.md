@@ -18,9 +18,11 @@ Shakatu Sheets is a local-first, open-source silver-per-hour tracker for Black D
 ## Development
 
 ```sh
-npm install
+npm ci
 npm run tauri dev
 ```
+
+See [development setup](documentation/development/README.md) and [Windows support and validation status](documentation/development/windows.md). Windows builds use `npm run bundle:windows`; native Windows behavior and additional live-detection profiles still require validation.
 
 On Arch-derived systems, build Linux bundles with `npm run bundle:linux`. The `NO_STRIP` workaround is required because linuxdeploy's bundled binutils do not understand Arch's RELR sections.
 

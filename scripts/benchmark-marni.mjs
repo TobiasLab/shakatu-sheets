@@ -16,7 +16,7 @@ const server = spawn(process.execPath, ["node_modules/vite/bin/vite.js", "--host
     stdio: "ignore",
 });
 const browser = spawn(
-    process.env.CHROMIUM ?? "/usr/bin/chromium",
+    process.env.CHROMIUM ?? (process.platform === "win32" ? `${process.env["ProgramFiles(x86)"] ?? "C:\\Program Files (x86)"}\\Microsoft\\Edge\\Application\\msedge.exe` : "/usr/bin/chromium"),
     [
         "--headless=new",
         "--no-sandbox",

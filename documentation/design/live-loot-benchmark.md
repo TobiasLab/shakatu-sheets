@@ -230,7 +230,8 @@ npm run benchmark:loot:roi -- /path/to/dev-samples/live-loot --validation --ocr 
 
 The directory must contain version-1 `annotations.json` and run directories with `manifest.json`, `normal/minute-*`, and
 `rare/minute-*`. The replay validates the capture version, source resolution, UI scale, sample rate, contiguous matching normal/rare
-batch IDs, and crop dimensions against the calibrated profile. It streams frames
+batch IDs, and crop dimensions against that resolution/scale registry entry. Files are enumerated and piped as an
+ordered PNG stream into FFmpeg, including on Windows without glob support. It streams frames
 through a bounded decoder and waits for pending OCR before advancing, so these are accuracy measurements, not a live
 throughput benchmark. Omit `--ocr` for detection and selected-window diagnostics. Output files must not already exist.
 

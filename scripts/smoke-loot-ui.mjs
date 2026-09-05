@@ -2,8 +2,11 @@
 // No test pixels or credentials are persisted; all Tauri calls use synthetic fixtures.
 import assert from "node:assert/strict";
 import { mkdir, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 
-const output = process.env.UI_SMOKE_OUTPUT ?? "/tmp/shakatu-ui";
+const output = process.env.UI_SMOKE_OUTPUT ?? join(tmpdir(), "shakatu-ui");
+const backend = process.env.UI_SMOKE_BACKEND === "windows" ? "windows" : "linux";
 const appUrl = process.env.UI_SMOKE_URL ?? "http://127.0.0.1:1420";
 const page = await (await fetch("http://127.0.0.1:9222/json/new?about:blank", { method: "PUT" })).json();
 const ws = new WebSocket(page.webSocketDebuggerUrl);
@@ -61,7 +64,7 @@ await send("Page.addScriptToEvaluateOnNewDocument", {
     let nextCallbackId = 0;
     const listeners = new Map();
     window.__TAURI_EVENT_PLUGIN_INTERNALS__ = { unregisterListener(event, id) { listeners.delete(id); } };
-    window.__resize = () => { for (const [id, args] of listeners) callbacks.get(args.handler)?.({event: args.event, payload:{width:1280,height:820}, id}); };
+    window.__resize = () => { for (const [id, args] of listeners) if (args.event === "tauri://resize") callbacks.get(args.handler)?.({event: args.event, payload:{width:1280,height:820}, id}); };
     window.__minimized = false;
     window.__TAURI_INTERNALS__ = {
         metadata: { currentWindow: { label: "main" }, currentWebview: { label: "main" } },
@@ -72,6 +75,7 @@ await send("Page.addScriptToEvaluateOnNewDocument", {
             if (command === "load_active_session") return null;
             if (command === "load_market_prices") return [];
             if (command === "list_finished_sessions") return [{ session: {id:"fixture-finished",status:"finished",region:"eu",grindSpotId:"sycraia-lower-revamp",startedAt:null,elapsedMs:3600000,entries:[{id:"fixture-loot",name:"Ancient Spirit Dust",quantity:12,unitPrice:3000000,valuation:"vendor",saleMultiplier:1,source:"manual",createdAt:1788520000000}]},finishedAt:1788523600000,garmothUploadStatus:null }];
+            if (command === "native_capture_capabilities") return { backend: ${JSON.stringify(backend)}, available: true, reason: null, debugRoiSamples: true };
             if (command === "load_loot_capture_settings") return null;
             if (command === "load_garmoth_settings") return { apiKeyConfigured: false, characterIds: [], characters: [], selectedCharacterId: null };
             if (command === "save_session") { window.__session = args.session; return; }
@@ -237,17 +241,19 @@ try {
             await click("Settings");
         }
         await click("Grind desk");
-        await send("Emulation.setDeviceMetricsOverride", {
-            width: 960,
-            height: 680,
-            deviceScaleFactor: 1,
-            mobile: false,
-        });
-        await screenshot("minimum-window");
-        assert(
-            await evaluate("document.documentElement.scrollWidth <= 960"),
-            "Minimum window must not overflow horizontally",
-        );
+        for (const width of backend === "windows" ? [960, 700, 640] : [960]) {
+            await send("Emulation.setDeviceMetricsOverride", {
+                width,
+                height: width === 960 ? 680 : 420,
+                deviceScaleFactor: 1,
+                mobile: false,
+            });
+            await screenshot(`minimum-window-${width}`);
+            assert(
+                await evaluate(`document.documentElement.scrollWidth <= ${width}`),
+                `Window at ${width}px must not overflow horizontally`,
+            );
+        }
         assert.equal(errors.length, 0, JSON.stringify(errors));
         console.log(
             `UI smoke passed: timer, navigation, capture lifecycle, preview suppression, hidden diagnostics, screenshot state, minimization, minimum width. Screenshots: ${output}`,

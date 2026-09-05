@@ -141,51 +141,6 @@ pub(super) fn crop_pixel_region_frame(
     Ok(frame)
 }
 
-pub(super) fn selection_for_source(
-    selection: Option<NativeCaptureSelection>,
-    source_width: u32,
-    source_height: u32,
-) -> Result<Option<NativeCaptureSelection>, String> {
-    let Some(selection) = selection else {
-        return Ok(None);
-    };
-    if (source_width, source_height) != selection.source_dimensions() {
-        return Ok(None);
-    }
-    selection.validate()?;
-    Ok(Some(selection))
-}
-
-pub(super) fn allocate_frame(header: FrameHeader) -> Result<Vec<u8>, String> {
-    let payload_len = (header.output_width as usize)
-        .checked_mul(header.output_height as usize)
-        .and_then(|pixels| pixels.checked_mul(4))
-        .ok_or_else(|| "capture frame dimensions are too large".to_string())?;
-    let frame_len = FRAME_HEADER_BYTES
-        .checked_add(payload_len)
-        .ok_or_else(|| "capture frame size overflowed".to_string())?;
-    let mut frame = Vec::new();
-    frame
-        .try_reserve_exact(frame_len)
-        .map_err(|_| "capture frame allocation failed".to_string())?;
-    for value in [
-        FRAME_PROTOCOL_VERSION,
-        header.kind,
-        header.batch.capture_id,
-        header.batch.batch_id,
-        header.output_width,
-        header.output_height,
-        header.source_width,
-        header.source_height,
-        header.crop_x,
-        header.crop_y,
-    ] {
-        frame.extend_from_slice(&value.to_le_bytes());
-    }
-    frame.resize(frame_len, 0);
-    Ok(frame)
-}
-
 pub(super) fn validated_stride(stride: i32, source_width: u32) -> Result<u32, String> {
     let minimum = source_width
         .checked_mul(4)
@@ -235,23 +190,4 @@ pub(super) fn converted_pixel(
         spa::param::video::VideoFormat::RGBx => Ok([pixel[0], pixel[1], pixel[2], 255]),
         _ => Err(format!("Unsupported PipeWire video format: {format:?}")),
     }
-}
-
-pub(super) fn error_frame(error: &str) -> Vec<u8> {
-    let mut frame = allocate_frame(FrameHeader {
-        kind: FRAME_KIND_ERROR,
-        batch: BatchIdentity {
-            capture_id: 0,
-            batch_id: 0,
-        },
-        output_width: 0,
-        output_height: 0,
-        source_width: 0,
-        source_height: 0,
-        crop_x: 0,
-        crop_y: 0,
-    })
-    .expect("an empty protocol frame must fit in memory");
-    frame.extend_from_slice(error.as_bytes());
-    frame
 }

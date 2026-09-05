@@ -1,4 +1,3 @@
-import { spawn } from "node:child_process";
 import { readdir, readFile, writeFile } from "node:fs/promises";
 import { join, resolve } from "node:path";
 import { setTimeout as delay } from "node:timers/promises";
@@ -6,12 +5,13 @@ import { fileURLToPath } from "node:url";
 import { parseArgs } from "node:util";
 import { LiveLootCoordinator } from "../src/recognition/liveLoot.ts";
 import { preprocessLootOcrFrame } from "../src/recognition/liveLootOcr.ts";
+import { findLiveLootProfile, findRareLootGeometry } from "../src/recognition/liveLootProfiles.ts";
 import {
-    RARE_LOOT_OCR_BOUNDS,
     RARE_LOOT_OCR_SELECTION,
-    RARE_LOOT_PROFILE,
     RareLootFrameAnalyzer,
+    rareLootDetectionProfile,
 } from "../src/recognition/rareLoot.ts";
+import { decodeRoiFrames } from "./loot-roi-decoder.mjs";
 
 const args = process.argv.slice(2);
 const root = args.shift();
@@ -27,9 +27,6 @@ if (!root)
         "Usage: npm run benchmark:loot:roi -- <live-loot directory> [--validation] [--ocr] [--output report.json]",
     );
 const annotations = JSON.parse(await readFile(join(root, "annotations.json"), "utf8"));
-const artifact = JSON.parse(
-    await readFile(new URL("../src/recognition/profiles/live-loot-3440x1440-80.json", import.meta.url), "utf8"),
-);
 const cases = JSON.parse(await readFile(new URL("./fixtures/loot-roi-cases.json", import.meta.url), "utf8"));
 if (annotations.version !== 1 || !Array.isArray(annotations.runs) || !annotations.itemDictionary?.length)
     throw new Error("Unsupported ROI annotations.");
@@ -46,60 +43,6 @@ async function batchIds(directory) {
     if (!ids.length || ids.some((id, index) => !Number.isSafeInteger(id) || (index > 0 && id !== ids[index - 1] + 1)))
         throw new Error(`${directory}: missing or unordered batches; cannot replay as consecutive observations.`);
     return ids;
-}
-
-async function* decode(directory, width, height, expectedCount) {
-    const child = spawn(
-        "ffmpeg",
-        [
-            "-v",
-            "error",
-            "-threads",
-            "1",
-            "-pattern_type",
-            "glob",
-            "-i",
-            join(directory, "minute-*", "*.png"),
-            "-threads",
-            "1",
-            "-f",
-            "rawvideo",
-            "-pix_fmt",
-            "rgba",
-            "pipe:1",
-        ],
-        { stdio: ["ignore", "pipe", "pipe"] },
-    );
-    let error = "";
-    child.stderr.on("data", (chunk) => {
-        error = (error + chunk).slice(-4096);
-    });
-    const completion = new Promise((resolveDecode) => {
-        child.on("error", (failure) => resolveDecode(failure));
-        child.on("close", (code) => resolveDecode(code === 0 ? null : new Error(`ffmpeg: ${error}`)));
-    });
-    const frameSize = width * height * 4;
-    let buffer = Buffer.alloc(0);
-    let count = 0;
-    try {
-        for await (const chunk of child.stdout) {
-            buffer = Buffer.concat([buffer, chunk]);
-            while (buffer.length >= frameSize) {
-                // Coordinator takes ownership; don't retain the decoder's larger chunk through a subarray.
-                const pixels = new Uint8ClampedArray(buffer.subarray(0, frameSize));
-                buffer = buffer.subarray(frameSize);
-                count += 1;
-                yield { width, height, pixels };
-            }
-        }
-        const failure = await completion;
-        if (failure) throw failure;
-        if (buffer.length || count !== expectedCount)
-            throw new Error(`Expected ${expectedCount} complete frames; decoded ${count}.`);
-    } finally {
-        child.kill();
-        await completion;
-    }
 }
 
 function compare(expected, results, ocr) {
@@ -149,7 +92,19 @@ try {
         if (!/^run-\d+-\d+-\d+$/.test(run.id)) throw new Error("Invalid run directory.");
         const directory = join(root, run.id);
         const manifest = JSON.parse(await readFile(join(directory, "manifest.json"), "utf8"));
+        const artifact = findLiveLootProfile(
+            manifest.sourceDimensions?.width,
+            manifest.sourceDimensions?.height,
+            manifest.uiScalePercent,
+        );
+        const rareGeometry = findRareLootGeometry(
+            manifest.sourceDimensions?.width,
+            manifest.sourceDimensions?.height,
+            manifest.uiScalePercent,
+        );
         if (
+            rareGeometry === null ||
+            artifact === null ||
             manifest.version !== 1 ||
             manifest.sourceDimensions?.width !== artifact.capture.sourceWidth ||
             manifest.sourceDimensions?.height !== artifact.capture.sourceHeight ||
@@ -162,11 +117,11 @@ try {
         if (normalIds.length !== rareIds.length || normalIds.some((id, index) => id !== rareIds[index]))
             throw new Error(`${run.id}: normal/rare batches do not match.`);
         for (const kind of ["normal", "rare"]) {
-            const profile = kind === "normal" ? artifact.profile : RARE_LOOT_PROFILE;
+            const profile = kind === "normal" ? artifact.profile : rareLootDetectionProfile(rareGeometry);
             const crop = manifest[`${kind}Crop`]?.pixels;
             if (crop?.width !== profile.width || crop?.height !== profile.height)
                 throw new Error(`${run.id}: unsupported ${kind} geometry.`);
-            const analyzer = new RareLootFrameAnalyzer();
+            const analyzer = new RareLootFrameAnalyzer(rareGeometry);
             const results = [];
             let ocrJobs = 0;
             const coordinator = new LiveLootCoordinator({
@@ -176,7 +131,7 @@ try {
                     ? {
                           analyzeFrame: (frame) => analyzer.pushFrame(frame),
                           ocrSelection: RARE_LOOT_OCR_SELECTION,
-                          ocrBounds: RARE_LOOT_OCR_BOUNDS,
+                          ocrBounds: rareGeometry.ocrBounds,
                           ocrTextColor: "gold",
                       }
                     : {}),
@@ -215,7 +170,7 @@ try {
                     }),
             });
             try {
-                for await (const frame of decode(
+                for await (const frame of decodeRoiFrames(
                     join(directory, kind),
                     profile.width,
                     profile.height,

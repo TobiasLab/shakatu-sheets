@@ -4,8 +4,10 @@ import {
     debugRoiSampleCollectionStatus,
     type LootCaptureSettings,
     loadLootCaptureSettings,
+    type NativeCaptureCapabilities,
     type NativeCaptureFrame,
     type NativeCaptureSelection,
+    nativeCaptureCapabilities,
     saveLootCaptureSettings,
     setNativeDisplayCapturePreviewEnabled,
     setNativeDisplayCaptureRegion,
@@ -13,7 +15,6 @@ import {
     startNativeDisplayCapture,
     stopDebugRoiSampleCollection,
     stopNativeDisplayCapture,
-    supportsNativeDisplayCapture,
     supportsTauriApi,
 } from "../../api/tauri";
 import { isActiveSessionStatus, type SessionStatus } from "../../domain/session";
@@ -48,18 +49,17 @@ import {
     type LiveLootTesseractOcr,
     serializeLiveLootOcrReader,
 } from "../../recognition/liveLootOcr";
-import { findLiveLootProfile } from "../../recognition/liveLootProfiles";
+import {
+    findLiveLootProfile,
+    findRareLootGeometry,
+    supportsAutomaticLootLocalization,
+} from "../../recognition/liveLootProfiles";
 import {
     acceptLiveLootReviewEntry,
     appendLiveLootReviewResult,
     type LiveLootReviewEntry,
 } from "../../recognition/liveLootReview";
-import {
-    RARE_LOOT_OCR_BOUNDS,
-    RARE_LOOT_OCR_SELECTION,
-    RARE_LOOT_PROFILE,
-    RareLootFrameAnalyzer,
-} from "../../recognition/rareLoot";
+import { RARE_LOOT_OCR_SELECTION, RareLootFrameAnalyzer, rareLootDetectionProfile } from "../../recognition/rareLoot";
 
 type CaptureStatus = "idle" | "requesting" | "connecting" | "capturing";
 type RecognitionStatus = "idle" | "starting" | "active" | "unavailable" | "error";
@@ -376,9 +376,32 @@ export function useLiveLootCapture({
     const [sampleCollectionNow, setSampleCollectionNow] = useState(Date.now());
     const [debugSampleCollectionAvailable, setDebugSampleCollectionAvailable] = useState(false);
     const [nativeAppliedSelectionKey, setNativeAppliedSelectionKey] = useState("");
-    const debugSampleCollectionCandidate = import.meta.env.DEV && supportsNativeDisplayCapture();
+    const [captureCapabilities, setCaptureCapabilities] = useState<NativeCaptureCapabilities | null>(null);
+    const lastNativeArrival = useRef<number | null>(null);
+    const [sourceWaiting, setSourceWaiting] = useState(false);
+    const captureSessionId = useRef(sessionId);
+    const debugSampleCollectionCandidate = import.meta.env.DEV && captureCapabilities?.debugRoiSamples === true;
+    useEffect(() => {
+        let cancelled = false;
+        void nativeCaptureCapabilities()
+            .then((capabilities) => {
+                if (!cancelled) setCaptureCapabilities(capabilities);
+            })
+            .catch((failure) => {
+                if (!cancelled) setError(`Could not check capture support: ${String(failure)}`);
+            });
+        return () => {
+            cancelled = true;
+        };
+    }, []);
+    useLayoutEffect(() => {
+        if (captureSessionId.current !== sessionId) {
+            captureSessionId.current = sessionId;
+            stopCapture();
+        }
+    }, [sessionId]);
     const sessionActive = isActiveSessionStatus(sessionStatus);
-    const captureAllowed = databaseLoaded && sessionActive;
+    const captureAllowed = databaseLoaded && sessionActive && captureCapabilities !== null;
 
     useLayoutEffect(() => {
         activeSessionId.current = sessionId;
@@ -710,7 +733,7 @@ export function useLiveLootCapture({
         if (
             placementModeRef.current !== "localizing" ||
             !currentSource ||
-            !findLiveLootProfile(currentSource.width, currentSource.height, uiScaleRef.current)
+            !supportsAutomaticLootLocalization(currentSource.width, currentSource.height, uiScaleRef.current)
         )
             return;
 
@@ -769,7 +792,10 @@ export function useLiveLootCapture({
 
     function beginAutomaticLocalization(anchor: NormalizedRegion) {
         const currentSource = sourceDimensionsRef.current;
-        if (!currentSource || !findLiveLootProfile(currentSource.width, currentSource.height, uiScaleRef.current))
+        if (
+            !currentSource ||
+            !supportsAutomaticLootLocalization(currentSource.width, currentSource.height, uiScaleRef.current)
+        )
             return;
         let nextSearch: NormalizedRegion;
         try {
@@ -833,6 +859,7 @@ export function useLiveLootCapture({
         updateRareRegionConfirmed(false);
         sampledFrames.current = 0;
         lastNativeSampleBatch.current = 0;
+        lastNativeArrival.current = null;
         measurementStarted.current = performance.now();
         configuredSource.current = "";
         setNativeAppliedSelectionKey("");
@@ -852,6 +879,28 @@ export function useLiveLootCapture({
         requestId.current += 1;
         releaseStream();
     }
+
+    useEffect(() => {
+        const stop = () => stopCapture();
+        window.addEventListener("shakatu-stop-capture", stop);
+        return () => window.removeEventListener("shakatu-stop-capture", stop);
+    }, []);
+
+    useEffect(() => {
+        const expectsFrames =
+            previewsEnabled || (nativeAppliedSelectionKey !== "" && nativeAppliedSelectionKey !== "null");
+        if (captureCapabilities?.backend !== "windows" || status !== "capturing" || !windowVisible || !expectsFrames) {
+            setSourceWaiting(false);
+            return;
+        }
+        const update = () =>
+            setSourceWaiting(
+                lastNativeArrival.current !== null && performance.now() - lastNativeArrival.current > 2_000,
+            );
+        update();
+        const timer = window.setInterval(update, 1_000);
+        return () => window.clearInterval(timer);
+    }, [captureCapabilities, status, windowVisible, previewsEnabled, nativeAppliedSelectionKey]);
 
     function togglePreviews() {
         setSetupOpen((open) => !open);
@@ -948,7 +997,11 @@ export function useLiveLootCapture({
         if (!captureAllowed) return;
         stopCapture();
         setError("");
-        const useNativeCapture = supportsNativeDisplayCapture();
+        const useNativeCapture = captureCapabilities?.backend != null;
+        if (useNativeCapture && !captureCapabilities?.available) {
+            setError(captureCapabilities?.reason ?? "Native capture is unavailable on this device.");
+            return;
+        }
         if (!useNativeCapture && !navigator.mediaDevices?.getDisplayMedia) {
             setError("This WebView does not support operating-system screen capture.");
             return;
@@ -968,6 +1021,17 @@ export function useLiveLootCapture({
                     null,
                     (frame) => {
                         if (!mounted.current || currentRequest !== requestId.current) return;
+                        const arrival = performance.now();
+                        if (
+                            captureCapabilities?.backend === "windows" &&
+                            lastNativeArrival.current !== null &&
+                            arrival - lastNativeArrival.current > 2_000
+                        ) {
+                            if (placementModeRef.current === "localizing")
+                                localizer.current = new NormalLootLocalizer();
+                            restartRecognition();
+                        }
+                        lastNativeArrival.current = arrival;
                         receivedNativeFrame.current = true;
                         setStatus("capturing");
                         if (lastNativeSampleBatch.current !== frame.batchId) {
@@ -976,6 +1040,11 @@ export function useLiveLootCapture({
                         }
                         const current = sourceDimensionsRef.current;
                         if (current?.width !== frame.sourceWidth || current.height !== frame.sourceHeight) {
+                            stopRecognition();
+                            if (captureCapabilities?.backend === "windows") {
+                                updateRegionConfirmed(false);
+                                updateRareRegionConfirmed(false);
+                            }
                             updateSourceDimensions({ width: frame.sourceWidth, height: frame.sourceHeight });
                         }
                         if (frame.kind === "preview") {
@@ -1154,7 +1223,7 @@ export function useLiveLootCapture({
         updateRegion("normal", nextNormal);
         updateRegion("rare", nextRare);
         updateCaptureRegion("rare", nextRare);
-        if (findLiveLootProfile(currentSource.width, currentSource.height, next)) {
+        if (supportsAutomaticLootLocalization(currentSource.width, currentSource.height, next)) {
             localizer.current = new NormalLootLocalizer();
             selectRegionKind("normal");
             updateSearchRegion(searchRegionAroundLootRegion(nextNormal, currentSource.width, currentSource.height));
@@ -1248,6 +1317,9 @@ export function useLiveLootCapture({
     const calibratedProfile = sourceDimensions
         ? findLiveLootProfile(sourceDimensions.width, sourceDimensions.height, uiScalePercent)
         : null;
+    const rareGeometry = sourceDimensions
+        ? findRareLootGeometry(sourceDimensions.width, sourceDimensions.height, uiScalePercent)
+        : null;
     const recognitionRequested =
         captureAllowed &&
         status === "capturing" &&
@@ -1269,7 +1341,7 @@ export function useLiveLootCapture({
         setRecognitionError("");
         ocrDiagnosticsRef.current = emptyOcrDiagnostics();
         setOcrDiagnostics(emptyOcrDiagnostics());
-        if (!recognitionRequested || !calibratedProfile) {
+        if (!recognitionRequested || !calibratedProfile || !rareGeometry) {
             setRecognitionStatus(regionConfirmed && sourceDimensions && !calibratedProfile ? "unavailable" : "idle");
             return;
         }
@@ -1330,16 +1402,16 @@ export function useLiveLootCapture({
                     onResult: (result) => appendResult("normal", result),
                     maxPendingOcrJobs: NORMAL_MAX_OUTSTANDING_OCR_JOBS,
                 });
-                const rareAnalyzer = new RareLootFrameAnalyzer();
+                const rareAnalyzer = new RareLootFrameAnalyzer(rareGeometry);
                 const rareCoordinator = new LiveLootCoordinator({
-                    profile: RARE_LOOT_PROFILE,
+                    profile: rareLootDetectionProfile(rareGeometry),
                     dictionary: itemDictionaryRef.current,
                     readText,
                     onResult: (result) => appendResult("rare", result),
                     maxPendingOcrJobs: RARE_MAX_OUTSTANDING_OCR_JOBS,
                     analyzeFrame: (frame) => rareAnalyzer.pushFrame(frame),
                     ocrSelection: RARE_LOOT_OCR_SELECTION,
-                    ocrBounds: RARE_LOOT_OCR_BOUNDS,
+                    ocrBounds: rareGeometry.ocrBounds,
                     ocrTextColor: "gold",
                     eventIdPrefix: "rare",
                 });
@@ -1494,7 +1566,8 @@ export function useLiveLootCapture({
                     rareValid = false;
                 }
             }
-            rareConfirmed = rareValid && savedSettings.rareRegionConfirmed;
+            rareConfirmed =
+                captureCapabilities?.backend !== "windows" && rareValid && savedSettings.rareRegionConfirmed;
             confirmed = normalValid && rareConfirmed;
         }
         updateUiScale(selectedScale);
@@ -1502,7 +1575,7 @@ export function useLiveLootCapture({
         updateRegion("rare", selectedRare);
         updateCaptureRegion("rare", selectedRare);
         updateRareRegionConfirmed(rareConfirmed);
-        if (findLiveLootProfile(sourceDimensions.width, sourceDimensions.height, selectedScale)) {
+        if (supportsAutomaticLootLocalization(sourceDimensions.width, sourceDimensions.height, selectedScale)) {
             beginAutomaticLocalization(selectedNormal);
         } else {
             updateSearchRegion(null);
@@ -1886,6 +1959,8 @@ export function useLiveLootCapture({
         previewsEnabled,
         stopCapture,
         captureAllowed,
+        captureBackend: captureCapabilities?.backend,
+        sourceWaiting,
         startCapture,
         databaseLoaded,
         sessionStatus,

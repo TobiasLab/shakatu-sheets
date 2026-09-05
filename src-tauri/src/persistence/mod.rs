@@ -23,10 +23,19 @@ const DATABASE_VERSION: i64 = 2;
 pub struct DatabasePath(pub PathBuf);
 
 pub fn initialize_database(app: &AppHandle) -> Result<PathBuf, String> {
-    let app_data_dir = app
-        .path()
-        .app_data_dir()
-        .map_err(|error| error.to_string())?;
+    let app_data_dir = match std::env::var_os("SHAKATU_DATA_DIR") {
+        Some(path) => {
+            let path = PathBuf::from(path);
+            if !path.is_absolute() {
+                return Err("SHAKATU_DATA_DIR must be an absolute directory path.".into());
+            }
+            path
+        }
+        None => app
+            .path()
+            .app_data_dir()
+            .map_err(|error| error.to_string())?,
+    };
     fs::create_dir_all(&app_data_dir).map_err(|error| error.to_string())?;
     secure_directory(&app_data_dir)?;
 
