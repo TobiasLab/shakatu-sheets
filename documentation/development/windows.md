@@ -132,7 +132,7 @@ Installed smoke also sets `WEBVIEW2_USER_DATA_FOLDER` to its temporary directory
 Windows known-folder APIs. Window close stops capture and flushes ordered session saves, retrying the newest failed
 snapshot; a persistent save failure keeps the window open with an error. Forced process termination cannot flush JS work.
 
-Debug builds retain the opt-in five-minute paired ROI collector at the repository's ignored `dev-samples/live-loot` path.
+Debug builds retain the opt-in 30-minute paired ROI collector at the repository's ignored `dev-samples/live-loot` path.
 Its token/revision checks, bounded writer, stop reasons, native PNGs, and manifests also apply on Windows. The manifest
 file handle is closed before rename. Release builds omit the collector commands. Samples are never automatically uploaded.
 
@@ -184,7 +184,7 @@ version for every hardware run. Use a release build for performance and a debug 
 | OCR offline | Disconnect networking after installation. Marni import runs the bundled worker/WASM/model and produces its reviewed result; live normal/rare recognition uses identical pixels, dictionaries, thresholds, and quantities on Linux and Windows. |
 | Accuracy | For **1920×1080, 2560×1440, 3440×1440 × 80%, 100%**, collect labeled native normal/rare runs with positive and negative scenes, moving backgrounds, overlapping/identical drops, repeated identical banners, and placement changes. Tune only development data; freeze gates before a separate positive held-out run. All reviewed release events must match item/quantity with no misses, inventions, or duplicates. Preserve existing Linux regression results. |
 | Gameplay impact | Repeat game-only, app idle, capture setup, recognition visible/hidden/minimized comparisons. At most 5% degradation in average FPS **and** 1% lows; bounded queue/memory and native cadence near 8 FPS under changing content. Confirm ROI-only IPC/readback with preview off. |
-| Samples | Record a complete five-minute paired run, explicit early stop, source resize/replacement, unwritable path, and queue-pressure stop. Manifests/PNG batch IDs match, stopping drains admitted pairs, and Windows replay agrees with Linux. No collector API in release. |
+| Samples | Record a complete 30-minute paired run, explicit early stop, source resize/replacement, unwritable path, and queue-pressure stop. Manifests/PNG batch IDs match, stopping drains admitted pairs, and Windows replay agrees with Linux. No collector API in release. |
 | Data/installer | Clean standard user, Unicode/spaces in profile path, runtime present/absent, offline runtime-present install; upgrade with data, close immediately after ledger edit, forced termination/reopen, SQLite error/retry, and uninstall/reinstall data retention. Check signed public artifacts. |
 
 The 3440×1440 and 2560×1440 profiles share normal and rare OCR settings at 80% UI scale because their native ROI pixel

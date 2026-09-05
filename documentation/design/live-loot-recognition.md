@@ -81,10 +81,10 @@ offscreen canvases while visible canvases remain frozen. Native capture forces o
 sources do not repeatedly send previews. Selection, preview, and stop commands carry a capture
 token so delayed commands from a previous request cannot modify or terminate a newer capture.
 
-Debug Linux and Windows builds expose a separate `Save ROI samples for 5 minutes` action after both capture areas are confirmed. It
+Debug Linux and Windows builds expose a separate `Save ROI samples for 30 minutes` action after both capture areas are confirmed. It
 writes synchronized normal and rare PNG crops at the existing 8 FPS sampling cadence under the repository's ignored
 `dev-samples/live-loot/` directory. A bounded background encoder drops and reports pairs when storage cannot keep pace,
-rather than delaying capture or recognition. The backend enforces the five-minute deadline and finalizes the run when
+rather than delaying capture or recognition. The backend enforces the 30-minute deadline and finalizes the run when
 capture ends, the source or selection changes, or the user stops collection early. Each run includes source, UI-scale,
 crop, timing, count, byte-size, and completion metadata in `manifest.json`; it never includes a full-screen frame.
 
@@ -237,7 +237,7 @@ automatic insertion needs stricter confidence gating.
   debug-only ROI sample action is active.
 - No screenshots or videos are persisted or uploaded by default.
 - Debug ROI sample collection requires a separate explicit action, identifies the two exported regions, shows its output
-  path and progress, and stops after at most five minutes.
+  path and progress, and stops after at most 30 minutes.
 - Use operating-system capture APIs only; do not inject code, inspect game memory, or interfere with anti-cheat systems.
 - Review BDO's current terms before shipping the feature.
 
