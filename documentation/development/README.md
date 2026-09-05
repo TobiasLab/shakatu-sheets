@@ -8,7 +8,8 @@ Fedora) and Clang for the Rust PipeWire bindings' generated FFI.
 
 The offline live-loot video benchmark additionally requires FFmpeg. Benchmark videos and generated frames must not be
 committed. Development builds can write 30-minute normal and rare ROI samples under the ignored
-`dev-samples/live-loot/` directory.
+`dev-samples/live-loot/` directory. Each run also records OCR uncertainty/failures in `ocr-issues.jsonl`, with
+native frame IDs, reasons, and raw readings when available; see the [capture documentation](../design/live-loot-recognition.md).
 
 ```sh
 npm ci

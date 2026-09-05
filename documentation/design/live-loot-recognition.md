@@ -88,6 +88,27 @@ rather than delaying capture or recognition. The backend enforces the 30-minute 
 capture ends, the source or selection changes, or the user stops collection early. Each run includes source, UI-scale,
 crop, timing, count, byte-size, and completion metadata in `manifest.json`; it never includes a full-screen frame.
 
+While the collector is running, normal and rare recognition also record withheld results (insufficient observations,
+unrecognized items/quantities, or conflicting readings), OCR errors, frame-analysis/startup errors, and dropped-result
+summaries in the run's `ocr-issues.jsonl`. Successful results and ordinary frames without a loot candidate are not logged.
+Each JSON line has schema `version: 1`, a logging timestamp, source, recognition generation/event ID, status/reason,
+first and selected frames, raw OCR readings where available, and an error message for failed OCR calls. Dropped summaries
+include a count and last frame; they describe a range, not an individual record for every dropped event.
+
+`batchId` identifies the native capture batch used in `normal|rare/minute-XX/frame-NNNNNNNNNN.png`; `frame` is the
+zero-based index within that source's recognition generation, not the PNG number. Startup failures have no recognition
+index. The backend resolves existing PNGs into relative `file` paths. A null batch ID means the frame was outside that
+collection or its metadata was evicted; a null file means the image was not saved yet or was dropped. Search for its batch
+ID after collection finishes if it was still queued. Results arriving while PNGs are draining are retained even if
+their images are not written yet. After finalization, in-flight OCR can still append if its referenced images exist in
+the same run. Events spanning collections are associated with their latest selected sample run. Results from a superseded run are discarded rather than written to a new run.
+
+Diagnostic writes use a separate background task and per-run lock, with at most 32 frontend writes outstanding and a
+64 MiB log limit per run. Overflow and write failures appear in the sample collector's error area and do not stop
+capture or OCR. Only bounded frame metadata and truncated text/error strings are retained; diagnostics do not copy pixel
+buffers. The existing `/dev-samples/` Git ignore covers both images and logs. These diagnostics cannot identify loot
+that never produced a detection candidate, and cancelled recognition jobs are not treated as OCR failures.
+
 Platform capture remains behind the same start/stop interface:
 
 - Windows Graphics Capture for a selected monitor or borderless game window (implemented, awaiting hardware validation).

@@ -1,3 +1,5 @@
+mod ocr_diagnostics;
+pub use ocr_diagnostics::OcrIssue;
 mod writer;
 use writer::{run_worker, write_manifest};
 
@@ -173,6 +175,7 @@ struct Run {
     written: AtomicU64,
     bytes_written: AtomicU64,
     outcome: Mutex<RunOutcome>,
+    diagnostic_writer: Mutex<()>,
 }
 
 impl Run {
@@ -517,6 +520,7 @@ impl DebugRoiSampleCollector {
             queued: AtomicU64::new(0),
             written: AtomicU64::new(0),
             bytes_written: AtomicU64::new(0),
+            diagnostic_writer: Mutex::new(()),
             outcome: Mutex::new(RunOutcome {
                 finish_reason: None,
                 errors: Vec::new(),

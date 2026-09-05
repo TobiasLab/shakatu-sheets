@@ -603,9 +603,150 @@ fn test_run(path: &Path, sender: SyncSender<SamplePair>, settings: LootCaptureSe
         queued: AtomicU64::new(0),
         written: AtomicU64::new(0),
         bytes_written: AtomicU64::new(0),
+        diagnostic_writer: Mutex::new(()),
         outcome: Mutex::new(RunOutcome {
             finish_reason: None,
             errors: Vec::new(),
         }),
     }
+}
+
+fn diagnostic_json(path: &Path) -> serde_json::Value {
+    serde_json::json!({
+        "captureToken": 9, "collectionPath": path.to_string_lossy(), "source": "rare",
+        "generation": 2, "eventId": "rare-1", "status": "withheld", "reason": "consensus-withheld",
+        "firstFrame": {"frame": 0, "batchId": 7, "readings": []},
+        "selectedFrames": [{"frame": 1, "batchId": 8, "readings": ["Loot x1", "Loot x7"]}],
+        "count": 1, "error": null
+    })
+}
+
+#[test]
+fn ocr_diagnostics_require_a_matching_collection_and_resolve_saved_frames() {
+    let temp = TempDir::new("ocr-gating");
+    let collector = DebugRoiSampleCollector::default();
+    let issue = || serde_json::from_value(diagnostic_json(&temp.0)).unwrap();
+    assert!(!collector.log_ocr_issue(issue()).unwrap());
+    assert!(!temp.0.join("ocr-issues.jsonl").exists());
+    let (sender, _) = mpsc::sync_channel(1);
+    let run = Arc::new(test_run(&temp.0, sender, settings()));
+    collector.active.store(Some(run.clone()));
+    for (key, value) in [
+        ("captureToken", serde_json::json!(10)),
+        ("collectionPath", serde_json::json!("/unrelated")),
+    ] {
+        let mut invalid = diagnostic_json(&temp.0);
+        invalid[key] = value;
+        assert!(!collector
+            .log_ocr_issue(serde_json::from_value(invalid).unwrap())
+            .unwrap());
+    }
+    assert!(!temp.0.join("ocr-issues.jsonl").exists());
+    fs::create_dir_all(temp.0.join("rare/minute-02")).unwrap();
+    fs::write(
+        temp.0.join("rare/minute-02/frame-0000000008.png"),
+        b"sample",
+    )
+    .unwrap();
+    run.written.store(FRAMES_PER_MINUTE + 1, Ordering::Release);
+    assert!(collector.log_ocr_issue(issue()).unwrap());
+    // Completion does not discard late OCR results from saved frames in the same run.
+    run.phase.store(PHASE_FINISHED, Ordering::Release);
+    assert!(collector.log_ocr_issue(issue()).unwrap());
+    let log = fs::read_to_string(temp.0.join("ocr-issues.jsonl")).unwrap();
+    assert_eq!(log.lines().count(), 2);
+    let record: serde_json::Value = serde_json::from_str(log.lines().next().unwrap()).unwrap();
+    assert_eq!(record["version"], 1);
+    assert_eq!(
+        record["selectedFrames"][0]["file"],
+        "rare/minute-02/frame-0000000008.png"
+    );
+    assert!(record["firstFrame"]["file"].is_null());
+    assert_eq!(record["selectedFrames"][0]["readings"][1], "Loot x7");
+    fs::remove_file(temp.0.join("rare/minute-02/frame-0000000008.png")).unwrap();
+    assert!(!collector.log_ocr_issue(issue()).unwrap());
+}
+
+#[test]
+fn ocr_diagnostics_validate_payloads_and_surface_write_limits_and_errors() {
+    let temp = TempDir::new("ocr-validation");
+    let collector = DebugRoiSampleCollector::default();
+    let (sender, _) = mpsc::sync_channel(1);
+    collector
+        .active
+        .store(Some(Arc::new(test_run(&temp.0, sender, settings()))));
+    for (key, value) in [
+        ("reason", serde_json::json!("unknown")),
+        ("count", serde_json::json!(0)),
+        ("error", serde_json::json!("x".repeat(4097))),
+    ] {
+        let mut invalid = diagnostic_json(&temp.0);
+        invalid[key] = value;
+        assert!(collector
+            .log_ocr_issue(serde_json::from_value(invalid).unwrap())
+            .is_err());
+    }
+    let mut invalid = diagnostic_json(&temp.0);
+    invalid["source"] = serde_json::json!("../outside");
+    assert!(serde_json::from_value::<OcrIssue>(invalid).is_err());
+    let path = temp.0.join("ocr-issues.jsonl");
+    fs::create_dir(&path).unwrap();
+    assert!(collector
+        .log_ocr_issue(serde_json::from_value(diagnostic_json(&temp.0)).unwrap())
+        .unwrap_err()
+        .contains("open"));
+    fs::remove_dir(&path).unwrap();
+    File::create(&path)
+        .unwrap()
+        .set_len(64 * 1024 * 1024)
+        .unwrap();
+    assert!(collector
+        .log_ocr_issue(serde_json::from_value(diagnostic_json(&temp.0)).unwrap())
+        .unwrap_err()
+        .contains("64 MiB"));
+    assert_eq!(fs::metadata(path).unwrap().len(), 64 * 1024 * 1024);
+}
+
+#[test]
+fn concurrent_ocr_diagnostics_append_complete_json_lines() {
+    let temp = TempDir::new("ocr-concurrent");
+    let collector = Arc::new(DebugRoiSampleCollector::default());
+    let (sender, _) = mpsc::sync_channel(1);
+    collector
+        .active
+        .store(Some(Arc::new(test_run(&temp.0, sender, settings()))));
+    let workers: Vec<_> = (0..16)
+        .map(|_| {
+            let collector = collector.clone();
+            let issue = serde_json::from_value(diagnostic_json(&temp.0)).unwrap();
+            thread::spawn(move || collector.log_ocr_issue(issue).unwrap())
+        })
+        .collect();
+    for worker in workers {
+        assert!(worker.join().unwrap());
+    }
+    let log = fs::read_to_string(temp.0.join("ocr-issues.jsonl")).unwrap();
+    assert_eq!(log.lines().count(), 16);
+    for line in log.lines() {
+        serde_json::from_str::<serde_json::Value>(line).unwrap();
+    }
+}
+
+#[test]
+fn ocr_diagnostics_preserve_results_while_finalizing_pending_pngs() {
+    let temp = TempDir::new("ocr-finalizing");
+    let collector = DebugRoiSampleCollector::default();
+    let (sender, _) = mpsc::sync_channel(1);
+    let run = Arc::new(test_run(&temp.0, sender, settings()));
+    run.queued.store(1, Ordering::Release);
+    run.request_finish(FINISH_EXPLICIT);
+    collector.active.store(Some(run.clone()));
+    let issue = || serde_json::from_value(diagnostic_json(&temp.0)).unwrap();
+    assert!(collector.log_ocr_issue(issue()).unwrap());
+    let log = fs::read_to_string(temp.0.join("ocr-issues.jsonl")).unwrap();
+    let record: serde_json::Value = serde_json::from_str(log.trim()).unwrap();
+    assert_eq!(record["selectedFrames"][0]["batchId"], 8);
+    assert!(record["selectedFrames"][0]["file"].is_null());
+    run.phase.store(PHASE_FINISHED, Ordering::Release);
+    assert!(!collector.log_ocr_issue(issue()).unwrap());
 }
