@@ -17,16 +17,21 @@ const args = process.argv.slice(2);
 const root = args.shift();
 const { values } = parseArgs({
     args,
-    options: { validation: { type: "boolean" }, ocr: { type: "boolean" }, output: { type: "string" } },
+    options: {
+        validation: { type: "boolean" },
+        ocr: { type: "boolean" },
+        output: { type: "string" },
+        annotations: { type: "string" },
+    },
 });
 const split = values.validation ? "validation" : "development";
 const useOcr = values.ocr ?? false;
 const output = values.output;
 if (!root)
     throw new Error(
-        "Usage: npm run benchmark:loot:roi -- <live-loot directory> [--validation] [--ocr] [--output report.json]",
+        "Usage: npm run benchmark:loot:roi -- <live-loot directory> [--validation] [--ocr] [--annotations labels.json] [--output report.json]",
     );
-const annotations = JSON.parse(await readFile(join(root, "annotations.json"), "utf8"));
+const annotations = JSON.parse(await readFile(values.annotations ?? join(root, "annotations.json"), "utf8"));
 const cases = JSON.parse(await readFile(new URL("./fixtures/loot-roi-cases.json", import.meta.url), "utf8"));
 if (annotations.version !== 1 || !Array.isArray(annotations.runs) || !annotations.itemDictionary?.length)
     throw new Error("Unsupported ROI annotations.");

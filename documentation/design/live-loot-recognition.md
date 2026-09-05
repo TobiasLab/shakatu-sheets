@@ -9,7 +9,9 @@ Normal adjustment locks a `362x311` crop after stable observations; rare adjustm
 Manual placement is the default for both areas. A provisional detector
 also recognizes appearances of the fixed gold rare-banner shell and its horizontal border in the separately positioned `400x100` crop, delays OCR
 until its text is readable, and presents dictionary-constrained results in the review feed. Recognized rare results are
-added to the ledger automatically, although the detector has only one calibration event and no held-out sequence.
+added to the ledger automatically, with limited validation: the original detector calibration used one event, and
+follow-up ROI replay covers three earring events, including one reserved from parser tuning. See the benchmark results
+for scope.
 A browser-safe production module now analyzes packed RGBA crops, tracks notification identities, selects stable OCR frames,
 and resolves dictionary-constrained replay readings. Its incremental coordinator bounds retained frames and OCR work,
 confirms births with one-frame lookahead, reports backpressure explicitly, and suppresses stale results after cancellation.

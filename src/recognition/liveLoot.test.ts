@@ -233,6 +233,72 @@ describe("live loot replay recognition", () => {
         expect(results[0]).toMatchObject({ itemName: null, quantity: null });
     });
 
+    it("recognizes joined quantity markers only with a close, unambiguous item match", () => {
+        const dictionary = ["Twilight of the End - Earring", "Black Stone", "Ancient Phoenix"];
+        expect(parseLootItem("Twilight of the End = Earringsx 1", dictionary)).toBe("Twilight of the End - Earring");
+        expect(parseLootItem("Twilight of the End = Earringx 1", dictionary)).toBe("Twilight of the End - Earring");
+        expect(parseLootItem("Black Stonex2", dictionary)).toBe("Black Stone");
+        expect(parseLootItem("Black Stone Box 1", dictionary)).toBeNull();
+        expect(parseLootItem("Ancient Phoenix 1", dictionary)).toBeNull();
+        expect(parseLootItem("Ancient Phoenixx 1", dictionary)).toBe("Ancient Phoenix");
+        expect(parseLootItem("Twilight of the End - Earring 1", dictionary)).toBeNull();
+        expect(parseLootItem("Black Stonex 1.5", dictionary)).toBeNull();
+        expect(parseLootItem("Black Stonex 1 extra", dictionary)).toBeNull();
+        expect(parseLootItem("Black Stonex 1", ["Black Stona", "Black Stoni"])).toBeNull();
+    });
+
+    it("recovers the observed rare-banner readings through temporal consensus", async () => {
+        const results = await recognizeLootReplay({
+            rows: [row([]), row([1]), row([1]), row([1]), row([1])],
+            rowThreshold: 100,
+            distance,
+            dictionary: ["Twilight of the End - Earring"],
+            readText: async () => [
+                [
+                    "*Imiilight. of the End — Earrings 1",
+                    "_ Twilight of the End = Earringsx 1",
+                    "Twilight of the End = Earring. 1",
+                ],
+                [
+                    "Twilight of the End — Earring 1",
+                    "Twilight of the End = Earringsx 1",
+                    "Twilight of the End = Earring. x 1",
+                ],
+                [
+                    "Twilight of the End = Earringx 1",
+                    "Twilight of the End = Earring:x 1",
+                    "Twilight of the End = Earringx 1",
+                ],
+            ],
+        });
+        expect(results[0]).toMatchObject({ itemName: "Twilight of the End - Earring", quantity: 1 });
+    });
+
+    it("recovers a terminal quote without choosing between conflicting quantities", async () => {
+        const replay = (readings: string[][]) =>
+            recognizeLootReplay({
+                rows: [row([]), row([1]), row([1]), row([1]), row([1])],
+                rowThreshold: 100,
+                distance,
+                dictionary: ["Branch of Abundance"],
+                readText: async () => readings,
+            });
+        const recovered = await replay([
+            ["‘Branch of Abundance x10 :", "Branch of Abundance x 10", "Branch of Abundance x 110"],
+            ["Branch of A bundance x10 Lo", "Branch of Abundance x 10", "Branch of Abundance x 10"],
+            ["Branch ol} bundahee £10. 1", "Branch of Abundance x 10 ”", "Branch of Abundance x 110"],
+        ]);
+        expect(recovered[0]).toMatchObject({ itemName: "Branch of Abundance", quantity: 10 });
+        const ambiguous = await replay(
+            Array.from({ length: 3 }, () => [
+                "Branch of Abundance x 10- - i",
+                "Branch of Abundance x 100",
+                "Branch of Abundance x 10",
+            ]),
+        );
+        expect(ambiguous[0]).toMatchObject({ itemName: null, quantity: null });
+    });
+
     it("parses OCR spacing and common single-one glyph substitutions", () => {
         expect(parseLootItem("Black Stone x2", ["Black Stone"])).toBe("Black Stone");
         expect(parseLootQuantity("Black Stone x I")).toBe(1);
@@ -1046,6 +1112,8 @@ describe("notification evidence regressions", () => {
 
     it("accepts trailing OCR punctuation but rejects ambiguous quantities and trailing words", () => {
         expect(parseLootQuantity("Embers of Ynix - Armor x1 .")).toBe(1);
+        expect(parseLootQuantity("Branch of Abundance x 10 ”")).toBe(10);
+        expect(parseLootItem("Branch of Abundance x 10 ”", ["Branch of Abundance"])).toBe("Branch of Abundance");
         expect(parseLootItem("Embers of Ynix = Armor x1 .", ["Embers of Ynix - Armor"])).toBe("Embers of Ynix - Armor");
         for (const suffix of ["1.5", "1,000", "1 extra", "-1", "1 2"]) {
             expect(parseLootQuantity(`Black Stone x ${suffix}`)).toBeNull();
