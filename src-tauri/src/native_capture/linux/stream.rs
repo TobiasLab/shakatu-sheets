@@ -88,7 +88,7 @@ pub(super) fn run_pipewire(
                     metrics.source_frame();
                 }
                 let now = Instant::now();
-                if !producer_limits_samples(&data.format) && !sample_due(data.next_sample, now) {
+                if !sample_due(data.next_sample, now) {
                     return;
                 }
                 let Some(plane) = buffer.datas_mut().first_mut() else {
@@ -422,40 +422,9 @@ fn video_format_parameter() -> Vec<u8> {
     .into_inner()
 }
 
-fn producer_limits_samples(format: &spa::param::video::VideoInfoRaw) -> bool {
-    let rate = format.framerate();
-    let rate = if rate.num == 0 {
-        format.max_framerate()
-    } else {
-        rate
-    };
-    bounded_source_rate(rate)
-}
-
-fn bounded_source_rate(rate: spa::utils::Fraction) -> bool {
-    rate.num > 0 && rate.denom > 0 && u64::from(rate.num) <= 8 * u64::from(rate.denom)
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    #[test]
-    fn known_bounded_source_rates_bypass_downstream_jitter_drops() {
-        for (num, denom, expected) in [
-            (8, 1, true),
-            (240, 30, true),
-            (7, 1, true),
-            (60, 1, false),
-            (0, 1, false),
-            (8, 0, false),
-        ] {
-            assert_eq!(
-                bounded_source_rate(spa::utils::Fraction { num, denom }),
-                expected
-            );
-        }
-    }
 
     #[test]
     fn variable_rate_sources_have_an_explicit_eight_fps_maximum() {

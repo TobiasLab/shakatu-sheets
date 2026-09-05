@@ -81,6 +81,9 @@ offscreen canvases while visible canvases remain frozen. Native capture forces o
 sources do not repeatedly send previews. Selection, preview, and stop commands carry a capture
 token so delayed commands from a previous request cannot modify or terminate a newer capture.
 
+Linux applies the local eight-FPS sampling deadline even when PipeWire advertises a bounded producer rate. This prevents
+an unexpectedly fast producer from bypassing the capture/recognition work limit; the existing jitter allowance remains.
+
 Debug Linux and Windows builds expose a separate `Save ROI samples for 30 minutes` action after both capture areas are confirmed. It
 writes synchronized normal and rare PNG crops at the existing 8 FPS sampling cadence under the repository's ignored
 `dev-samples/live-loot/` directory. A bounded background encoder drops and reports pairs when storage cannot keep pace,
@@ -219,17 +222,21 @@ must contain enough bright neutral strokes concentrated around the baseline, com
 This rejects grass and combat textures without raising the threshold for short or compressed item names. Row fingerprints
 use the central glyph band and exclude scenery after a trailing whitespace gap. The gap itself remains part of the
 comparison so an appended quantity digit still changes identity. Fingerprints are computed only for detected rows, and
-quantity projections reuse the full projection.
+quantity projections reuse the full projection. Normal OCR uses the earliest trailing whitespace boundary across its
+three selected projections, including the full gap, and can extend to the detector's full text envelope for long names.
+Explicit rare OCR bounds remain separate.
 
 A temporary fingerprint change that returns to the previous identity is not a replacement unless the stack shifts. A
-strongly different, shorter new item may still be confirmed while fading older rows reduce total brightness. Baseline
-suppression and distinct event IDs for repeated identical drops remain in place.
+strongly different, shorter new item may be confirmed at the detector threshold while older rows lose brightness.
+Discriminative, confirmed stack shifts also survive that loss. A stationary stack brightening immediately after a
+confirmed birth does not create another event; count growth and distinct consecutive replacements remain countable.
+Baseline suppression and distinct event IDs for repeated identical drops remain in place.
 
 OCR now requires three consecutive observations whose neighboring fingerprints are visually consistent, after the
 entrance delay. Failed stability checks wait within the existing bounded frame window; they do not create a new event.
 Acceptance still requires the same item/quantity pair from at least two distinct frames. Trailing OCR punctuation is
-allowed, while decimals, separators inside quantities, and trailing words remain rejected. No two-frame fallback or
-single-frame acceptance was introduced.
+allowed, including terminal dash artifacts, while decimals, separators inside quantities, and trailing words remain
+rejected. No two-frame fallback or single-frame acceptance was introduced.
 
 ## Event Tracking
 
@@ -280,7 +287,9 @@ automatic insertion needs stricter confidence gating.
 11. Freeze the rare-banner detector against multiple development events, then evaluate event identity and OCR on an
     untouched held-out sequence and add measured confidence gating if automatic insertion is not sufficiently accurate.
 
-The current 3440x1440, 80%-UI-scale end-to-end baseline has 24/24 development and 11/11 test item-and-quantity matches.
+The original 3440x1440, 80%-UI-scale video benchmark recorded 24/24 development and 11/11 test item-and-quantity matches.
+The newer [hour-corpus investigation](live-loot-hour-2026-09-05.md) documents current changes and their measured limits;
+that separate historical video benchmark was not rerun for these changes.
 Tracked identities select their own first three consecutive detected OCR frames after a one-frame delay, with labels used
 only for development calibration and final scoring. This small benchmark does not yet measure live native-resolution ROI
 delivery, other layouts, or release accuracy.

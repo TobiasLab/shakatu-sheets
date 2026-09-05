@@ -1,0 +1,487 @@
+{
+    "version": 1,
+    "itemDictionary": [
+        "Branch of Abundance",
+        "Black Stone",
+        "Ancient Spirit Dust",
+        "Caphras Stone",
+        "Corrupt Oil of Immortality",
+        "Nev's Fragment",
+        "WON Origin Shard",
+        "WON Wandering Origin Crystal",
+        "Silent Fragment of Origin",
+        "Silent Crystal of Origin",
+        "Twilight of the End - Earring",
+        "Apeiron Earring",
+        "Broken Vestige of Goldroot",
+        "Fusion Shard",
+        "Refined Origin of Hunger",
+        "Refined Essence of Devouring",
+        "Sunset Primordial Pigment - Edana",
+        "Sunset Primordial Luster - Edana",
+        "Crimson Primordial Luster - Sovereign",
+        "Crimson Primordial Pigment - Sovereign",
+        "Violet Primordial Luster - Sovereign",
+        "Violet Primordial Pigment - Sovereign",
+        "Violet Primordial Pigment - Edana",
+        "Violet Primordial Luster - Edana",
+        "Embers of Ynix - Armor"
+    ],
+    "runs": [
+        {
+            "id": "run-1788615779035-2188209-0001",
+            "split": "development",
+            "normalCases": [
+                {
+                    "id": "normal-2156",
+                    "firstBatchId": 2156,
+                    "lastBatchId": 2156,
+                    "events": [
+                        {
+                            "firstBatchId": 2156,
+                            "item": "Branch of Abundance",
+                            "quantity": 7
+                        }
+                    ]
+                },
+                {
+                    "id": "stationary-2489",
+                    "firstBatchId": 2489,
+                    "lastBatchId": 2489,
+                    "events": []
+                },
+                {
+                    "id": "normal-5935",
+                    "firstBatchId": 5935,
+                    "lastBatchId": 5935,
+                    "events": [
+                        {
+                            "firstBatchId": 5935,
+                            "item": "Ancient Spirit Dust",
+                            "quantity": 1
+                        }
+                    ]
+                },
+                {
+                    "id": "stationary-8805",
+                    "firstBatchId": 8805,
+                    "lastBatchId": 8805,
+                    "events": []
+                },
+                {
+                    "id": "stationary-9112",
+                    "firstBatchId": 9112,
+                    "lastBatchId": 9112,
+                    "events": []
+                },
+                {
+                    "id": "normal-11707",
+                    "firstBatchId": 11707,
+                    "lastBatchId": 11707,
+                    "events": [
+                        {
+                            "firstBatchId": 11707,
+                            "item": "Ancient Spirit Dust",
+                            "quantity": 2
+                        }
+                    ]
+                },
+                {
+                    "id": "stationary-16649",
+                    "firstBatchId": 16649,
+                    "lastBatchId": 16649,
+                    "events": []
+                },
+                {
+                    "id": "stationary-17200",
+                    "firstBatchId": 17200,
+                    "lastBatchId": 17200,
+                    "events": []
+                },
+                {
+                    "id": "normal-17471",
+                    "firstBatchId": 17471,
+                    "lastBatchId": 17471,
+                    "events": [
+                        {
+                            "firstBatchId": 17471,
+                            "item": "Ancient Spirit Dust",
+                            "quantity": 1
+                        }
+                    ]
+                },
+                {
+                    "id": "normal-17473",
+                    "firstBatchId": 17473,
+                    "lastBatchId": 17473,
+                    "events": [
+                        {
+                            "firstBatchId": 17473,
+                            "item": "Branch of Abundance",
+                            "quantity": 10
+                        }
+                    ]
+                },
+                {
+                    "id": "normal-18051",
+                    "firstBatchId": 18051,
+                    "lastBatchId": 18051,
+                    "events": [
+                        {
+                            "firstBatchId": 18051,
+                            "item": "Branch of Abundance",
+                            "quantity": 10
+                        }
+                    ]
+                },
+                {
+                    "id": "normal-18091",
+                    "firstBatchId": 18091,
+                    "lastBatchId": 18093,
+                    "events": [
+                        {
+                            "firstBatchId": 18091,
+                            "item": "Ancient Spirit Dust",
+                            "quantity": 2
+                        },
+                        {
+                            "firstBatchId": 18092,
+                            "item": "Branch of Abundance",
+                            "quantity": 7
+                        },
+                        {
+                            "firstBatchId": 18093,
+                            "item": "Branch of Abundance",
+                            "quantity": 10
+                        }
+                    ]
+                },
+                {
+                    "id": "normal-18101",
+                    "firstBatchId": 18101,
+                    "lastBatchId": 18101,
+                    "events": [
+                        {
+                            "firstBatchId": 18101,
+                            "item": "Branch of Abundance",
+                            "quantity": 10
+                        }
+                    ]
+                },
+                {
+                    "id": "normal-18603",
+                    "firstBatchId": 18603,
+                    "lastBatchId": 18603,
+                    "events": [
+                        {
+                            "firstBatchId": 18603,
+                            "item": "Branch of Abundance",
+                            "quantity": 10
+                        }
+                    ]
+                },
+                {
+                    "id": "normal-18862",
+                    "firstBatchId": 18862,
+                    "lastBatchId": 18862,
+                    "events": [
+                        {
+                            "firstBatchId": 18862,
+                            "item": "Branch of Abundance",
+                            "quantity": 7
+                        }
+                    ]
+                },
+                {
+                    "id": "normal-20556",
+                    "firstBatchId": 20556,
+                    "lastBatchId": 20556,
+                    "events": [
+                        {
+                            "firstBatchId": 20556,
+                            "item": "Branch of Abundance",
+                            "quantity": 10
+                        }
+                    ]
+                },
+                {
+                    "id": "normal-21096",
+                    "firstBatchId": 21096,
+                    "lastBatchId": 21096,
+                    "events": [
+                        {
+                            "firstBatchId": 21096,
+                            "item": "Branch of Abundance",
+                            "quantity": 7
+                        }
+                    ]
+                },
+                {
+                    "id": "stationary-22204",
+                    "firstBatchId": 22204,
+                    "lastBatchId": 22204,
+                    "events": []
+                },
+                {
+                    "id": "stationary-23719",
+                    "firstBatchId": 23719,
+                    "lastBatchId": 23719,
+                    "events": []
+                },
+                {
+                    "id": "normal-24859",
+                    "firstBatchId": 24859,
+                    "lastBatchId": 24859,
+                    "events": [
+                        {
+                            "firstBatchId": 24859,
+                            "item": "Branch of Abundance",
+                            "quantity": 7
+                        }
+                    ]
+                },
+                {
+                    "id": "stationary-25921",
+                    "firstBatchId": 25921,
+                    "lastBatchId": 25921,
+                    "events": []
+                },
+                {
+                    "id": "stationary-26660",
+                    "firstBatchId": 26660,
+                    "lastBatchId": 26660,
+                    "events": []
+                },
+                {
+                    "id": "stationary-26672",
+                    "firstBatchId": 26672,
+                    "lastBatchId": 26672,
+                    "events": []
+                }
+            ]
+        },
+        {
+            "id": "run-1788617579855-2188209-0002",
+            "split": "development",
+            "normalCases": [
+                {
+                    "id": "stationary-28572",
+                    "firstBatchId": 28572,
+                    "lastBatchId": 28572,
+                    "events": []
+                },
+                {
+                    "id": "normal-28744",
+                    "firstBatchId": 28744,
+                    "lastBatchId": 28744,
+                    "events": [
+                        {
+                            "firstBatchId": 28744,
+                            "item": "Branch of Abundance",
+                            "quantity": 7
+                        }
+                    ]
+                },
+                {
+                    "id": "stationary-30449",
+                    "firstBatchId": 30449,
+                    "lastBatchId": 30449,
+                    "events": []
+                },
+                {
+                    "id": "normal-30460",
+                    "firstBatchId": 30460,
+                    "lastBatchId": 30460,
+                    "events": [
+                        {
+                            "firstBatchId": 30460,
+                            "item": "Branch of Abundance",
+                            "quantity": 7
+                        }
+                    ]
+                },
+                {
+                    "id": "stationary-30981",
+                    "firstBatchId": 30981,
+                    "lastBatchId": 30981,
+                    "events": []
+                },
+                {
+                    "id": "stationary-30984",
+                    "firstBatchId": 30984,
+                    "lastBatchId": 30984,
+                    "events": []
+                },
+                {
+                    "id": "stationary-31344",
+                    "firstBatchId": 31344,
+                    "lastBatchId": 31344,
+                    "events": []
+                },
+                {
+                    "id": "normal-31547",
+                    "firstBatchId": 31547,
+                    "lastBatchId": 31547,
+                    "events": [
+                        {
+                            "firstBatchId": 31547,
+                            "item": "Branch of Abundance",
+                            "quantity": 10
+                        }
+                    ]
+                },
+                {
+                    "id": "stationary-32054",
+                    "firstBatchId": 32054,
+                    "lastBatchId": 32054,
+                    "events": []
+                },
+                {
+                    "id": "stationary-32629",
+                    "firstBatchId": 32629,
+                    "lastBatchId": 32629,
+                    "events": []
+                },
+                {
+                    "id": "normal-32948",
+                    "firstBatchId": 32948,
+                    "lastBatchId": 32948,
+                    "events": [
+                        {
+                            "firstBatchId": 32948,
+                            "item": "Branch of Abundance",
+                            "quantity": 10
+                        }
+                    ]
+                },
+                {
+                    "id": "normal-34052",
+                    "firstBatchId": 34052,
+                    "lastBatchId": 34052,
+                    "events": [
+                        {
+                            "firstBatchId": 34052,
+                            "item": "Ancient Spirit Dust",
+                            "quantity": 1
+                        }
+                    ]
+                },
+                {
+                    "id": "normal-34076",
+                    "firstBatchId": 34076,
+                    "lastBatchId": 34077,
+                    "events": [
+                        {
+                            "firstBatchId": 34076,
+                            "item": "Branch of Abundance",
+                            "quantity": 7
+                        }
+                    ]
+                },
+                {
+                    "id": "stationary-34567",
+                    "firstBatchId": 34567,
+                    "lastBatchId": 34567,
+                    "events": []
+                },
+                {
+                    "id": "stationary-35080",
+                    "firstBatchId": 35080,
+                    "lastBatchId": 35080,
+                    "events": []
+                },
+                {
+                    "id": "stationary-37719",
+                    "firstBatchId": 37719,
+                    "lastBatchId": 37719,
+                    "events": []
+                },
+                {
+                    "id": "normal-37939",
+                    "firstBatchId": 37939,
+                    "lastBatchId": 37939,
+                    "events": [
+                        {
+                            "firstBatchId": 37939,
+                            "item": "Branch of Abundance",
+                            "quantity": 7
+                        }
+                    ]
+                },
+                {
+                    "id": "normal-37980",
+                    "firstBatchId": 37980,
+                    "lastBatchId": 37980,
+                    "events": [
+                        {
+                            "firstBatchId": 37980,
+                            "item": "Violet Primordial Luster - Sovereign",
+                            "quantity": 1
+                        }
+                    ]
+                },
+                {
+                    "id": "stationary-39122",
+                    "firstBatchId": 39122,
+                    "lastBatchId": 39122,
+                    "events": []
+                },
+                {
+                    "id": "stationary-40496",
+                    "firstBatchId": 40496,
+                    "lastBatchId": 40496,
+                    "events": []
+                },
+                {
+                    "id": "normal-41031",
+                    "firstBatchId": 41031,
+                    "lastBatchId": 41031,
+                    "events": [
+                        {
+                            "firstBatchId": 41031,
+                            "item": "Branch of Abundance",
+                            "quantity": 10
+                        }
+                    ]
+                },
+                {
+                    "id": "normal-41917",
+                    "firstBatchId": 41917,
+                    "lastBatchId": 41917,
+                    "events": [
+                        {
+                            "firstBatchId": 41917,
+                            "item": "Ancient Spirit Dust",
+                            "quantity": 1
+                        }
+                    ]
+                },
+                {
+                    "id": "normal-42174",
+                    "firstBatchId": 42174,
+                    "lastBatchId": 42174,
+                    "events": [
+                        {
+                            "firstBatchId": 42174,
+                            "item": "Branch of Abundance",
+                            "quantity": 10
+                        }
+                    ]
+                },
+                {
+                    "id": "stationary-42558",
+                    "firstBatchId": 42558,
+                    "lastBatchId": 42558,
+                    "events": []
+                },
+                {
+                    "id": "stationary-43136",
+                    "firstBatchId": 43136,
+                    "lastBatchId": 43136,
+                    "events": []
+                }
+            ]
+        }
+    ],
+    "note": "New hour corpus: targeted normal windows visually reviewed during investigation. Remaining frames are diagnostic only; these are development regressions, not a fresh holdout. No prior corpus event labels reused."
+}

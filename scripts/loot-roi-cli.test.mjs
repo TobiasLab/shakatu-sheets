@@ -74,30 +74,42 @@ test.skipIf(!ffmpegAvailable).each([
         }
         await writeFile(join(root, id, "manifest.json"), JSON.stringify(manifest));
         const labelsPath = join(root, externalLabels ? "reviewed labels.json" : "annotations.json");
-        await writeFile(
-            labelsPath,
-            JSON.stringify({
-                version: 1,
-                itemDictionary: ["Gold Bar 1G"],
-                runs: [{ id, split: "development" }],
-            }),
-        );
-        const { stdout } = await exec(process.execPath, [
-            runner,
-            "--script",
-            script,
-            root,
-            ...(externalLabels ? ["--annotations", labelsPath] : []),
-        ]);
+        const labels = {
+            version: 1,
+            itemDictionary: ["Gold Bar 1G"],
+            runs: [
+                {
+                    id,
+                    split: "development",
+                    normalCases: [{ id: "empty-crop", firstBatchId: 1, lastBatchId: 1, events: [] }],
+                },
+            ],
+        };
+        await writeFile(labelsPath, JSON.stringify(labels));
+        const args = [runner, "--script", script, root, ...(externalLabels ? ["--annotations", labelsPath] : [])];
+        const { stdout } = await exec(process.execPath, args);
         expect(
             stdout
                 .trim()
                 .split("\n")
                 .map((line) => JSON.parse(line)),
         ).toEqual([
-            expect.objectContaining({ run: id, kind: "normal", frames: 1, candidates: 0, ocrJobs: 0 }),
+            expect.objectContaining({
+                run: id,
+                kind: "normal",
+                frames: 1,
+                candidates: 0,
+                ocrJobs: 0,
+                reviewedCases: [{ id: "empty-crop", expected: 0, matched: 0, missed: 0, extra: 0 }],
+            }),
             expect.objectContaining({ run: id, kind: "rare", frames: 1, candidates: 0, ocrJobs: 0 }),
         ]);
+        labels.runs[0].normalCases[0].events.push({ firstBatchId: 1, item: "Gold Bar 1G", quantity: 1 });
+        await writeFile(labelsPath, JSON.stringify(labels));
+        await expect(exec(process.execPath, args)).rejects.toMatchObject({
+            code: 1,
+            stdout: expect.stringContaining('"expected":1,"matched":0,"missed":1,"extra":0'),
+        });
     } finally {
         await rm(root, { recursive: true, force: true });
     }

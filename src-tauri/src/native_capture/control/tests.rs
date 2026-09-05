@@ -409,3 +409,26 @@ fn producer_jitter_does_not_halve_the_sample_rate() {
     assert!(sample_due(deadline, late));
     assert_eq!(next_sample_deadline(deadline, late), late + SAMPLE_INTERVAL);
 }
+
+#[test]
+fn overspeed_source_is_bounded_without_catch_up_bursts() {
+    let start = Instant::now();
+    let mut deadline = None;
+    let mut samples = Vec::new();
+    // A producer can advertise eight FPS while delivering sixteen.
+    for tick in 0..960 {
+        let now = start + Duration::from_micros(tick * 62_500);
+        if sample_due(deadline, now) {
+            samples.push(now);
+            deadline = Some(next_sample_deadline(deadline, now));
+        }
+    }
+    assert_eq!(samples.len(), 480);
+    assert!(samples
+        .windows(2)
+        .all(|pair| pair[1] - pair[0] == SAMPLE_INTERVAL));
+    let resumed = start + Duration::from_secs(90);
+    assert!(sample_due(deadline, resumed));
+    deadline = Some(next_sample_deadline(deadline, resumed));
+    assert!(!sample_due(deadline, resumed + Duration::from_millis(60)));
+}

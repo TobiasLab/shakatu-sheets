@@ -275,26 +275,26 @@ export function analyzeLootRoiFrame(
     };
 }
 
+function lootTextExtent(projection: Uint8Array) {
+    let seenGlyph = false;
+    let gap = 0;
+    for (let index = 0; index < projection.length; index += 1) {
+        if (projection[index] > 0) {
+            seenGlyph = true;
+            gap = 0;
+        } else if (seenGlyph && ++gap >= 8) {
+            return index + 1;
+        }
+    }
+    return projection.length;
+}
+
 export function lootFingerprintDistance(left: LootFingerprint | undefined, right: LootFingerprint | undefined) {
     if (!left || !right) return 0;
 
-    function textExtent(projection: Uint8Array) {
-        let seenGlyph = false;
-        let gap = 0;
-        for (let index = 0; index < projection.length; index += 1) {
-            if (projection[index] > 0) {
-                seenGlyph = true;
-                gap = 0;
-            } else if (seenGlyph && ++gap >= 8) {
-                return index + 1;
-            }
-        }
-        return projection.length;
-    }
-
     // Use either row's trailing whitespace to exclude scenery. Include the gap itself so an extra quantity digit
     // still changes identity (for example x 9 versus x 90).
-    const extent = Math.min(textExtent(left.full), textExtent(right.full));
+    const extent = Math.min(lootTextExtent(left.full), lootTextExtent(right.full));
     function cosineDistance(leftProjection: Uint8Array, rightProjection: Uint8Array, length: number) {
         if (leftProjection.length !== rightProjection.length) return 1;
         let dot = 0;
@@ -408,12 +408,7 @@ export function rowBirthCount<TFingerprint>(
     const alignedBirths = current.count - retained;
     const averageStrength = current.strength / current.count;
     const strengthChange = current.strength - previous.strength;
-    if (
-        alignedBirths > additions &&
-        stationaryDistance - bestDistance >= 0.1 &&
-        averageStrength >= rowThreshold &&
-        (current.count < previous.count || strengthChange >= -rowThreshold / 2)
-    ) {
+    if (alignedBirths > additions && stationaryDistance - bestDistance >= 0.1 && averageStrength >= rowThreshold) {
         return confirmedBirthCount(alignedBirths);
     }
 
@@ -445,7 +440,7 @@ export function rowBirthCount<TFingerprint>(
     // needs the normal lookahead confirmation; brightness loss alone must not veto that new drop.
     const strongIdentityChange = distance(current.fingerprint, previous.fingerprint) >= 0.3;
     return replacementEvidence &&
-        averageStrength >= rowThreshold * 2 &&
+        averageStrength >= rowThreshold * (strongIdentityChange ? 1 : 2) &&
         (strengthChange >= -rowThreshold / 2 || strongIdentityChange)
         ? confirmedBirthCount(1)
         : 0;
@@ -604,6 +599,16 @@ export class LootRowTracker<TFingerprint> {
         if (!this.previous || !this.pending) return;
         const { frame, rows: current } = this.pending;
         let births = rowBirthCount(this.previous, current, next, this.rowThreshold, this.distance);
+        if (
+            births === 1 &&
+            this.stack[this.stack.length - 1]?.firstFrame === frame - 1 &&
+            current.count === this.previous.count &&
+            this.previous.fingerprints.every(
+                (fingerprint, index) => this.distance(fingerprint, current.fingerprints[index]) < 0.1,
+            )
+        ) {
+            births = 0;
+        }
         if (this.emptyFrames === 1 && this.stack.length > 0) {
             const recovery = this.bestTrackAlignment(current);
             if (recovery.distance <= 0.1) {
@@ -719,7 +724,7 @@ function normalizeItem(value: string) {
 }
 
 export function parseLootQuantity(text: string) {
-    const suffix = text.match(/x\s*(\d+|[|Il])\s*[.,:;!?"'“”‘’]*\s*$/i)?.[1];
+    const suffix = text.match(/x\s*(\d+|[|Il])\s*[.,:;!?"'“”‘’–—-]*\s*$/i)?.[1];
     if (!suffix) return null;
     if (/^[|Il]$/i.test(suffix)) return 1;
     const quantity = Number(suffix);
@@ -743,7 +748,7 @@ function editDistance(left: string, right: string) {
 }
 
 export function parseLootItem(text: string, dictionary: readonly string[]) {
-    const reading = text.match(/^(.*?)x\s*(?:\d+|[|Il])\s*[.,:;!?"'“”‘’]*\s*$/i)?.[1];
+    const reading = text.match(/^(.*?)x\s*(?:\d+|[|Il])\s*[.,:;!?"'“”‘’–—-]*\s*$/i)?.[1];
     if (!reading) return null;
     const normalized = normalizeItem(reading);
     const joinedMarker = !/\s$/.test(reading);
@@ -1041,6 +1046,13 @@ export class LiveLootCoordinator {
         if (this.pendingOcrJobs >= this.maxPendingOcrJobs) {
             this.summarize(metadata, "backpressure");
         } else {
+            const normalRight = Math.min(
+                Math.round(this.options.profile.width * 0.96),
+                ...selected.map(
+                    (observation) =>
+                        Math.round(this.options.profile.width * 0.27) + lootTextExtent(observation.fingerprint.full),
+                ),
+            );
             const frames = selected.map((observation) => {
                 const roi = this.frames.get(observation.frame);
                 if (!roi) throw new Error(`Selected loot frame ${observation.frame} is no longer retained.`);
@@ -1048,7 +1060,16 @@ export class LiveLootCoordinator {
                     frame: observation.frame,
                     roi,
                     observation,
-                    bounds: this.options.ocrBounds,
+                    bounds:
+                        this.options.ocrBounds ??
+                        (this.options.analyzeFrame === undefined
+                            ? {
+                                  left: Math.round(roi.width * 0.25),
+                                  right: normalRight,
+                                  top: Math.max(0, observation.centerY - 12),
+                                  bottom: Math.min(roi.height, observation.centerY + 12),
+                              }
+                            : undefined),
                     textColor: this.options.ocrTextColor,
                 };
             });
