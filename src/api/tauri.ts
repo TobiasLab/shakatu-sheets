@@ -8,6 +8,7 @@ import {
     type NormalizedRegion,
     RARE_LOOT_REGION_SIZES,
 } from "../recognition/displayCapture";
+import type { RoiOcrIssue } from "../recognition/roiOcrDiagnostics";
 
 export type MarketPriceSnapshot = {
     itemId: number;
@@ -328,4 +329,8 @@ export function stopDebugRoiSampleCollection(captureToken: number) {
 
 export function debugRoiSampleCollectionStatus() {
     return invoke<DebugRoiSampleCollectionStatus>("debug_roi_sample_collection_status");
+}
+
+export function logRoiOcrIssue(issue: RoiOcrIssue) {
+    return invoke<boolean>("log_debug_roi_ocr_issue", { issue });
 }

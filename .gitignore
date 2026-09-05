@@ -15,6 +15,7 @@ dist-ssr
 agents.md
 /documentation/misc/garmoth-api.md
 mocks/
+# Local gameplay ROI images and OCR issue logs
 /dev-samples/
 
 # Editor directories and files

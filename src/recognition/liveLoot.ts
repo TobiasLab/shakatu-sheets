@@ -2,6 +2,7 @@ export type LootRoiFrame = {
     width: number;
     height: number;
     pixels: Uint8ClampedArray;
+    sample?: { captureToken: number; collectionPath: string; batchId: number };
 };
 
 export type LootDetectionProfile = {

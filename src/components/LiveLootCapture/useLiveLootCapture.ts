@@ -4,6 +4,7 @@ import {
     debugRoiSampleCollectionStatus,
     type LootCaptureSettings,
     loadLootCaptureSettings,
+    logRoiOcrIssue,
     type NativeCaptureCapabilities,
     type NativeCaptureFrame,
     type NativeCaptureSelection,
@@ -61,12 +62,15 @@ import {
 } from "../../recognition/liveLootReview";
 import { RARE_LOOT_OCR_SELECTION, RareLootFrameAnalyzer, rareLootDetectionProfile } from "../../recognition/rareLoot";
 import { RareLootLocalizer } from "../../recognition/rareLootLocalization";
+import { RoiOcrDiagnostics, type RoiOcrIssue, roiOcrFailure } from "../../recognition/roiOcrDiagnostics";
 
 type CaptureStatus = "idle" | "requesting" | "connecting" | "capturing";
 type RecognitionStatus = "idle" | "starting" | "active" | "unavailable" | "error";
 type PlacementMode = "localizing" | "aligned" | "manual";
 type SourceDimensions = { width: number; height: number };
 type RecognitionPipeline = {
+    normalDiagnostics: RoiOcrDiagnostics;
+    rareDiagnostics: RoiOcrDiagnostics;
     normalCoordinator: LiveLootCoordinator;
     rareCoordinator: LiveLootCoordinator;
     ocr: LiveLootTesseractOcr;
@@ -371,7 +375,10 @@ export function useLiveLootCapture({
     const [reviewResults, setReviewResults] = useState<LiveLootReviewEntry[]>([]);
     const [omittedReviewResults, setOmittedReviewResults] = useState(0);
     const [recognitionAnnouncement, setRecognitionAnnouncement] = useState("");
-    const [sampleCollection, setSampleCollection] = useState<DebugRoiSampleCollectionStatus | null>(null);
+    const sampleCollectionRef = useRef<DebugRoiSampleCollectionStatus | null>(null);
+    const diagnosticWrites = useRef(0);
+    const [sampleCollection, setSampleCollectionState] = useState<DebugRoiSampleCollectionStatus | null>(null);
+    const [sampleDiagnosticError, setSampleDiagnosticError] = useState("");
     const [sampleCollectionBusy, setSampleCollectionBusy] = useState(false);
     const [sampleCollectionError, setSampleCollectionError] = useState("");
     const [sampleCollectionNow, setSampleCollectionNow] = useState(Date.now());
@@ -507,6 +514,32 @@ export function useLiveLootCapture({
         setUiScalePercent(next);
     }
 
+    function setSampleCollection(next: DebugRoiSampleCollectionStatus) {
+        sampleCollectionRef.current = next;
+        setSampleCollectionState(next);
+    }
+    function emitOcrIssue(issue: RoiOcrIssue) {
+        if (diagnosticWrites.current >= 32) {
+            setSampleDiagnosticError("OCR diagnostic queue is full; some issue logs were dropped.");
+            return;
+        }
+        diagnosticWrites.current += 1;
+        void logRoiOcrIssue(issue)
+            .catch((error) => {
+                if (mounted.current) setSampleDiagnosticError(`Could not save OCR diagnostics: ${String(error)}`);
+            })
+            .finally(() => {
+                diagnosticWrites.current -= 1;
+            });
+    }
+    function sampleReference(batchId: number) {
+        const run = sampleCollectionRef.current;
+        const captureToken = nativeCaptureToken.current;
+        if (run?.phase !== "running" || !run.path || captureToken === null || Date.now() >= (run.deadlineAtUnixMs ?? 0))
+            return undefined;
+        return { captureToken, collectionPath: run.path, batchId };
+    }
+
     function clearLocalization() {
         localizer.current?.clear();
         localizer.current = null;
@@ -598,10 +631,12 @@ export function useLiveLootCapture({
         }
         try {
             const started = diagnosticsVisible.current ? performance.now() : null;
+            current.normalDiagnostics.observe(frame);
             current.normalCoordinator.pushFrame(frame);
             recordFrameAnalysis(started);
             recordOutstandingOcrJobs("normal", current.normalCoordinator.pendingOcrJobCount);
         } catch (frameError) {
+            current.normalDiagnostics.frameFailure(frameError);
             stopRecognition(false);
             setRecognitionStatus("error");
             setRecognitionError(frameError instanceof Error ? frameError.message : String(frameError));
@@ -621,10 +656,12 @@ export function useLiveLootCapture({
         }
         try {
             const started = diagnosticsVisible.current ? performance.now() : null;
+            current.rareDiagnostics.observe(frame);
             current.rareCoordinator.pushFrame(frame);
             recordFrameAnalysis(started);
             recordOutstandingOcrJobs("rare", current.rareCoordinator.pendingOcrJobCount);
         } catch (frameError) {
+            current.rareDiagnostics.frameFailure(frameError);
             stopRecognition(false);
             setRecognitionStatus("error");
             setRecognitionError(frameError instanceof Error ? frameError.message : String(frameError));
@@ -855,6 +892,7 @@ export function useLiveLootCapture({
         const captureToken = nativeCaptureToken.current;
         nativeCapture.current = false;
         nativeCaptureToken.current = null;
+        sampleCollectionRef.current = null;
         if (captureToken !== null) void stopNativeDisplayCapture(captureToken);
         stopDisplayCapture(activeStream.current);
         activeStream.current = null;
@@ -990,6 +1028,7 @@ export function useLiveLootCapture({
         try {
             let next: DebugRoiSampleCollectionStatus;
             if (sampleCollection?.phase === "running") {
+                sampleCollectionRef.current = null;
                 next = await stopDebugRoiSampleCollection(captureToken);
             } else {
                 let awaitedSelectionRevision: number;
@@ -998,6 +1037,7 @@ export function useLiveLootCapture({
                     await nativeSelectionUpdate.current;
                 } while (awaitedSelectionRevision !== nativeSelectionRevision.current);
                 next = await startDebugRoiSampleCollection(captureToken);
+                setSampleDiagnosticError("");
             }
             if (!mounted.current || revision !== sampleCollectionRevision.current) return;
             setSampleCollection(next);
@@ -1098,6 +1138,7 @@ export function useLiveLootCapture({
                                     width: frame.width,
                                     height: frame.height,
                                     pixels: frame.pixels,
+                                    sample: sampleReference(frame.batchId),
                                 });
                             }
                         } else {
@@ -1115,6 +1156,7 @@ export function useLiveLootCapture({
                                     width: frame.width,
                                     height: frame.height,
                                     pixels: frame.pixels,
+                                    sample: sampleReference(frame.batchId),
                                 });
                             }
                         }
@@ -1166,6 +1208,7 @@ export function useLiveLootCapture({
                 const captureToken = nativeCaptureToken.current;
                 nativeCapture.current = false;
                 nativeCaptureToken.current = null;
+                sampleCollectionRef.current = null;
                 if (captureToken !== null) void stopNativeDisplayCapture(captureToken);
             }
             stopDisplayCapture(stream);
@@ -1412,19 +1455,27 @@ export function useLiveLootCapture({
                         setOmittedReviewResults((current) => current + appended.omittedCount);
                     }
                 };
+                const normalDiagnostics = new RoiOcrDiagnostics("normal", generation, emitOcrIssue);
+                const rareDiagnostics = new RoiOcrDiagnostics("rare", generation, emitOcrIssue);
                 const normalCoordinator = new LiveLootCoordinator({
                     profile: calibratedProfile.profile,
                     dictionary: itemDictionaryRef.current,
-                    readText,
-                    onResult: (result) => appendResult("normal", result),
+                    readText: normalDiagnostics.wrap(readText),
+                    onResult: (result) => {
+                        normalDiagnostics.result(result);
+                        appendResult("normal", result);
+                    },
                     maxPendingOcrJobs: NORMAL_MAX_OUTSTANDING_OCR_JOBS,
                 });
                 const rareAnalyzer = new RareLootFrameAnalyzer(rareGeometry);
                 const rareCoordinator = new LiveLootCoordinator({
                     profile: rareLootDetectionProfile(rareGeometry),
                     dictionary: itemDictionaryRef.current,
-                    readText,
-                    onResult: (result) => appendResult("rare", result),
+                    readText: rareDiagnostics.wrap(readText),
+                    onResult: (result) => {
+                        rareDiagnostics.result(result);
+                        appendResult("rare", result);
+                    },
                     maxPendingOcrJobs: RARE_MAX_OUTSTANDING_OCR_JOBS,
                     analyzeFrame: (frame) => rareAnalyzer.pushFrame(frame),
                     ocrSelection: RARE_LOOT_OCR_SELECTION,
@@ -1432,7 +1483,7 @@ export function useLiveLootCapture({
                     ocrTextColor: "gold",
                     eventIdPrefix: "rare",
                 });
-                const pipeline = { normalCoordinator, rareCoordinator, ocr };
+                const pipeline = { normalCoordinator, rareCoordinator, normalDiagnostics, rareDiagnostics, ocr };
                 recognition.current = pipeline;
                 const replay = pendingLocalizationReplay.current.splice(0);
                 const pending = pendingRecognitionFrames.current.splice(0);
@@ -1457,6 +1508,14 @@ export function useLiveLootCapture({
             } catch (setupError) {
                 if (createdOcr) await createdOcr.terminate().catch(() => undefined);
                 if (!mounted.current || generation !== recognitionGeneration.current) return;
+                for (const [source, frames] of [
+                    ["normal", pendingRecognitionFrames.current],
+                    ["rare", pendingRareRecognitionFrames.current],
+                ] as const) {
+                    const sample = [...frames].reverse().find((frame) => frame.sample)?.sample;
+                    if (sample)
+                        emitOcrIssue(roiOcrFailure(sample, source, generation, "ocr-startup-failure", setupError));
+                }
                 pendingLocalizationReplay.current.length = 0;
                 pendingRecognitionFrames.current.length = 0;
                 pendingRareRecognitionFrames.current.length = 0;
@@ -2045,7 +2104,7 @@ export function useLiveLootCapture({
         formatSampleCollectionBytes,
         formatSampleCollectionCountdown,
         sampleCollectionNow,
-        sampleCollectionError,
+        sampleCollectionError: [sampleCollectionError, sampleDiagnosticError].filter(Boolean).join(" "),
         normalRegionCanvas,
         rareRegionCanvas,
         recognitionAnnouncement,

@@ -180,6 +180,18 @@ pub fn debug_roi_sample_collection_status(
     state.capture.debug_collector.status()
 }
 
+#[cfg(all(debug_assertions, any(target_os = "linux", target_os = "windows")))]
+#[tauri::command]
+pub async fn log_debug_roi_ocr_issue(
+    state: tauri::State<'_, NativeCaptureState>,
+    issue: debug_roi_collector::OcrIssue,
+) -> Result<bool, String> {
+    let collector = std::sync::Arc::clone(&state.capture.debug_collector);
+    tauri::async_runtime::spawn_blocking(move || collector.log_ocr_issue(issue))
+        .await
+        .map_err(|error| format!("OCR diagnostic task failed: {error}"))?
+}
+
 #[derive(serde::Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct NativeCaptureCapabilities {

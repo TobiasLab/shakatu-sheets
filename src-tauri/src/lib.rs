@@ -61,7 +61,8 @@ pub fn run() {
         native_capture::stop_native_display_capture,
         native_capture::start_debug_roi_sample_collection,
         native_capture::stop_debug_roi_sample_collection,
-        native_capture::debug_roi_sample_collection_status
+        native_capture::debug_roi_sample_collection_status,
+        native_capture::log_debug_roi_ocr_issue
     ]);
 
     #[cfg(not(all(debug_assertions, any(target_os = "linux", target_os = "windows"))))]
