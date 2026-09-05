@@ -7,7 +7,7 @@ Linux builds require the PipeWire development headers (`libpipewire-0.3-dev` on 
 Fedora) and Clang for the Rust PipeWire bindings' generated FFI.
 
 The offline live-loot video benchmark additionally requires FFmpeg. Benchmark videos and generated frames must not be
-committed. Development builds can write five-minute normal and rare ROI samples under the ignored
+committed. Development builds can write 30-minute normal and rare ROI samples under the ignored
 `dev-samples/live-loot/` directory.
 
 ```sh

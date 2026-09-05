@@ -15,7 +15,7 @@ use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 use super::{LootCaptureSettings, NativeCaptureSelection, NormalizedRegion, PixelRegion};
 
 const TARGET_FPS: u32 = 8;
-const DURATION_SECONDS: u64 = 300;
+const DURATION_SECONDS: u64 = 30 * 60;
 const QUEUE_CAPACITY: usize = 8;
 const FRAMES_PER_MINUTE: u64 = TARGET_FPS as u64 * 60;
 const PHASE_STARTING: u8 = 0;

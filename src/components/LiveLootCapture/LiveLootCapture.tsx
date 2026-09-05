@@ -606,7 +606,7 @@ export function LiveLootCapture(props: LiveLootCaptureProps) {
                                               ? "Finishing ROI samples..."
                                               : sampleCollectionActive
                                                 ? "Stop saving ROI samples"
-                                                : "Save ROI samples for 5 minutes"}
+                                                : "Save ROI samples for 30 minutes"}
                                     </button>
                                     {!sampleCollectionReady &&
                                         !sampleCollectionActive &&
