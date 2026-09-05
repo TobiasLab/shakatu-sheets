@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { findLiveLootProfile, findRareLootGeometry } from "./liveLootProfiles";
+import { findLiveLootProfile, findRareLootGeometry, supportsAutomaticLootLocalization } from "./liveLootProfiles";
 
 describe("findLiveLootProfile", () => {
     it("returns the held-out calibrated native 80% profile", () => {
@@ -38,8 +38,7 @@ describe("findLiveLootProfile", () => {
 });
 
 describe("localization availability", () => {
-    it("keeps automatic localization separate from the capture layout list", async () => {
-        const { supportsAutomaticLootLocalization, findRareLootGeometry } = await import("./liveLootProfiles");
+    it("allows automatic localization independently of OCR profile availability", () => {
         for (const [width, height] of [
             [3440, 1440],
             [2560, 1440],
