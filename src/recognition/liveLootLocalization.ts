@@ -1,8 +1,11 @@
-import { LOOT_SEARCH_REGION_SIZE, type NormalizedRegion, pixelRegionToNormalized } from "./displayCapture";
+import {
+    isSupportedLootSource,
+    LOOT_SEARCH_REGION_SIZE,
+    type NormalizedRegion,
+    pixelRegionToNormalized,
+} from "./displayCapture";
 import type { LootRoiFrame } from "./liveLoot";
 
-const SOURCE_WIDTH = 3440;
-const SOURCE_HEIGHT = 1440;
 const CROP_WIDTH = 362;
 const CROP_HEIGHT = 311;
 const ROW_CENTERS = [48, 87, 126, 165, 204] as const;
@@ -155,15 +158,16 @@ function validateSearchFrame(frame: NormalLootSearchFrame) {
         !metadata.every(Number.isSafeInteger) ||
         frame.width !== LOOT_SEARCH_REGION_SIZE.width ||
         frame.height !== LOOT_SEARCH_REGION_SIZE.height ||
-        frame.sourceWidth !== SOURCE_WIDTH ||
-        frame.sourceHeight !== SOURCE_HEIGHT ||
+        !isSupportedLootSource(frame.sourceWidth, frame.sourceHeight) ||
         frame.cropX < 0 ||
         frame.cropY < 0 ||
         frame.cropX + frame.width > frame.sourceWidth ||
         frame.cropY + frame.height > frame.sourceHeight ||
         frame.pixels.length !== frame.width * frame.height * 4
     ) {
-        throw new Error("Normal loot localization requires a valid 800x600 RGBA search frame from a 3440x1440 source.");
+        throw new Error(
+            "Normal loot localization requires a valid 800x600 RGBA search frame from a supported source (3440x1440, 2560x1440, or 1920x1080).",
+        );
     }
 }
 
@@ -182,6 +186,10 @@ export class NormalLootLocalizer {
 
     pushFrame(frame: NormalLootSearchFrame): NormalLootLocalization | null {
         validateSearchFrame(frame);
+        const previous = this.history[0];
+        if (previous && (previous.sourceWidth !== frame.sourceWidth || previous.sourceHeight !== frame.sourceHeight)) {
+            this.clear();
+        }
         this.history.push(frame);
         if (this.history.length > MAX_HISTORY) this.history.shift();
         this.incomingFrameCount += 1;
@@ -199,8 +207,8 @@ export class NormalLootLocalizer {
             .filter((retained): retained is LootRoiFrame => retained !== null);
         const region = pixelRegionToNormalized(
             { x, y, width: CROP_WIDTH, height: CROP_HEIGHT },
-            SOURCE_WIDTH,
-            SOURCE_HEIGHT,
+            frame.sourceWidth,
+            frame.sourceHeight,
         );
         this.clear();
         return { region, replayFrames };

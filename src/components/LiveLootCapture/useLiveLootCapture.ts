@@ -1314,6 +1314,9 @@ export function useLiveLootCapture({
         }
     }
 
+    const automaticLocalizationAvailable = sourceDimensions
+        ? supportsAutomaticLootLocalization(sourceDimensions.width, sourceDimensions.height, uiScalePercent)
+        : false;
     const calibratedProfile = sourceDimensions
         ? findLiveLootProfile(sourceDimensions.width, sourceDimensions.height, uiScalePercent)
         : null;
@@ -1591,7 +1594,7 @@ export function useLiveLootCapture({
         const captureToken = nativeCaptureToken.current;
         if (captureToken === null) return;
         let selection: NativeCaptureSelection | null = null;
-        if (placementMode === "localizing" && searchRegion && sourceDimensions && calibratedProfile) {
+        if (placementMode === "localizing" && searchRegion && sourceDimensions && automaticLocalizationAvailable) {
             const searchPixels = normalizedRegionToPixels(
                 searchRegion,
                 sourceDimensions.width,
@@ -1650,7 +1653,7 @@ export function useLiveLootCapture({
             setError(regionError instanceof Error ? regionError.message : String(regionError));
         });
     }, [
-        calibratedProfile,
+        automaticLocalizationAvailable,
         normalCaptureRegion,
         placementMode,
         rareCaptureRegion,
@@ -1914,13 +1917,12 @@ export function useLiveLootCapture({
         normalRegionFrameSize !== null &&
         rareRegionFrameSize !== null &&
         nativeAppliedSelectionKey === JSON.stringify(sampleCaptureSelection);
-    const placementLabel = !calibratedProfile
-        ? "No calibrated profile"
-        : placementMode === "localizing"
-          ? "Searching for loot notification"
-          : placementMode === "aligned"
-            ? "Auto-aligned"
-            : "Manual placement";
+    const placementLabel =
+        placementMode === "localizing"
+            ? "Searching for loot notification"
+            : placementMode === "aligned"
+              ? "Auto-aligned"
+              : "Manual placement";
     const recognitionLabel = !calibratedProfile
         ? "No calibrated profile"
         : recognitionStatus === "starting"
@@ -1997,6 +1999,7 @@ export function useLiveLootCapture({
         uiScalePercent,
         changeUiScale,
         calibratedProfile,
+        automaticLocalizationAvailable,
         beginAutomaticLocalization,
         regionConfirmed,
         confirmRegion,

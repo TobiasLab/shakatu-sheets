@@ -164,7 +164,46 @@ describe("normal loot localization", () => {
 
         expect(() => localizer.pushFrame({ ...frame, width: 799 })).toThrow(/800x600/);
         expect(() => localizer.pushFrame({ ...frame, pixels: frame.pixels.subarray(4) })).toThrow(/RGBA/);
-        expect(() => localizer.pushFrame({ ...frame, sourceWidth: 2560 })).toThrow(/3440x1440/);
+        expect(() => localizer.pushFrame({ ...frame, sourceWidth: 2561 })).toThrow(/supported source/);
         expect(() => localizer.pushFrame({ ...frame, cropX: 2641 })).toThrow(/3440x1440/);
     });
+});
+
+for (const [sourceWidth, sourceHeight] of [
+    [3440, 1440],
+    [2560, 1440],
+    [1920, 1080],
+]) {
+    it(`localizes exact native pixels and replay at both edges of ${sourceWidth}x${sourceHeight}`, () => {
+        for (const [cropX, cropY] of [
+            [0, 0],
+            [sourceWidth - 800, sourceHeight - 600],
+        ]) {
+            const frames = Array.from({ length: 6 }, (_, index) => ({
+                ...searchFrame(219, 100, cropX, cropY, 2, index + 10),
+                sourceWidth,
+                sourceHeight,
+            }));
+            const result = locate(frames);
+            expect(result).not.toBeNull();
+            if (!result) throw new Error("Expected an aligned region");
+            expect(normalizedRegionToPixels(result.region, sourceWidth, sourceHeight)).toEqual({
+                x: cropX + 219,
+                y: cropY + 100,
+                width: 362,
+                height: 311,
+            });
+            expect(result.replayFrames.map((frame) => [...frame.pixels.slice(0, 4)])).toEqual(
+                frames.map((_, index) => [index + 10, index + 11, index + 12, 255]),
+            );
+        }
+    });
+}
+it("does not combine observations across source dimension changes", () => {
+    const localizer = new NormalLootLocalizer();
+    const frame = searchFrame(219, 100, 100, 100);
+    for (let i = 0; i < 4; i++) expect(localizer.pushFrame(frame)).toBeNull();
+    const changed = { ...frame, sourceWidth: 1920, sourceHeight: 1080 };
+    for (let i = 0; i < 5; i++) expect(localizer.pushFrame(changed)).toBeNull();
+    expect(localizer.pushFrame(changed)).not.toBeNull();
 });

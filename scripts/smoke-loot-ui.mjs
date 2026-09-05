@@ -7,6 +7,10 @@ import { join } from "node:path";
 
 const output = process.env.UI_SMOKE_OUTPUT ?? join(tmpdir(), "shakatu-ui");
 const backend = process.env.UI_SMOKE_BACKEND === "windows" ? "windows" : "linux";
+const source = process.env.UI_SMOKE_SOURCE ?? "3440x1440";
+if (!["3440x1440", "2560x1440", "1920x1080"].includes(source)) throw new Error("Unsupported smoke source");
+const [sourceWidth, sourceHeight] = source.split("x").map(Number);
+const previewHeight = Math.round((sourceHeight * 640) / sourceWidth);
 const appUrl = process.env.UI_SMOKE_URL ?? "http://127.0.0.1:1420";
 const page = await (await fetch("http://127.0.0.1:9222/json/new?about:blank", { method: "PUT" })).json();
 const ws = new WebSocket(page.webSocketDebuggerUrl);
@@ -81,10 +85,17 @@ await send("Page.addScriptToEvaluateOnNewDocument", {
             if (command === "save_session") { window.__session = args.session; return; }
             if (command === "start_native_display_capture") {
                 window.__capture = args.frames;
-                const frame = new ArrayBuffer(40 + 640 * 268 * 4);
-                [3,1,1,1,640,268,3440,1440,0,0].forEach((v,i)=>new DataView(frame).setUint32(i*4,v,true));
+                const frame = new ArrayBuffer(40 + 640 * ${previewHeight} * 4);
+                [3,1,1,1,640,${previewHeight},${sourceWidth},${sourceHeight},0,0].forEach((v,i)=>new DataView(frame).setUint32(i*4,v,true));
                 let batch = 1;
                 window.__emitFrame = () => { new DataView(frame).setUint32(12,batch++,true); args.frames.onmessage(frame.slice(0)); };
+                window.__emitSearch = (selection) => {
+                    const data = new ArrayBuffer(40 + 800 * 600 * 4);
+                    [3,4,1,batch++,800,600,${sourceWidth},${sourceHeight},Math.round(selection.region.x * ${sourceWidth}),Math.round(selection.region.y * ${sourceHeight})].forEach((v,i)=>new DataView(data).setUint32(i*4,v,true));
+                    const pixels = new Uint8ClampedArray(data,40);
+                    for (const center of [165,204]) for (let y=100+center-6;y<100+center+7;y++) for(let x=200;x<468;x++) pixels.set([220,220,220,255],(y*800+x)*4);
+                    args.frames.onmessage(data);
+                };
                 setTimeout(window.__emitFrame,50);
                 return;
             }
@@ -127,6 +138,39 @@ try {
         await until(
             "window.__calls.some(c => c.command === 'set_native_display_capture_preview_enabled' && c.args.enabled)",
         );
+        if (process.env.UI_SMOKE_SOURCE) {
+            await until(
+                "window.__calls.some(c => c.command === 'set_native_display_capture_region' && c.args.selection?.mode === 'search')",
+            );
+            const selection = await evaluate(
+                "window.__calls.filter(c => c.command === 'set_native_display_capture_region' && c.args.selection?.mode === 'search').at(-1).args.selection",
+            );
+            assert.equal(selection.sourceWidth, sourceWidth);
+            assert.equal(selection.sourceHeight, sourceHeight);
+            await evaluate(`for (let i=0;i<6;i++) window.__emitSearch(${JSON.stringify(selection)})`);
+            await until("document.body.textContent.includes('Auto-aligned')");
+            await until(
+                "window.__calls.filter(c => c.command === 'set_native_display_capture_region').at(-1)?.args.selection?.mode === 'regions'",
+            );
+            const region = await evaluate(
+                "window.__calls.filter(c => c.command === 'save_loot_capture_settings').at(-1).args.settings.region",
+            );
+            assert.equal(Math.round(region.x * sourceWidth), Math.round(selection.region.x * sourceWidth) + 219);
+            assert.equal(Math.round(region.y * sourceHeight), Math.round(selection.region.y * sourceHeight) + 100);
+            await click("Relocate automatically");
+            await until(
+                "window.__calls.filter(c => c.command === 'set_native_display_capture_region').at(-1)?.args.selection?.mode === 'search'",
+            );
+            const relocatedSelection = await evaluate(
+                "window.__calls.filter(c => c.command === 'set_native_display_capture_region').at(-1).args.selection",
+            );
+            await evaluate(`for (let i=0;i<6;i++) window.__emitSearch(${JSON.stringify(relocatedSelection)})`);
+            await until("document.body.textContent.includes('Auto-aligned')");
+            await until(
+                "window.__calls.filter(c => c.command === 'set_native_display_capture_region').at(-1)?.args.selection?.mode === 'regions'",
+            );
+            console.info(`Auto-search aligned and relocated at ${source} on the ${backend} capability path`);
+        }
         await click("Advanced diagnostics");
         const sampledRate =
             "[...document.querySelectorAll('dt')].find(e => e.textContent === 'Sampled rate')?.nextElementSibling.textContent";
