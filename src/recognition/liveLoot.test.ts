@@ -1239,3 +1239,184 @@ describe("notification evidence regressions", () => {
         }
     });
 });
+
+it("keeps original evidence and chooses clearer additional observations from a bounded window", () => {
+    const observations = [1, 4, 3, 5, 2, 6].map((quality, frame) => ({
+        frame,
+        slot: 0,
+        centerY: 70,
+        score: 300,
+        quality,
+        fingerprint: 1,
+    }));
+    const track = { id: "test", firstFrame: 0, baseline: false, observations };
+    expect(
+        selectLootOcrObservations(track, 100, { delayFrames: 0, windowFrames: 6, maximumFrameCount: 5 }, distance).map(
+            ({ frame }) => frame,
+        ),
+    ).toEqual([0, 1, 2, 3, 5]);
+});
+
+it("flushes short tracks at finish and keeps the extended selection window bounded", async () => {
+    const calls: number[][] = [];
+    const coordinator = new LiveLootCoordinator({
+        profile: streamingProfile,
+        dictionary: ["Black Stone"],
+        ocrSelection: { windowFrames: 5 },
+        readText: async (frames) => {
+            calls.push(frames.map(({ frame }) => frame));
+            return acceptedReadings;
+        },
+        onResult: () => {},
+    });
+    pushRowSequence(coordinator, [0, 1, 1, 1, 1]);
+    expect(calls).toEqual([]);
+    await coordinator.finish();
+    expect(calls).toEqual([[2, 3, 4]]);
+    expect(coordinator.retainedFrameCount).toBe(0);
+});
+
+it("keeps a clean three-frame run when a later observation is occluded", () => {
+    const track = {
+        id: "test",
+        firstFrame: 0,
+        baseline: false,
+        observations: [1, 1, 1, 2, 2].map((fingerprint, frame) => ({
+            frame,
+            slot: 0,
+            centerY: 70,
+            score: 300,
+            fingerprint,
+        })),
+    };
+    expect(
+        selectLootOcrObservations(track, 100, { delayFrames: 0, windowFrames: 5 }, distance).map(({ frame }) => frame),
+    ).toEqual([0, 1, 2]);
+});
+
+it.each([false, true])("reads additional frames only for unresolved events (unresolved: %s)", async (unresolved) => {
+    const calls: number[][] = [];
+    const results: LiveLootRecognitionResult[] = [];
+    const coordinator = new LiveLootCoordinator({
+        profile: streamingProfile,
+        dictionary: ["Black Stone"],
+        ocrSelection: { windowFrames: 6, maximumFrameCount: 5 },
+        readText: async (frames) => {
+            calls.push(frames.map(({ frame }) => frame));
+            return calls.length === 1 && unresolved
+                ? [["Black Stone x 2"], ["noise"], ["noise"]]
+                : frames.map(() => ["Black Stone x 2"]);
+        },
+        onResult: (result) => results.push(result),
+    });
+    pushRowSequence(coordinator, [0, 1, 1, 1, 1, 1, 1, 1, 1]);
+    expect(coordinator.retainedFrameCount).toBeLessThanOrEqual(7);
+    await coordinator.finish();
+    expect(calls).toEqual(
+        unresolved
+            ? [
+                  [2, 3, 4],
+                  [5, 6],
+              ]
+            : [[2, 3, 4]],
+    );
+    expect(results).toEqual([
+        expect.objectContaining({
+            status: "recognized",
+            quantity: 2,
+            selectedFrames: unresolved ? [2, 3, 4, 5, 6] : [2, 3, 4],
+        }),
+    ]);
+});
+
+it("preserves conflicting original OCR evidence when later readings agree", async () => {
+    let calls = 0;
+    const results: LiveLootRecognitionResult[] = [];
+    const coordinator = new LiveLootCoordinator({
+        profile: streamingProfile,
+        dictionary: ["Black Stone"],
+        ocrSelection: { windowFrames: 6, maximumFrameCount: 5 },
+        readText: async (frames) =>
+            ++calls === 1
+                ? [["Black Stone x 2"], ["Black Stone x 3"], ["Black Stone x 3"]]
+                : frames.map(() => ["Black Stone x 3"]),
+        onResult: (result) => results.push(result),
+    });
+    pushRowSequence(coordinator, [0, 1, 1, 1, 1, 1, 1, 1, 1]);
+    await coordinator.finish();
+    expect(calls).toBe(2);
+    expect(results).toEqual([
+        expect.objectContaining({ status: "withheld", reason: "consensus-withheld", quantity: null }),
+    ]);
+});
+
+it("does not replace the first usable run with a longer different row", () => {
+    const track = {
+        id: "test",
+        firstFrame: 0,
+        baseline: false,
+        observations: [1, 1, 1, 2, 2, 2, 2].map((fingerprint, frame) => ({
+            frame,
+            slot: 0,
+            centerY: 70,
+            score: 300,
+            fingerprint,
+        })),
+    };
+    expect(
+        selectLootOcrObservations(track, 100, { delayFrames: 0, windowFrames: 6, maximumFrameCount: 5 }, distance).map(
+            ({ frame }) => frame,
+        ),
+    ).toEqual([0, 1, 2]);
+});
+
+it("reads a short event before its original frames leave the rolling buffer", async () => {
+    const results: LiveLootRecognitionResult[] = [];
+    const coordinator = new LiveLootCoordinator({
+        profile: streamingProfile,
+        dictionary: ["Black Stone"],
+        ocrSelection: { windowFrames: 6, maximumFrameCount: 5 },
+        readText: async (frames) => frames.map(() => ["Black Stone x 2"]),
+        onResult: (result) => results.push(result),
+    });
+    pushRowSequence(coordinator, [0, 1, 1, 1, 1, 0, 0, 0, 0, 0]);
+    await coordinator.finish();
+    expect(results).toEqual([
+        expect.objectContaining({ status: "recognized", quantity: 2, selectedFrames: [2, 3, 4] }),
+    ]);
+});
+
+it("releases supplementary frames and suppresses late results when stopped during the second OCR call", async () => {
+    const pending = deferred<readonly (readonly string[])[]>();
+    const started = deferred<void>();
+    const results: LiveLootRecognitionResult[] = [];
+    const calls: Array<readonly LiveLootOcrFrame[]> = [];
+    let signal: AbortSignal | undefined;
+    const coordinator = new LiveLootCoordinator({
+        profile: streamingProfile,
+        dictionary: ["Black Stone"],
+        ocrSelection: { windowFrames: 6, maximumFrameCount: 5 },
+        readText: (frames, readerSignal) => {
+            calls.push(frames);
+            if (calls.length === 1) return Promise.resolve([["Black Stone x 2"], ["noise"], ["noise"]]);
+            signal = readerSignal;
+            started.resolve();
+            return pending.promise;
+        },
+        onResult: (result) => results.push(result),
+    });
+    pushRowSequence(coordinator, [0, 1, 1, 1, 1, 1, 1, 1, 1]);
+    const finish = coordinator.finish();
+    await started.promise;
+    expect(calls.map((frames) => frames.length)).toEqual([0, 2]);
+    coordinator.stop();
+    await finish;
+    expect(signal?.aborted).toBe(true);
+    expect(calls.map((frames) => frames.length)).toEqual([0, 0]);
+    expect(coordinator.retainedFrameCount).toBe(0);
+    expect(coordinator.pendingOcrJobCount).toBe(0);
+    pending.resolve([["Black Stone x 2"], ["Black Stone x 2"]]);
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(results).toEqual([]);
+});

@@ -1,9 +1,9 @@
-import { readdir, readFile, writeFile } from "node:fs/promises";
-import { join, resolve } from "node:path";
+import { appendFile, readdir, readFile, writeFile } from "node:fs/promises";
+import { isAbsolute, join, relative, resolve, sep } from "node:path";
 import { setTimeout as delay } from "node:timers/promises";
 import { fileURLToPath } from "node:url";
 import { parseArgs } from "node:util";
-import { LiveLootCoordinator } from "../src/recognition/liveLoot.ts";
+import { LiveLootCoordinator, NORMAL_LOOT_OCR_SELECTION } from "../src/recognition/liveLoot.ts";
 import { preprocessLootOcrFrame, readLootOcrFrame } from "../src/recognition/liveLootOcr.ts";
 import { findLiveLootProfile, findRareLootGeometry } from "../src/recognition/liveLootProfiles.ts";
 import {
@@ -22,6 +22,7 @@ const { values } = parseArgs({
         ocr: { type: "boolean" },
         output: { type: "string" },
         annotations: { type: "string" },
+        trace: { type: "string" },
     },
 });
 const split = values.validation ? "validation" : "development";
@@ -29,8 +30,16 @@ const useOcr = values.ocr ?? false;
 const output = values.output;
 if (!root)
     throw new Error(
-        "Usage: npm run benchmark:loot:roi -- <live-loot directory> [--validation] [--ocr] [--annotations labels.json] [--output report.json]",
+        "Usage: npm run benchmark:loot:roi -- <live-loot directory> [--validation] [--ocr] [--annotations labels.json] [--output report.json] [--trace readings.jsonl]",
     );
+for (const path of [values.output, values.trace].filter(Boolean)) {
+    const fromRoot = relative(resolve(root), resolve(path));
+    if (!isAbsolute(fromRoot) && fromRoot.split(sep)[0] !== "..")
+        throw new Error("Write analysis outside the source corpus.");
+}
+if (values.output && values.trace && resolve(values.output) === resolve(values.trace))
+    throw new Error("Report and trace paths must differ.");
+if (values.trace) await writeFile(values.trace, "", { flag: "wx" });
 const annotations = JSON.parse(await readFile(values.annotations ?? join(root, "annotations.json"), "utf8"));
 const cases = JSON.parse(await readFile(new URL("./fixtures/loot-roi-cases.json", import.meta.url), "utf8"));
 if (annotations.version !== 1 || !Array.isArray(annotations.runs) || !annotations.itemDictionary?.length)
@@ -129,7 +138,10 @@ try {
             const analyzer = new RareLootFrameAnalyzer(rareGeometry);
             const results = [];
             let ocrJobs = 0;
+            let ocrCalls = 0;
+            let lastOcrEventId;
             const coordinator = new LiveLootCoordinator({
+                ocrSelection: NORMAL_LOOT_OCR_SELECTION,
                 profile,
                 dictionary: annotations.itemDictionary,
                 ...(kind === "rare"
@@ -142,29 +154,61 @@ try {
                     : {}),
                 maxPendingOcrJobs: 8,
                 readText: async (frames) => {
-                    ocrJobs += 1;
-                    if (!worker) return frames.map(() => []);
+                    ocrCalls += 1;
+                    if (frames[0]?.eventId !== lastOcrEventId) ocrJobs += 1;
+                    lastOcrEventId = frames[0]?.eventId;
                     const readings = [];
                     for (const frame of frames) {
-                        const texts = await readLootOcrFrame(frame.textColor, async (threshold, scale) => {
-                            const image = preprocessLootOcrFrame(
-                                frame.roi,
-                                frame.observation.centerY,
-                                threshold,
-                                frame.bounds,
-                                frame.textColor,
-                                scale,
-                            );
-                            const grayscale = Buffer.alloc(image.width * image.height);
-                            for (let i = 0; i < grayscale.length; i += 1) grayscale[i] = image.pixels[i * 4];
-                            const pgm = Buffer.concat([
-                                Buffer.from(`P5\n${image.width} ${image.height}\n255\n`),
-                                grayscale,
-                            ]);
-                            return (await worker.recognize(pgm)).data.text.trim();
-                        });
+                        if (values.trace) frame.diagnostics = { passes: [] };
+                        if (!worker) {
+                            readings.push([]);
+                            continue;
+                        }
+                        const texts = await readLootOcrFrame(
+                            frame.textColor,
+                            async (threshold, scale, region) => {
+                                await worker.setParameters({
+                                    tessedit_pageseg_mode: region === "quantity" ? "8" : "7",
+                                    tessedit_char_whitelist: region === "quantity" ? "0123456789" : "",
+                                });
+                                const image = preprocessLootOcrFrame(
+                                    frame.roi,
+                                    frame.observation.centerY,
+                                    threshold,
+                                    region === "quantity" ? frame.observation.fingerprint.digits?.bounds : frame.bounds,
+                                    frame.textColor,
+                                    scale,
+                                );
+                                const grayscale = Buffer.alloc(image.width * image.height);
+                                for (let i = 0; i < grayscale.length; i += 1) grayscale[i] = image.pixels[i * 4];
+                                const pgm = Buffer.concat([
+                                    Buffer.from(`P5\n${image.width} ${image.height}\n255\n`),
+                                    grayscale,
+                                ]);
+                                const text = (await worker.recognize(pgm)).data.text.trim();
+                                frame.diagnostics?.passes.push({ threshold, scale, region, text });
+                                return text;
+                            },
+                            frame.textColor !== "gold" && !!frame.observation.fingerprint.digits,
+                        );
                         readings.push(texts);
                     }
+                    if (values.trace)
+                        await appendFile(
+                            values.trace,
+                            `${JSON.stringify({
+                                run: run.id,
+                                kind,
+                                eventId: frames[0]?.eventId,
+                                frames: frames.map((frame, index) => ({
+                                    batchId: normalIds[frame.frame],
+                                    centerY: frame.observation.centerY,
+                                    bounds: frame.bounds,
+                                    readings: readings[index],
+                                    passes: frame.diagnostics?.passes,
+                                })),
+                            })}\n`,
+                        );
                     return readings;
                 },
                 onResult: (result) =>
@@ -194,6 +238,7 @@ try {
                 frames: normalIds.length,
                 candidates: results.length,
                 ocrJobs,
+                ocrCalls,
                 insufficient: results.filter((result) => result.reason === "insufficient-observations").length,
                 ...(useOcr ? { recognized: results.filter((result) => result.status === "recognized").length } : {}),
                 reviewed: run[`${kind}Reviewed`] === true,

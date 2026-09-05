@@ -74,6 +74,8 @@ conversion, retain source stride handling and exact channel/alpha conversion, an
 Normal/rare geometry is selected together by explicit resolution/UI-scale registry entries. The 3440×1440 and
 2560×1440 entries share the same native ROI geometry at 80% UI scale. Manual placement is the default. The selected normal or rare
 area can be adjusted automatically at 80% UI scale for all three supported source resolutions, using actual
-source dimensions for normalization. 1920×1080 OCR remains unavailable pending calibration. Event tracking,
-OCR consensus, and bounded queues are unchanged. OCR canvases
-are resized only when dimensions change and still cleared and released after each job. There are no schema migrations.
+source dimensions for normalization. 1920×1080 OCR remains unavailable pending calibration. Normal row assignment can use
+digit shapes to refine ambiguous matches. It retains the original three OCR observations and reads up to two supplementary
+frames only for unresolved results, preserving the conflict veto. Capture, job, result, and diagnostic queues remain bounded.
+OCR canvases resize only when dimensions change and are cleared and released after each job. Diagnostic JSONL version 2
+includes recognized results and per-pass metadata; there are no database schema migrations.

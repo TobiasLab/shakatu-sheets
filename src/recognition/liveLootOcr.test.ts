@@ -228,9 +228,9 @@ describe("readLootOcrFrame", () => {
         const recognize = vi.fn<(threshold: number, scale: number) => Promise<string>>(async () => texts[index++]);
         expect(await readLootOcrFrame(undefined, recognize)).toEqual(texts);
         expect(recognize.mock.calls).toEqual([
-            [130, 2],
-            [150, 2],
-            [170, 2],
+            [130, 2, "line"],
+            [150, 2, "line"],
+            [170, 2, "line"],
         ]);
     });
 
@@ -247,12 +247,12 @@ describe("readLootOcrFrame", () => {
         const recognize = vi.fn<(threshold: number, scale: number) => Promise<string>>(async () => texts[index++]);
         expect(await readLootOcrFrame("white", recognize)).toEqual(texts.slice(3));
         expect(recognize.mock.calls).toEqual([
-            [130, 2],
-            [150, 2],
-            [170, 2],
-            [130, 4],
-            [150, 4],
-            [170, 4],
+            [130, 2, "line"],
+            [150, 2, "line"],
+            [170, 2, "line"],
+            [130, 4, "line"],
+            [150, 4, "line"],
+            [170, 4, "line"],
         ]);
     });
 
@@ -268,7 +268,7 @@ describe("readLootOcrFrame", () => {
 
     it("bounds an entirely unreadable normal frame to six passes", async () => {
         const recognize = vi.fn(async () => "noise");
-        expect(await readLootOcrFrame("white", recognize)).toEqual(["noise", "noise", "noise"]);
+        expect(await readLootOcrFrame("white", recognize, true)).toEqual(["noise", "noise", "noise"]);
         expect(recognize).toHaveBeenCalledTimes(6);
     });
 
@@ -276,9 +276,9 @@ describe("readLootOcrFrame", () => {
         const recognize = vi.fn(async () => "noise");
         expect(await readLootOcrFrame("gold", recognize)).toEqual(["noise", "noise", "noise"]);
         expect(recognize.mock.calls).toEqual([
-            [130, 4],
-            [150, 4],
-            [170, 4],
+            [130, 4, "line"],
+            [150, 4, "line"],
+            [170, 4, "line"],
         ]);
     });
 });
@@ -606,4 +606,79 @@ describe("createLiveLootTesseractOcr", () => {
         ).rejects.toThrow("2D canvas");
         expect(worker.terminate).toHaveBeenCalledOnce();
     });
+});
+
+it("uses a separate quantity only to corroborate an existing weak reading", async () => {
+    const line = ["Branch of Abundance x &", "Branch of Abundance x 6", "Branch of Abundance x ?"];
+    let index = 0;
+    const calls: string[] = [];
+    const result = await readLootOcrFrame(
+        "white",
+        async (_threshold, _scale, region) => {
+            calls.push(region);
+            return region === "quantity" ? "6" : line[index++ % 3];
+        },
+        true,
+    );
+    expect(result).toEqual(Array(3).fill("Branch of Abundance x 6"));
+    expect(calls).toEqual([...Array(6).fill("line"), ...Array(3).fill("quantity")]);
+});
+
+it("does not invent quantities or replace conflicting full-line readings", async () => {
+    for (const line of [
+        ["Item x ?", "Item x ?", "Item x ?"],
+        ["Item x 4", "Item x 6", "Item x ?"],
+    ]) {
+        let index = 0;
+        const result = await readLootOcrFrame(
+            "white",
+            async (_threshold, _scale, region) => (region === "quantity" ? "3" : line[index++ % 3]),
+            true,
+        );
+        expect(result).toEqual(line);
+    }
+    let index = 0;
+    expect(
+        await readLootOcrFrame(
+            "white",
+            async (_threshold, _scale, region) =>
+                region === "quantity" ? "6" : ["Item x 4", "Item x 6", "Item x ?"][index++ % 3],
+            true,
+        ),
+    ).toEqual(["Item x 4", "Item x 6", "Item x 6"]);
+});
+
+it("restores full-line OCR parameters after a quantity retry before reading rare loot", async () => {
+    installDocument();
+    let pass = 0;
+    const worker = mockWorker(async () => {
+        const index = pass++;
+        return textResult(
+            index < 6 ? ["Item x ?", "Item x 6", "Item x ?"][index % 3] : index < 9 ? "6" : "Rare Item x 1",
+        );
+    });
+    const canvas = testCanvas();
+    const reader = await createLiveLootTesseractOcr({
+        workerFactory: async () => worker,
+        canvasFactory: () => canvas.canvas,
+    });
+    const normal = ocrFrame();
+    normal.observation.fingerprint.digits = {
+        bounds: { left: 2, right: 5, top: 4, bottom: 20 },
+        pixels: new Uint8Array(48),
+    };
+    normal.diagnostics = { passes: [] };
+    const rare = { ...ocrFrame(1), textColor: "gold" as const };
+    expect(await reader.readText([normal, rare], new AbortController().signal)).toEqual([
+        ["Item x 6", "Item x 6", "Item x 6"],
+        ["Rare Item x 1", "Rare Item x 1", "Rare Item x 1"],
+    ]);
+    expect(worker.setParameters.mock.calls).toEqual([
+        [{ tessedit_pageseg_mode: PSM.SINGLE_LINE }],
+        [{ tessedit_pageseg_mode: PSM.SINGLE_WORD, tessedit_char_whitelist: "0123456789" }],
+        [{ tessedit_pageseg_mode: PSM.SINGLE_LINE, tessedit_char_whitelist: "" }],
+    ]);
+    expect(normal.diagnostics.passes).toHaveLength(9);
+    expect(normal.diagnostics.passes[6]).toEqual({ threshold: 130, scale: 4, region: "quantity", text: "6" });
+    await reader.terminate();
 });

@@ -1,0 +1,436 @@
+{
+    "version": 1,
+    "split": "development",
+    "cases": [
+        {
+            "id": "100-stationary-four",
+            "run": "run-1788636972715-150189-0001",
+            "item": "Branch of Abundance",
+            "quantityBounds": {
+                "left": 300,
+                "right": 322,
+                "halfHeight": 10
+            },
+            "left": {
+                "batchId": 3744,
+                "centerY": 255,
+                "quantity": 4
+            },
+            "right": {
+                "batchId": 3745,
+                "centerY": 255,
+                "quantity": 4
+            }
+        },
+        {
+            "id": "100-stationary-six",
+            "run": "run-1788636972715-150189-0001",
+            "item": "Branch of Abundance",
+            "quantityBounds": {
+                "left": 300,
+                "right": 322,
+                "halfHeight": 10
+            },
+            "left": {
+                "batchId": 3746,
+                "centerY": 255,
+                "quantity": 6
+            },
+            "right": {
+                "batchId": 3747,
+                "centerY": 255,
+                "quantity": 6
+            }
+        },
+        {
+            "id": "100-four-moves-up",
+            "run": "run-1788636972715-150189-0001",
+            "item": "Branch of Abundance",
+            "quantityBounds": {
+                "left": 300,
+                "right": 322,
+                "halfHeight": 10
+            },
+            "left": {
+                "batchId": 3745,
+                "centerY": 255,
+                "quantity": 4
+            },
+            "right": {
+                "batchId": 3746,
+                "centerY": 206,
+                "quantity": 4
+            }
+        },
+        {
+            "id": "100-six-reappears-at-bottom",
+            "run": "run-1788636972715-150189-0001",
+            "item": "Branch of Abundance",
+            "quantityBounds": {
+                "left": 300,
+                "right": 322,
+                "halfHeight": 10
+            },
+            "left": {
+                "batchId": 3745,
+                "centerY": 206,
+                "quantity": 6
+            },
+            "right": {
+                "batchId": 3746,
+                "centerY": 255,
+                "quantity": 6
+            }
+        },
+        {
+            "id": "100-bottom-four-becomes-six",
+            "run": "run-1788636972715-150189-0001",
+            "item": "Branch of Abundance",
+            "quantityBounds": {
+                "left": 300,
+                "right": 322,
+                "halfHeight": 10
+            },
+            "left": {
+                "batchId": 3745,
+                "centerY": 255,
+                "quantity": 4
+            },
+            "right": {
+                "batchId": 3746,
+                "centerY": 255,
+                "quantity": 6
+            }
+        },
+        {
+            "id": "100-middle-four-becomes-six-in-effects",
+            "run": "run-1788636972715-150189-0001",
+            "item": "Branch of Abundance",
+            "quantityBounds": {
+                "left": 300,
+                "right": 322,
+                "halfHeight": 10
+            },
+            "left": {
+                "batchId": 9816,
+                "centerY": 206,
+                "quantity": 4
+            },
+            "right": {
+                "batchId": 9817,
+                "centerY": 206,
+                "quantity": 6
+            }
+        },
+        {
+            "id": "100-six-moves-up-in-effects",
+            "run": "run-1788636972715-150189-0001",
+            "item": "Branch of Abundance",
+            "quantityBounds": {
+                "left": 300,
+                "right": 322,
+                "halfHeight": 10
+            },
+            "left": {
+                "batchId": 9816,
+                "centerY": 255,
+                "quantity": 6
+            },
+            "right": {
+                "batchId": 9817,
+                "centerY": 206,
+                "quantity": 6
+            }
+        },
+        {
+            "id": "80-ten-moves-up",
+            "run": "run-1788631566956-9757-0001",
+            "item": "Branch of Abundance",
+            "quantityBounds": {
+                "left": 240,
+                "right": 257,
+                "halfHeight": 8
+            },
+            "left": {
+                "batchId": 13879,
+                "centerY": 204,
+                "quantity": 10
+            },
+            "right": {
+                "batchId": 13880,
+                "centerY": 165,
+                "quantity": 10
+            }
+        },
+        {
+            "id": "80-nine-moves-up",
+            "run": "run-1788631566956-9757-0001",
+            "item": "Branch of Abundance",
+            "quantityBounds": {
+                "left": 240,
+                "right": 257,
+                "halfHeight": 8
+            },
+            "left": {
+                "batchId": 13880,
+                "centerY": 204,
+                "quantity": 9
+            },
+            "right": {
+                "batchId": 13881,
+                "centerY": 165,
+                "quantity": 9
+            }
+        },
+        {
+            "id": "80-bottom-nine-becomes-six",
+            "run": "run-1788631566956-9757-0001",
+            "item": "Branch of Abundance",
+            "quantityBounds": {
+                "left": 240,
+                "right": 257,
+                "halfHeight": 8
+            },
+            "left": {
+                "batchId": 13880,
+                "centerY": 204,
+                "quantity": 9
+            },
+            "right": {
+                "batchId": 13881,
+                "centerY": 204,
+                "quantity": 6
+            }
+        },
+        {
+            "id": "80-ten-and-nine",
+            "run": "run-1788631566956-9757-0001",
+            "item": "Branch of Abundance",
+            "quantityBounds": {
+                "left": 240,
+                "right": 257,
+                "halfHeight": 8
+            },
+            "left": {
+                "batchId": 13880,
+                "centerY": 165,
+                "quantity": 10
+            },
+            "right": {
+                "batchId": 13880,
+                "centerY": 204,
+                "quantity": 9
+            }
+        },
+        {
+            "id": "80-stationary-six",
+            "run": "run-1788631566956-9757-0001",
+            "item": "Branch of Abundance",
+            "quantityBounds": {
+                "left": 240,
+                "right": 257,
+                "halfHeight": 8
+            },
+            "left": {
+                "batchId": 14425,
+                "centerY": 165,
+                "quantity": 6
+            },
+            "right": {
+                "batchId": 14426,
+                "centerY": 165,
+                "quantity": 6
+            }
+        },
+        {
+            "id": "80-six-and-four",
+            "run": "run-1788631566956-9757-0001",
+            "item": "Branch of Abundance",
+            "quantityBounds": {
+                "left": 240,
+                "right": 257,
+                "halfHeight": 8
+            },
+            "left": {
+                "batchId": 14425,
+                "centerY": 165,
+                "quantity": 6
+            },
+            "right": {
+                "batchId": 14425,
+                "centerY": 204,
+                "quantity": 4
+            }
+        },
+        {
+            "id": "80-fifty-eight-and-ten",
+            "run": "run-1788631566956-9757-0001",
+            "item": "Branch of Abundance",
+            "quantityBounds": {
+                "left": 240,
+                "right": 257,
+                "halfHeight": 8
+            },
+            "left": {
+                "batchId": 4422,
+                "centerY": 165,
+                "quantity": 58
+            },
+            "right": {
+                "batchId": 4422,
+                "centerY": 204,
+                "quantity": 10
+            }
+        },
+        {
+            "id": "80-caphras-stationary",
+            "run": "run-1788631566956-9757-0001",
+            "item": "Caphras Stone",
+            "left": {
+                "batchId": 3752,
+                "centerY": 165,
+                "quantity": 3
+            },
+            "right": {
+                "batchId": 3753,
+                "centerY": 165,
+                "quantity": 3
+            }
+        },
+        {
+            "id": "80-caphras-three-versus-one",
+            "run": "run-1788631566956-9757-0001",
+            "item": "Caphras Stone",
+            "left": {
+                "batchId": 3752,
+                "centerY": 165,
+                "quantity": 3
+            },
+            "right": {
+                "batchId": 4700,
+                "centerY": 165,
+                "quantity": 1
+            }
+        },
+        {
+            "id": "80-black-stone-stationary",
+            "run": "run-1788631566956-9757-0001",
+            "item": "Black Stone",
+            "left": {
+                "batchId": 1781,
+                "centerY": 126,
+                "quantity": 1
+            },
+            "right": {
+                "batchId": 1782,
+                "centerY": 126,
+                "quantity": 1
+            }
+        },
+        {
+            "id": "80-black-stone-one-versus-two",
+            "run": "run-1788631566956-9757-0001",
+            "item": "Black Stone",
+            "left": {
+                "batchId": 1781,
+                "centerY": 126,
+                "quantity": 1
+            },
+            "right": {
+                "batchId": 3752,
+                "centerY": 126,
+                "quantity": 2
+            }
+        },
+        {
+            "id": "80-dust-moves-up",
+            "run": "run-1788631566956-9757-0001",
+            "item": "Ancient Spirit Dust",
+            "left": {
+                "batchId": 2773,
+                "centerY": 165,
+                "quantity": 1
+            },
+            "right": {
+                "batchId": 2774,
+                "centerY": 126,
+                "quantity": 1
+            }
+        },
+        {
+            "id": "80-nev-moves-up",
+            "run": "run-1788631566956-9757-0001",
+            "item": "Nev's Fragment",
+            "left": {
+                "batchId": 14882,
+                "centerY": 165,
+                "quantity": 1
+            },
+            "right": {
+                "batchId": 14883,
+                "centerY": 126,
+                "quantity": 1
+            }
+        },
+        {
+            "id": "100-black-stone-stationary",
+            "run": "run-1788636972715-150189-0001",
+            "item": "Black Stone",
+            "left": {
+                "batchId": 2930,
+                "centerY": 157,
+                "quantity": 1
+            },
+            "right": {
+                "batchId": 2931,
+                "centerY": 157,
+                "quantity": 1
+            }
+        },
+        {
+            "id": "100-dust-moves-up",
+            "run": "run-1788636972715-150189-0001",
+            "item": "Ancient Spirit Dust",
+            "left": {
+                "batchId": 2466,
+                "centerY": 206,
+                "quantity": 2
+            },
+            "right": {
+                "batchId": 2467,
+                "centerY": 157,
+                "quantity": 2
+            }
+        },
+        {
+            "id": "100-black-stone-five",
+            "run": "run-1788636972715-150189-0001",
+            "item": "Black Stone",
+            "left": {
+                "batchId": 6165,
+                "centerY": 206,
+                "quantity": 5
+            },
+            "right": {
+                "batchId": 6166,
+                "centerY": 206,
+                "quantity": 5
+            }
+        },
+        {
+            "id": "100-black-stone-one-versus-five",
+            "run": "run-1788636972715-150189-0001",
+            "item": "Black Stone",
+            "left": {
+                "batchId": 2930,
+                "centerY": 157,
+                "quantity": 1
+            },
+            "right": {
+                "batchId": 6165,
+                "centerY": 206,
+                "quantity": 5
+            }
+        }
+    ]
+}

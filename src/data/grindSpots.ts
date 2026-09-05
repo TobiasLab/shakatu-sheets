@@ -165,6 +165,7 @@ export const aphrodonTemple: GrindSpotProfile = {
     name: "Aphrodon Temple",
     trash: vendor("Branch of Abundance", 980_127, 155_127),
     drops: [
+        vendor("Empty Picture Frame", 767_249, 15_348),
         commonDrops.blackStone,
         commonDrops.ancientSpiritDust,
         commonDrops.caphrasStone,

@@ -95,11 +95,12 @@ export function preprocessLootOcrFrame(
 
 export async function readLootOcrFrame(
     textColor: "white" | "gold" | undefined,
-    recognize: (threshold: LootOcrThreshold, scale: 2 | 4) => Promise<string>,
+    recognize: (threshold: LootOcrThreshold, scale: 2 | 4, region: "line" | "quantity") => Promise<string>,
+    quantityAvailable = false,
 ): Promise<string[]> {
     async function read(scale: 2 | 4) {
         const readings: string[] = [];
-        for (const threshold of thresholds) readings.push(await recognize(threshold, scale));
+        for (const threshold of thresholds) readings.push(await recognize(threshold, scale, "line"));
         return readings;
     }
 
@@ -110,7 +111,31 @@ export async function readLootOcrFrame(
         return readings;
 
     const retried = await read(4);
-    return retried.some((text) => parseLootQuantity(text) !== null) ? retried : readings;
+    const chosen = retried.some((text) => parseLootQuantity(text) !== null) ? retried : readings;
+    const parsed = chosen.map(parseLootQuantity);
+    if (
+        !quantityAvailable ||
+        parsed.every((value) => value === null) ||
+        !chosen.some((text) => parseLootQuantity(text) === null && /\s+x\s*[^x]*$/i.test(text)) ||
+        parsed.some((value) => value !== null && parsed.filter((other) => other === value).length > 1)
+    )
+        return chosen;
+    const digits: number[] = [];
+    for (const threshold of thresholds) {
+        const text = (await recognize(threshold, 4, "quantity")).trim();
+        if (/^\d+$/.test(text)) {
+            const value = Number(text);
+            if (Number.isSafeInteger(value) && value > 0) digits.push(value);
+        }
+    }
+    // A separate crop may corroborate a weak line reading, but must never invent a quantity or override a conflict.
+    const quantity = digits.find(
+        (value) => digits.filter((other) => other === value).length >= 2 && parsed.includes(value),
+    );
+    if (quantity === undefined) return chosen;
+    return chosen.map((text) =>
+        parseLootQuantity(text) === null ? text.replace(/^(.*?)\s+x\s*[^x]*$/i, `$1 x ${quantity}`) : text,
+    );
 }
 
 export type LiveLootOcrWorkerOptions = {
@@ -123,7 +148,7 @@ export type LiveLootOcrWorkerOptions = {
 };
 
 export type LiveLootOcrWorker = {
-    setParameters(parameters: { tessedit_pageseg_mode: PSM }): PromiseLike<unknown>;
+    setParameters(parameters: { tessedit_pageseg_mode: PSM; tessedit_char_whitelist?: string }): PromiseLike<unknown>;
     recognize(image: unknown): PromiseLike<{ data: { text: string } }>;
     terminate(): PromiseLike<unknown> | unknown;
 };
@@ -249,6 +274,7 @@ export async function createLiveLootTesseractOcr({
         throw error;
     }
 
+    let quantityMode: boolean | undefined = false;
     let busy = false;
     let closed = false;
     let terminationPromise: Promise<void> | undefined;
@@ -284,16 +310,27 @@ export async function createLiveLootTesseractOcr({
         for (let frameIndex = 0; frameIndex < frameCount; frameIndex += 1) {
             const frameReadings = await readLootOcrFrame(
                 job.frames?.[frameIndex]?.textColor,
-                async (threshold, scale) => {
+                async (threshold, scale, region) => {
                     if (closed) throw closedError();
+                    if (quantityMode !== (region === "quantity")) {
+                        const useQuantity = region === "quantity";
+                        quantityMode = undefined;
+                        await worker.setParameters({
+                            tessedit_pageseg_mode: useQuantity ? PSM.SINGLE_WORD : PSM.SINGLE_LINE,
+                            tessedit_char_whitelist: useQuantity ? "0123456789" : "",
+                        });
+                        quantityMode = useQuantity;
+                        if (closed) throw closedError();
+                    }
                     let source = job.frames?.[frameIndex];
                     if (!source) throw closedError();
+                    const diagnostics = source.diagnostics;
                     const centerY = source.observation.centerY;
                     let processed: LootRoiFrame | undefined = preprocessLootOcrFrame(
                         source.roi,
                         centerY,
                         threshold,
-                        source.bounds,
+                        region === "quantity" ? source.observation.fingerprint.digits?.bounds : source.bounds,
                         source.textColor,
                         scale,
                     );
@@ -312,8 +349,12 @@ export async function createLiveLootTesseractOcr({
 
                     const result = await worker.recognize(canvas);
                     if (closed) throw closedError();
-                    return result.data.text.trim();
+                    const text = result.data.text.trim();
+                    diagnostics?.passes.push({ threshold, scale, region, text: text.slice(0, 512) });
+                    return text;
                 },
+                job.frames?.[frameIndex]?.textColor !== "gold" &&
+                    !!job.frames?.[frameIndex]?.observation.fingerprint.digits,
             );
             readings.push(frameReadings);
         }

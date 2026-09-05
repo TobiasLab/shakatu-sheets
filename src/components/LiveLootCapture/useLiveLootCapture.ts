@@ -43,6 +43,7 @@ import {
     type LiveLootOcrReader,
     type LiveLootRecognitionResult,
     type LootRoiFrame,
+    NORMAL_LOOT_OCR_SELECTION,
 } from "../../recognition/liveLoot";
 import { type LootSearchFrame, NormalLootLocalizer } from "../../recognition/liveLootLocalization";
 import {
@@ -520,7 +521,7 @@ export function useLiveLootCapture({
     }
     function emitOcrIssue(issue: RoiOcrIssue) {
         if (diagnosticWrites.current >= 32) {
-            setSampleDiagnosticError("OCR diagnostic queue is full; some issue logs were dropped.");
+            setSampleDiagnosticError("OCR diagnostic queue is full; some OCR logs were dropped.");
             return;
         }
         diagnosticWrites.current += 1;
@@ -1466,6 +1467,7 @@ export function useLiveLootCapture({
                 const normalDiagnostics = new RoiOcrDiagnostics("normal", generation, emitOcrIssue);
                 const rareDiagnostics = new RoiOcrDiagnostics("rare", generation, emitOcrIssue);
                 const normalCoordinator = new LiveLootCoordinator({
+                    ocrSelection: NORMAL_LOOT_OCR_SELECTION,
                     profile: calibratedProfile.profile,
                     dictionary: itemDictionaryRef.current,
                     readText: normalDiagnostics.wrap(readText),
