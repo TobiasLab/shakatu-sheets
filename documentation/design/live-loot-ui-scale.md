@@ -25,18 +25,22 @@ only 1 or 1.25 when supplied. Rare shell, border, and OCR bounds have a separate
 No frame resampling is introduced. OCR reads original native crop pixels. Both localizers use scale-specific geometry,
 and normal localization replays exact native crops from its bounded search history. The native search command carries
 the selected UI scale and validates either 80 or 100 while retaining the 800×600 search limit. Frame retention, candidate
-history, temporal confirmation, OCR passes, queue limits, and capture cadence are unchanged. Larger native crops increase
-per-frame work and storage in proportion to their dimensions; there is no extra full-screen pixel readback.
+history, temporal confirmation, queue limits, and capture cadence are unchanged. The subsequent
+[OCR corpus improvements](live-loot-scales-2026-09-05.md) add one bounded retry for uncertain normal OCR frames. Larger native
+crops increase per-frame work and storage in proportion to their dimensions; there is no extra full-screen pixel readback.
 
 ## Verification And Remaining Evidence
 
-All six manifests in the supplied live corpus record 3440×1440 at 80% UI scale. They do not validate 100% detection.
-The new 100% profile is **enabled but provisional**, rather than a measured calibration. Actual 100% gameplay recordings
-are still needed to assess font rasterization, row alignment, fading, moving scenery, quantities, and rare banners.
-The same applies to native Windows gameplay; cross-target compilation and browser fixtures cannot establish it.
+The initial scale implementation was checked against six 3440×1440 recordings at 80% UI scale. The replacement
+[paired scale corpus](live-loot-scales-2026-09-05.md) now provides actual 3440×1440 gameplay at both 80% and 100%, including
+moving scenery and normal loot quantities. It validates normal crop replay at 100% and exposed OCR and tracking failures
+that synthetic scaling did not reveal. It contains no detected 100% rare banner, and no 2560×1440 recording. Rare 100%
+calibration and native Windows gameplay remain unverified; cross-target compilation and browser fixtures cannot establish
+either.
 
-Local checks passed: 244 frontend tests, the production build, Biome, Rust formatting, 80 Rust tests (one optional
-microbenchmark ignored), Rust Clippy, and Windows cross-target Clippy for code and test targets. New tests exercise
+At the scale-support merge, local checks passed: 244 frontend tests, the production build, Biome, Rust formatting,
+80 Rust tests (one optional microbenchmark ignored), Rust Clippy, and Windows cross-target Clippy for code and test targets.
+New tests exercise
 native five-row detection, OCR bounds and event delivery with controlled OCR readings, normal/rare automatic placement,
 crop-edge bounds, rare confirmation, empty frames, bounded history, profile serialization, and both native search scales.
 ROI CLI tests decode paired 100% crops for both 1440p widths and verify reviewed missing events cause failure.

@@ -7,6 +7,7 @@ import {
     type LiveLootOcrCanvasContext,
     type LiveLootOcrWorker,
     preprocessLootOcrFrame,
+    readLootOcrFrame,
     serializeLiveLootOcrReader,
 } from "./liveLootOcr";
 
@@ -82,7 +83,7 @@ function textResult(text: string) {
     return { data: { text } };
 }
 
-function mockWorker(recognize: LiveLootOcrWorker["recognize"] = async () => textResult("text")) {
+function mockWorker(recognize: LiveLootOcrWorker["recognize"] = async () => textResult("text x 1")) {
     return {
         setParameters: vi.fn<LiveLootOcrWorker["setParameters"]>(async () => undefined),
         recognize: vi.fn<LiveLootOcrWorker["recognize"]>(recognize),
@@ -102,8 +103,8 @@ describe("preprocessLootOcrFrame", () => {
     it("returns the exact scaled crop dimensions with opaque white padding", () => {
         const output = preprocessLootOcrFrame(sourceFrame(20, 30), 15, 130);
 
-        expect(output.width).toBe((Math.round(20 * 0.8) - Math.round(20 * 0.25)) * 4 + 20);
-        expect(output.height).toBe(24 * 4 + 20);
+        expect(output.width).toBe((Math.round(20 * 0.8) - Math.round(20 * 0.25)) * 2 + 20);
+        expect(output.height).toBe(24 * 2 + 20);
         expect(output.pixels).toHaveLength(output.width * output.height * 4);
         expect(outputPixel(output, 0, 0)).toEqual([255, 255, 255, 255]);
         expect(outputPixel(output, 9, 10)).toEqual([255, 255, 255, 255]);
@@ -111,17 +112,17 @@ describe("preprocessLootOcrFrame", () => {
         for (let offset = 3; offset < output.pixels.length; offset += 4) expect(output.pixels[offset]).toBe(255);
     });
 
-    it("expands one accepted source pixel to exactly one 4x4 black block", () => {
+    it("expands one accepted source pixel to exactly one 2x2 black block", () => {
         const frame = sourceFrame(8, 24);
         setPixel(frame, 2, 0, 130);
 
         const output = preprocessLootOcrFrame(frame, 12, 130);
 
-        expect(blackPixelCount(output)).toBe(16);
-        for (let y = 10; y < 14; y += 1) {
-            for (let x = 10; x < 14; x += 1) expect(outputPixel(output, x, y)).toEqual([0, 0, 0, 255]);
+        expect(blackPixelCount(output)).toBe(4);
+        for (let y = 10; y < 12; y += 1) {
+            for (let x = 10; x < 12; x += 1) expect(outputPixel(output, x, y)).toEqual([0, 0, 0, 255]);
         }
-        expect(outputPixel(output, 14, 10)).toEqual([255, 255, 255, 255]);
+        expect(outputPixel(output, 12, 10)).toEqual([255, 255, 255, 255]);
     });
 
     it("uses inclusive integer luminance boundaries", () => {
@@ -132,7 +133,7 @@ describe("preprocessLootOcrFrame", () => {
         const output = preprocessLootOcrFrame(frame, 12, 150);
 
         expect(outputPixel(output, 10, 10)).toEqual([255, 255, 255, 255]);
-        expect(outputPixel(output, 14, 10)).toEqual([0, 0, 0, 255]);
+        expect(outputPixel(output, 12, 10)).toEqual([0, 0, 0, 255]);
     });
 
     it("uses explicit source bounds for non-stack notifications", () => {
@@ -142,10 +143,10 @@ describe("preprocessLootOcrFrame", () => {
         expect(blackPixelCount(preprocessLootOcrFrame(frame, 15, 130))).toBe(0);
         const output = preprocessLootOcrFrame(frame, 15, 130, { left: 1, right: 19, top: 2, bottom: 29 });
 
-        expect(output.width).toBe(18 * 4 + 20);
-        expect(output.height).toBe(27 * 4 + 20);
-        expect(blackPixelCount(output)).toBe(16);
-        expect(outputPixel(output, 10 + 17 * 4, 10 + 26 * 4)).toEqual([0, 0, 0, 255]);
+        expect(output.width).toBe(18 * 2 + 20);
+        expect(output.height).toBe(27 * 2 + 20);
+        expect(blackPixelCount(output)).toBe(4);
+        expect(outputPixel(output, 10 + 17 * 2, 10 + 26 * 2)).toEqual([0, 0, 0, 255]);
     });
 
     it("accepts chroma 65 and rejects chroma 66", () => {
@@ -156,14 +157,17 @@ describe("preprocessLootOcrFrame", () => {
         const output = preprocessLootOcrFrame(frame, 12, 130);
 
         expect(outputPixel(output, 10, 10)).toEqual([0, 0, 0, 255]);
-        expect(outputPixel(output, 14, 10)).toEqual([255, 255, 255, 255]);
+        expect(outputPixel(output, 12, 10)).toEqual([255, 255, 255, 255]);
     });
 
     it("retains gold lettering only for an explicitly gold OCR job", () => {
         const frame = sourceFrame();
         setPixel(frame, 2, 0, 230, 200, 110);
         expect(blackPixelCount(preprocessLootOcrFrame(frame, 12, 170))).toBe(0);
-        expect(blackPixelCount(preprocessLootOcrFrame(frame, 12, 170, undefined, "gold"))).toBe(16);
+        const gold = preprocessLootOcrFrame(frame, 12, 170, undefined, "gold");
+        expect(gold.width).toBe(4 * 4 + 20);
+        expect(gold.height).toBe(24 * 4 + 20);
+        expect(blackPixelCount(gold)).toBe(16);
     });
 
     it("is monotonically more selective across the supported thresholds", () => {
@@ -176,7 +180,7 @@ describe("preprocessLootOcrFrame", () => {
             ([130, 150, 170] as const).map((threshold) =>
                 blackPixelCount(preprocessLootOcrFrame(frame, 12, threshold)),
             ),
-        ).toEqual([48, 32, 16]);
+        ).toEqual([12, 8, 4]);
     });
 
     it("keeps out-of-bounds crop samples white", () => {
@@ -184,10 +188,10 @@ describe("preprocessLootOcrFrame", () => {
         const output = preprocessLootOcrFrame(frame, 0, 130);
 
         expect(outputPixel(output, 10, 10)).toEqual([255, 255, 255, 255]);
-        expect(outputPixel(output, 10, 57)).toEqual([255, 255, 255, 255]);
-        expect(outputPixel(output, 10, 58)).toEqual([0, 0, 0, 255]);
-        expect(outputPixel(output, 10, 73)).toEqual([0, 0, 0, 255]);
-        expect(outputPixel(output, 10, 74)).toEqual([255, 255, 255, 255]);
+        expect(outputPixel(output, 10, 33)).toEqual([255, 255, 255, 255]);
+        expect(outputPixel(output, 10, 34)).toEqual([0, 0, 0, 255]);
+        expect(outputPixel(output, 10, 41)).toEqual([0, 0, 0, 255]);
+        expect(outputPixel(output, 10, 42)).toEqual([255, 255, 255, 255]);
     });
 
     it("validates dimensions, buffers, centers, and thresholds without mutating the source", () => {
@@ -207,12 +211,75 @@ describe("preprocessLootOcrFrame", () => {
         );
         expect(() => preprocessLootOcrFrame(frame, 12.5, 150)).toThrow("integer");
         expect(() => preprocessLootOcrFrame(frame, 12, 140 as 130)).toThrow("130, 150, or 170");
+        expect(() => preprocessLootOcrFrame(frame, 12, 150, undefined, "white", 3 as 2)).toThrow("enlargement");
         expect(() => preprocessLootOcrFrame(frame, 12, 150, { left: 4, right: 4, top: 0, bottom: 24 })).toThrow(
             "OCR bounds",
         );
         expect(() => preprocessLootOcrFrame(frame, 12, 150, { left: 0, right: 8, top: 0, bottom: 25 })).toThrow(
             "OCR bounds",
         );
+    });
+});
+
+describe("readLootOcrFrame", () => {
+    it("keeps the smaller pass when two thresholds agree without hiding a conflicting third reading", async () => {
+        const texts = ["Branch of Abundance x 10", "Branch of Abundance x 10", "Branch of Abundance x 110"];
+        let index = 0;
+        const recognize = vi.fn<(threshold: number, scale: number) => Promise<string>>(async () => texts[index++]);
+        expect(await readLootOcrFrame(undefined, recognize)).toEqual(texts);
+        expect(recognize.mock.calls).toEqual([
+            [130, 2],
+            [150, 2],
+            [170, 2],
+        ]);
+    });
+
+    it("retries an uncertain quantity once at the original size", async () => {
+        const texts = [
+            "Branch of Abundance x5;",
+            "Branch of Abundance x §",
+            "Branch of Abundance x",
+            "Branch of Abundance x6;",
+            "Branch of Abundance x 6",
+            "Branch of Abundance x 6",
+        ];
+        let index = 0;
+        const recognize = vi.fn<(threshold: number, scale: number) => Promise<string>>(async () => texts[index++]);
+        expect(await readLootOcrFrame("white", recognize)).toEqual(texts.slice(3));
+        expect(recognize.mock.calls).toEqual([
+            [130, 2],
+            [150, 2],
+            [170, 2],
+            [130, 4],
+            [150, 4],
+            [170, 4],
+        ]);
+    });
+
+    it("retains the primary readings when the retry cannot parse a quantity", async () => {
+        const primary = ["noise", "Branch of Abundance x &", "Branch of Abundance x 6"];
+        let index = 0;
+        const recognize = vi.fn<(threshold: number, scale: number) => Promise<string>>(
+            async () => primary[index++] ?? "noise",
+        );
+        expect(await readLootOcrFrame("white", recognize)).toEqual(primary);
+        expect(recognize).toHaveBeenCalledTimes(6);
+    });
+
+    it("bounds an entirely unreadable normal frame to six passes", async () => {
+        const recognize = vi.fn(async () => "noise");
+        expect(await readLootOcrFrame("white", recognize)).toEqual(["noise", "noise", "noise"]);
+        expect(recognize).toHaveBeenCalledTimes(6);
+    });
+
+    it("keeps gold text at the original size without retrying", async () => {
+        const recognize = vi.fn(async () => "noise");
+        expect(await readLootOcrFrame("gold", recognize)).toEqual(["noise", "noise", "noise"]);
+        expect(recognize.mock.calls).toEqual([
+            [130, 4],
+            [150, 4],
+            [170, 4],
+        ]);
     });
 });
 
@@ -281,7 +348,14 @@ describe("createLiveLootTesseractOcr", () => {
     it("processes frames before thresholds, trims text, and reuses one canvas", async () => {
         installDocument();
         const canvas = testCanvas();
-        const returned = [" first-130 \n", "first-150", " first-170", "second-130 ", " second-150", "second-170\n"];
+        const returned = [
+            " first-130 x 1 \n",
+            "first-150 x 1",
+            " first-170 x 1",
+            "second-130 x 1 ",
+            " second-150 x 1",
+            "second-170 x 1\n",
+        ];
         let index = 0;
         const worker = mockWorker(async () => textResult(returned[index++]));
         const reader = await createLiveLootTesseractOcr({
@@ -292,8 +366,8 @@ describe("createLiveLootTesseractOcr", () => {
         const result = await reader.readText([ocrFrame(1), ocrFrame(2)], new AbortController().signal);
 
         expect(result).toEqual([
-            ["first-130", "first-150", "first-170"],
-            ["second-130", "second-150", "second-170"],
+            ["first-130 x 1", "first-150 x 1", "first-170 x 1"],
+            ["second-130 x 1", "second-150 x 1", "second-170 x 1"],
         ]);
         expect(worker.recognize).toHaveBeenCalledTimes(6);
         expect(worker.recognize.mock.calls.every(([recognizedCanvas]) => recognizedCanvas === canvas.canvas)).toBe(
@@ -301,6 +375,32 @@ describe("createLiveLootTesseractOcr", () => {
         );
         expect(canvas.images).toHaveLength(6);
         expect(canvas.clears).toHaveLength(1);
+        expect(canvas.canvas).toMatchObject({ width: 0, height: 0 });
+    });
+
+    it("cancels during the full-size retry without starting another pass", async () => {
+        installDocument();
+        const canvas = testCanvas();
+        const retry = deferred<ReturnType<typeof textResult>>();
+        let calls = 0;
+        const worker = mockWorker(async () => {
+            calls += 1;
+            return calls === 4 ? retry.promise : textResult("Branch of Abundance x §");
+        });
+        const reader = await createLiveLootTesseractOcr({
+            workerFactory: async () => worker,
+            canvasFactory: () => canvas.canvas,
+        });
+        const controller = new AbortController();
+        const pending = reader.readText([ocrFrame()], controller.signal);
+        const rejected = expect(pending).rejects.toMatchObject({ name: "AbortError" });
+        await vi.waitFor(() => expect(worker.recognize).toHaveBeenCalledTimes(4));
+        controller.abort();
+        await rejected;
+        retry.resolve(textResult("Branch of Abundance x 6"));
+        await Promise.resolve();
+        expect(worker.recognize).toHaveBeenCalledTimes(4);
+        expect(worker.terminate).toHaveBeenCalledOnce();
         expect(canvas.canvas).toMatchObject({ width: 0, height: 0 });
     });
 
@@ -320,7 +420,7 @@ describe("createLiveLootTesseractOcr", () => {
         await reader.readText([frame], new AbortController().signal);
 
         expect(canvas.images).toHaveLength(3);
-        expect(canvas.images.every((image) => image.length === (18 * 4 + 20) * (27 * 4 + 20) * 4)).toBe(true);
+        expect(canvas.images.every((image) => image.length === (18 * 2 + 20) * (27 * 2 + 20) * 4)).toBe(true);
     });
 
     it("rejects concurrent reads without another recognize call", async () => {

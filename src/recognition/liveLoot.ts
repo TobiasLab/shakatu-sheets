@@ -787,20 +787,34 @@ export function parseLootItem(text: string, dictionary: readonly string[]) {
 
 function chooseTemporalPairConsensus(readingsByFrame: Array<Array<{ item: string | null; quantity: number | null }>>) {
     const counts = new Map<string, { count: number; item: string; quantity: number }>();
+    const confidentPairs = new Set<string>();
     for (const readings of readingsByFrame) {
-        const unique = new Map<string, { item: string; quantity: number }>();
+        const unique = new Map<string, { count: number; item: string; quantity: number }>();
         for (const reading of readings) {
             if (reading.item === null || reading.quantity === null) continue;
-            unique.set(`${reading.item}\0${reading.quantity}`, { item: reading.item, quantity: reading.quantity });
+            const key = `${reading.item}\0${reading.quantity}`;
+            unique.set(key, {
+                item: reading.item,
+                quantity: reading.quantity,
+                count: (unique.get(key)?.count ?? 0) + 1,
+            });
         }
         for (const [key, reading] of unique) {
+            if (reading.count > readings.length / 2) confidentPairs.add(key);
             const current = counts.get(key);
             counts.set(key, { ...reading, count: (current?.count ?? 0) + 1 });
         }
     }
     const ranked = [...counts.values()].sort((left, right) => right.count - left.count);
     const requiredSupport = Math.floor(readingsByFrame.length / 2) + 1;
-    return ranked[0]?.count >= requiredSupport && ranked[0].count > (ranked[1]?.count ?? 0) ? ranked[0] : null;
+    const winner = ranked[0];
+    if (!winner || winner.count < requiredSupport || winner.count <= (ranked[1]?.count ?? 0)) return null;
+    // Similar-looking adjacent rows can enter the same track. Do not outvote a frame that consistently reads
+    // a different item or quantity, even when the other two frames agree.
+    for (const key of confidentPairs) {
+        if (key !== `${winner.item}\0${winner.quantity}`) return null;
+    }
+    return winner;
 }
 
 function parseLootReadings(rawReadings: readonly (readonly string[])[], dictionary: readonly string[]) {
