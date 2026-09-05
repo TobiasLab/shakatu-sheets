@@ -82,6 +82,15 @@ describe("rare loot localization", () => {
         expect(localizer.pushFrame(frame(1920, 1080))).not.toBeNull();
     });
 
+    it("does not treat a slowly drifting banner as a stable location", () => {
+        const localizer = new RareLootLocalizer();
+        for (const x of [200, 203, 206, 209, 212]) {
+            expect(localizer.pushFrame(frame(2560, 1440, x))).toBeNull();
+        }
+        expect(localizer.pushFrame(frame(2560, 1440, 212))).toBeNull();
+        expect(localizer.pushFrame(frame(2560, 1440, 212))).not.toBeNull();
+    });
+
     it("validates search frame dimensions and bounds", () => {
         expect(() => lock({ ...frame(), cropX: 2560 })).toThrow();
         expect(() => lock({ ...frame(), pixels: new Uint8ClampedArray(4) })).toThrow();

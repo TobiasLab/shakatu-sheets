@@ -6,6 +6,7 @@ type Candidate = { x: number; y: number; score: number };
 
 // Integral sums keep the bounded search linear in its pixel count instead of rescanning each candidate's shell.
 function locateBanner(frame: LootSearchFrame): Candidate | null {
+    const { borderOffset } = RARE_LOOT_GEOMETRY;
     const stride = frame.width + 1;
     const warm = new Uint32Array(stride * (frame.height + 1));
     const edges = new Uint32Array(warm.length);
@@ -21,7 +22,8 @@ function locateBanner(frame: LootSearchFrame): Candidate | null {
             const b = frame.pixels[offset + 2];
             const gold = r >= 105 && g >= 65 && r - b >= 55 && g - b >= 20;
             if (gold) warmRow += 1;
-            if (gold && y >= 3 && light(offset) - light(offset - frame.width * 12) >= 25) edgeRow += 1;
+            if (gold && y >= borderOffset && light(offset) - light(offset - frame.width * 4 * borderOffset) >= 25)
+                edgeRow += 1;
             const index = (y + 1) * stride + x + 1;
             warm[index] = warm[index - stride] + warmRow;
             edges[index] = edges[index - stride] + edgeRow;
@@ -71,9 +73,8 @@ function locateBanner(frame: LootSearchFrame): Candidate | null {
 }
 
 export class RareLootLocalizer {
-    private previous: Candidate | null = null;
+    private readonly observations: Candidate[] = [];
     private source = "";
-    private observations = 0;
 
     pushFrame(frame: LootSearchFrame) {
         validateSearchFrame(frame);
@@ -82,16 +83,14 @@ export class RareLootLocalizer {
         this.source = source;
         const candidate = locateBanner(frame);
         if (!candidate) {
-            this.previous = null;
-            this.observations = 0;
+            this.observations.length = 0;
             return null;
         }
-        this.observations =
-            this.previous && Math.hypot(candidate.x - this.previous.x, candidate.y - this.previous.y) <= 3
-                ? this.observations + 1
-                : 1;
-        this.previous = candidate;
-        if (this.observations < 3) return null;
+        if (this.observations.some((previous) => Math.hypot(candidate.x - previous.x, candidate.y - previous.y) > 3)) {
+            this.observations.length = 0;
+        }
+        this.observations.push(candidate);
+        if (this.observations.length < 3) return null;
         const region = pixelRegionToNormalized(
             {
                 x: candidate.x,
@@ -107,8 +106,7 @@ export class RareLootLocalizer {
     }
 
     clear() {
-        this.previous = null;
+        this.observations.length = 0;
         this.source = "";
-        this.observations = 0;
     }
 }

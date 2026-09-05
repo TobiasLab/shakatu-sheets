@@ -126,8 +126,8 @@ and click **Adjust automatically** to start search. This is available at 80% UI 
 larger area to recenter the search without switching to manual pixel placement. **Adjust manually** cancels search.
 
 Rare search uses the existing 80% gold-shell and horizontal-border geometry to score candidates inside the bounded area.
-It rejects weak shell contrast and competing locations, and requires three consecutive observations within three source
-pixels before placing a 400x100 crop. Missing signals, cancellation, and source changes reset stability. The user confirms
+It rejects weak shell contrast and competing locations, and requires three consecutive observations all within three source
+pixels of each other before placing a 400x100 crop. Missing signals, cancellation, and source changes reset stability. The user confirms
 the areas before rare OCR starts; search frames are not replayed into rare recognition. Gold scenery and synthetic
 banners are covered by tests, but real rare-banner placement accuracy remains unmeasured.
 
