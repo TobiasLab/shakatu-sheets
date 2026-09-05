@@ -299,6 +299,21 @@ describe("live loot replay recognition", () => {
         expect(ambiguous[0]).toMatchObject({ itemName: null, quantity: null });
     });
 
+    it("withholds a false x110 when cropped x10 readings include terminal dashes", async () => {
+        const results = await recognizeLootReplay({
+            rows: [row([]), row([1]), row([1]), row([1]), row([1])],
+            rowThreshold: 100,
+            distance,
+            dictionary: ["Branch of Abundance"],
+            readText: async () => [
+                ["Branch, of Abundance x 10", "Branch of Abundance x 10", "Branch of Abundance x 110"],
+                ["Branch of Abundance x 10", "Branch of Abundance x10", "Branch of Abundance x 110"],
+                [": Branch of Abundance x10 -", "Branch of Abundance x10 -", "Branch of Abundance x 110"],
+            ],
+        });
+        expect(results[0]).toMatchObject({ itemName: null, quantity: null });
+    });
+
     it("parses OCR spacing and common single-one glyph substitutions", () => {
         expect(parseLootItem("Black Stone x2", ["Black Stone"])).toBe("Black Stone");
         expect(parseLootQuantity("Black Stone x I")).toBe(1);
@@ -1110,12 +1125,78 @@ describe("notification evidence regressions", () => {
         expect(rowBirthCount(previous, current, next, 100, distance)).toBe(1);
     });
 
+    it("confirms a short replacement below twice the row threshold", () => {
+        const previous = row([0], [717]);
+        const current = row([0.44], [346]);
+        expect(rowBirthCount(previous, current, current, 196, distance)).toBe(1);
+        expect(rowBirthCount(previous, current, previous, 196, distance)).toBe(0);
+        const weakChange = row([0.15], [346]);
+        expect(rowBirthCount(previous, weakChange, weakChange, 196, distance)).toBe(0);
+    });
+
+    it("keeps identities through a confirmed stack shift while the top row fades", () => {
+        const previous = row([1, 2, 3, 4], [972, 673, 519, 705]);
+        const current = row([2, 3, 4, 5], [649, 502, 609, 632]);
+        expect(rowBirthCount(previous, current, current, 196, distance)).toBe(1);
+        const stationaryFade = row([1, 2, 3, 4], [649, 502, 609, 632]);
+        expect(rowBirthCount(previous, stationaryFade, stationaryFade, 196, distance)).toBe(0);
+        const tracks = trackLootRows([previous, current, current], 196, distance);
+        expect(tracks.filter((track) => !track.baseline)).toHaveLength(1);
+        expect(tracks[2].observations.map(({ slot }) => slot)).toEqual([3, 2, 2]);
+    });
+
+    it("does not count a confirmed shift again when the stationary stack brightens", () => {
+        const previous = row([0, 1, 2], [443, 751, 1077]);
+        const shifted = row([1, 2, 1], [711, 759, 594]);
+        const brighter = row([1, 2, 1], [1027, 881, 687]);
+        const tracks = trackLootRows([previous, shifted, brighter, brighter], 196, distance);
+        expect(tracks.filter((track) => !track.baseline).map((track) => track.firstFrame)).toEqual([1]);
+        const newItem = row([2, 1, 3], [1027, 881, 687]);
+        const distinct = trackLootRows([previous, shifted, newItem, newItem], 196, distance);
+        expect(distinct.filter((track) => !track.baseline).map((track) => track.firstFrame)).toEqual([1, 2]);
+        const growing = row([0, 1, 2, 1], [443, 751, 1077, 594]);
+        const identicalAddition = row([0, 1, 2, 1, 1], [443, 751, 1077, 594, 594]);
+        const additions = trackLootRows([previous, growing, identicalAddition, identicalAddition], 196, distance);
+        expect(additions.filter((track) => !track.baseline).map((track) => track.firstFrame)).toEqual([1, 2]);
+    });
+
+    it.each([
+        [56, 65],
+        [64, 73],
+        [92, 96],
+    ])("bounds OCR after glyph %i while retaining the trailing gap and long names", async (lastGlyph, right) => {
+        const bounds: Array<LiveLootOcrFrame["bounds"]> = [];
+        const coordinator = new LiveLootCoordinator({
+            profile: streamingProfile,
+            dictionary: ["Black Stone"],
+            readText: async (frames) => {
+                bounds.push(...frames.map((frame) => frame.bounds));
+                return acceptedReadings;
+            },
+            onResult: () => undefined,
+        });
+        coordinator.pushFrame(packedFrame(0));
+        for (let index = 0; index < 5; index += 1) {
+            const frame = packedFrame(0);
+            for (let x = 28; x <= lastGlyph; x += 4) {
+                frame.pixels.fill(255, (70 * 100 + x) * 4, (70 * 100 + x) * 4 + 4);
+            }
+            // Scenery beyond the whitespace must not enlarge the text crop.
+            frame.pixels.fill(255, (70 * 100 + 76) * 4, (70 * 100 + 76) * 4 + 4);
+            coordinator.pushFrame(frame);
+        }
+        await coordinator.finish();
+        expect(bounds).toEqual(Array.from({ length: 3 }, () => ({ left: 25, right, top: 58, bottom: 82 })));
+    });
+
     it("accepts trailing OCR punctuation but rejects ambiguous quantities and trailing words", () => {
         expect(parseLootQuantity("Embers of Ynix - Armor x1 .")).toBe(1);
+        expect(parseLootQuantity("Branch of Abundance x10 -")).toBe(10);
+        expect(parseLootItem("Branch of Abundance x10 -", ["Branch of Abundance"])).toBe("Branch of Abundance");
         expect(parseLootQuantity("Branch of Abundance x 10 ”")).toBe(10);
         expect(parseLootItem("Branch of Abundance x 10 ”", ["Branch of Abundance"])).toBe("Branch of Abundance");
         expect(parseLootItem("Embers of Ynix = Armor x1 .", ["Embers of Ynix - Armor"])).toBe("Embers of Ynix - Armor");
-        for (const suffix of ["1.5", "1,000", "1 extra", "-1", "1 2"]) {
+        for (const suffix of ["1.5", "1,000", "1 extra", "-1", "1 2", "1 - 2", "1 - extra"]) {
             expect(parseLootQuantity(`Black Stone x ${suffix}`)).toBeNull();
         }
     });

@@ -317,3 +317,14 @@ npm run benchmark:loot:roi -- /path/to/roi_live_samples/dev-samples/live-loot --
 The labels score only the three reviewed rare events. Raw-reading regression tests cover the recovered normal case and
 continued withholding of quantity ambiguity. Original PNGs, analytical contact sheets, and full replay reports remain
 outside tracked source.
+
+### New Hour Corpus (2026-09-05)
+
+The two additional long runs contain 42,929 paired batches and do not establish full-hour session coverage. See the
+[hour-corpus investigation](live-loot-hour-2026-09-05.md) for manifests, timing, reviewed failures, exact before/after
+results, performance scope, and remaining quantity/coverage uncertainty. Normal OCR now derives its right boundary from
+tracked text, and tracking handles confirmed fading-stack shifts and immediate brightness duplicates.
+
+Use `scripts/fixtures/loot-roi-hour-2026-09-05.json` for these runs. Its per-run `normalCases` label only reviewed windows;
+unlabeled parts remain diagnostic. These labels are separate from the older corpus annotations and are development
+regressions, not a new holdout. The command is shown in the investigation report.

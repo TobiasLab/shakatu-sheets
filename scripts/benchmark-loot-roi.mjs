@@ -201,20 +201,18 @@ try {
             if (summary.reviewed) summary.comparison = compare(run[`${kind}Events`], results, useOcr);
             const reviewedCases =
                 kind === "normal"
-                    ? cases
-                          .filter((test) => test.run === run.id)
-                          .map((test) => ({
-                              id: test.id,
-                              ...compare(
-                                  test.events,
-                                  results.filter(
-                                      (result) =>
-                                          result.firstBatchId >= test.firstBatchId &&
-                                          result.firstBatchId <= test.lastBatchId,
-                                  ),
-                                  useOcr,
+                    ? [...cases.filter((test) => test.run === run.id), ...(run.normalCases ?? [])].map((test) => ({
+                          id: test.id,
+                          ...compare(
+                              test.events,
+                              results.filter(
+                                  (result) =>
+                                      result.firstBatchId >= test.firstBatchId &&
+                                      result.firstBatchId <= test.lastBatchId,
                               ),
-                          }))
+                              useOcr,
+                          ),
+                      }))
                     : [];
             for (const comparison of [...reviewedCases, ...(summary.comparison ? [summary.comparison] : [])]) {
                 if (comparison.missed || comparison.extra || (useOcr && comparison.correct !== comparison.expected))
