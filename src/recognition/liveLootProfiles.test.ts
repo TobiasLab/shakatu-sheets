@@ -23,3 +23,18 @@ describe("findLiveLootProfile", () => {
         expect(findLiveLootProfile(1920, 1080, 80)).toBeNull();
     });
 });
+
+describe("localization availability", () => {
+    it("keeps automatic localization separate from the capture layout list", async () => {
+        const { supportsAutomaticLootLocalization, findRareLootGeometry } = await import("./liveLootProfiles");
+        expect(supportsAutomaticLootLocalization(3440, 1440, 80)).toBe(true);
+        for (const [width, height, scale] of [
+            [1920, 1080, 80],
+            [2560, 1440, 80],
+            [3440, 1440, 100],
+        ] as const) {
+            expect(supportsAutomaticLootLocalization(width, height, scale)).toBe(false);
+            expect(findRareLootGeometry(width, height, scale)).toBeNull();
+        }
+    });
+});

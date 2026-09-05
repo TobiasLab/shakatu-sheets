@@ -19,10 +19,25 @@ pub fn run() {
         app.manage(persistence::DatabasePath(database_path));
         app.manage(garmoth::GarmothOperations::default());
         app.manage(native_capture::NativeCaptureState::default());
+        #[cfg(target_os = "windows")]
+        {
+            native_capture::configure_diagnostics(app.handle());
+            windows_window::configure(app.handle());
+        }
         Ok(())
     });
 
-    #[cfg(all(debug_assertions, target_os = "linux"))]
+    #[cfg(target_os = "windows")]
+    let builder = builder.on_window_event(|window, event| {
+        if matches!(event, tauri::WindowEvent::ScaleFactorChanged { .. }) {
+            let _ = windows_window::fit(window);
+        }
+        if matches!(event, tauri::WindowEvent::Destroyed) {
+            native_capture::shutdown(&window.state::<native_capture::NativeCaptureState>());
+        }
+    });
+
+    #[cfg(all(debug_assertions, any(target_os = "linux", target_os = "windows")))]
     let builder = builder.invoke_handler(tauri::generate_handler![
         persistence::sessions::delete_finished_session,
         persistence::sessions::list_finished_sessions,
@@ -36,6 +51,7 @@ pub fn run() {
         garmoth::settings::select_garmoth_character,
         garmoth::upload::upload_garmoth_session,
         market::fetch_market_prices,
+        native_capture::native_capture_capabilities,
         native_capture::acknowledge_native_display_frame,
         native_capture::load_loot_capture_settings,
         native_capture::save_loot_capture_settings,
@@ -48,7 +64,7 @@ pub fn run() {
         native_capture::debug_roi_sample_collection_status
     ]);
 
-    #[cfg(not(all(debug_assertions, target_os = "linux")))]
+    #[cfg(not(all(debug_assertions, any(target_os = "linux", target_os = "windows"))))]
     let builder = builder.invoke_handler(tauri::generate_handler![
         persistence::sessions::delete_finished_session,
         persistence::sessions::list_finished_sessions,
@@ -62,6 +78,7 @@ pub fn run() {
         garmoth::settings::select_garmoth_character,
         garmoth::upload::upload_garmoth_session,
         market::fetch_market_prices,
+        native_capture::native_capture_capabilities,
         native_capture::acknowledge_native_display_frame,
         native_capture::load_loot_capture_settings,
         native_capture::save_loot_capture_settings,
@@ -72,8 +89,13 @@ pub fn run() {
     ]);
 
     builder
-        .run(tauri::generate_context!())
-        .expect("error while running Shakatu Sheets");
+        .build(tauri::generate_context!())
+        .expect("error while building Shakatu Sheets")
+        .run(|app, event| {
+            if matches!(event, tauri::RunEvent::Exit) {
+                native_capture::shutdown(&app.state::<native_capture::NativeCaptureState>());
+            }
+        });
 }
 mod garmoth;
 mod market;
@@ -81,3 +103,6 @@ mod native_capture;
 mod persistence;
 
 use tauri::Manager;
+
+#[cfg(target_os = "windows")]
+mod windows_window;

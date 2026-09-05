@@ -39,7 +39,7 @@ game process, or inspect BDO network traffic. User-authorized operating-system s
 - 80% and 100% UI scale capture profiles; only 80% currently has a labeled recognition benchmark.
 - Capture sources at `3440x1440`, `2560x1440`, and `1920x1080`, with independently calibrated recognition benchmarks
   required before release.
-- Linux Wayland first, followed by Windows using the same browser capture interface where possible.
+- Native Linux portal/PipeWire and Windows 11 x64 WGC; Windows hardware acceptance remains pending.
 - Automatically localized normal loot-stack placement for the validated profile, with manual fallback.
 - Independently positioned and confirmed rare-banner placement selected by the user, with provisional recognition at 80%
   UI scale.
@@ -55,10 +55,11 @@ Capture uses a live operating-system screen-sharing stream rather than repeatedl
 approximately 8 frames per second, creates a bounded full-source preview when previews are enabled, and copies either the
 automatic search area or the configured notification rectangles at native resolution into memory.
 
-Windows and browser development use `navigator.mediaDevices.getDisplayMedia` inside the Tauri WebView. The call must come
-directly from a user action and requests video without audio. The operating system presents its own source picker and the
-user selects the monitor containing BDO. Browser hints cannot restrict the picker reliably or choose a monitor for the
-user.
+Windows uses native Windows Graphics Capture with the system picker, an owning HWND, and free-threaded D3D11 frame
+acquisition. It copies exact ROIs on the GPU before CPU readback and reduces visible previews on the GPU. Native runtime
+capabilities select this backend. Browser development alone uses `navigator.mediaDevices.getDisplayMedia` from a user
+action. Both paths select a source explicitly; Windows supports a selected monitor or borderless game window. See
+[Windows implementation and release gates](../development/windows.md) for lifecycle, DPI, packaging, and hardware limits.
 
 WebKitGTK 2.52 can close the portal session after source selection and then fail `Start` with `Invalid session`. Its
 implementation ignores the `SelectSources` response and requests an embedded cursor without checking whether the portal
@@ -70,13 +71,13 @@ placement, PipeWire emits the search crop instead of the exact normal and rare c
 mode-specific crops from the native hidden video frame with canvas while retaining the downscaled preview. Protocol V3
 identifies preview, normal, rare, and search frames separately. Frame batches are acknowledged independently to bound
 local IPC work until the frontend has consumed every emitted preview and crop in the batch. Pausing live previews stops
-the Linux backend from creating or sending full-source preview frames while a valid crop selection is active; native ROI
+native backends from creating or sending repeated preview frames while a valid crop selection is active; native ROI
 frames, OCR, diagnostics, and debug sample collection continue. The browser fallback keeps processing ROI frames through
-offscreen canvases while visible canvases remain frozen. Native capture forces a preview frame when no selection matches
-the source so dimension changes can still be detected and recovered. Selection, preview, and stop commands carry a capture
+offscreen canvases while visible canvases remain frozen. Native capture forces one preview frame on source/dimension change so placement can be recovered; hidden unconfigured
+sources do not repeatedly send previews. Selection, preview, and stop commands carry a capture
 token so delayed commands from a previous request cannot modify or terminate a newer capture.
 
-Debug Linux builds expose a separate `Save ROI samples for 5 minutes` action after both capture areas are confirmed. It
+Debug Linux and Windows builds expose a separate `Save ROI samples for 5 minutes` action after both capture areas are confirmed. It
 writes synchronized normal and rare PNG crops at the existing 8 FPS sampling cadence under the repository's ignored
 `dev-samples/live-loot/` directory. A bounded background encoder drops and reports pairs when storage cannot keep pace,
 rather than delaying capture or recognition. The backend enforces the five-minute deadline and finalizes the run when
@@ -85,8 +86,8 @@ crop, timing, count, byte-size, and completion metadata in `manifest.json`; it n
 
 Platform capture remains behind the same start/stop interface:
 
-- Windows Graphics Capture for a selected monitor.
-- `xdg-desktop-portal` ScreenCast with PipeWire on Wayland (implemented for the feasibility slice).
+- Windows Graphics Capture for a selected monitor or borderless game window (implemented, awaiting hardware validation).
+- `xdg-desktop-portal` ScreenCast with PipeWire on Wayland.
 - The portal path on Linux where available instead of compositor-specific capture code.
 
 Wayland intentionally requires an operating-system permission dialog. Browser display-capture permission cannot be
@@ -108,8 +109,9 @@ Supported sources are `3440x1440`, `2560x1440`, and `1920x1080`. Persist only va
 rectangles, an explicit rare-area confirmation flag, source dimensions, and UI scale, never preview or captured pixels.
 Legacy settings default the confirmation flag to false even if they contain an automatically saved rare rectangle, so the
 user must explicitly confirm that placement before rare recognition starts. A dimension mismatch disables cropping and
-requires a supported profile or recalibration. The 100% dimensions still require representative recordings to validate
-recognition geometry. The normal rectangle and a separately confirmed rare rectangle feed independent event analyzers and
+requires a supported profile or recalibration. Each resolution/scale entry pairs a normal profile with a validated rare geometry. Only 3440×1440 at 80% currently has
+an entry; its rare geometry is still provisional. Other resolution/scale combinations require representative recordings
+and independent held-out evaluation before registration. Geometry is not synthesized by scaling the existing detector. The normal rectangle and a separately confirmed rare rectangle feed independent event analyzers and
 serialized jobs through the same local OCR worker. Automatic normal localization never implicitly confirms the rare
 placement. Only 3440x1440 at 80% currently has bundled normal and provisional rare detector geometry. Recognized results
 from both paths are added automatically and remain visible in the bounded review feed.

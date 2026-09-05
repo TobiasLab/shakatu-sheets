@@ -228,8 +228,16 @@ export function supportsTauriApi() {
     return isTauri();
 }
 
-export function supportsNativeDisplayCapture() {
-    return isTauri() && navigator.userAgent.includes("Linux");
+export type NativeCaptureCapabilities = {
+    backend: "linux" | "windows" | null;
+    available: boolean;
+    reason: string | null;
+    debugRoiSamples: boolean;
+};
+
+export function nativeCaptureCapabilities(): Promise<NativeCaptureCapabilities> {
+    if (!isTauri()) return Promise.resolve({ backend: null, available: false, reason: null, debugRoiSamples: false });
+    return invoke<NativeCaptureCapabilities>("native_capture_capabilities");
 }
 
 export function startNativeDisplayCapture(

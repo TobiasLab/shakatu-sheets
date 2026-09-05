@@ -37,10 +37,11 @@ impl CaptureDiagnostics {
         }
         let seconds = self.started.elapsed().as_secs_f64();
         let samples = self.samples.max(1) as f64;
-        eprintln!("capture metrics: source={:.1}fps sampled={:.1}fps ipc={:.2}MB/s pack={:.2}ms/sample send={:.2}ms/sample backpressure_skips={}",
+        let message = format!("capture metrics: source={:.1}fps sampled={:.1}fps ipc={:.2}MB/s pack={:.2}ms/sample send={:.2}ms/sample backpressure_skips={}",
             self.source_frames as f64 / seconds, self.samples as f64 / seconds,
             self.bytes as f64 / seconds / 1_000_000.0,
             self.packing.as_secs_f64() * 1000.0 / samples, self.sending.as_secs_f64() * 1000.0 / samples, self.blocked);
+        emit(&message);
         *self = Self::new();
     }
 
@@ -53,5 +54,39 @@ impl CaptureDiagnostics {
         self.bytes += bytes;
         self.packing += packing;
         self.sending += sending;
+    }
+}
+
+#[cfg(target_os = "windows")]
+static LOG_DIRECTORY: std::sync::OnceLock<std::path::PathBuf> = std::sync::OnceLock::new();
+
+#[cfg(target_os = "windows")]
+pub(super) fn set_log_directory(path: std::path::PathBuf) {
+    let _ = LOG_DIRECTORY.set(path);
+}
+
+fn emit(message: &str) {
+    #[cfg(not(target_os = "windows"))]
+    eprintln!("{message}");
+    #[cfg(target_os = "windows")]
+    {
+        use std::{fs, io::Write};
+        let Some(directory) = LOG_DIRECTORY.get() else {
+            return;
+        };
+        if fs::create_dir_all(directory).is_err() {
+            return;
+        }
+        let path = directory.join("capture.log");
+        if fs::metadata(&path).is_ok_and(|metadata| metadata.len() >= 1024 * 1024) {
+            let previous = directory.join("capture.previous.log");
+            let _ = fs::remove_file(&previous);
+            if fs::rename(&path, &previous).is_err() {
+                return;
+            }
+        }
+        if let Ok(mut file) = fs::OpenOptions::new().create(true).append(true).open(path) {
+            let _ = writeln!(file, "{message}");
+        }
     }
 }

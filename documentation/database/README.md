@@ -6,6 +6,16 @@ The SQLite database is stored at the Tauri application-data path. On Linux this 
 ~/.local/share/io.github.shakatusheets/shakatu-sheets.sqlite3
 ```
 
+On Windows the same identifier resolves through the roaming known folder:
+
+```text
+%APPDATA%\io.github.shakatusheets\shakatu-sheets.sqlite3
+```
+
+Windows inherits the current user's directory ACLs. For controlled tests only, `SHAKATU_DATA_DIR` can select an absolute
+alternate data directory. Normal launches do not set it. Safe window close flushes the ordered session queue and retries
+the newest failed snapshot; persistent failure keeps the window open. No migration accompanies Windows support.
+
 ## Migration 1
 
 Migration 1 creates:

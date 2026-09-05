@@ -42,6 +42,8 @@ export function LiveLootCapture(props: LiveLootCaptureProps) {
         previewsEnabled,
         stopCapture,
         captureAllowed,
+        captureBackend,
+        sourceWaiting,
         startCapture,
         databaseLoaded,
         sessionStatus,
@@ -178,14 +180,25 @@ export function LiveLootCapture(props: LiveLootCaptureProps) {
             ) : sessionStatus === "finished" ? (
                 <p className={styles.Note}>Start a new session to choose a capture source.</p>
             ) : null}
+            {captureBackend === "windows" && (
+                <p className={styles.Note}>
+                    Choose an SDR monitor or borderless game window. Align both loot areas after changing sources.
+                    Bordered windows and HDR are not supported.
+                </p>
+            )}
             {status === "requesting" && (
                 <p className={styles.Note} role="status">
-                    Waiting for the operating-system monitor picker...
+                    Waiting for the operating-system source picker...
+                </p>
+            )}
+            {sourceWaiting && (
+                <p className={styles.Note} role="status">
+                    Waiting for the source to update. Restore the game if it is minimized.
                 </p>
             )}
             {status === "connecting" && (
                 <p className={styles.Note} role="status">
-                    Monitor selected. Waiting for the first video frame...
+                    Source selected. Waiting for the first video frame...
                 </p>
             )}
             {error && (

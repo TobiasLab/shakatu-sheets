@@ -3555,6 +3555,8 @@ dependencies = [
  "tauri",
  "tauri-build",
  "tokio",
+ "windows",
+ "windows-future",
 ]
 
 [[package]]

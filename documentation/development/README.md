@@ -1,6 +1,7 @@
 # Development
 
-Install dependencies and run the desktop application:
+Use Node from `.node-version` and Rust from `rust-toolchain.toml`. For native Windows prerequisites, installer commands,
+and outstanding validation, see [Windows support](windows.md). Install locked dependencies and run the desktop application:
 
 Linux builds require the PipeWire development headers (`libpipewire-0.3-dev` on Debian/Ubuntu or `pipewire-devel` on
 Fedora) and Clang for the Rust PipeWire bindings' generated FFI.
@@ -10,9 +11,21 @@ committed. Development builds can write five-minute normal and rare ROI samples 
 `dev-samples/live-loot/` directory.
 
 ```sh
-npm install
+npm ci
 npm run tauri dev
 ```
+
+Development builds and verification run locally. No GitHub Actions workflow is configured.
+For an optimized executable without creating an installer, run this from the repository root:
+
+```sh
+npm run tauri -- build --no-bundle -- --locked
+```
+
+The executable is `src-tauri/target/release/shakatu-sheets.exe` on Windows and
+`src-tauri/target/release/shakatu-sheets` on Linux. Use `npm run tauri dev` when collecting debug ROI samples.
+
+To produce a Windows `.exe` on Linux, use the [cross-compilation setup and command](windows.md#cross-compiling-an-executable-on-linux).
 
 Run normal verification:
 
@@ -54,7 +67,7 @@ node scripts/smoke-loot-ui.mjs
 ```
 
 The test opens and closes its own tab, verifies navigation/minimization/preview and finish behavior, timer persistence
-isolation, manual entry, themes, and minimum window width. Screenshots go to `/tmp/shakatu-ui`; set `UI_SMOKE_OUTPUT` to
+isolation, manual entry, themes, and minimum window width. Screenshots go to the OS temporary directory under `shakatu-ui`; set `UI_SMOKE_OUTPUT` to
 choose another directory. `UI_SMOKE_URL` overrides the default Vite URL. The browser fixture does not validate the real
 PipeWire portal, the installed webview, Garmoth, or the game's FPS.
 
@@ -64,3 +77,6 @@ separate from the real-game 30-minute resource/recognition acceptance run.
 
 For detection changes, replay developer ROI samples with `npm run benchmark:loot:roi -- /path/to/dev-samples/live-loot --ocr`. Add `--validation` for the reserved split. See the [ROI replay documentation](../design/live-loot-benchmark.md#roi-sample-replay)
 for scoring limits and optional JSON reports. Captured PNGs stay outside tracked source.
+
+Use `UI_SMOKE_BACKEND=windows` for the synthetic Windows capability path and 640/700px compact layout checks (in
+PowerShell set `$env:UI_SMOKE_BACKEND = 'windows'`). This remains a browser fixture, not native Windows validation.

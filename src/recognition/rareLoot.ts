@@ -1,29 +1,87 @@
-import type { LootDetectedRows, LootDetectionProfile, LootFingerprint, LootRoiFrame } from "./liveLoot";
+import type { LootDetectedRows, LootDetectionProfile, LootFingerprint, LootOcrBounds, LootRoiFrame } from "./liveLoot";
 
-const RARE_WIDTH = 400;
-const RARE_HEIGHT = 100;
-const TEXT_CENTER_Y = 57;
-const SHELL_LEFT = 65;
-const SHELL_RIGHT = 370;
-const SHELL_TOP = 35;
-const SHELL_BOTTOM = 80;
 const SHELL_CONFIRM_RATIO = 0.65;
 const CONFIRMATION_FRAMES = 4;
 const MINIMUM_ACTIVE_FRAMES = 18;
 const END_CONFIRMATION_FRAMES = 2;
 const REAPPEARANCE_GAP_FRAMES = 4;
 
-export const RARE_LOOT_PROFILE: LootDetectionProfile = {
-    width: RARE_WIDTH,
-    height: RARE_HEIGHT,
-    maxRows: 1,
-    bottomCenter: TEXT_CENTER_Y,
-    spacing: 1,
-    rowThreshold: 1,
+export type RareLootGeometry = {
+    width: number;
+    height: number;
+    textCenterY: number;
+    shell: LootOcrBounds;
+    border: LootOcrBounds;
+    borderOffset: number;
+    borderMinPixels: number;
+    ocrBounds: LootOcrBounds;
 };
 
+export function validateRareLootGeometry(geometry: RareLootGeometry): RareLootGeometry {
+    const { width, height, textCenterY, borderOffset, borderMinPixels } = geometry;
+    if (
+        !((width === 400 && height === 100) || (width === 500 && height === 125)) ||
+        ![textCenterY, borderOffset, borderMinPixels].every(Number.isSafeInteger) ||
+        textCenterY < 0 ||
+        textCenterY >= height ||
+        borderOffset <= 0 ||
+        borderMinPixels <= 0
+    ) {
+        throw new Error("Invalid calibrated rare loot geometry.");
+    }
+    for (const box of [geometry.shell, geometry.border, geometry.ocrBounds]) {
+        if (
+            ![box.left, box.right, box.top, box.bottom].every(Number.isSafeInteger) ||
+            box.left < 0 ||
+            box.top < 0 ||
+            box.left >= box.right ||
+            box.top >= box.bottom ||
+            box.right > width ||
+            box.bottom > height
+        ) {
+            throw new Error("Rare loot geometry must stay inside its native crop.");
+        }
+    }
+    if (
+        geometry.border.top < borderOffset ||
+        borderMinPixels > geometry.border.right - geometry.border.left ||
+        textCenterY < geometry.ocrBounds.top ||
+        textCenterY >= geometry.ocrBounds.bottom
+    ) {
+        throw new Error("Rare loot border or text geometry is invalid.");
+    }
+    return {
+        ...geometry,
+        shell: { ...geometry.shell },
+        border: { ...geometry.border },
+        ocrBounds: { ...geometry.ocrBounds },
+    };
+}
+
+export const RARE_LOOT_GEOMETRY = validateRareLootGeometry({
+    width: 400,
+    height: 100,
+    textCenterY: 57,
+    shell: { left: 65, right: 370, top: 35, bottom: 80 },
+    border: { left: 120, right: 320, top: 34, bottom: 38 },
+    borderOffset: 3,
+    borderMinPixels: 130,
+    ocrBounds: { left: 112, right: 392, top: 49, bottom: 65 },
+});
+
+export function rareLootDetectionProfile(geometry: RareLootGeometry): LootDetectionProfile {
+    return {
+        width: geometry.width,
+        height: geometry.height,
+        maxRows: 1,
+        bottomCenter: geometry.textCenterY,
+        spacing: 1,
+        rowThreshold: 1,
+    };
+}
+export const RARE_LOOT_PROFILE = rareLootDetectionProfile(RARE_LOOT_GEOMETRY);
 export const RARE_LOOT_OCR_SELECTION = { frameCount: 3, delayFrames: 12 } as const;
-export const RARE_LOOT_OCR_BOUNDS = { left: 112, right: 392, top: 49, bottom: 65 } as const;
+export const RARE_LOOT_OCR_BOUNDS = RARE_LOOT_GEOMETRY.ocrBounds;
 
 const fingerprint: LootFingerprint = {
     full: new Uint8Array([1]),
@@ -34,29 +92,31 @@ function emptyRows(): LootDetectedRows {
     return { count: 0, strength: 0, fingerprints: [], observations: [] };
 }
 
-function detectedRow(score = 1): LootDetectedRows {
+function detectedRow(geometry: RareLootGeometry, score = 1): LootDetectedRows {
     return {
         count: 1,
         strength: score,
         fingerprint,
         fingerprints: [fingerprint],
-        observations: [{ slot: 0, centerY: TEXT_CENTER_Y, score, fingerprint }],
+        observations: [{ slot: 0, centerY: geometry.textCenterY, score, fingerprint }],
     };
 }
 
-function validateFrame(frame: LootRoiFrame) {
-    if (frame.width !== RARE_WIDTH || frame.height !== RARE_HEIGHT) {
-        throw new Error(`Rare loot ROI must be ${RARE_WIDTH}x${RARE_HEIGHT} pixels.`);
+function validateFrame(frame: LootRoiFrame, geometry: RareLootGeometry) {
+    const { width, height } = geometry;
+    if (frame.width !== width || frame.height !== height) {
+        throw new Error(`Rare loot ROI must be ${width}x${height} pixels.`);
     }
-    if (!(frame.pixels instanceof Uint8ClampedArray) || frame.pixels.length !== RARE_WIDTH * RARE_HEIGHT * 4) {
+    if (!(frame.pixels instanceof Uint8ClampedArray) || frame.pixels.length !== width * height * 4) {
         throw new Error("Rare loot ROI pixels must be tightly packed RGBA data.");
     }
 }
 
-function shellRatio(frame: LootRoiFrame) {
+function shellRatio(frame: LootRoiFrame, geometry: RareLootGeometry) {
+    const { left, right, top, bottom } = geometry.shell;
     let warmPixels = 0;
-    for (let y = SHELL_TOP; y < SHELL_BOTTOM; y += 1) {
-        for (let x = SHELL_LEFT; x < SHELL_RIGHT; x += 1) {
+    for (let y = top; y < bottom; y += 1) {
+        for (let x = left; x < right; x += 1) {
             const offset = (y * frame.width + x) * 4;
             const red = frame.pixels[offset];
             const green = frame.pixels[offset + 1];
@@ -64,23 +124,24 @@ function shellRatio(frame: LootRoiFrame) {
             if (red >= 105 && green >= 65 && red - blue >= 55 && green - blue >= 20) warmPixels += 1;
         }
     }
-    return warmPixels / ((SHELL_RIGHT - SHELL_LEFT) * (SHELL_BOTTOM - SHELL_TOP));
+    return warmPixels / ((right - left) * (bottom - top));
 }
 
-function hasBannerBorder(frame: LootRoiFrame) {
+function hasBannerBorder(frame: LootRoiFrame, geometry: RareLootGeometry) {
+    const { left, right, top, bottom } = geometry.border;
     // The entrance has a long, level gold edge above the text. Gold scenery alone is insufficient.
-    for (let y = 34; y <= 37; y += 1) {
+    for (let y = top; y < bottom; y += 1) {
         let edgePixels = 0;
-        for (let x = 120; x < 320; x += 1) {
+        for (let x = left; x < right; x += 1) {
             const offset = (y * frame.width + x) * 4;
-            const above = offset - frame.width * 4 * 3;
+            const above = offset - frame.width * 4 * geometry.borderOffset;
             const light =
                 (frame.pixels[offset] * 77 + frame.pixels[offset + 1] * 150 + frame.pixels[offset + 2] * 29) >> 8;
             const background =
                 (frame.pixels[above] * 77 + frame.pixels[above + 1] * 150 + frame.pixels[above + 2] * 29) >> 8;
             if (light - background >= 25) edgePixels += 1;
         }
-        if (edgePixels >= 130) return true;
+        if (edgePixels >= geometry.borderMinPixels) return true;
     }
     return false;
 }
@@ -100,9 +161,15 @@ export class RareLootFrameAnalyzer {
     private reappearanceFrames = 0;
     private replacementGapFrames = 0;
 
+    private readonly geometry: RareLootGeometry;
+    constructor(geometry: RareLootGeometry = RARE_LOOT_GEOMETRY) {
+        this.geometry = validateRareLootGeometry(geometry);
+    }
+
     pushFrame(frame: LootRoiFrame): LootDetectedRows {
-        validateFrame(frame);
-        const shellVisible = hasBannerBorder(frame) && shellRatio(frame) >= SHELL_CONFIRM_RATIO;
+        validateFrame(frame, this.geometry);
+        const shellVisible =
+            hasBannerBorder(frame, this.geometry) && shellRatio(frame, this.geometry) >= SHELL_CONFIRM_RATIO;
         const baselineFrame = this.frameCount === 0;
         this.frameCount += 1;
 
@@ -112,7 +179,7 @@ export class RareLootFrameAnalyzer {
             this.active = true;
             this.activeFrames = 1;
             this.absentFrames = shellVisible ? 0 : 1;
-            return detectedRow();
+            return detectedRow(this.geometry);
         }
 
         if (this.active) {
@@ -148,7 +215,7 @@ export class RareLootFrameAnalyzer {
                 return emptyRows();
             }
             this.activeFrames += 1;
-            return this.suppressed ? emptyRows() : detectedRow(this.reappearanceFrames > 0 ? 0 : 1);
+            return this.suppressed ? emptyRows() : detectedRow(this.geometry, this.reappearanceFrames > 0 ? 0 : 1);
         }
 
         if (!shellVisible) {
@@ -166,6 +233,6 @@ export class RareLootFrameAnalyzer {
         this.absentFrames = 0;
         this.candidateFrames = 0;
         this.candidateStartedAtBaseline = false;
-        return this.suppressed ? emptyRows() : detectedRow();
+        return this.suppressed ? emptyRows() : detectedRow(this.geometry);
     }
 }

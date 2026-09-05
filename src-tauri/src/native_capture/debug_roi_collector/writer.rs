@@ -214,6 +214,7 @@ pub(super) fn atomic_write(path: &Path, bytes: &[u8]) -> Result<(), String> {
         file.write_all(bytes)
             .and_then(|_| file.sync_all())
             .map_err(|error| format!("Failed to write temporary manifest: {error}"))?;
+        drop(file);
         fs::rename(&temp, path)
             .map_err(|error| format!("Failed to commit debug ROI manifest: {error}"))
     })();
