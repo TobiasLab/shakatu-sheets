@@ -8,17 +8,20 @@ export function SessionMetrics({ controller, visible }: { controller: LiveSessio
     const elapsedMs = useElapsedTime(controller.session, visible);
     const totals = calculateTotals(controller.session.entries, elapsedMs);
     return (
-        <section className={styles.MetricsGrid} aria-label="Session summary">
+        <section className={styles.MetricsGrid} aria-label="Session summary" aria-busy={!controller.databaseLoaded}>
             <article className={`${styles.Metric} ${styles.Primary}`}>
                 <span>Net silver / hour</span>
-                <strong>{formatSilver(totals.netPerHour, true)}</strong>
-                <small>after market tax and expenses</small>
+                <strong>
+                    {controller.databaseLoaded && elapsedMs > 0 ? formatSilver(totals.netPerHour, true) : "—"}
+                </strong>
+                <small>{elapsedMs > 0 ? "After tax & expenses" : "Start timer or enter completed hours"}</small>
             </article>
             <article className={styles.Metric}>
                 <span>Session net</span>
-                <strong>{formatSilver(totals.net, true)}</strong>
+                <strong>{controller.databaseLoaded ? formatSilver(totals.net, true) : "—"}</strong>
                 <small>{formatSilver(totals.net)} silver</small>
             </article>
+            <SessionClock controller={controller} elapsedMs={elapsedMs} />
             <details className={styles.Breakdown}>
                 <summary>Value breakdown</summary>
                 <dl>
@@ -40,25 +43,35 @@ export function SessionMetrics({ controller, visible }: { controller: LiveSessio
     );
 }
 
-export function SessionClock({ controller, visible }: { controller: LiveSessionController; visible: boolean }) {
+function SessionClock({ controller, elapsedMs }: { controller: LiveSessionController; elapsedMs: number }) {
     const { session, databaseLoaded, dispatch, setCompletedHours, startOrResume } = controller;
-    const elapsedMs = useElapsedTime(session, visible);
     const timeEditable = session.status === "idle" || session.status === "paused";
     return (
         <section className={styles.SessionClock}>
             <div className={styles.ClockReadout}>
                 <span>Session time</span>
-                <time>{formatDuration(elapsedMs)}</time>
+                <time>{databaseLoaded ? formatDuration(elapsedMs) : "—"}</time>
             </div>
             {timeEditable && (
                 <details className={styles.ManualTime}>
                     <summary>Enter hours</summary>
-                    <form className={styles.CompletedHours} onSubmit={setCompletedHours}>
+                    <form
+                        className={styles.CompletedHours}
+                        onSubmit={(event) => {
+                            setCompletedHours(event);
+                            const disclosure = event.currentTarget.closest("details");
+                            if (disclosure) {
+                                disclosure.open = false;
+                                disclosure.querySelector("summary")?.focus();
+                            }
+                        }}
+                    >
                         <label>
                             <span>Completed hours</span>
                             <input
                                 key={session.elapsedMs}
                                 name="completedHours"
+                                max={Math.floor(Number.MAX_SAFE_INTEGER / 36_000) / 100}
                                 type="number"
                                 min="0"
                                 step="0.01"

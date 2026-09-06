@@ -42,6 +42,7 @@ export function App() {
                 <div hidden={view !== "live"}>
                     <LiveSessionView
                         controller={liveSession}
+                        onOpenHistory={() => setView("history")}
                         visible={view === "live"}
                         captureSetupRequest={captureSetupRequest}
                         onCaptureStatusChange={setCaptureStatus}

@@ -1,155 +1,213 @@
 .AppShell {
-    display: grid;
-    grid-template-columns: 184px minmax(0, 1fr);
     min-height: 100vh;
-}
-.Sidebar {
-    position: sticky;
-    top: 0;
-    height: 100vh;
-    padding: 30px 18px 20px;
-    border-right: 1px solid var(--line);
-    background: var(--sidebar);
     display: flex;
     flex-direction: column;
+}
+.Header {
+    display: flex;
+    align-items: center;
+    gap: 40px;
+    padding: 0 32px;
+    min-height: 64px;
+    border-bottom: 1px solid var(--line);
+    background: var(--surface);
 }
 .Brand {
     display: flex;
     align-items: center;
-    gap: 10px;
-    margin-bottom: 46px;
+    gap: 11px;
+    white-space: nowrap;
+    font-size: 17px;
+    font-weight: 650;
+    letter-spacing: -0.6px;
+}
+.Brand strong {
+    font-weight: 400;
+    color: var(--muted);
 }
 .BrandMark {
     display: grid;
     place-items: center;
-    width: 36px;
-    height: 42px;
-    border: 1px solid var(--accent-border);
-    border-radius: 12px 12px 4px 4px;
-    color: var(--gold);
+    width: 33px;
+    height: 36px;
+    background: var(--mint);
+    color: var(--accent-contrast);
+    border-radius: 8px 2px 8px 2px;
     font-family: Georgia, serif;
-    font-size: 18px;
-}
-.Brand strong,
-.Brand span {
-    display: block;
-}
-.Brand strong {
-    font-size: 16px;
-    letter-spacing: -0.04em;
-}
-.Brand span {
-    margin-top: 2px;
-    color: var(--muted);
-    font-size: 10px;
-    letter-spacing: 0.2em;
-    text-transform: uppercase;
+    font-size: 26px;
 }
 .ViewNavigation {
-    display: grid;
+    align-self: stretch;
+    display: flex;
     gap: 8px;
 }
 .ViewNavigation button {
-    padding: 13px 14px;
-    border: 1px solid transparent;
-    border-radius: 7px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 9px;
+    position: relative;
+    padding: 0 17px;
+    border: 0;
     background: transparent;
     color: var(--muted);
-    text-align: left;
     cursor: pointer;
     font-size: 13px;
+    font-weight: 550;
 }
 .ViewNavigation button:hover {
     color: var(--text);
     background: var(--surface-raised);
 }
 .ViewNavigation button.Active {
-    background: var(--accent-surface);
     color: var(--mint);
-    border-color: var(--accent-border);
+}
+.Active::after {
+    content: "";
+    position: absolute;
+    bottom: 0;
+    height: 3px;
+    left: 16px;
+    right: 16px;
+    background: var(--mint);
+    border-radius: 3px 3px 0 0;
 }
 .SessionPresence {
-    display: grid;
-    gap: 9px;
-    margin-top: 34px;
-    padding: 16px 10px;
+    margin-left: auto;
+    display: flex;
+    align-items: center;
+    gap: 10px;
     border: 0;
-    border-top: 1px solid var(--line);
+    padding: 8px;
+    color: var(--text-soft);
     background: transparent;
     text-align: left;
     cursor: pointer;
+    font-size: 12px;
 }
-.SessionPresence strong {
-    font-size: 13px;
-    font-weight: 500;
-}
-.SessionPresence > span:last-child {
+.SessionPresence small {
+    display: block;
+    max-width: 190px;
+    margin-top: 4px;
     color: var(--muted);
     font-size: 11px;
-    line-height: 1.5;
-}
-.DatabaseState {
-    margin-top: auto;
-    padding: 16px 0 0;
-    color: var(--muted);
-    font-size: 10px;
-}
-.DatabaseState small {
-    display: block;
-    margin-top: 8px;
-    color: var(--danger);
-    line-height: 1.5;
-    overflow-wrap: anywhere;
 }
 .StatusDot {
     display: inline-block;
-    width: 5px;
-    height: 5px;
-    margin-right: 6px;
+    flex-shrink: 0;
+    width: 6px;
+    height: 6px;
     border-radius: 50%;
+    background: var(--muted);
+}
+.Running,
+.ready .StatusDot {
+    background: var(--success);
+}
+.saving .StatusDot {
     background: var(--gold);
 }
-.ready .StatusDot {
-    background: var(--mint);
+.error,
+.error .StatusDot {
+    color: var(--danger);
 }
 .error .StatusDot {
     background: var(--danger);
 }
-.LicenseNote {
-    display: flex;
-    justify-content: space-between;
-    padding-top: 15px;
-    color: var(--muted);
-    font-size: 9px;
-}
 .Workspace {
     width: 100%;
-    max-width: 1600px;
+    max-width: 1480px;
     margin: 0 auto;
-    padding: 32px clamp(20px, 3vw, 48px) 48px;
+    padding: 24px 32px 40px;
+    flex: 1;
     min-width: 0;
 }
-.MobileNavigation {
-    display: none;
+.Footer {
+    display: flex;
+    justify-content: space-between;
+    gap: 16px;
+    padding: 13px 32px;
+    border-top: 1px solid var(--line);
+    font-size: 11px;
+    color: var(--muted);
 }
-@media (max-width: 760px) {
-    .AppShell {
-        display: block;
+.Footer > span {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+.SaveError {
+    padding: 14px 32px;
+    background: var(--surface);
+    border-bottom: 1px solid var(--danger);
+    color: var(--danger);
+    font-size: 13px;
+    overflow-wrap: anywhere;
+}
+.SkipLink {
+    position: fixed;
+    z-index: 100;
+    left: 16px;
+    top: -80px;
+    padding: 12px;
+    background: var(--surface);
+    color: var(--text);
+}
+.SkipLink:focus {
+    top: 12px;
+}
+@media (max-width: 1050px) {
+    .Header {
+        gap: 20px;
+        padding-inline: 24px;
     }
-    .Sidebar {
+    .Brand strong {
         display: none;
     }
     .Workspace {
-        padding: 18px;
+        padding-inline: 24px;
     }
-    .MobileNavigation {
-        display: block;
-        margin-bottom: 24px;
+}
+@media (max-width: 760px) {
+    .Header {
+        flex-wrap: wrap;
+        gap: 0;
+        padding: 14px 18px 0;
     }
-    .MobileNavigation .ViewNavigation {
-        grid-template-columns: repeat(3, 1fr);
+    .Brand {
+        font-size: 16px;
     }
-    .MobileNavigation button {
-        text-align: center;
+    .Brand strong {
+        display: inline;
+    }
+    .SessionPresence {
+        padding: 0;
+        font-size: 11px;
+    }
+    .SessionPresence small {
+        max-width: 150px;
+    }
+    .ViewNavigation {
+        order: 3;
+        width: 100%;
+        height: 50px;
+        margin-top: 12px;
+    }
+    .ViewNavigation button {
+        flex: 1;
+        padding: 0 8px;
+    }
+    .Workspace {
+        padding: 22px 18px 30px;
+    }
+    .Footer {
+        padding-inline: 18px;
+    }
+}
+@media (max-width: 420px) {
+    .Brand strong,
+    .SessionPresence > svg,
+    .Footer > span:last-child {
+        display: none;
     }
 }

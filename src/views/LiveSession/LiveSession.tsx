@@ -1,20 +1,21 @@
-import { EntryForm } from "../../components/EntryForm/EntryForm";
 import { LiveLootCapture } from "../../components/LiveLootCapture/LiveLootCapture";
 import { LootLedger } from "../../components/LootLedger/LootLedger";
-import { MarniImport } from "../../components/MarniImport/MarniImport";
 import { grindSpots } from "../../data/grindSpots";
 import { createEntry, type SessionState } from "../../domain/session";
 import { formatTimestamp } from "../../format";
 import type { LiveSessionController } from "../../hooks/useLiveSession";
 import styles from "./LiveSession.module.css";
-import { SessionClock, SessionMetrics } from "./SessionSummary";
+import { SessionMetrics } from "./SessionSummary";
+import { SessionTools } from "./SessionTools";
 
 export function LiveSessionView({
     controller,
     visible,
     onCaptureStatusChange,
     captureSetupRequest,
+    onOpenHistory,
 }: {
+    onOpenHistory: () => void;
     controller: LiveSessionController;
     visible: boolean;
     captureSetupRequest: number;
@@ -75,13 +76,16 @@ export function LiveSessionView({
         <>
             <header className="topbar">
                 <div>
-                    <p className="eyebrow">Your grind, at a glance</p>
-                    <h1>{spot.name}</h1>
+                    <h1>Grind desk</h1>
                 </div>
+                <span className={`${styles.SessionState} ${styles[session.status]}`}>{timerStatusLabel}</span>
+            </header>
+            <section className={styles.SetupBar} aria-label="Session setup">
                 <div className={styles.SessionMeta}>
                     <label>
                         Grind spot
                         <select
+                            aria-describedby="spot-lock-note"
                             value={session.grindSpotId}
                             disabled={!databaseLoaded || !spotEditable || market.fetchingPrices}
                             onChange={(event) => changeGrindSpot(event.target.value)}
@@ -104,96 +108,112 @@ export function LiveSessionView({
                             <option value="na">NA</option>
                         </select>
                     </label>
-                    <span className={`${styles.SessionState} ${styles[session.status]}`}>{timerStatusLabel}</span>
                 </div>
-            </header>
-
-            <SessionClock controller={controller} visible={visible} />
-            <SessionMetrics controller={controller} visible={visible} />
-
-            <LiveLootCapture
-                visible={visible}
-                setupRequest={captureSetupRequest}
-                onStatusChange={onCaptureStatusChange}
-                databaseLoaded={databaseLoaded}
-                sessionId={session.id}
-                sessionStatus={session.status}
-                grindSpotId={session.grindSpotId}
-                grindSpotName={spot.name}
-                itemDictionary={drops.map((drop) => drop.name)}
-                onAcceptRecognition={acceptRecognizedLoot}
-            />
-
-            <section className={styles.MarketSnapshot} aria-live="polite">
-                <div>
-                    <p className="eyebrow">Manual market snapshot</p>
-                    {market.marketPrices === null ? (
-                        <strong>Reading saved {session.region.toUpperCase()} prices...</strong>
-                    ) : market.currentMarketPrices.length === 0 ? (
-                        <>
-                            <strong>No {session.region.toUpperCase()} prices saved</strong>
-                            <span>Fetch once from Arsha, or continue with manual unit prices.</span>
-                        </>
-                    ) : market.usingFallbackPrices ? (
-                        <>
-                            <strong>
-                                Using {market.marketPriceRegion?.toUpperCase()} prices from{" "}
-                                {formatTimestamp(market.lastPriceFetch)}
-                            </strong>
-                            <span>
-                                No {session.region.toUpperCase()} snapshot is saved. {market.currentMarketPrices.length}{" "}
-                                of {marketItemIds.length} {market.marketPriceRegion?.toUpperCase()} profile items are
-                                used as fallback.
-                            </span>
-                        </>
-                    ) : (
-                        <>
-                            <strong>
-                                {session.region.toUpperCase()} prices from {formatTimestamp(market.lastPriceFetch)}
-                            </strong>
-                            <span>
-                                {market.currentMarketPrices.length} of {marketItemIds.length} profile items saved
-                                locally.
-                            </span>
-                        </>
-                    )}
-                    {market.marketError && <span className={styles.MarketError}>{market.marketError}</span>}
-                </div>
-                <button
-                    className="button"
-                    type="button"
-                    disabled={!databaseLoaded || market.fetchingPrices || market.marketPrices === null}
-                    onClick={market.fetchMarketPrices}
-                >
-                    {market.fetchingPrices
-                        ? "Fetching..."
-                        : market.marketPriceRegion !== session.region
-                          ? `Fetch ${session.region.toUpperCase()} prices`
-                          : "Refresh prices"}
-                </button>
+                <p id="spot-lock-note" className={styles.SpotNote}>
+                    {spotEditable
+                        ? "Choose your spot before recording time or loot."
+                        : "Grind spot locked for this session."}
+                </p>
+                <details className={styles.MarketSnapshot}>
+                    <summary>
+                        <span>Market prices</span>
+                        <strong>
+                            {market.marketPrices === null
+                                ? "Loading…"
+                                : market.currentMarketPrices.length === 0
+                                  ? "No saved prices"
+                                  : market.usingFallbackPrices
+                                    ? `${market.marketPriceRegion?.toUpperCase()} fallback`
+                                    : `${session.region.toUpperCase()} snapshot saved`}
+                        </strong>
+                    </summary>
+                    <div className={styles.MarketDetails} aria-live="polite">
+                        <div>
+                            <p className="eyebrow">Prices from Arsha</p>
+                            {market.marketPrices === null ? (
+                                <strong>Reading saved {session.region.toUpperCase()} prices...</strong>
+                            ) : market.currentMarketPrices.length === 0 ? (
+                                <>
+                                    <strong>No {session.region.toUpperCase()} prices saved</strong>
+                                    <span>Fetch once from Arsha, or continue with manual unit prices.</span>
+                                </>
+                            ) : market.usingFallbackPrices ? (
+                                <>
+                                    <strong>
+                                        Using {market.marketPriceRegion?.toUpperCase()} prices from{" "}
+                                        {formatTimestamp(market.lastPriceFetch)}
+                                    </strong>
+                                    <span>
+                                        No {session.region.toUpperCase()} snapshot is saved.{" "}
+                                        {market.currentMarketPrices.length} of {marketItemIds.length}{" "}
+                                        {market.marketPriceRegion?.toUpperCase()} profile items are used as fallback.
+                                    </span>
+                                </>
+                            ) : (
+                                <>
+                                    <strong>
+                                        {session.region.toUpperCase()} prices from{" "}
+                                        {formatTimestamp(market.lastPriceFetch)}
+                                    </strong>
+                                    <span>
+                                        {market.currentMarketPrices.length} of {marketItemIds.length} profile items
+                                        saved locally.
+                                    </span>
+                                </>
+                            )}
+                            {market.marketError && <span className={styles.MarketError}>{market.marketError}</span>}
+                        </div>
+                        <button
+                            className="button"
+                            type="button"
+                            disabled={!databaseLoaded || market.fetchingPrices || market.marketPrices === null}
+                            onClick={market.fetchMarketPrices}
+                        >
+                            {market.fetchingPrices
+                                ? "Fetching..."
+                                : market.marketPriceRegion !== session.region
+                                  ? `Fetch ${session.region.toUpperCase()} prices`
+                                  : "Refresh prices"}
+                        </button>
+                    </div>
+                </details>
             </section>
-
-            <div className={styles.ContentGrid}>
-                <div className={styles.EntryTools}>
-                    <details className={styles.ToolPanel}>
-                        <summary>
-                            Add loot or expense <span>Manual entry</span>
-                        </summary>
-                        <EntryForm {...controller} />
-                    </details>
-                    <details className={styles.ToolPanel}>
-                        <summary>
-                            Import a screenshot <span>Marni tracker</span>
-                        </summary>
-                        <MarniImport key={session.id} controller={controller} />
-                    </details>
+            <SessionMetrics controller={controller} visible={visible} />
+            {session.status === "finished" && (
+                <section className={styles.Completion} aria-label="Session complete">
+                    <div>
+                        <strong>Session complete</strong>
+                        <span>Review this session in History, or start a new one when you are ready.</span>
+                    </div>
+                    <button className="button" type="button" onClick={onOpenHistory}>
+                        View history
+                    </button>
+                </section>
+            )}
+            <div className={styles.DeskBody}>
+                <div className={styles.ContentGrid}>
+                    <SessionTools controller={controller} visible={visible} />
+                    <LootLedger
+                        entries={session.entries}
+                        grindSpotId={session.grindSpotId}
+                        editingDisabled={editingDisabled}
+                        onRemove={(id) => dispatch({ type: "remove-entry", id })}
+                        onUpdate={(id, quantity, unitPrice) =>
+                            dispatch({ type: "update-entry", id, quantity, unitPrice })
+                        }
+                    />
                 </div>
-                <LootLedger
-                    entries={session.entries}
+                <LiveLootCapture
+                    visible={visible}
+                    setupRequest={captureSetupRequest}
+                    onStatusChange={onCaptureStatusChange}
+                    databaseLoaded={databaseLoaded}
+                    sessionId={session.id}
+                    sessionStatus={session.status}
                     grindSpotId={session.grindSpotId}
-                    editingDisabled={editingDisabled}
-                    onRemove={(id) => dispatch({ type: "remove-entry", id })}
-                    onUpdate={(id, quantity, unitPrice) => dispatch({ type: "update-entry", id, quantity, unitPrice })}
+                    grindSpotName={spot.name}
+                    itemDictionary={drops.map((drop) => drop.name)}
+                    onAcceptRecognition={acceptRecognizedLoot}
                 />
             </div>
         </>

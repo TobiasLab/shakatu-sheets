@@ -1,5 +1,5 @@
 .CapturePanel {
-    margin-bottom: 13px;
+    margin-bottom: 0;
     padding: 18px 20px;
     border-radius: 10px;
     border: 1px solid var(--line-strong);
@@ -17,7 +17,7 @@
 .Note,
 .PrivacyNote {
     color: var(--muted);
-    font-size: 11px;
+    font-size: 12px;
 }
 
 .Intro span {
@@ -39,7 +39,7 @@
 
 .Error {
     color: var(--danger);
-    font-size: 11px;
+    font-size: 12px;
 }
 
 .CaptureWorkspace {
@@ -101,7 +101,7 @@
 
 .PreviewPaused span {
     color: var(--muted);
-    font-size: 8px;
+    font-size: 10px;
 }
 
 .RegionOverlay {
@@ -109,7 +109,6 @@
     box-sizing: border-box;
     opacity: 0.66;
     pointer-events: none;
-    transition: opacity 120ms ease;
 }
 
 .NormalRegionOverlay {
@@ -149,7 +148,7 @@
     padding: 3px 5px;
     color: #0a0d0c;
     font-family: "IBM Plex Mono", monospace;
-    font-size: 8px;
+    font-size: 10px;
     line-height: 1;
     letter-spacing: 0.08em;
     text-transform: uppercase;
@@ -197,7 +196,7 @@
     padding: 2px 4px;
     color: #fff;
     background: rgb(2 4 4 / 84%);
-    font-size: 7px;
+    font-size: 9px;
 }
 
 .CalibrationPanel {
@@ -234,7 +233,7 @@
     margin-right: 3px;
     padding: 0;
     color: var(--muted);
-    font-size: 8px;
+    font-size: 10px;
     letter-spacing: 0.1em;
     text-transform: uppercase;
 }
@@ -264,7 +263,7 @@
 .PrecisionControls :global(.button),
 .AreaSelectorButtons :global(.button) {
     padding: 7px 9px;
-    font-size: 9px;
+    font-size: 11px;
 }
 
 .CalibrationBar {
@@ -286,7 +285,7 @@
     display: grid;
     gap: 4px;
     color: var(--muted);
-    font-size: 8px;
+    font-size: 10px;
     letter-spacing: 0.08em;
     text-transform: uppercase;
 }
@@ -330,7 +329,7 @@
 
 .Diagnostics dt {
     color: var(--muted);
-    font-size: 9px;
+    font-size: 11px;
     letter-spacing: 0.12em;
     text-transform: uppercase;
 }
@@ -365,7 +364,7 @@
 .DevSampleCollector > small,
 .DevSampleCollector > code {
     color: var(--muted);
-    font-size: 8px;
+    font-size: 10px;
     line-height: 1.5;
 }
 
@@ -388,7 +387,7 @@
     display: block;
     margin-bottom: 8px;
     color: var(--muted);
-    font-size: 8px;
+    font-size: 10px;
     letter-spacing: 0.1em;
     text-transform: uppercase;
 }
@@ -404,7 +403,7 @@
 .RegionPreview p {
     margin: 8px 0 0;
     color: #65cde5;
-    font-size: 8px;
+    font-size: 10px;
     line-height: 1.4;
 }
 
@@ -491,7 +490,7 @@
 .ReviewFeed small,
 .ReviewFeed > p {
     color: var(--muted);
-    font-size: 9px;
+    font-size: 11px;
 }
 
 .ReviewFeed > p {
@@ -506,16 +505,9 @@
 .ResultStatus {
     width: fit-content;
     font-family: "IBM Plex Mono", monospace;
-    font-size: 8px;
+    font-size: 10px;
     letter-spacing: 0.1em;
     text-transform: uppercase;
-}
-
-.AutoAdded {
-    color: var(--mint);
-    font-family: "IBM Plex Mono", monospace;
-    font-size: 9px;
-    white-space: nowrap;
 }
 
 .recognized {
@@ -596,4 +588,69 @@
     padding-bottom: 12px;
     color: var(--muted);
     font-size: 12px;
+}
+
+.CapturePanel {
+    min-width: 0;
+    padding: 22px;
+    border-color: var(--line);
+}
+.Intro {
+    flex-wrap: wrap;
+    gap: 18px;
+}
+.Intro > div:first-child {
+    min-width: 0;
+}
+.Intro h2 {
+    font-size: 19px;
+}
+.Intro span,
+.Note,
+.PrivacyNote {
+    line-height: 1.65;
+}
+.Actions {
+    flex-wrap: wrap;
+    flex-shrink: 1;
+}
+.Actions button {
+    font-size: 12px;
+}
+.SetupProgress {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 18px;
+    border-top: 1px solid var(--line);
+    padding-top: 14px;
+    font-size: 11px;
+    color: var(--muted);
+}
+.SetupProgress span {
+    border: 1px solid var(--line);
+    padding: 5px 8px;
+    border-radius: 5px;
+}
+.SetupProgress .CurrentStep {
+    color: var(--mint);
+    border-color: var(--accent-border);
+    background: var(--accent-surface);
+}
+.ReviewHeader h3 {
+    font-size: 16px;
+    margin: 0;
+}
+.PrivacyNote {
+    border-top: 1px solid var(--line);
+    padding-top: 13px;
+}
+.CapturePanel[data-setup-open="false"] .Intro {
+    display: grid;
+}
+.CapturePanel[data-setup-open="false"] .Actions {
+    display: flex;
+}
+.CapturePanel[data-setup-open="false"] .ReviewFeed li {
+    flex-wrap: wrap;
 }

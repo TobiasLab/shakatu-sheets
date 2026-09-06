@@ -37,14 +37,40 @@ The local video sampling and annotation contract is described in the
 [live loot benchmark guide](live-loot-benchmark.md).
 
 
-The desk shows net silver/hour and session net prominently, with gross, expenses, and tax available under Value breakdown.
-Manual elapsed time is under Enter hours. Add loot or expense and Import a screenshot expose their forms on demand.
-History retains its spot-filtered list and selected-session detail, including explicit reopen, delete, and Garmoth actions.
-Settings groups appearance, capture guidance, and Garmoth connection/character controls. The sidebar keeps session/capture
-status visible and shows a quiet save indicator, elevating persistence failures to an alert.
+## Workspace design
 
-Capture source selection opens setup; confirming both areas closes it and returns keyboard focus to the setup button.
-Setup can be reopened while recognition continues. Live previews run only while setup is visible; tracking continues
-across navigation and minimization. Unaccepted, withheld, or failed notifications appear in Needs attention; accepted
-loot appears in the ledger. Advanced diagnostics and privacy details use separate disclosures. No new automatic network
-requests or graphics/animation dependencies are introduced.
+The app uses a horizontal navigation bar with labeled Grind desk, History, and Settings destinations. Session and capture
+status remain visible in the header at compact widths. A footer reports local save state; save failures appear as a full-width
+alert. A skip link and visible keyboard focus are available throughout. Charcoal and gold uses slate surfaces with warm
+accents; moss and light remain supported, with saved theme choices preserved. All visuals use CSS, bundled item icons, and
+small inline SVGs; no remote fonts, animation library, or new dependency is required.
+
+The desk groups spot, region, and an explicit market-price disclosure above a single earnings/timer overview. The spot
+selector explains its lock after time or entries are recorded. Net silver/hour shows a dash until elapsed time is available.
+Manual time remains under Enter hours, while gross, expenses, and deductions are under Value breakdown. Neither timer ticks
+nor local filters mutate session snapshots.
+
+The editable ledger occupies the main column, alongside automatic capture. Quantity and unit price are aligned in a table;
+Enter saves, Escape restores the saved values, and invalid edits restore values with an explanation. A blank price is invalid,
+while an explicit zero remains valid. Search and loot/expense filters only change the visible rows. Narrow windows scroll the
+table within its labeled, keyboard-scrollable region rather than widening the whole app.
+
+Add loot or expense and Import a screenshot open native dialogs. Dialogs contain focus, close with Escape, and restore the
+opener; manual entry initially focuses item search. The catalog focuses quantity after item selection. A direct expense action
+focuses the entry name. Submission feedback distinguishes added entries from invalid or overflowing quantities. Dialog content
+stays mounted when closed, preserving screenshot review within the same session; a new session clears the import draft and
+entry feedback. Import still requires an empty idle session. The import draft labels low-confidence populated suggestions for
+review and does not claim they are blank.
+
+Capture setup expands to the full desk width, with source/alignment/confirmation progress, full preview, normal and rare crop
+previews, and the existing manual, automatic, nudge, scale, and confirmation controls. Confirming both areas closes setup and
+returns keyboard focus to its button. Setup can reopen during capture. Previews run only while setup is visible; recognition
+continues across navigation and minimization. Needs attention shows unaccepted results, distinguishes read failures from
+recognized loot awaiting insertion, and explains Retry add, manual correction, and Clear. Clearing review does not remove loot.
+Advanced diagnostics, diagnostic JSONL, and optional paired ROI collection retain their existing behavior and bounds.
+
+History shows totals for the current filter over the latest 20 finished sessions, including aggregate net, elapsed time, and
+net per hour weighted by elapsed time. Session selection shows its time, earnings, and recorded entries before Garmoth upload
+controls. Explicit reopen and confirmed deletion remain available. The finished desk offers a direct View history action.
+Settings provides section links, visual radio choices for themes, capture guidance, and sequential Garmoth connection/character
+setup. Disabled character controls explain that the API connection comes first. Network requests remain explicit.

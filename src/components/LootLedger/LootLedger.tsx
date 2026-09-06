@@ -2,6 +2,7 @@ import { type KeyboardEvent, useEffect, useState } from "react";
 import { getDropIcon } from "../../data/grindSpots";
 import type { SessionEntry } from "../../domain/session";
 import { formatSilver } from "../../format";
+import { Icon } from "../Icon/Icon";
 import styles from "./LootLedger.module.css";
 
 function LedgerEntryRow({
@@ -19,6 +20,7 @@ function LedgerEntryRow({
 }) {
     const [quantity, setQuantity] = useState(String(entry.quantity));
     const [unitPrice, setUnitPrice] = useState(String(entry.unitPrice));
+    const [error, setError] = useState("");
     const icon = getDropIcon(grindSpotId, entry.name);
 
     useEffect(() => {
@@ -30,6 +32,8 @@ function LedgerEntryRow({
         const parsedQuantity = Number(quantity);
         const parsedUnitPrice = Number(unitPrice);
         if (
+            !quantity.trim() ||
+            !unitPrice.trim() ||
             !Number.isSafeInteger(parsedQuantity) ||
             parsedQuantity <= 0 ||
             !Number.isSafeInteger(parsedUnitPrice) ||
@@ -37,11 +41,12 @@ function LedgerEntryRow({
         ) {
             setQuantity(String(entry.quantity));
             setUnitPrice(String(entry.unitPrice));
+            setError("Edit not saved. Use whole numbers: quantity above 0, price 0 or more.");
             return;
         }
-        if (parsedQuantity !== entry.quantity || parsedUnitPrice !== entry.unitPrice) {
+        setError("");
+        if (parsedQuantity !== entry.quantity || parsedUnitPrice !== entry.unitPrice)
             onUpdate(entry.id, parsedQuantity, parsedUnitPrice);
-        }
     }
 
     function handleEditKey(event: KeyboardEvent<HTMLInputElement>) {
@@ -50,72 +55,85 @@ function LedgerEntryRow({
             event.preventDefault();
             setQuantity(String(entry.quantity));
             setUnitPrice(String(entry.unitPrice));
+            setError("");
         }
     }
 
     return (
-        <div className={styles.LedgerRow}>
-            {icon ? (
-                <span className={styles.ItemIcon}>
-                    <img src={icon} alt="" />
-                </span>
-            ) : (
-                <div className={`item-swatch ${entry.valuation}`}>{entry.valuation === "expense" ? "-" : "+"}</div>
-            )}
-            <div className={styles.RowContent}>
-                <div className={styles.RowHeading}>
+        <tr className={styles.LedgerRow}>
+            <td>
+                <div className={styles.ItemCell}>
+                    {icon ? (
+                        <span className={styles.ItemIcon}>
+                            <img src={icon} alt="" />
+                        </span>
+                    ) : (
+                        <span className={`item-swatch ${entry.valuation}`}>
+                            {entry.valuation === "expense" ? "−" : "+"}
+                        </span>
+                    )}
                     <div className={styles.ItemName}>
-                        <strong title={entry.name}>{entry.name}</strong>
-                        <span>{entry.valuation}</span>
+                        <strong>{entry.name}</strong>
+                        <span>
+                            {entry.valuation === "market"
+                                ? "Market · 84.5% kept"
+                                : entry.valuation === "expense"
+                                  ? "Expense"
+                                  : "Vendor · 100% kept"}
+                            {entry.source === "recognition" ? " · Auto" : ""}
+                        </span>
+                        {error && (
+                            <small className={styles.EditError} role="alert">
+                                {error}
+                            </small>
+                        )}
                     </div>
-                    <strong className={`${styles.EntryValue} ${entry.valuation === "expense" ? "negative" : ""}`}>
-                        {entry.valuation === "expense" ? "-" : ""}
-                        {formatSilver(entry.quantity * entry.unitPrice, true)}
-                    </strong>
                 </div>
-                <div className={styles.EntryEditor}>
-                    <label>
-                        Qty
-                        <input
-                            type="number"
-                            min="1"
-                            step="1"
-                            value={quantity}
-                            disabled={editingDisabled}
-                            aria-label={`Quantity for ${entry.name}`}
-                            onFocus={(event) => event.currentTarget.select()}
-                            onChange={(event) => setQuantity(event.target.value)}
-                            onBlur={commitEdit}
-                            onKeyDown={handleEditKey}
-                        />
-                    </label>
-                    <label>
-                        Each
-                        <input
-                            type="number"
-                            min="0"
-                            step="1"
-                            value={unitPrice}
-                            disabled={editingDisabled}
-                            aria-label={`Unit price for ${entry.name}`}
-                            onFocus={(event) => event.currentTarget.select()}
-                            onChange={(event) => setUnitPrice(event.target.value)}
-                            onBlur={commitEdit}
-                            onKeyDown={handleEditKey}
-                        />
-                    </label>
-                </div>
-            </div>
-            <button
-                className={styles.RemoveButton}
-                type="button"
-                disabled={editingDisabled}
-                aria-label={`Remove ${entry.name}`}
-                onClick={() => onRemove(entry.id)}
-            >
-                x
-            </button>
-        </div>
+            </td>
+            <td>
+                <input
+                    type="number"
+                    min="1"
+                    step="1"
+                    value={quantity}
+                    disabled={editingDisabled}
+                    aria-label={`Quantity for ${entry.name}`}
+                    onFocus={(event) => event.currentTarget.select()}
+                    onChange={(event) => setQuantity(event.target.value)}
+                    onBlur={commitEdit}
+                    onKeyDown={handleEditKey}
+                />
+            </td>
+            <td>
+                <input
+                    type="number"
+                    min="0"
+                    step="1"
+                    value={unitPrice}
+                    disabled={editingDisabled}
+                    aria-label={`Unit price for ${entry.name}`}
+                    onFocus={(event) => event.currentTarget.select()}
+                    onChange={(event) => setUnitPrice(event.target.value)}
+                    onBlur={commitEdit}
+                    onKeyDown={handleEditKey}
+                />
+            </td>
+            <td className={`${styles.EntryValue} ${entry.valuation === "expense" ? "negative" : ""}`}>
+                {entry.valuation === "expense" ? "−" : ""}
+                {formatSilver(entry.quantity * entry.unitPrice, true)}
+            </td>
+            <td>
+                <button
+                    className={styles.RemoveButton}
+                    type="button"
+                    disabled={editingDisabled}
+                    aria-label={`Remove ${entry.name}`}
+                    onClick={() => onRemove(entry.id)}
+                >
+                    <Icon name="trash" size={15} />
+                </button>
+            </td>
+        </tr>
     );
 }
 
@@ -132,39 +150,119 @@ export function LootLedger({
     onRemove: (id: string) => void;
     onUpdate: (id: string, quantity: number, unitPrice: number) => void;
 }) {
+    const [query, setQuery] = useState("");
+    const [filter, setFilter] = useState("all");
+    const visibleEntries = entries.filter(
+        (entry) =>
+            entry.name.toLocaleLowerCase().includes(query.trim().toLocaleLowerCase()) &&
+            (filter === "all" ||
+                (filter === "expense" ? entry.valuation === "expense" : entry.valuation !== "expense")),
+    );
     return (
-        <section className={`panel ${styles.LedgerPanel}`}>
+        <section className={`panel ${styles.LedgerPanel}`} aria-labelledby="ledger-heading">
             <div className="panel-heading">
                 <div>
-                    <p className="eyebrow">Session entries</p>
-                    <h2>Loot ledger</h2>
+                    <p className="eyebrow">The session in detail</p>
+                    <h2 id="ledger-heading">Loot ledger</h2>
                 </div>
                 <span>
-                    {entries.length} {entries.length === 1 ? "item" : "items"}
+                    {entries.length} {entries.length === 1 ? "entry" : "entries"}
                 </span>
             </div>
             {entries.length === 0 ? (
                 <div className={styles.EmptyLedger}>
-                    <div className="empty-glyph">+</div>
-                    <strong>No loot recorded yet</strong>
-                    <p>Select a drop from the catalog and add it to this session.</p>
+                    <span className={styles.EmptyIcon}>
+                        <Icon name="desk" size={26} />
+                    </span>
+                    <strong>Your next drop starts here</strong>
+                    <p>
+                        Choose a capture source for automatic loot, or open Add loot or expense to record items
+                        yourself.
+                    </p>
+                    <span>Loot, expenses, and corrections — one ledger.</span>
                 </div>
             ) : (
-                <div className={styles.LedgerList}>
-                    {entries
-                        .slice()
-                        .reverse()
-                        .map((entry) => (
-                            <LedgerEntryRow
-                                key={entry.id}
-                                entry={entry}
-                                grindSpotId={grindSpotId}
-                                editingDisabled={editingDisabled}
-                                onRemove={onRemove}
-                                onUpdate={onUpdate}
+                <>
+                    <div className={styles.LedgerToolbar}>
+                        <label className={styles.Search}>
+                            <span className="sr-only">Search ledger</span>
+                            <input
+                                type="search"
+                                placeholder="Search recorded items…"
+                                value={query}
+                                onChange={(event) => setQuery(event.target.value)}
                             />
-                        ))}
-                </div>
+                        </label>
+                        <label>
+                            <span className="sr-only">Filter ledger</span>
+                            <select value={filter} onChange={(event) => setFilter(event.target.value)}>
+                                <option value="all">All entries</option>
+                                <option value="loot">Loot only</option>
+                                <option value="expense">Expenses only</option>
+                            </select>
+                        </label>
+                    </div>
+                    {visibleEntries.length === 0 ? (
+                        <div className={styles.NoResults}>
+                            <strong>No matching entries</strong>
+                            <button
+                                className="button subtle"
+                                type="button"
+                                onClick={() => {
+                                    setQuery("");
+                                    setFilter("all");
+                                }}
+                            >
+                                Clear filters
+                            </button>
+                        </div>
+                    ) : (
+                        // biome-ignore lint/a11y/noNoninteractiveTabindex: The scrollable table needs keyboard scrolling in read-only sessions.
+                        <section className={styles.LedgerList} tabIndex={0} aria-label="Recorded loot and expenses">
+                            <table>
+                                <caption className="sr-only">
+                                    Session entries. Quantity and unit price can be edited; Enter saves, Escape cancels.
+                                </caption>
+                                <thead>
+                                    <tr>
+                                        <th scope="col">Item</th>
+                                        <th scope="col">Quantity</th>
+                                        <th scope="col">Unit price</th>
+                                        <th scope="col">Gross silver</th>
+                                        <th scope="col">
+                                            <span className="sr-only">Remove</span>
+                                        </th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {visibleEntries
+                                        .slice()
+                                        .reverse()
+                                        .map((entry) => (
+                                            <LedgerEntryRow
+                                                key={entry.id}
+                                                entry={entry}
+                                                grindSpotId={grindSpotId}
+                                                editingDisabled={editingDisabled}
+                                                onRemove={onRemove}
+                                                onUpdate={onUpdate}
+                                            />
+                                        ))}
+                                </tbody>
+                            </table>
+                        </section>
+                    )}
+                    <div className={styles.LedgerNote}>
+                        <span>
+                            {visibleEntries.length} of {entries.length} entries
+                        </span>
+                        <span>
+                            {editingDisabled
+                                ? "Finished session · read only"
+                                : "Edit in place · Enter to save · Esc to cancel"}
+                        </span>
+                    </div>
+                </>
             )}
         </section>
     );
