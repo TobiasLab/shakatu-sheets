@@ -28,7 +28,7 @@ export function SessionTools({ controller, visible }: { controller: LiveSessionC
                     }}
                 >
                     <Icon name="plus" />
-                    Add loot or expense <span>Manual entry</span>
+                    Add loot or expense
                 </button>
                 <button
                     className="button"
@@ -37,7 +37,7 @@ export function SessionTools({ controller, visible }: { controller: LiveSessionC
                     onClick={() => importDialog.current?.showModal()}
                 >
                     <Icon name="upload" />
-                    Import a screenshot <span>Marni tracker</span>
+                    Import a screenshot
                 </button>
             </div>
             <dialog className={styles.ToolDialog} ref={entryDialog} aria-labelledby="entry-dialog-title">

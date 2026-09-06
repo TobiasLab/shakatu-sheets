@@ -226,9 +226,6 @@
 .EntryTools > button:hover:not(:disabled) {
     background: var(--surface-raised);
 }
-.EntryTools > button span {
-    display: none;
-}
 .ToolDialog {
     width: min(900px, calc(100vw - 40px));
     max-height: calc(100dvh - 48px);

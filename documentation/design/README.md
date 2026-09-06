@@ -65,7 +65,8 @@ Add loot or expense and Import a screenshot open native dialogs. Dialogs contain
 opener; manual entry initially focuses item search. The catalog focuses quantity after item selection. A direct expense action
 focuses the entry name. Submission feedback distinguishes added entries from invalid or overflowing quantities. Dialog content
 stays mounted when closed, preserving screenshot review within the same session; a new session clears the import draft and
-entry feedback. Import still requires an empty idle session. The import draft labels low-confidence populated suggestions for
+entry feedback. A new session also resets the manual-entry draft and ledger filters. Expense draft prices stay independent
+of market-region changes. Ledger retention labels use each entry’s stored sale multiplier. Import still requires an empty idle session. The import draft labels low-confidence populated suggestions for
 review and does not claim they are blank.
 
 Capture setup expands to the full desk width, with source/alignment/confirmation progress, full preview, normal and rare crop

@@ -170,7 +170,7 @@ try {
     if (process.env.UI_SCREENSHOT_ONLY === "1") {
         console.log(`Screenshot saved: ${output}/desk-idle.png`);
     } else {
-        await click("Import a screenshot Marni tracker");
+        await click("Import a screenshot");
         await evaluate(`(() => {
             const input = document.querySelector('input[type=file]');
             const files = new DataTransfer();
@@ -409,7 +409,7 @@ try {
             await evaluate("!document.body.textContent.includes('Could not decode screenshot')"),
             "A new session must clear previous screenshot state",
         );
-        await click("Add loot or expense Manual entry");
+        await click("Add loot or expense");
         await screenshot("manual-entry");
         await evaluate(
             "[...document.querySelectorAll('button[type=submit]')].find(b=>b.textContent.includes('Add to ledger')).click()",
@@ -441,7 +441,7 @@ try {
         await evaluate(`document.querySelector('${priceSelector}').focus()`);
         await press("Escape", "Escape", 27);
         await evaluate("document.activeElement.blur()");
-        await click("Add loot or expense Manual entry");
+        await click("Add loot or expense");
         assert(
             await evaluate("document.querySelector('dialog[open]').contains(document.activeElement)"),
             "Dialog must receive keyboard focus",
@@ -453,6 +453,9 @@ try {
             await evaluate("window.__session.entries[0].quantity"),
             25,
             "Rejected combined quantities must preserve existing loot",
+        );
+        await evaluate(
+            "[...document.querySelectorAll('dialog[open] button[aria-pressed]')].find(b => b.querySelector('strong')?.textContent === 'Black Stone').click()",
         );
         await click("Record an expense");
         await setField('dialog[open] input[placeholder="e.g. Elixir rotation"]', "Elixir rotation");
@@ -472,6 +475,15 @@ try {
             await evaluate("document.activeElement.textContent.includes('Add loot or expense')"),
             "Dismissal must restore the opener",
         );
+        await setField('[aria-label="Session setup"] label:nth-child(2) select', "na");
+        await until("window.__session.region === 'na'");
+        await click("Add loot or expense");
+        assert.equal(
+            await evaluate("document.querySelector('dialog[open] input[placeholder=Required]').value"),
+            "5000",
+            "Changing market region must preserve an expense draft's price",
+        );
+        await click("Close manual entry");
         const entriesBeforeFilter = await evaluate("JSON.stringify(window.__session.entries)");
         await setField('input[placeholder="Search recorded items…"]', "elixir");
         await until("document.querySelector('tbody').rows.length === 1");
@@ -524,7 +536,7 @@ try {
                 await evaluate(`document.documentElement.scrollWidth <= ${width}`),
                 `Window at ${width}px must not overflow horizontally`,
             );
-            await click("Add loot or expense Manual entry");
+            await click("Add loot or expense");
             assert(
                 await evaluate(
                     `document.querySelector('dialog[open]').scrollWidth <= document.querySelector('dialog[open]').clientWidth`,
@@ -543,9 +555,38 @@ try {
             }
             await click("Grind desk");
         }
+        await setField("#ledger-filter", "expense");
+        await setField('input[placeholder="Search recorded items…"]', "elixir");
+        await click("Finish");
+        await click("New session");
+        await until("window.__session.status === 'idle' && window.__session.entries.length === 0");
+        await click("Add loot or expense");
+        assert.equal(
+            await evaluate("document.querySelector('dialog[open] form select').value"),
+            "vendor",
+            "A new session must reset the previous expense draft",
+        );
+        assert.equal(await evaluate("document.querySelector('dialog[open] input[min=\"1\"]').value"), "1");
+        assert.equal(
+            await evaluate("document.querySelector('dialog[open] input[placeholder=Required]').value"),
+            "107900",
+        );
+        await evaluate("document.querySelector('dialog[open] form').requestSubmit()");
+        await until("window.__session.entries.length === 1");
+        await click("Close manual entry");
+        assert.equal(await evaluate("document.querySelector('#ledger-filter').value"), "all");
+        assert.equal(
+            await evaluate("document.querySelector('input[placeholder=\"Search recorded items…\"]').value"),
+            "",
+        );
+        assert.equal(
+            await evaluate("document.querySelector('tbody').rows.length"),
+            1,
+            "New loot must not be hidden by the previous session's filters",
+        );
         assert.equal(errors.length, 0, JSON.stringify(errors));
         console.log(
-            `UI smoke passed: timer, navigation, capture lifecycle, preview suppression, diagnostics, screenshot state, dialog focus, expense entry, ledger editing/filtering, history filters, themes, compact screens. Screenshots: ${output}`,
+            `UI smoke passed: timer, navigation, capture lifecycle, preview suppression, diagnostics, screenshot state, dialog focus, expense price isolation, new-session reset, ledger editing/filtering, history filters, themes, compact screens. Screenshots: ${output}`,
         );
     }
 } finally {
