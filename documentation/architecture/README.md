@@ -68,8 +68,8 @@ time from timestamps. It never dispatches a session mutation. Session persistenc
 the save queue, and retries its latest failed snapshot before destroying the window. A persistent failure keeps the app
 open with an actionable error.
 
-PipeWire is requested at a maximum of 8 FPS, at native source dimensions. Known bounded producer rates bypass downstream sampling so arrival jitter cannot drop valid frames. For producers
-without a usable rate limit, a deadline-based consumer gate tolerates 3 ms of jitter and limits processing to 8 FPS. Crops validate contiguous rows before
+PipeWire is requested at a maximum of 16 FPS, at native source dimensions. Known bounded producer rates bypass downstream sampling so arrival jitter cannot drop valid frames. For producers
+without a usable rate limit, a deadline-based consumer gate tolerates 3 ms of jitter and limits processing to 16 FPS. Crops validate contiguous rows before
 conversion, retain source stride handling and exact channel/alpha conversion, and preserve the version 3 binary header.
 Normal/rare geometry is selected together by explicit resolution/UI-scale registry entries. The 3440×1440 and
 2560×1440 entries share the same native ROI geometry at 80% UI scale. Manual placement is the default. The selected normal or rare
@@ -79,3 +79,7 @@ digit shapes to refine ambiguous matches. It retains the original three OCR obse
 frames only for unresolved results, preserving the conflict veto. Capture, job, result, and diagnostic queues remain bounded.
 OCR canvases resize only when dimensions change and are cleared and released after each job. Diagnostic JSONL version 2
 includes recognized results and per-pass metadata; there are no database schema migrations.
+
+Normal arrival detection supplements text identity with bounded local-contrast signatures of fading rows. Confirmed
+displacement creates distinct events for repeated drops, and fading top rows preserve surviving bottom-track identities.
+See [repeated loot arrivals](../design/repeated-loot-arrivals.md) for evidence, limits, and performance measurements.

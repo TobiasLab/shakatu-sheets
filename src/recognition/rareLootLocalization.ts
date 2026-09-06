@@ -1,5 +1,6 @@
 import { type LootUiScale, pixelRegionToNormalized } from "./displayCapture";
 import { type LootSearchFrame, validateSearchFrame } from "./liveLootLocalization";
+import type { LootSampleFps } from "./lootCaptureTiming";
 import { RARE_LOOT_GEOMETRY, RARE_LOOT_GEOMETRY_100, type RareLootGeometry } from "./rareLoot";
 
 type Candidate = { x: number; y: number; score: number };
@@ -76,9 +77,13 @@ function locateBanner(frame: LootSearchFrame, geometry: RareLootGeometry): Candi
 export class RareLootLocalizer {
     private readonly observations: Candidate[] = [];
     private source = "";
+    private incomingFrameCount = 0;
     private readonly geometry: RareLootGeometry;
 
-    constructor(uiScalePercent: LootUiScale = 80) {
+    constructor(
+        uiScalePercent: LootUiScale = 80,
+        private readonly sampleFps: LootSampleFps = 8,
+    ) {
         this.geometry = uiScalePercent === 100 ? RARE_LOOT_GEOMETRY_100 : RARE_LOOT_GEOMETRY;
     }
 
@@ -87,6 +92,7 @@ export class RareLootLocalizer {
         const source = `${frame.sourceWidth}x${frame.sourceHeight}`;
         if (source !== this.source) this.clear();
         this.source = source;
+        if (this.incomingFrameCount++ % (this.sampleFps / 8) !== 0) return null;
         const candidate = locateBanner(frame, this.geometry);
         if (!candidate) {
             this.observations.length = 0;
@@ -112,6 +118,7 @@ export class RareLootLocalizer {
     }
 
     clear() {
+        this.incomingFrameCount = 0;
         this.observations.length = 0;
         this.source = "";
     }

@@ -94,7 +94,7 @@ pub(super) fn run(
     let producer_limited = resources
         .session
         .SetMinUpdateInterval(TimeSpan {
-            Duration: 1_250_000,
+            Duration: (SAMPLE_INTERVAL.as_nanos() / 100) as i64,
         })
         .is_ok();
     let (wake, receiver) = mpsc::sync_channel(1);

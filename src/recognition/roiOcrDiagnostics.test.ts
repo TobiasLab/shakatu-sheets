@@ -145,14 +145,14 @@ describe("ROI OCR diagnostics", () => {
 
     it("bounds retained provenance and raw strings", async () => {
         const { diagnostics, issues } = recorder();
-        for (let index = 0; index < 16_385; index++) diagnostics.observe(frame(index));
+        for (let index = 0; index < 32_769; index++) diagnostics.observe(frame(index));
         diagnostics.result(withheld(0));
         expect(issues).toEqual([]);
         await diagnostics.wrap(async () => [Array(4).fill("x".repeat(600))])(
-            [ocrFrame(16_384)],
+            [ocrFrame(32_768)],
             new AbortController().signal,
         );
-        diagnostics.result(withheld(16_384, [16_384]));
+        diagnostics.result(withheld(32_768, [32_768]));
         expect(issues[0].selectedFrames[0].readings).toEqual(Array(3).fill("x".repeat(512)));
     });
 

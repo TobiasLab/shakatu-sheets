@@ -23,14 +23,20 @@ const { values } = parseArgs({
         output: { type: "string" },
         annotations: { type: "string" },
         trace: { type: "string" },
+        "sample-step": { type: "string", default: "1" },
+        "sample-offset": { type: "string", default: "0" },
     },
 });
 const split = values.validation ? "validation" : "development";
 const useOcr = values.ocr ?? false;
 const output = values.output;
+const sampleStep = Number(values["sample-step"]);
+const sampleOffset = Number(values["sample-offset"]);
+if (![1, 2].includes(sampleStep) || !Number.isInteger(sampleOffset) || sampleOffset < 0 || sampleOffset >= sampleStep)
+    throw new Error("Sampling requires --sample-step 1 or 2 and an offset smaller than the step.");
 if (!root)
     throw new Error(
-        "Usage: npm run benchmark:loot:roi -- <live-loot directory> [--validation] [--ocr] [--annotations labels.json] [--output report.json] [--trace readings.jsonl]",
+        "Usage: npm run benchmark:loot:roi -- <live-loot directory> [--validation] [--ocr] [--annotations labels.json] [--output report.json] [--trace readings.jsonl] [--sample-step 1|2] [--sample-offset 0|1]",
     );
 for (const path of [values.output, values.trace].filter(Boolean)) {
     const fromRoot = relative(resolve(root), resolve(path));
@@ -123,24 +129,31 @@ try {
             manifest.sourceDimensions?.width !== artifact.capture.sourceWidth ||
             manifest.sourceDimensions?.height !== artifact.capture.sourceHeight ||
             manifest.uiScalePercent !== artifact.capture.uiScalePercent ||
-            manifest.targetFps !== artifact.capture.sampleFps
+            ![8, 16].includes(manifest.targetFps)
         )
             throw new Error(`${run.id}: unsupported capture profile.`);
         const normalIds = await batchIds(join(directory, "normal"));
         const rareIds = await batchIds(join(directory, "rare"));
         if (normalIds.length !== rareIds.length || normalIds.some((id, index) => id !== rareIds[index]))
             throw new Error(`${run.id}: normal/rare batches do not match.`);
+        const replayIds = normalIds.filter((_, index) => index % sampleStep === sampleOffset);
+        if (!replayIds.length) throw new Error(`${run.id}: no frames at the selected sampling offset.`);
+        const sampleFps = manifest.targetFps === 16 && sampleStep === 1 ? 16 : 8;
         for (const kind of ["normal", "rare"]) {
             const profile = kind === "normal" ? artifact.profile : rareLootDetectionProfile(rareGeometry);
             const crop = manifest[`${kind}Crop`]?.pixels;
             if (crop?.width !== profile.width || crop?.height !== profile.height)
                 throw new Error(`${run.id}: unsupported ${kind} geometry.`);
-            const analyzer = new RareLootFrameAnalyzer(rareGeometry);
+            const analyzer = new RareLootFrameAnalyzer(
+                rareGeometry,
+                manifest.targetFps === 16 && sampleStep === 1 ? 16 : 8,
+            );
             const results = [];
             let ocrJobs = 0;
             let ocrCalls = 0;
             let lastOcrEventId;
             const coordinator = new LiveLootCoordinator({
+                sampleFps,
                 ocrSelection: NORMAL_LOOT_OCR_SELECTION,
                 profile,
                 dictionary: annotations.itemDictionary,
@@ -201,7 +214,7 @@ try {
                                 kind,
                                 eventId: frames[0]?.eventId,
                                 frames: frames.map((frame, index) => ({
-                                    batchId: normalIds[frame.frame],
+                                    batchId: replayIds[frame.frame],
                                     centerY: frame.observation.centerY,
                                     bounds: frame.bounds,
                                     readings: readings[index],
@@ -214,17 +227,19 @@ try {
                 onResult: (result) =>
                     results.push({
                         ...result,
-                        firstBatchId: normalIds[result.firstFrame],
-                        selectedBatchIds: result.selectedFrames.map((frame) => normalIds[frame]),
+                        firstBatchId: replayIds[result.firstFrame],
+                        selectedBatchIds: result.selectedFrames.map((frame) => replayIds[frame]),
                     }),
             });
             try {
+                let sourceIndex = 0;
                 for await (const frame of decodeRoiFrames(
                     join(directory, kind),
                     profile.width,
                     profile.height,
                     normalIds.length,
                 )) {
+                    if (sourceIndex++ % sampleStep !== sampleOffset) continue;
                     coordinator.pushFrame(frame);
                     while (coordinator.pendingOcrJobCount > 0) await delay(1);
                 }
@@ -235,7 +250,10 @@ try {
             const summary = {
                 run: run.id,
                 kind,
-                frames: normalIds.length,
+                frames: replayIds.length,
+                sourceFrames: normalIds.length,
+                sampleStep,
+                sampleOffset,
                 candidates: results.length,
                 ocrJobs,
                 ocrCalls,

@@ -61,6 +61,7 @@ import {
     appendLiveLootReviewResult,
     type LiveLootReviewEntry,
 } from "../../recognition/liveLootReview";
+import { LIVE_LOOT_SAMPLE_FPS } from "../../recognition/lootCaptureTiming";
 import { RARE_LOOT_OCR_SELECTION, RareLootFrameAnalyzer, rareLootDetectionProfile } from "../../recognition/rareLoot";
 import { RareLootLocalizer } from "../../recognition/rareLootLocalization";
 import { RoiOcrDiagnostics, type RoiOcrIssue, roiOcrFailure } from "../../recognition/roiOcrDiagnostics";
@@ -105,7 +106,7 @@ export type LiveLootCaptureProps = {
 };
 
 const AUTOMATIC_INSERTION_RETRY_DELAYS = [1_000, 2_000, 4_000] as const;
-const MAX_PENDING_RECOGNITION_FRAMES = 32;
+const MAX_PENDING_RECOGNITION_FRAMES = 64;
 const NORMAL_MAX_OUTSTANDING_OCR_JOBS = 8;
 const RARE_MAX_OUTSTANDING_OCR_JOBS = 2;
 let nextNativeCaptureToken = Date.now() * 1_000;
@@ -769,8 +770,8 @@ export function useLiveLootCapture({
 
     function createLocalizer() {
         return activeRegionKindRef.current === "rare"
-            ? new RareLootLocalizer(uiScaleRef.current)
-            : new NormalLootLocalizer(uiScaleRef.current);
+            ? new RareLootLocalizer(uiScaleRef.current, LIVE_LOOT_SAMPLE_FPS)
+            : new NormalLootLocalizer(uiScaleRef.current, LIVE_LOOT_SAMPLE_FPS);
     }
 
     function lockAutomaticLocalization(region: NormalizedRegion, replayFrames: LootRoiFrame[]) {
@@ -1467,6 +1468,7 @@ export function useLiveLootCapture({
                 const normalDiagnostics = new RoiOcrDiagnostics("normal", generation, emitOcrIssue);
                 const rareDiagnostics = new RoiOcrDiagnostics("rare", generation, emitOcrIssue);
                 const normalCoordinator = new LiveLootCoordinator({
+                    sampleFps: LIVE_LOOT_SAMPLE_FPS,
                     ocrSelection: NORMAL_LOOT_OCR_SELECTION,
                     profile: calibratedProfile.profile,
                     dictionary: itemDictionaryRef.current,
@@ -1477,8 +1479,9 @@ export function useLiveLootCapture({
                     },
                     maxPendingOcrJobs: NORMAL_MAX_OUTSTANDING_OCR_JOBS,
                 });
-                const rareAnalyzer = new RareLootFrameAnalyzer(rareGeometry);
+                const rareAnalyzer = new RareLootFrameAnalyzer(rareGeometry, LIVE_LOOT_SAMPLE_FPS);
                 const rareCoordinator = new LiveLootCoordinator({
+                    sampleFps: LIVE_LOOT_SAMPLE_FPS,
                     profile: rareLootDetectionProfile(rareGeometry),
                     dictionary: itemDictionaryRef.current,
                     readText: rareDiagnostics.wrap(readText),
@@ -1933,7 +1936,7 @@ export function useLiveLootCapture({
                 drawBrowserRegion("rare");
             }
             recordSample();
-        }, 125);
+        }, 1000 / LIVE_LOOT_SAMPLE_FPS);
         return () => window.clearInterval(timer);
     }, [status]);
 

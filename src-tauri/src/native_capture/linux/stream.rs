@@ -402,15 +402,24 @@ fn video_format_parameter() -> Vec<u8> {
             Choice,
             Range,
             Fraction,
-            pw::spa::utils::Fraction { num: 8, denom: 1 },
+            pw::spa::utils::Fraction {
+                num: SAMPLE_FPS,
+                denom: 1
+            },
             pw::spa::utils::Fraction { num: 0, denom: 1 },
-            pw::spa::utils::Fraction { num: 8, denom: 1 }
+            pw::spa::utils::Fraction {
+                num: SAMPLE_FPS,
+                denom: 1
+            }
         ),
         // framerate=0/1 denotes a variable-rate source; bound that path too.
         pw::spa::pod::property!(
             pw::spa::param::format::FormatProperties::VideoMaxFramerate,
             Fraction,
-            pw::spa::utils::Fraction { num: 8, denom: 1 }
+            pw::spa::utils::Fraction {
+                num: SAMPLE_FPS,
+                denom: 1
+            }
         ),
     );
     pw::spa::pod::serialize::PodSerializer::serialize(
@@ -427,7 +436,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn variable_rate_sources_have_an_explicit_eight_fps_maximum() {
+    fn variable_rate_sources_have_an_explicit_sixteen_fps_maximum() {
         let bytes = video_format_parameter();
         let (_, value) =
             spa::pod::deserialize::PodDeserializer::deserialize_from::<spa::pod::Value>(&bytes)
@@ -444,7 +453,10 @@ mod tests {
             .unwrap();
         assert_eq!(
             maximum.value,
-            spa::pod::Value::Fraction(spa::utils::Fraction { num: 8, denom: 1 })
+            spa::pod::Value::Fraction(spa::utils::Fraction {
+                num: SAMPLE_FPS,
+                denom: 1
+            })
         );
         assert!(!object.properties.iter().any(
             |property| property.key == spa::param::format::FormatProperties::VideoSize.as_raw()

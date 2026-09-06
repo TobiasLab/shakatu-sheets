@@ -1,5 +1,8 @@
 # Live Loot Recognition Plan
 
+Normal arrival tracking also uses faint glyph movement to distinguish repeated drops while older rows fade.
+See [repeated loot arrivals](repeated-loot-arrivals.md) for the current arrival rules, measured results, and sampling limits.
+
 The current OCR policy and measured 80%/100% corpus results are documented in
 [OCR accuracy improvements](live-loot-digit-tracking.md). Normal recognition uses three initial frames and up to two
 supplementary frames only for unresolved results. Debug collection logs recognized events as well as failures, with exact
@@ -62,7 +65,7 @@ game process, or inspect BDO network traffic. User-authorized operating-system s
 ## Capture
 
 Capture uses a live operating-system screen-sharing stream rather than repeatedly saving screenshots. The app samples
-approximately 8 frames per second, creates a bounded full-source preview when previews are enabled, and copies either the
+approximately 16 frames per second, creates a bounded full-source preview when previews are enabled, and copies either the
 automatic search area or the configured notification rectangles at native resolution into memory.
 
 Windows uses native Windows Graphics Capture with the system picker, an owning HWND, and free-threaded D3D11 frame
@@ -167,13 +170,13 @@ banners are covered by tests, but real rare-banner placement accuracy remains un
 
 Normal search retains the existing algorithm below.
 
-The localizer evaluates every second sampled frame, scores the five calibrated row centers, and requires at least two
+At the live 16 FPS rate, the localizer evaluates every fourth sampled frame, scores the five calibrated row centers, and requires at least two
 visible rows. It locks only after three of the latest four candidates agree within 12 source pixels at 80% or 15 at 100%. Retained search history
-is bounded to 12 frames. On lock, the localizer converts the median candidate to the exact normalized `362x311` (80%) or `453x389` (100%) region and
+is bounded to 24 frames. On lock, the localizer converts the median candidate to the exact normalized `362x311` (80%) or `453x389` (100%) region and
 switches native capture from search mode to exact normal and rare crops. It persists the normal result and preserves a
 previously confirmed rare position; otherwise the user must align and confirm the rare area before rare frames feed
 recognition. The first retained search frame establishes the event baseline, and later notifications in the retained
-history are replayed. While the single Tesseract worker starts, capture retains rolling windows of at most 32 frames per
+history are replayed. While the single Tesseract worker starts, capture retains rolling windows of at most 64 frames per
 crop.
 
 If localization cannot establish confidence, capture remains in search mode rather than guessing. The user can choose
@@ -208,13 +211,13 @@ threshold.
 ### Provisional Rare-Banner Recognition
 
 At 3440x1440 and 80% UI scale, the rare analyzer measures the fixed gold shell independently of the normal row detector.
-It requires four consecutive observations of both a warm shell and a long horizontal entrance border. Gold scenery alone
-is insufficient. It emits one synthetic row for the appearance and waits 12 detected frames before selecting three OCR
+At 16 FPS it requires eight consecutive observations of both a warm shell and a long horizontal entrance border. Gold scenery alone
+is insufficient. It emits one synthetic row for the appearance and waits 24 detected frames before selecting three OCR
 frames from the text-only bounds `x=112..392`, `y=49..65`. Gold OCR jobs retain warmer lettering than normal jobs; the
 normal white-text filter otherwise erases much of this banner’s text. A minimum active lifetime keeps the
 synthetic row available after the gold entrance shell fades and before the text disappears unless a separately confirmed
 replacement appears. Frames used to confirm a replacement remain tracking-only and cannot be selected as OCR evidence for
-the old event. Two absent frames end a sufficiently old appearance; a new confirmed shell after a longer early gap starts
+the old event. Four absent frames end a sufficiently old appearance; a new confirmed shell after a longer early gap starts
 a separate appearance. A later identical banner therefore receives a new `rare-*` event ID. A banner whose confirmation
 begins in the first captured frame is treated as a baseline and suppressed until it disappears.
 
@@ -249,13 +252,13 @@ confirmed birth does not create another event; count growth and distinct consecu
 Baseline suppression and distinct event IDs for repeated identical drops remain in place.
 
 OCR starts with three consecutive observations whose neighboring fingerprints are visually consistent after the entrance
-delay. Normal tracking retains a bounded six-observation window and may select two clearer supplementary frames. It reads
+delay. Normal tracking retains a bounded window spanning six observations at 8 FPS or eleven at 16 FPS and may select two clearer supplementary frames. It reads
 the original three first and uses supplementary frames only for unresolved results, preserving all original readings and
 requiring a strict majority across the combined frame set. A confident conflicting item/quantity pair in any frame vetoes
 acceptance. A later different run cannot replace the first usable three observations. Short tracks are flushed before
 retained evidence expires, at track expiry, or at finish.
 
-Digit shapes refine ambiguous row assignments and the existing recovery check after one empty frame. Near-identical
+Digit shapes refine ambiguous row assignments and recovery after short empty gaps (up to three samples at 16 FPS). Near-identical
 whole-row matches retain priority, and the projection-based birth rules remain unchanged. Unreadable passes are not conflicting pairs. Trailing OCR punctuation remains allowed, including terminal
 dash artifacts, while decimals, separators inside quantities, and trailing words remain rejected. There is no standalone
 two-frame or single-frame acceptance. See the [measured policy](live-loot-digit-tracking.md) for limits and remaining failures.
