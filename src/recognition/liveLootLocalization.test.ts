@@ -207,3 +207,14 @@ it("does not combine observations across source dimension changes", () => {
     for (let i = 0; i < 5; i++) expect(localizer.pushFrame(changed)).toBeNull();
     expect(localizer.pushFrame(changed)).not.toBeNull();
 });
+
+it("keeps normal localization at four evaluations per second with a 16 FPS history", () => {
+    const localizer = new NormalLootLocalizer(80, 16);
+    const frame = searchFrame(219);
+    for (let index = 0; index < 11; index++) expect(localizer.pushFrame(frame)).toBeNull();
+    expect(localizer.evaluatedCandidateCount).toBe(2);
+    expect(localizer.pushFrame(frame)?.replayFrames).toHaveLength(12);
+    const empty = searchFrame(null);
+    for (let index = 0; index < 40; index++) localizer.pushFrame(empty);
+    expect(localizer.retainedFrameCount).toBe(24);
+});

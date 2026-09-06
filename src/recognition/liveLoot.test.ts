@@ -1420,3 +1420,61 @@ it("releases supplementary frames and suppresses late results when stopped durin
     await Promise.resolve();
     expect(results).toEqual([]);
 });
+
+it.each([false, true])("preserves OCR timing and read limits at 16 FPS (unresolved: %s)", async (unresolved) => {
+    const calls: number[][] = [];
+    const results: LiveLootRecognitionResult[] = [];
+    const coordinator = new LiveLootCoordinator({
+        sampleFps: 16,
+        profile: streamingProfile,
+        dictionary: ["Black Stone"],
+        ocrSelection: { windowFrames: 6, maximumFrameCount: 5 },
+        readText: async (frames) => {
+            calls.push(frames.map(({ frame }) => frame));
+            return calls.length === 1 && unresolved
+                ? [["Black Stone x 2"], ["noise"], ["noise"]]
+                : frames.map(() => ["Black Stone x 2"]);
+        },
+        onResult: (result) => results.push(result),
+    });
+    coordinator.pushFrame(packedFrame(0));
+    for (let index = 0; index < 12; index++) coordinator.pushFrame(packedFrame(1));
+    expect(calls).toEqual([]);
+    coordinator.pushFrame(packedFrame(1));
+    coordinator.pushFrame(packedFrame(1));
+    expect(coordinator.retainedFrameCount).toBe(12);
+    await coordinator.finish();
+    expect(calls).toEqual(
+        unresolved
+            ? [
+                  [3, 5, 7],
+                  [9, 11],
+              ]
+            : [[3, 5, 7]],
+    );
+    expect(results).toEqual([expect.objectContaining({ status: "recognized", quantity: 2 })]);
+});
+
+it("checks intervening 16 FPS observations before selecting spaced OCR evidence", () => {
+    const track = {
+        id: "test",
+        firstFrame: 0,
+        baseline: false,
+        observations: [1, 2, 1, 2, 1].map((fingerprint, frame) => ({
+            frame,
+            slot: 0,
+            centerY: 70,
+            score: 300,
+            fingerprint,
+        })),
+    };
+    expect(selectLootOcrObservations(track, 100, { delayFrames: 0, frameStep: 2 }, distance)).toEqual([]);
+});
+
+it.each([2, 3, 4])("retains an identical row through short 16 FPS gaps (%i empty samples)", (emptyCount) => {
+    const tracker = new LootRowTracker(100, distance, { emptyFrameLimit: 4 });
+    for (const rows of [row([1]), ...Array.from({ length: emptyCount }, () => row([])), row([1]), row([1])]) {
+        tracker.push(rows);
+    }
+    expect(tracker.finish().filter(({ baseline }) => !baseline)).toHaveLength(emptyCount < 4 ? 0 : 1);
+});

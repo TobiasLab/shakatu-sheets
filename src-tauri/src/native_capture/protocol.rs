@@ -9,7 +9,8 @@ pub(super) const FRAME_KIND_RARE_REGION: u32 = 3;
 pub(super) const FRAME_KIND_SEARCH_REGION: u32 = 4;
 pub(super) const MAX_PREVIEW_WIDTH: u32 = 640;
 pub(super) const MAX_PREVIEW_HEIGHT: u32 = 360;
-pub(super) const SAMPLE_INTERVAL: Duration = Duration::from_millis(125);
+pub(super) const SAMPLE_FPS: u32 = 16;
+pub(super) const SAMPLE_INTERVAL: Duration = Duration::from_micros(1_000_000 / SAMPLE_FPS as u64);
 pub(super) const FIRST_FRAME_TIMEOUT: Duration = Duration::from_secs(10);
 pub(super) const FRAME_ACK_TIMEOUT: Duration = Duration::from_secs(10);
 

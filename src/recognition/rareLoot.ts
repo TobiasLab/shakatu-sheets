@@ -1,4 +1,5 @@
 import type { LootDetectedRows, LootDetectionProfile, LootFingerprint, LootOcrBounds, LootRoiFrame } from "./liveLoot";
+import type { LootSampleFps } from "./lootCaptureTiming";
 
 const SHELL_CONFIRM_RATIO = 0.65;
 const CONFIRMATION_FRAMES = 4;
@@ -174,7 +175,9 @@ export class RareLootFrameAnalyzer {
     private replacementGapFrames = 0;
 
     private readonly geometry: RareLootGeometry;
-    constructor(geometry: RareLootGeometry = RARE_LOOT_GEOMETRY) {
+    private readonly frameStep: number;
+    constructor(geometry: RareLootGeometry = RARE_LOOT_GEOMETRY, sampleFps: LootSampleFps = 8) {
+        this.frameStep = sampleFps / 8;
         this.geometry = validateRareLootGeometry(geometry);
     }
 
@@ -201,24 +204,24 @@ export class RareLootFrameAnalyzer {
                     this.reappearanceFrames = 0;
                     this.absentFrames += 1;
                 }
-            } else if (shellVisible && this.absentFrames >= REAPPEARANCE_GAP_FRAMES) {
+            } else if (shellVisible && this.absentFrames >= REAPPEARANCE_GAP_FRAMES * this.frameStep) {
                 this.reappearanceFrames = 1;
             } else if (shellVisible) this.absentFrames = 0;
             else this.absentFrames += 1;
 
-            if (this.reappearanceFrames >= CONFIRMATION_FRAMES) {
+            if (this.reappearanceFrames >= CONFIRMATION_FRAMES * this.frameStep) {
                 this.active = false;
                 this.suppressed = false;
                 this.activeFrames = 0;
                 this.absentFrames = 0;
                 this.reappearanceFrames = 0;
-                this.replacementGapFrames = 2;
+                this.replacementGapFrames = 2 * this.frameStep;
                 return emptyRows();
             }
             if (
                 this.reappearanceFrames === 0 &&
-                this.absentFrames >= END_CONFIRMATION_FRAMES &&
-                this.activeFrames >= MINIMUM_ACTIVE_FRAMES
+                this.absentFrames >= END_CONFIRMATION_FRAMES * this.frameStep &&
+                this.activeFrames >= MINIMUM_ACTIVE_FRAMES * this.frameStep
             ) {
                 this.active = false;
                 this.suppressed = false;
@@ -237,7 +240,7 @@ export class RareLootFrameAnalyzer {
         }
         if (this.candidateFrames === 0) this.candidateStartedAtBaseline = baselineFrame;
         this.candidateFrames += 1;
-        if (this.candidateFrames < CONFIRMATION_FRAMES) return emptyRows();
+        if (this.candidateFrames < CONFIRMATION_FRAMES * this.frameStep) return emptyRows();
 
         this.active = true;
         this.suppressed = this.candidateStartedAtBaseline;

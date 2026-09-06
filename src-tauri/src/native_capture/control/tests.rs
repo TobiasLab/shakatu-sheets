@@ -399,8 +399,10 @@ fn stopped_and_superseded_tokens_cannot_start_late() {
 fn producer_jitter_does_not_halve_the_sample_rate() {
     let start = Instant::now();
     let mut deadline = None;
-    for millis in [0, 124, 251, 374, 500, 626, 749, 875] {
-        let now = start + Duration::from_millis(millis);
+    for micros in [
+        0, 62_000, 126_000, 187_000, 250_000, 313_500, 374_000, 437_500,
+    ] {
+        let now = start + Duration::from_micros(micros);
         assert!(sample_due(deadline, now));
         deadline = Some(next_sample_deadline(deadline, now));
         assert!(!sample_due(deadline, now + Duration::from_millis(30)));
@@ -415,9 +417,9 @@ fn overspeed_source_is_bounded_without_catch_up_bursts() {
     let start = Instant::now();
     let mut deadline = None;
     let mut samples = Vec::new();
-    // A producer can advertise eight FPS while delivering sixteen.
+    // A producer can advertise sixteen FPS while delivering thirty-two.
     for tick in 0..960 {
-        let now = start + Duration::from_micros(tick * 62_500);
+        let now = start + Duration::from_micros(tick * 31_250);
         if sample_due(deadline, now) {
             samples.push(now);
             deadline = Some(next_sample_deadline(deadline, now));
@@ -430,5 +432,5 @@ fn overspeed_source_is_bounded_without_catch_up_bursts() {
     let resumed = start + Duration::from_secs(90);
     assert!(sample_due(deadline, resumed));
     deadline = Some(next_sample_deadline(deadline, resumed));
-    assert!(!sample_due(deadline, resumed + Duration::from_millis(60)));
+    assert!(!sample_due(deadline, resumed + Duration::from_millis(30)));
 }

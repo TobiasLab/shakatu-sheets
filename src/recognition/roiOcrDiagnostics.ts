@@ -34,7 +34,7 @@ export type RoiOcrIssue = {
     error: string | null;
 };
 
-// Metadata only: bounded to slightly more than a 30-minute, 8 FPS collection. No pixels are retained here.
+// Metadata only: bounded to slightly more than a 30-minute, 16 FPS collection. No pixels are retained here.
 export class RoiOcrDiagnostics {
     private nextFrame = 0;
     private readonly samples = new Map<number, RoiSampleReference>();
@@ -51,7 +51,7 @@ export class RoiOcrDiagnostics {
         const index = this.nextFrame++;
         if (!frame.sample) return;
         this.samples.set(index, frame.sample);
-        if (this.samples.size > 16_384) {
+        if (this.samples.size > 32_768) {
             const oldest = this.samples.keys().next().value;
             if (oldest !== undefined) this.samples.delete(oldest);
         }

@@ -1,3 +1,5 @@
+import { fadingLootArrivals, type LootRowAppearance, lootRowAppearances, lootRowsFaded } from "./lootArrival";
+import type { LootSampleFps } from "./lootCaptureTiming";
 import { type LootQuantityGlyphs, locateLootQuantity, lootQuantityDistance } from "./lootQuantity";
 
 export type LootRoiFrame = {
@@ -34,6 +36,7 @@ export type LootRowObservation<TFingerprint = LootFingerprint> = {
 
 export type LootDetectedRows<TFingerprint = LootFingerprint> = {
     count: number;
+    appearances?: LootRowAppearance[];
     strength: number;
     fingerprint?: TFingerprint;
     fingerprints: TFingerprint[];
@@ -136,6 +139,7 @@ export const NORMAL_LOOT_OCR_SELECTION = { windowFrames: 6, maximumFrameCount: 5
 
 export type LootOcrSelectionOptions = {
     windowFrames?: number;
+    frameStep?: number;
     maximumFrameCount?: number;
     frameCount?: number;
     delayFrames?: number;
@@ -145,6 +149,7 @@ export type LootOcrSelectionOptions = {
 export type LiveLootFrameAnalyzer = (frame: LootRoiFrame) => LootDetectedRows<LootFingerprint>;
 
 export type LiveLootCoordinatorOptions = {
+    sampleFps?: LootSampleFps;
     profile: LootDetectionProfile;
     dictionary: readonly string[];
     readText: LiveLootOcrReader;
@@ -154,7 +159,7 @@ export type LiveLootCoordinatorOptions = {
     maxPendingResults?: number;
     retainedFrameCount?: number;
     analyzeFrame?: LiveLootFrameAnalyzer;
-    ocrSelection?: LootOcrSelectionOptions;
+    ocrSelection?: Omit<LootOcrSelectionOptions, "frameStep">;
     ocrBounds?: LootOcrBounds;
     ocrTextColor?: "white" | "gold";
     eventIdPrefix?: string;
@@ -309,6 +314,7 @@ export function analyzeLootRoiFrame(
     }
 
     return {
+        appearances: count > 0 ? lootRowAppearances(frame, profile) : undefined,
         count,
         strength: scores.slice(profile.maxRows - count).reduce((total, score) => total + score, 0),
         fingerprint: fingerprints[count - 1],
@@ -392,6 +398,19 @@ export function stackShifted<TFingerprint>(
 }
 
 export function rowBirthCount<TFingerprint>(
+    previous: LootDetectedRows<TFingerprint>,
+    current: LootDetectedRows<TFingerprint>,
+    next: LootDetectedRows<TFingerprint> | undefined,
+    rowThreshold: number,
+    distance: FingerprintDistance<TFingerprint>,
+) {
+    return Math.max(
+        projectionBirthCount(previous, current, next, rowThreshold, distance),
+        fadingLootArrivals(previous, current, next),
+    );
+}
+
+function projectionBirthCount<TFingerprint>(
     previous: LootDetectedRows<TFingerprint>,
     current: LootDetectedRows<TFingerprint>,
     next: LootDetectedRows<TFingerprint> | undefined,
@@ -514,6 +533,7 @@ export type LootRowTrackerOptions<TFingerprint = LootFingerprint> = {
     identityDistance?: FingerprintDistance<TFingerprint>;
     retainHistory?: boolean;
     maxObservationsPerTrack?: number;
+    emptyFrameLimit?: 2 | 4;
     eventIdPrefix?: string;
 };
 
@@ -526,6 +546,7 @@ export class LootRowTracker<TFingerprint> {
     private readonly retainHistory: boolean;
     private readonly maxObservationsPerTrack: number;
     private readonly eventIdPrefix: string;
+    private readonly emptyFrameLimit: number;
     private readonly identityDistance: FingerprintDistance<TFingerprint>;
     private nextId = 1;
     private emptyFrames = 0;
@@ -539,6 +560,7 @@ export class LootRowTracker<TFingerprint> {
         private readonly distance: FingerprintDistance<TFingerprint>,
         options: LootRowTrackerOptions<TFingerprint> = {},
     ) {
+        this.emptyFrameLimit = options.emptyFrameLimit ?? 2;
         this.identityDistance = options.identityDistance ?? distance;
         this.retainHistory = options.retainHistory ?? true;
         this.maxObservationsPerTrack = options.maxObservationsPerTrack ?? Number.POSITIVE_INFINITY;
@@ -596,6 +618,9 @@ export class LootRowTracker<TFingerprint> {
         const retained = Math.min(this.stack.length, current.count);
         if (retained === 0) {
             return { sourceOffset: 0, targetOffset: 0, retained, distance: Number.POSITIVE_INFINITY };
+        }
+        if (this.previous?.count === this.stack.length && lootRowsFaded(this.previous, current)) {
+            return { sourceOffset: this.stack.length - retained, targetOffset: 0, retained, distance: 0 };
         }
         let best:
             | { sourceOffset: number; targetOffset: number; retained: number; distance: number; nonBaseline: number }
@@ -664,6 +689,7 @@ export class LootRowTracker<TFingerprint> {
         let births = rowBirthCount(this.previous, current, next, this.rowThreshold, this.distance);
         if (
             births === 1 &&
+            fadingLootArrivals(this.previous, current, next) === 0 &&
             this.stack[this.stack.length - 1]?.firstFrame === frame - 1 &&
             current.count === this.previous.count &&
             this.previous.fingerprints.every(
@@ -672,7 +698,7 @@ export class LootRowTracker<TFingerprint> {
         ) {
             births = 0;
         }
-        if (this.emptyFrames === 1 && this.stack.length > 0) {
+        if (this.emptyFrames > 0 && this.emptyFrames < this.emptyFrameLimit && this.stack.length > 0) {
             const recovery = this.bestTrackAlignment(current);
             if (recovery.distance <= 0.1) {
                 const unmatchedBottom = current.count - recovery.targetOffset - recovery.retained;
@@ -682,7 +708,7 @@ export class LootRowTracker<TFingerprint> {
         this.align(frame, current, births);
         if (current.count === 0) {
             this.emptyFrames += 1;
-            if (this.emptyFrames > 1) this.replaceStack([]);
+            if (this.emptyFrames >= this.emptyFrameLimit) this.replaceStack([]);
         } else {
             this.emptyFrames = 0;
         }
@@ -761,6 +787,7 @@ export function selectLootOcrObservations<TFingerprint>(
     rowThreshold: number,
     {
         frameCount = 3,
+        frameStep = 1,
         delayFrames = 1,
         minimumScoreMultiplier = 1,
         windowFrames = frameCount,
@@ -787,11 +814,12 @@ export function selectLootOcrObservations<TFingerprint>(
         }
         if (!eligible) continue;
         run.push(observation);
-        if (run.length >= frameCount) {
+        const spaced = run.filter((_, index) => index % frameStep === 0);
+        if (spaced.length >= frameCount) {
             // Keep the original evidence: a later consistent row must not replace a conflicting earlier reading.
             const selected = [
-                ...run.slice(0, frameCount),
-                ...run
+                ...spaced.slice(0, frameCount),
+                ...spaced
                     .slice(frameCount)
                     .sort(
                         (left, right) =>
@@ -807,7 +835,7 @@ export function selectLootOcrObservations<TFingerprint>(
                 bestQuality = quality;
             }
         }
-        if (run.length === windowFrames) break;
+        if (run.length === (windowFrames - 1) * frameStep + 1) break;
     }
     return best;
 }
@@ -978,8 +1006,13 @@ export class LiveLootCoordinator {
         validateProfile(options.profile);
         const maxPendingOcrJobs = options.maxPendingOcrJobs ?? 2;
         const maxPendingResults = options.maxPendingResults ?? defaultMaxPendingResults;
+        const sampleFps = options.sampleFps ?? 8;
+        if (sampleFps !== 8 && sampleFps !== 16) throw new Error("Loot sampling must be 8 or 16 FPS.");
+        const frameStep = sampleFps / 8;
         const windowFrames = options.ocrSelection?.windowFrames ?? options.ocrSelection?.frameCount ?? 3;
-        const retainedFrameCount = options.retainedFrameCount ?? Math.max(defaultRetainedFrameCount, windowFrames + 1);
+        const observationWindow = (windowFrames - 1) * frameStep + 1;
+        const retainedFrameCount =
+            options.retainedFrameCount ?? Math.max(defaultRetainedFrameCount * frameStep, observationWindow + 1);
         const ocrFrameCount = options.ocrSelection?.frameCount ?? 3;
         const maximumFrameCount = options.ocrSelection?.maximumFrameCount ?? ocrFrameCount;
         if (
@@ -991,7 +1024,7 @@ export class LiveLootCoordinator {
                 "Maximum selected OCR frames must cover the minimum and fit within the window (at most five).",
             );
         }
-        const delayFrames = options.ocrSelection?.delayFrames ?? 1;
+        const delayFrames = (options.ocrSelection?.delayFrames ?? 1) * frameStep;
         const minimumScoreMultiplier = options.ocrSelection?.minimumScoreMultiplier ?? 1;
         if (!Number.isInteger(maxPendingOcrJobs) || maxPendingOcrJobs < 1) {
             throw new Error("Maximum pending loot OCR jobs must be a positive integer.");
@@ -1014,7 +1047,7 @@ export class LiveLootCoordinator {
         if (!Number.isInteger(windowFrames) || windowFrames < ocrFrameCount || windowFrames > 6) {
             throw new Error("Loot OCR selection window must cover its frame count and contain at most six frames.");
         }
-        if (retainedFrameCount < windowFrames + 1) {
+        if (retainedFrameCount < observationWindow + 1) {
             throw new Error("Retained loot frame count must cover selected OCR frames and birth confirmation.");
         }
         const bounds = options.ocrBounds;
@@ -1039,6 +1072,7 @@ export class LiveLootCoordinator {
         this.analyzeFrame = options.analyzeFrame ?? ((frame) => analyzeLootRoiFrame(frame, options.profile));
         this.ocrSelection = {
             frameCount: ocrFrameCount,
+            frameStep,
             delayFrames,
             minimumScoreMultiplier,
             windowFrames,
@@ -1048,7 +1082,8 @@ export class LiveLootCoordinator {
         this.tracker = new LootRowTracker(options.profile.rowThreshold, lootFingerprintDistance, {
             retainHistory: false,
             identityDistance: lootRowIdentityDistance,
-            maxObservationsPerTrack: windowFrames,
+            maxObservationsPerTrack: observationWindow,
+            emptyFrameLimit: sampleFps === 16 ? 4 : 2,
             eventIdPrefix: options.eventIdPrefix,
         });
     }
@@ -1169,7 +1204,10 @@ export class LiveLootCoordinator {
         if (
             !flush &&
             !expiring &&
-            latest < track.firstFrame + (this.ocrSelection.delayFrames ?? 1) + (this.ocrSelection.windowFrames ?? 3) - 1
+            latest <
+                track.firstFrame +
+                    (this.ocrSelection.delayFrames ?? 1) +
+                    ((this.ocrSelection.windowFrames ?? 3) - 1) * (this.ocrSelection.frameStep ?? 1)
         )
             return false;
         const selected = selectLootOcrObservations(

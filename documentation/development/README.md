@@ -88,3 +88,7 @@ for scoring limits and optional JSON reports. Captured PNGs stay outside tracked
 
 Use `UI_SMOKE_BACKEND=windows` for the synthetic Windows capability path and 640/700px compact layout checks (in
 PowerShell set `$env:UI_SMOKE_BACKEND = 'windows'`). This remains a browser fixture, not native Windows validation.
+
+The ROI replay supports `--sample-step 2 --sample-offset 0|1` for offline sampling sensitivity checks. Reports retain native
+batch IDs and distinguish recorded from replayed frame counts. This does not change gameplay capture settings. See the
+[repeated-arrival evaluation](../design/repeated-loot-arrivals.md) for the reviewed fixture and reproduction commands.

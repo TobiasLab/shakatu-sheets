@@ -96,3 +96,13 @@ describe("rare loot localization", () => {
         expect(() => lock({ ...frame(), pixels: new Uint8ClampedArray(4) })).toThrow();
     });
 });
+
+it("keeps rare localization at eight evaluations per second during 16 FPS capture", () => {
+    const localizer = new RareLootLocalizer(80, 16);
+    const input = frame();
+    for (let index = 0; index < 4; index++) expect(localizer.pushFrame(input)).toBeNull();
+    expect(localizer.pushFrame(input)).not.toBeNull();
+    localizer.clear();
+    for (let index = 0; index < 4; index++) expect(localizer.pushFrame(input)).toBeNull();
+    expect(localizer.pushFrame(input)).not.toBeNull();
+});

@@ -1,5 +1,5 @@
 import { execFile, spawnSync } from "node:child_process";
-import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
+import { copyFile, mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -42,17 +42,19 @@ test.each([
 
 const ffmpegAvailable = spawnSync("ffmpeg", ["-version"]).status === 0;
 test.skipIf(!ffmpegAvailable).each([
-    [3440, false, 80],
+    [3440, false, 80, 8],
+    [3440, false, 80, 16],
+    [2560, true, 100, 16],
     [2560, false, 80],
     [3440, true, 80],
     [2560, true, 80],
     [3440, true, 100],
     [2560, true, 100],
-])("replays %ix1440 crops (external: %s, scale: %i)", async (width, externalLabels, uiScalePercent) => {
+])("replays %ix1440 crops (external: %s, scale: %i)", async (width, externalLabels, uiScalePercent, targetFps = 8) => {
     const root = await mkdtemp(join(tmpdir(), "loot-roi-test-"));
     try {
         const id = "run-1-1-0001";
-        const manifest = { ...capture, uiScalePercent, sourceDimensions: { width, height: 1440 } };
+        const manifest = { ...capture, targetFps, uiScalePercent, sourceDimensions: { width, height: 1440 } };
         for (const [kind, cropWidth, cropHeight] of [
             ["normal", uiScalePercent === 80 ? 362 : 453, uiScalePercent === 80 ? 311 : 389],
             ["rare", uiScalePercent === 80 ? 400 : 500, uiScalePercent === 80 ? 100 : 125],
@@ -106,6 +108,17 @@ test.skipIf(!ffmpegAvailable).each([
             }),
             expect.objectContaining({ run: id, kind: "rare", frames: 1, candidates: 0, ocrJobs: 0 }),
         ]);
+        if (width === 3440 && uiScalePercent === 80 && !externalLabels) {
+            for (const kind of ["normal", "rare"]) {
+                const folder = join(root, id, kind, "minute-000");
+                await copyFile(join(folder, "frame-000001.png"), join(folder, "frame-000002.png"));
+            }
+            const sampled = await exec(process.execPath, [...args, "--sample-step", "2", "--sample-offset", "1"]);
+            expect(sampled.stdout.trim().split("\n").map(JSON.parse)).toEqual([
+                expect.objectContaining({ kind: "normal", frames: 1, sourceFrames: 2, sampleStep: 2, sampleOffset: 1 }),
+                expect.objectContaining({ kind: "rare", frames: 1, sourceFrames: 2, sampleStep: 2, sampleOffset: 1 }),
+            ]);
+        }
         labels.runs[0].normalCases[0].events.push({ firstBatchId: 1, item: "Gold Bar 1G", quantity: 1 });
         await writeFile(labelsPath, JSON.stringify(labels));
         await expect(exec(process.execPath, args)).rejects.toMatchObject({
@@ -115,4 +128,25 @@ test.skipIf(!ffmpegAvailable).each([
     } finally {
         await rm(root, { recursive: true, force: true });
     }
+});
+
+test.each([
+    ["0", "0"],
+    ["3", "0"],
+    ["2", "2"],
+    ["2", "-1"],
+])("rejects invalid offline sampling step %s and offset %s", async (step, offset) => {
+    await expect(
+        exec(process.execPath, [
+            runner,
+            "--script",
+            script,
+            "/unused",
+            `--sample-step=${step}`,
+            `--sample-offset=${offset}`,
+        ]),
+    ).rejects.toMatchObject({
+        code: 1,
+        stderr: expect.stringContaining("Sampling requires"),
+    });
 });

@@ -1,0 +1,890 @@
+{
+    "version": 1,
+    "itemDictionary": [
+        "Branch of Abundance",
+        "Black Stone",
+        "Ancient Spirit Dust",
+        "Caphras Stone",
+        "Corrupt Oil of Immortality",
+        "Nev's Fragment",
+        "WON Origin Shard",
+        "WON Wandering Origin Crystal",
+        "Silent Fragment of Origin",
+        "Silent Crystal of Origin",
+        "Twilight of the End - Earring",
+        "Apeiron Earring",
+        "Broken Vestige of Goldroot",
+        "Fusion Shard",
+        "Refined Origin of Hunger",
+        "Refined Essence of Devouring",
+        "Sunset Primordial Pigment - Edana",
+        "Sunset Primordial Luster - Edana",
+        "Crimson Primordial Luster - Sovereign",
+        "Crimson Primordial Pigment - Sovereign",
+        "Violet Primordial Luster - Sovereign",
+        "Violet Primordial Pigment - Sovereign",
+        "Violet Primordial Pigment - Edana",
+        "Violet Primordial Luster - Edana",
+        "Embers of Ynix - Armor",
+        "Empty Picture Frame"
+    ],
+    "runs": [
+        {
+            "id": "run-1788693914800-1530901-0003",
+            "split": "development",
+            "normalCases": [
+                {
+                    "id": "arrival-17087",
+                    "firstBatchId": 17087,
+                    "lastBatchId": 17087,
+                    "events": [
+                        {
+                            "firstBatchId": 17087,
+                            "lastBatchId": 17087,
+                            "item": "Branch of Abundance",
+                            "quantity": 10
+                        }
+                    ]
+                },
+                {
+                    "id": "arrival-17635",
+                    "firstBatchId": 17635,
+                    "lastBatchId": 17635,
+                    "events": [
+                        {
+                            "firstBatchId": 17635,
+                            "lastBatchId": 17635,
+                            "item": "Branch of Abundance",
+                            "quantity": 10
+                        }
+                    ]
+                },
+                {
+                    "id": "arrival-17643",
+                    "firstBatchId": 17643,
+                    "lastBatchId": 17643,
+                    "events": [
+                        {
+                            "firstBatchId": 17643,
+                            "lastBatchId": 17643,
+                            "item": "Branch of Abundance",
+                            "quantity": 10
+                        }
+                    ]
+                },
+                {
+                    "id": "arrival-17800",
+                    "firstBatchId": 17800,
+                    "lastBatchId": 17800,
+                    "events": [
+                        {
+                            "firstBatchId": 17800,
+                            "lastBatchId": 17800,
+                            "item": "Branch of Abundance",
+                            "quantity": 7
+                        }
+                    ]
+                },
+                {
+                    "id": "arrival-18028",
+                    "firstBatchId": 18028,
+                    "lastBatchId": 18028,
+                    "events": [
+                        {
+                            "firstBatchId": 18028,
+                            "lastBatchId": 18028,
+                            "item": "Branch of Abundance",
+                            "quantity": 10
+                        }
+                    ]
+                },
+                {
+                    "id": "arrival-18031",
+                    "firstBatchId": 18031,
+                    "lastBatchId": 18031,
+                    "events": [
+                        {
+                            "firstBatchId": 18031,
+                            "lastBatchId": 18031,
+                            "item": "Branch of Abundance",
+                            "quantity": 10
+                        }
+                    ]
+                },
+                {
+                    "id": "arrival-18221",
+                    "firstBatchId": 18221,
+                    "lastBatchId": 18221,
+                    "events": [
+                        {
+                            "firstBatchId": 18221,
+                            "lastBatchId": 18221,
+                            "item": "Branch of Abundance",
+                            "quantity": 10
+                        }
+                    ]
+                },
+                {
+                    "id": "arrival-18361",
+                    "firstBatchId": 18361,
+                    "lastBatchId": 18361,
+                    "events": [
+                        {
+                            "firstBatchId": 18361,
+                            "lastBatchId": 18361,
+                            "item": "Branch of Abundance",
+                            "quantity": 10
+                        }
+                    ]
+                },
+                {
+                    "id": "arrival-18632",
+                    "firstBatchId": 18632,
+                    "lastBatchId": 18632,
+                    "events": [
+                        {
+                            "firstBatchId": 18632,
+                            "lastBatchId": 18632,
+                            "item": "Branch of Abundance",
+                            "quantity": 7
+                        }
+                    ]
+                },
+                {
+                    "id": "arrival-18807",
+                    "firstBatchId": 18807,
+                    "lastBatchId": 18807,
+                    "events": [
+                        {
+                            "firstBatchId": 18807,
+                            "lastBatchId": 18807,
+                            "item": "Branch of Abundance",
+                            "quantity": 7
+                        }
+                    ]
+                },
+                {
+                    "id": "arrival-18961",
+                    "firstBatchId": 18961,
+                    "lastBatchId": 18961,
+                    "events": [
+                        {
+                            "firstBatchId": 18961,
+                            "lastBatchId": 18961,
+                            "item": "Branch of Abundance",
+                            "quantity": 10
+                        }
+                    ]
+                },
+                {
+                    "id": "arrival-18980",
+                    "firstBatchId": 18980,
+                    "lastBatchId": 18980,
+                    "events": [
+                        {
+                            "firstBatchId": 18980,
+                            "lastBatchId": 18980,
+                            "item": "Branch of Abundance",
+                            "quantity": 10
+                        }
+                    ]
+                },
+                {
+                    "id": "arrival-19135",
+                    "firstBatchId": 19135,
+                    "lastBatchId": 19135,
+                    "events": [
+                        {
+                            "firstBatchId": 19135,
+                            "lastBatchId": 19135,
+                            "item": "Branch of Abundance",
+                            "quantity": 7
+                        }
+                    ]
+                },
+                {
+                    "id": "arrival-19811",
+                    "firstBatchId": 19811,
+                    "lastBatchId": 19811,
+                    "events": [
+                        {
+                            "firstBatchId": 19811,
+                            "lastBatchId": 19811,
+                            "item": "Branch of Abundance",
+                            "quantity": 7
+                        }
+                    ]
+                },
+                {
+                    "id": "arrival-19812",
+                    "firstBatchId": 19812,
+                    "lastBatchId": 19812,
+                    "events": [
+                        {
+                            "firstBatchId": 19812,
+                            "lastBatchId": 19812,
+                            "item": "Branch of Abundance",
+                            "quantity": 7
+                        }
+                    ]
+                },
+                {
+                    "id": "arrival-19820",
+                    "firstBatchId": 19820,
+                    "lastBatchId": 19820,
+                    "events": [
+                        {
+                            "firstBatchId": 19820,
+                            "lastBatchId": 19820,
+                            "item": "Ancient Spirit Dust",
+                            "quantity": 2
+                        },
+                        {
+                            "firstBatchId": 19820,
+                            "lastBatchId": 19820,
+                            "item": "Branch of Abundance",
+                            "quantity": 10
+                        }
+                    ]
+                },
+                {
+                    "id": "arrival-20177",
+                    "firstBatchId": 20177,
+                    "lastBatchId": 20177,
+                    "events": [
+                        {
+                            "firstBatchId": 20177,
+                            "lastBatchId": 20177,
+                            "item": "Branch of Abundance",
+                            "quantity": 10
+                        }
+                    ]
+                },
+                {
+                    "id": "arrival-20418",
+                    "firstBatchId": 20418,
+                    "lastBatchId": 20418,
+                    "events": [
+                        {
+                            "firstBatchId": 20418,
+                            "lastBatchId": 20418,
+                            "item": "Branch of Abundance",
+                            "quantity": 7
+                        }
+                    ]
+                },
+                {
+                    "id": "arrival-20573",
+                    "firstBatchId": 20573,
+                    "lastBatchId": 20573,
+                    "events": [
+                        {
+                            "firstBatchId": 20573,
+                            "lastBatchId": 20573,
+                            "item": "Branch of Abundance",
+                            "quantity": 10
+                        }
+                    ]
+                },
+                {
+                    "id": "arrival-20739",
+                    "firstBatchId": 20739,
+                    "lastBatchId": 20739,
+                    "events": [
+                        {
+                            "firstBatchId": 20739,
+                            "lastBatchId": 20739,
+                            "item": "Branch of Abundance",
+                            "quantity": 7
+                        }
+                    ]
+                },
+                {
+                    "id": "arrival-20750",
+                    "firstBatchId": 20750,
+                    "lastBatchId": 20750,
+                    "events": [
+                        {
+                            "firstBatchId": 20750,
+                            "lastBatchId": 20750,
+                            "item": "Branch of Abundance",
+                            "quantity": 10
+                        }
+                    ]
+                },
+                {
+                    "id": "arrival-20908",
+                    "firstBatchId": 20908,
+                    "lastBatchId": 20908,
+                    "events": [
+                        {
+                            "firstBatchId": 20908,
+                            "lastBatchId": 20908,
+                            "item": "Branch of Abundance",
+                            "quantity": 6
+                        }
+                    ]
+                },
+                {
+                    "id": "arrival-20926",
+                    "firstBatchId": 20926,
+                    "lastBatchId": 20926,
+                    "events": [
+                        {
+                            "firstBatchId": 20926,
+                            "lastBatchId": 20926,
+                            "item": "Branch of Abundance",
+                            "quantity": 4
+                        }
+                    ]
+                },
+                {
+                    "id": "arrival-21614",
+                    "firstBatchId": 21614,
+                    "lastBatchId": 21614,
+                    "events": [
+                        {
+                            "firstBatchId": 21614,
+                            "lastBatchId": 21614,
+                            "item": "Branch of Abundance",
+                            "quantity": 6
+                        }
+                    ]
+                },
+                {
+                    "id": "arrival-21950",
+                    "firstBatchId": 21950,
+                    "lastBatchId": 21950,
+                    "events": [
+                        {
+                            "firstBatchId": 21950,
+                            "lastBatchId": 21950,
+                            "item": "Branch of Abundance",
+                            "quantity": 6
+                        }
+                    ]
+                },
+                {
+                    "id": "arrival-21973",
+                    "firstBatchId": 21973,
+                    "lastBatchId": 21973,
+                    "events": [
+                        {
+                            "firstBatchId": 21973,
+                            "lastBatchId": 21973,
+                            "item": "Branch of Abundance",
+                            "quantity": 6
+                        }
+                    ]
+                },
+                {
+                    "id": "arrival-22229",
+                    "firstBatchId": 22229,
+                    "lastBatchId": 22229,
+                    "events": [
+                        {
+                            "firstBatchId": 22229,
+                            "lastBatchId": 22229,
+                            "item": "Branch of Abundance",
+                            "quantity": 4
+                        }
+                    ]
+                },
+                {
+                    "id": "arrival-22719",
+                    "firstBatchId": 22719,
+                    "lastBatchId": 22719,
+                    "events": [
+                        {
+                            "firstBatchId": 22719,
+                            "lastBatchId": 22719,
+                            "item": "Branch of Abundance",
+                            "quantity": 6
+                        }
+                    ]
+                },
+                {
+                    "id": "arrival-22727",
+                    "firstBatchId": 22727,
+                    "lastBatchId": 22727,
+                    "events": [
+                        {
+                            "firstBatchId": 22727,
+                            "lastBatchId": 22727,
+                            "item": "Branch of Abundance",
+                            "quantity": 6
+                        }
+                    ]
+                },
+                {
+                    "id": "arrival-22963",
+                    "firstBatchId": 22963,
+                    "lastBatchId": 22963,
+                    "events": [
+                        {
+                            "firstBatchId": 22963,
+                            "lastBatchId": 22963,
+                            "item": "Branch of Abundance",
+                            "quantity": 4
+                        }
+                    ]
+                },
+                {
+                    "id": "arrival-24681",
+                    "firstBatchId": 24681,
+                    "lastBatchId": 24681,
+                    "events": [
+                        {
+                            "firstBatchId": 24681,
+                            "lastBatchId": 24681,
+                            "item": "Branch of Abundance",
+                            "quantity": 6
+                        }
+                    ]
+                },
+                {
+                    "id": "arrival-24799",
+                    "firstBatchId": 24799,
+                    "lastBatchId": 24799,
+                    "events": [
+                        {
+                            "firstBatchId": 24799,
+                            "lastBatchId": 24799,
+                            "item": "Branch of Abundance",
+                            "quantity": 6
+                        }
+                    ]
+                },
+                {
+                    "id": "arrival-24961",
+                    "firstBatchId": 24961,
+                    "lastBatchId": 24961,
+                    "events": [
+                        {
+                            "firstBatchId": 24961,
+                            "lastBatchId": 24961,
+                            "item": "Branch of Abundance",
+                            "quantity": 4
+                        }
+                    ]
+                },
+                {
+                    "id": "arrival-24971",
+                    "firstBatchId": 24971,
+                    "lastBatchId": 24971,
+                    "events": [
+                        {
+                            "firstBatchId": 24971,
+                            "lastBatchId": 24971,
+                            "item": "Branch of Abundance",
+                            "quantity": 6
+                        }
+                    ]
+                },
+                {
+                    "id": "arrival-24979",
+                    "firstBatchId": 24979,
+                    "lastBatchId": 24979,
+                    "events": [
+                        {
+                            "firstBatchId": 24979,
+                            "lastBatchId": 24979,
+                            "item": "Branch of Abundance",
+                            "quantity": 6
+                        }
+                    ]
+                },
+                {
+                    "id": "arrival-26464",
+                    "firstBatchId": 26464,
+                    "lastBatchId": 26464,
+                    "events": [
+                        {
+                            "firstBatchId": 26464,
+                            "lastBatchId": 26464,
+                            "item": "Branch of Abundance",
+                            "quantity": 4
+                        }
+                    ]
+                },
+                {
+                    "id": "arrival-26476",
+                    "firstBatchId": 26476,
+                    "lastBatchId": 26476,
+                    "events": [
+                        {
+                            "firstBatchId": 26476,
+                            "lastBatchId": 26476,
+                            "item": "Branch of Abundance",
+                            "quantity": 6
+                        }
+                    ]
+                },
+                {
+                    "id": "arrival-26488",
+                    "firstBatchId": 26488,
+                    "lastBatchId": 26488,
+                    "events": [
+                        {
+                            "firstBatchId": 26488,
+                            "lastBatchId": 26488,
+                            "item": "Branch of Abundance",
+                            "quantity": 4
+                        }
+                    ]
+                },
+                {
+                    "id": "arrival-26497",
+                    "firstBatchId": 26497,
+                    "lastBatchId": 26497,
+                    "events": [
+                        {
+                            "firstBatchId": 26497,
+                            "lastBatchId": 26497,
+                            "item": "Branch of Abundance",
+                            "quantity": 6
+                        }
+                    ]
+                },
+                {
+                    "id": "arrival-26637",
+                    "firstBatchId": 26637,
+                    "lastBatchId": 26637,
+                    "events": [
+                        {
+                            "firstBatchId": 26637,
+                            "lastBatchId": 26637,
+                            "item": "Branch of Abundance",
+                            "quantity": 4
+                        }
+                    ]
+                },
+                {
+                    "id": "arrival-27393",
+                    "firstBatchId": 27393,
+                    "lastBatchId": 27393,
+                    "events": [
+                        {
+                            "firstBatchId": 27393,
+                            "lastBatchId": 27393,
+                            "item": "Branch of Abundance",
+                            "quantity": 4
+                        }
+                    ]
+                },
+                {
+                    "id": "arrival-27402",
+                    "firstBatchId": 27402,
+                    "lastBatchId": 27402,
+                    "events": [
+                        {
+                            "firstBatchId": 27402,
+                            "lastBatchId": 27402,
+                            "item": "Branch of Abundance",
+                            "quantity": 6
+                        },
+                        {
+                            "firstBatchId": 27402,
+                            "lastBatchId": 27402,
+                            "item": "Branch of Abundance",
+                            "quantity": 6
+                        }
+                    ]
+                },
+                {
+                    "id": "arrival-27510",
+                    "firstBatchId": 27510,
+                    "lastBatchId": 27510,
+                    "events": [
+                        {
+                            "firstBatchId": 27510,
+                            "lastBatchId": 27510,
+                            "item": "Branch of Abundance",
+                            "quantity": 6
+                        },
+                        {
+                            "firstBatchId": 27510,
+                            "lastBatchId": 27510,
+                            "item": "Branch of Abundance",
+                            "quantity": 6
+                        }
+                    ]
+                },
+                {
+                    "id": "arrival-27825",
+                    "firstBatchId": 27825,
+                    "lastBatchId": 27825,
+                    "events": [
+                        {
+                            "firstBatchId": 27825,
+                            "lastBatchId": 27825,
+                            "item": "Branch of Abundance",
+                            "quantity": 4
+                        }
+                    ]
+                },
+                {
+                    "id": "arrival-27833",
+                    "firstBatchId": 27833,
+                    "lastBatchId": 27833,
+                    "events": [
+                        {
+                            "firstBatchId": 27833,
+                            "lastBatchId": 27833,
+                            "item": "Branch of Abundance",
+                            "quantity": 4
+                        }
+                    ]
+                },
+                {
+                    "id": "arrival-28093",
+                    "firstBatchId": 28093,
+                    "lastBatchId": 28093,
+                    "events": [
+                        {
+                            "firstBatchId": 28093,
+                            "lastBatchId": 28093,
+                            "item": "Branch of Abundance",
+                            "quantity": 6
+                        }
+                    ]
+                },
+                {
+                    "id": "arrival-28267",
+                    "firstBatchId": 28267,
+                    "lastBatchId": 28267,
+                    "events": [
+                        {
+                            "firstBatchId": 28267,
+                            "lastBatchId": 28267,
+                            "item": "Branch of Abundance",
+                            "quantity": 4
+                        }
+                    ]
+                },
+                {
+                    "id": "arrival-28562",
+                    "firstBatchId": 28562,
+                    "lastBatchId": 28562,
+                    "events": [
+                        {
+                            "firstBatchId": 28562,
+                            "lastBatchId": 28562,
+                            "item": "Branch of Abundance",
+                            "quantity": 6
+                        }
+                    ]
+                },
+                {
+                    "id": "arrival-29307",
+                    "firstBatchId": 29307,
+                    "lastBatchId": 29307,
+                    "events": [
+                        {
+                            "firstBatchId": 29307,
+                            "lastBatchId": 29307,
+                            "item": "Branch of Abundance",
+                            "quantity": 6
+                        }
+                    ]
+                },
+                {
+                    "id": "arrival-29629",
+                    "firstBatchId": 29629,
+                    "lastBatchId": 29629,
+                    "events": [
+                        {
+                            "firstBatchId": 29629,
+                            "lastBatchId": 29629,
+                            "item": "Branch of Abundance",
+                            "quantity": 4
+                        }
+                    ]
+                },
+                {
+                    "id": "arrival-30210",
+                    "firstBatchId": 30210,
+                    "lastBatchId": 30210,
+                    "events": [
+                        {
+                            "firstBatchId": 30210,
+                            "lastBatchId": 30210,
+                            "item": "Branch of Abundance",
+                            "quantity": 6
+                        }
+                    ]
+                },
+                {
+                    "id": "arrival-30221",
+                    "firstBatchId": 30221,
+                    "lastBatchId": 30221,
+                    "events": [
+                        {
+                            "firstBatchId": 30221,
+                            "lastBatchId": 30221,
+                            "item": "Branch of Abundance",
+                            "quantity": 4
+                        },
+                        {
+                            "firstBatchId": 30221,
+                            "lastBatchId": 30221,
+                            "item": "Branch of Abundance",
+                            "quantity": 6
+                        }
+                    ]
+                },
+                {
+                    "id": "arrival-30919",
+                    "firstBatchId": 30919,
+                    "lastBatchId": 30919,
+                    "events": [
+                        {
+                            "firstBatchId": 30919,
+                            "lastBatchId": 30919,
+                            "item": "Branch of Abundance",
+                            "quantity": 6
+                        }
+                    ]
+                },
+                {
+                    "id": "arrival-31079",
+                    "firstBatchId": 31079,
+                    "lastBatchId": 31079,
+                    "events": [
+                        {
+                            "firstBatchId": 31079,
+                            "lastBatchId": 31079,
+                            "item": "Branch of Abundance",
+                            "quantity": 4
+                        }
+                    ]
+                },
+                {
+                    "id": "arrival-31080",
+                    "firstBatchId": 31080,
+                    "lastBatchId": 31080,
+                    "events": [
+                        {
+                            "firstBatchId": 31080,
+                            "lastBatchId": 31080,
+                            "item": "Branch of Abundance",
+                            "quantity": 6
+                        }
+                    ]
+                },
+                {
+                    "id": "arrival-31235",
+                    "firstBatchId": 31235,
+                    "lastBatchId": 31235,
+                    "events": [
+                        {
+                            "firstBatchId": 31235,
+                            "lastBatchId": 31235,
+                            "item": "Branch of Abundance",
+                            "quantity": 6
+                        }
+                    ]
+                },
+                {
+                    "id": "five-identical-tens-and-fade",
+                    "firstBatchId": 19673,
+                    "lastBatchId": 19689,
+                    "events": [
+                        {
+                            "firstBatchId": 19673,
+                            "lastBatchId": 19673,
+                            "item": "Branch of Abundance",
+                            "quantity": 10
+                        },
+                        {
+                            "firstBatchId": 19673,
+                            "lastBatchId": 19673,
+                            "item": "Branch of Abundance",
+                            "quantity": 10
+                        },
+                        {
+                            "firstBatchId": 19674,
+                            "lastBatchId": 19674,
+                            "item": "Branch of Abundance",
+                            "quantity": 10
+                        },
+                        {
+                            "firstBatchId": 19675,
+                            "lastBatchId": 19675,
+                            "item": "Branch of Abundance",
+                            "quantity": 10
+                        },
+                        {
+                            "firstBatchId": 19676,
+                            "lastBatchId": 19676,
+                            "item": "Branch of Abundance",
+                            "quantity": 10
+                        }
+                    ]
+                },
+                {
+                    "id": "five-identical-sixes-and-fade",
+                    "firstBatchId": 29188,
+                    "lastBatchId": 29203,
+                    "events": [
+                        {
+                            "firstBatchId": 29188,
+                            "lastBatchId": 29188,
+                            "item": "Branch of Abundance",
+                            "quantity": 6
+                        },
+                        {
+                            "firstBatchId": 29189,
+                            "lastBatchId": 29189,
+                            "item": "Branch of Abundance",
+                            "quantity": 6
+                        },
+                        {
+                            "firstBatchId": 29189,
+                            "lastBatchId": 29189,
+                            "item": "Branch of Abundance",
+                            "quantity": 6
+                        },
+                        {
+                            "firstBatchId": 29190,
+                            "lastBatchId": 29190,
+                            "item": "Branch of Abundance",
+                            "quantity": 6
+                        },
+                        {
+                            "firstBatchId": 29191,
+                            "lastBatchId": 29191,
+                            "item": "Branch of Abundance",
+                            "quantity": 6
+                        }
+                    ]
+                },
+                {
+                    "id": "stationary-identical-tens",
+                    "firstBatchId": 19677,
+                    "lastBatchId": 19689,
+                    "events": []
+                },
+                {
+                    "id": "stationary-identical-sixes",
+                    "firstBatchId": 29192,
+                    "lastBatchId": 29203,
+                    "events": []
+                },
+                {
+                    "id": "mixed-dust-retains-its-identity",
+                    "firstBatchId": 25125,
+                    "lastBatchId": 25125,
+                    "events": [
+                        {
+                            "firstBatchId": 25125,
+                            "lastBatchId": 25125,
+                            "item": "Branch of Abundance",
+                            "quantity": 6
+                        }
+                    ]
+                }
+            ]
+        }
+    ]
+}

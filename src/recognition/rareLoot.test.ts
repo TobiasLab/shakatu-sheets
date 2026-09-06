@@ -110,45 +110,53 @@ describe("rare loot frame analysis", () => {
         expect(result.filter((count, index) => count === 1 && result[index - 1] === 0)).toHaveLength(1);
     });
 
-    it("does not attribute confirmed replacement frames to the previous event", async () => {
-        const analyzer = new RareLootFrameAnalyzer();
-        const results: LiveLootRecognitionResult[] = [];
-        const readText = vi.fn<LiveLootOcrReader>(async (frames) => frames.map(() => ["Deboreka Necklace x 1"]));
-        const coordinator = new LiveLootCoordinator({
-            profile: RARE_LOOT_PROFILE,
-            dictionary: ["Twilight of the End - Earring", "Deboreka Necklace"],
-            analyzeFrame: (frame) => analyzer.pushFrame(frame),
-            ocrSelection: RARE_LOOT_OCR_SELECTION,
-            ocrBounds: RARE_LOOT_OCR_BOUNDS,
-            eventIdPrefix: "rare",
-            readText,
-            onResult: (result) => results.push(result),
-        });
+    it.each([8, 16] as const)(
+        "does not attribute confirmed replacement frames to the previous event at %i FPS",
+        async (sampleFps) => {
+            const analyzer = new RareLootFrameAnalyzer(undefined, sampleFps);
+            const results: LiveLootRecognitionResult[] = [];
+            const readText = vi.fn<LiveLootOcrReader>(async (frames) => frames.map(() => ["Deboreka Necklace x 1"]));
+            const coordinator = new LiveLootCoordinator({
+                sampleFps,
+                profile: RARE_LOOT_PROFILE,
+                dictionary: ["Twilight of the End - Earring", "Deboreka Necklace"],
+                analyzeFrame: (frame) => analyzer.pushFrame(frame),
+                ocrSelection: RARE_LOOT_OCR_SELECTION,
+                ocrBounds: RARE_LOOT_OCR_BOUNDS,
+                eventIdPrefix: "rare",
+                readText,
+                onResult: (result) => results.push(result),
+            });
 
-        for (const ratio of [
-            0,
-            ...Array.from({ length: 4 }, () => 0.7),
-            ...Array.from({ length: 11 }, () => 0),
-            ...Array.from({ length: 4 }, () => 0.7),
-            ...Array.from({ length: 20 }, () => 0),
-        ]) {
-            coordinator.pushFrame(rareFrame(ratio));
-        }
-        await coordinator.finish();
+            for (const ratio of [
+                0,
+                ...Array.from({ length: 4 }, () => 0.7),
+                ...Array.from({ length: 11 }, () => 0),
+                ...Array.from({ length: 4 }, () => 0.7),
+                ...Array.from({ length: 20 }, () => 0),
+            ]) {
+                for (let repeat = 0; repeat < sampleFps / 8; repeat++) coordinator.pushFrame(rareFrame(ratio));
+            }
+            await coordinator.finish();
 
-        expect(readText).toHaveBeenCalledOnce();
-        expect(results).toEqual([
-            expect.objectContaining({ eventId: "rare-0001", status: "withheld", reason: "insufficient-observations" }),
-            expect.objectContaining({
-                eventId: "rare-0002",
-                status: "recognized",
-                itemName: "Deboreka Necklace",
-            }),
-        ]);
-    });
+            expect(readText).toHaveBeenCalledOnce();
+            expect(results).toEqual([
+                expect.objectContaining({
+                    eventId: "rare-0001",
+                    status: "withheld",
+                    reason: "insufficient-observations",
+                }),
+                expect.objectContaining({
+                    eventId: "rare-0002",
+                    status: "recognized",
+                    itemName: "Deboreka Necklace",
+                }),
+            ]);
+        },
+    );
 
-    it("delays OCR until the banner text is readable", async () => {
-        const analyzer = new RareLootFrameAnalyzer();
+    it.each([8, 16] as const)("delays OCR until the banner text is readable at %i FPS", async (sampleFps) => {
+        const analyzer = new RareLootFrameAnalyzer(undefined, sampleFps);
         const observedBounds: Array<LootOcrBounds | undefined> = [];
         const readText = vi.fn<LiveLootOcrReader>(async (frames) => {
             observedBounds.push(...frames.map(({ bounds }) => bounds));
@@ -156,6 +164,7 @@ describe("rare loot frame analysis", () => {
         });
         const results: LiveLootRecognitionResult[] = [];
         const coordinator = new LiveLootCoordinator({
+            sampleFps,
             profile: RARE_LOOT_PROFILE,
             dictionary: ["Twilight of the End - Earring"],
             analyzeFrame: (frame) => analyzer.pushFrame(frame),
@@ -167,7 +176,7 @@ describe("rare loot frame analysis", () => {
         });
 
         for (const ratio of [0, ...Array.from({ length: 4 }, () => 0.7), ...Array.from({ length: 18 }, () => 0)]) {
-            coordinator.pushFrame(rareFrame(ratio));
+            for (let repeat = 0; repeat < sampleFps / 8; repeat++) coordinator.pushFrame(rareFrame(ratio));
         }
         await coordinator.finish();
 
@@ -176,7 +185,7 @@ describe("rare loot frame analysis", () => {
         expect(results).toEqual([
             expect.objectContaining({
                 eventId: "rare-0001",
-                selectedFrames: [16, 17, 18],
+                selectedFrames: sampleFps === 16 ? [33, 35, 37] : [16, 17, 18],
                 itemName: "Twilight of the End - Earring",
                 quantity: 1,
                 status: "recognized",

@@ -7,6 +7,7 @@ import {
     pixelRegionToNormalized,
 } from "./displayCapture";
 import type { LootRoiFrame } from "./liveLoot";
+import type { LootSampleFps } from "./lootCaptureTiming";
 
 const MAX_HISTORY = 12;
 const MAX_CANDIDATES = 4;
@@ -196,7 +197,10 @@ export class NormalLootLocalizer {
     private readonly candidates: Array<Candidate | null> = [];
     private incomingFrameCount = 0;
 
-    constructor(private readonly uiScalePercent: LootUiScale = 80) {}
+    constructor(
+        private readonly uiScalePercent: LootUiScale = 80,
+        private readonly sampleFps: LootSampleFps = 8,
+    ) {}
 
     get retainedFrameCount() {
         return this.history.length;
@@ -213,9 +217,9 @@ export class NormalLootLocalizer {
             this.clear();
         }
         this.history.push(frame);
-        if (this.history.length > MAX_HISTORY) this.history.shift();
+        if (this.history.length > MAX_HISTORY * (this.sampleFps / 8)) this.history.shift();
         this.incomingFrameCount += 1;
-        if (this.incomingFrameCount % 2 !== 0) return null;
+        if (this.incomingFrameCount % (2 * (this.sampleFps / 8)) !== 0) return null;
 
         this.candidates.push(locateCandidate(frame, this.uiScalePercent));
         if (this.candidates.length > MAX_CANDIDATES) this.candidates.shift();

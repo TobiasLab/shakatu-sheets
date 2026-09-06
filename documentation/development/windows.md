@@ -99,7 +99,7 @@ been cross-compiled, not executed on Windows. Error messages now name the failin
 still needs a successful monitor/window capture retry on Windows. The application does not require elevation or inject into the game.
 
 `windows/capture.rs` uses a free-threaded WGC frame pool with two frames and a single bounded notification slot. It
-requests a 125 ms minimum update interval when that interface exists; older systems use the shared 8 FPS consumer gate.
+requests a 62.5 ms minimum update interval when that interface exists; older systems use the shared 16 FPS consumer gate.
 The worker keeps the latest frame and checks the one-outstanding-batch budget before texture conversion. Actual cadence
 and hybrid-GPU cost require hardware measurement.
 
@@ -184,7 +184,7 @@ version for every hardware run. Use a release build for performance and a debug 
 | Background lifecycle | Thirty-minute BDO run with setup open/closed, History/Settings navigation, app covered/minimized, game minimized/restored, lock/unlock, and suspend/resume. No ACK stall, duplicate insertion, stale OCR, leaked session, or growing queue; errors permit explicit restart. |
 | OCR offline | Disconnect networking after installation. Marni import runs the bundled worker/WASM/model and produces its reviewed result; live normal/rare recognition uses identical pixels, dictionaries, thresholds, and quantities on Linux and Windows. |
 | Accuracy | For **1920×1080, 2560×1440, 3440×1440 × 80%, 100%**, collect labeled native normal/rare runs with positive and negative scenes, moving backgrounds, overlapping/identical drops, repeated identical banners, and placement changes. Tune only development data; freeze gates before a separate positive held-out run. All reviewed release events must match item/quantity with no misses, inventions, or duplicates. Preserve existing Linux regression results. |
-| Gameplay impact | Repeat game-only, app idle, capture setup, recognition visible/hidden/minimized comparisons. At most 5% degradation in average FPS **and** 1% lows; bounded queue/memory and native cadence near 8 FPS under changing content. Confirm ROI-only IPC/readback with preview off. |
+| Gameplay impact | Repeat game-only, app idle, capture setup, recognition visible/hidden/minimized comparisons. At most 5% degradation in average FPS **and** 1% lows; bounded queue/memory and native cadence near 16 FPS under changing content. Confirm ROI-only IPC/readback with preview off. |
 | Samples | Record a complete 30-minute paired run, explicit early stop, source resize/replacement, unwritable path, and queue-pressure stop. Manifests/PNG batch IDs match, stopping drains admitted pairs, and Windows replay agrees with Linux. No collector API in release. |
 | Data/installer | Clean standard user, Unicode/spaces in profile path, runtime present/absent, offline runtime-present install; upgrade with data, close immediately after ledger edit, forced termination/reopen, SQLite error/retry, and uninstall/reinstall data retention. Check signed public artifacts. |
 
