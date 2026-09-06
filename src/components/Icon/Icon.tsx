@@ -1,7 +1,20 @@
-type IconName = "desk" | "history" | "settings" | "plus" | "upload" | "arrow" | "trash";
+type IconName =
+    | "brand"
+    | "sidebar"
+    | "capture"
+    | "desk"
+    | "history"
+    | "settings"
+    | "plus"
+    | "upload"
+    | "arrow"
+    | "trash";
 
 const paths: Record<IconName, string> = {
-    desk: "M3 3h7v7H3z M14 3h7v7h-7z M3 14h7v7H3z M14 14h7v7h-7z",
+    brand: "M5 4h14v16H5z M8 8h8 M8 12h8 M8 16h4",
+    sidebar: "M3 4h18v16H3z M9 4v16",
+    capture: "M8 3H3v5 M16 3h5v5 M21 16v5h-5 M8 21H3v-5 M8 8h8v8H8z",
+    desk: "M4 5h16v14H4z M4 9h16 M9 9v10",
     history: "M3 11a9 9 0 1 1 2.5 7 M3 4v7h7 M12 7v5l3 2",
     settings: "M4 7h16 M4 17h16 M8 4v6 M16 14v6",
     plus: "M12 5v14 M5 12h14",

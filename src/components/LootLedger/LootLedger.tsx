@@ -1,4 +1,4 @@
-import { type KeyboardEvent, useEffect, useState } from "react";
+import { type KeyboardEvent, type ReactNode, useEffect, useState } from "react";
 import { getDropIcon } from "../../data/grindSpots";
 import type { SessionEntry } from "../../domain/session";
 import { formatSilver } from "../../format";
@@ -138,12 +138,14 @@ function LedgerEntryRow({
 }
 
 export function LootLedger({
+    tools,
     entries,
     grindSpotId,
     editingDisabled,
     onRemove,
     onUpdate,
 }: {
+    tools: ReactNode;
     entries: SessionEntry[];
     grindSpotId: string;
     editingDisabled: boolean;
@@ -162,24 +164,14 @@ export function LootLedger({
         <section className={`panel ${styles.LedgerPanel}`} aria-labelledby="ledger-heading">
             <div className="panel-heading">
                 <div>
-                    <p className="eyebrow">The session in detail</p>
                     <h2 id="ledger-heading">Loot ledger</h2>
                 </div>
-                <span>
-                    {entries.length} {entries.length === 1 ? "entry" : "entries"}
-                </span>
+                {tools}
             </div>
             {entries.length === 0 ? (
                 <div className={styles.EmptyLedger}>
-                    <span className={styles.EmptyIcon}>
-                        <Icon name="desk" size={26} />
-                    </span>
-                    <strong>Your next drop starts here</strong>
-                    <p>
-                        Choose a capture source for automatic loot, or open Add loot or expense to record items
-                        yourself.
-                    </p>
-                    <span>Loot, expenses, and corrections — one ledger.</span>
+                    <strong>No loot yet</strong>
+                    <p>Drops will appear here as you play. Set up capture or add your first item.</p>
                 </div>
             ) : (
                 <>
@@ -195,7 +187,11 @@ export function LootLedger({
                         </label>
                         <label>
                             <span className="sr-only">Filter ledger</span>
-                            <select value={filter} onChange={(event) => setFilter(event.target.value)}>
+                            <select
+                                id="ledger-filter"
+                                value={filter}
+                                onChange={(event) => setFilter(event.target.value)}
+                            >
                                 <option value="all">All entries</option>
                                 <option value="loot">Loot only</option>
                                 <option value="expense">Expenses only</option>

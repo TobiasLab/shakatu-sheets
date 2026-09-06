@@ -130,8 +130,7 @@ export function LiveLootCapture(props: LiveLootCaptureProps) {
             <video ref={video} className={styles.SourceVideo} muted playsInline />
             <div className={styles.Intro}>
                 <div>
-                    <p className="eyebrow">Live recognition</p>
-                    <h2 id="live-capture-heading">Automatic loot</h2>
+                    <h2 id="live-capture-heading">Loot capture</h2>
                     <span>
                         {recognitionStatus === "active"
                             ? "Tracking your loot while you play"
@@ -141,7 +140,7 @@ export function LiveLootCapture(props: LiveLootCaptureProps) {
                                 ? sourceSupported
                                     ? "Confirm your loot areas to begin"
                                     : "Preview only · this source has no calibrated OCR profile"
-                                : "Bring loot straight into your ledger."}
+                                : "Automatically record drops from your game."}
                     </span>
                 </div>
                 <div className={styles.Actions}>
@@ -191,8 +190,7 @@ export function LiveLootCapture(props: LiveLootCaptureProps) {
                 <p className={styles.Note}>Screen capture is available after the active session finishes loading.</p>
             ) : sessionStatus === "idle" ? (
                 <p className={styles.Note}>
-                    Optional. Choose your game screen, align the two loot areas, then confirm. You can start the timer
-                    at any point.
+                    Choose your game screen, align both loot areas, and confirm. The timer works independently.
                 </p>
             ) : sessionStatus === "paused" ? (
                 <p className={styles.Note}>

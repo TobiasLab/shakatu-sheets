@@ -34,15 +34,6 @@ export function LiveSessionView({
         market,
     } = controller;
     const spotEditable = session.status === "idle" && session.elapsedMs === 0 && session.entries.length === 0;
-    const timerStatusLabel =
-        session.status === "idle"
-            ? "Timer not started"
-            : session.status === "running"
-              ? "Timer running"
-              : session.status === "paused"
-                ? "Timer paused"
-                : "Session finished";
-
     function acceptRecognizedLoot(itemName: string, quantity: number) {
         if (!databaseLoaded) return "The local database is still loading.";
         if (session.status === "finished") return "Finished sessions cannot accept more loot.";
@@ -76,16 +67,16 @@ export function LiveSessionView({
         <>
             <header className="topbar">
                 <div>
-                    <h1>Grind desk</h1>
+                    <h1>{spotEditable ? "New session" : spot.name}</h1>
                 </div>
-                <span className={`${styles.SessionState} ${styles[session.status]}`}>{timerStatusLabel}</span>
             </header>
             <section className={styles.SetupBar} aria-label="Session setup">
                 <div className={styles.SessionMeta}>
                     <label>
-                        Grind spot
+                        <span className="sr-only">Grind spot</span>
                         <select
                             aria-describedby="spot-lock-note"
+                            title={spotEditable ? "Grind spot" : "Grind spot locked after recording time or loot"}
                             value={session.grindSpotId}
                             disabled={!databaseLoaded || !spotEditable || market.fetchingPrices}
                             onChange={(event) => changeGrindSpot(event.target.value)}
@@ -98,7 +89,7 @@ export function LiveSessionView({
                         </select>
                     </label>
                     <label>
-                        Region
+                        <span className="sr-only">Region</span>
                         <select
                             value={session.region}
                             disabled={editingDisabled || market.fetchingPrices}
@@ -109,7 +100,7 @@ export function LiveSessionView({
                         </select>
                     </label>
                 </div>
-                <p id="spot-lock-note" className={styles.SpotNote}>
+                <p id="spot-lock-note" className="sr-only">
                     {spotEditable
                         ? "Choose your spot before recording time or loot."
                         : "Grind spot locked for this session."}
@@ -191,18 +182,6 @@ export function LiveSessionView({
                 </section>
             )}
             <div className={styles.DeskBody}>
-                <div className={styles.ContentGrid}>
-                    <SessionTools controller={controller} visible={visible} />
-                    <LootLedger
-                        entries={session.entries}
-                        grindSpotId={session.grindSpotId}
-                        editingDisabled={editingDisabled}
-                        onRemove={(id) => dispatch({ type: "remove-entry", id })}
-                        onUpdate={(id, quantity, unitPrice) =>
-                            dispatch({ type: "update-entry", id, quantity, unitPrice })
-                        }
-                    />
-                </div>
                 <LiveLootCapture
                     visible={visible}
                     setupRequest={captureSetupRequest}
@@ -215,6 +194,18 @@ export function LiveSessionView({
                     itemDictionary={drops.map((drop) => drop.name)}
                     onAcceptRecognition={acceptRecognizedLoot}
                 />
+                <div className={styles.ContentGrid}>
+                    <LootLedger
+                        tools={<SessionTools controller={controller} visible={visible} />}
+                        entries={session.entries}
+                        grindSpotId={session.grindSpotId}
+                        editingDisabled={editingDisabled}
+                        onRemove={(id) => dispatch({ type: "remove-entry", id })}
+                        onUpdate={(id, quantity, unitPrice) =>
+                            dispatch({ type: "update-entry", id, quantity, unitPrice })
+                        }
+                    />
+                </div>
             </div>
         </>
     );

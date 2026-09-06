@@ -17,7 +17,7 @@
     display: block;
     padding: 13px 14px;
     border-bottom: 1px solid var(--line);
-    background: var(--surface-raised);
+    background: transparent;
     color: var(--muted);
     font-size: 12px;
     letter-spacing: normal;
@@ -58,7 +58,6 @@
 
 .ItemList > button.Selected {
     background: var(--quick-item-selected);
-    box-shadow: inset 3px 0 var(--mint);
 }
 
 .ItemList > button:disabled {
@@ -108,15 +107,15 @@
 .ItemCopy small {
     margin-top: 4px;
     color: var(--muted);
-    font-family: "IBM Plex Mono", monospace;
+    font-family: inherit;
     font-size: 10px;
-    letter-spacing: 0.08em;
+    letter-spacing: normal;
     text-transform: none;
 }
 
 .SelectItem {
     color: var(--muted);
-    font-family: "IBM Plex Mono", monospace;
+    font-family: inherit;
     font-size: 10px;
     text-align: right;
     text-transform: none;
@@ -152,7 +151,7 @@
     align-content: start;
     gap: 14px;
     padding: 17px;
-    background: var(--surface-raised);
+    background: transparent;
 }
 
 .SelectedDrop {
@@ -160,9 +159,9 @@
     gap: 12px;
     align-items: center;
     min-width: 0;
-    padding: 11px;
-    border: 1px solid var(--line-strong);
-    background: var(--market-gradient);
+    padding: 0 0 14px;
+    border-bottom: 1px solid var(--line);
+    background: transparent;
 }
 
 .SelectedDrop > div {
@@ -196,7 +195,7 @@
     display: block;
     margin-top: 6px;
     padding: 10px;
-    font-family: "IBM Plex Mono", monospace;
+    font-family: inherit;
     font-size: 13px;
 }
 
@@ -235,7 +234,7 @@
     border: 1px solid var(--line);
     background: var(--quick-item-background);
     color: var(--muted);
-    font-family: "IBM Plex Mono", monospace;
+    font-family: inherit;
     font-size: 10px;
     cursor: pointer;
 }
@@ -331,4 +330,13 @@
     .ItemList {
         max-height: 200px;
     }
+}
+
+.EntryPanel > :global(.panel-heading) {
+    padding: 14px 22px;
+    border-bottom: 1px solid var(--line);
+}
+.ItemCopy strong {
+    font-weight: 500;
+    font-size: 12px;
 }
