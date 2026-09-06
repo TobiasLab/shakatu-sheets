@@ -75,8 +75,14 @@ function rareSearch(sourceWidth: number, scale: LootUiScale, x: number, y: numbe
     return frame;
 }
 
-for (const scale of [80, 100] as const) {
-    describe(`${scale}% native UI geometry`, () => {
+for (const [scale, sampleFps] of [
+    [80, 8],
+    [80, 16],
+    [100, 8],
+    [100, 16],
+] as const) {
+    const frameStep = sampleFps / 8;
+    describe(`${scale}% native UI geometry at ${sampleFps} FPS`, () => {
         it.each([2560, 3440])("detects all five rows and recognizes a new drop at %ix1440", async (width) => {
             const artifact = findLiveLootProfile(width, 1440, scale);
             if (!artifact) throw new Error("Missing profile");
@@ -85,6 +91,7 @@ for (const scale of [80, 100] as const) {
             const results: LiveLootRecognitionResult[] = [];
             const ocrFrames: LiveLootOcrFrame[] = [];
             const coordinator = new LiveLootCoordinator({
+                sampleFps,
                 profile: artifact.profile,
                 dictionary: ["Branch of Abundance"],
                 readText: async (frames) => {
@@ -94,7 +101,7 @@ for (const scale of [80, 100] as const) {
                 onResult: (result) => results.push(result),
             });
             coordinator.pushFrame(normalFrame(scale, 0));
-            for (let i = 0; i < 8; i++) coordinator.pushFrame(normalFrame(scale, 1));
+            for (let i = 0; i < 8 * frameStep; i++) coordinator.pushFrame(normalFrame(scale, 1));
             await coordinator.finish();
             expect(results).toHaveLength(1);
             expect(results[0]).toMatchObject({ status: "recognized", itemName: "Branch of Abundance", quantity: 10 });
@@ -108,26 +115,25 @@ for (const scale of [80, 100] as const) {
         });
 
         it.each([2560, 3440])("automatically places normal and rare regions in %ix1440 source pixels", (width) => {
-            const normal = new NormalLootLocalizer(scale);
+            const normal = new NormalLootLocalizer(scale, sampleFps);
             let located = null;
             const input = normalSearch(width, scale);
-            for (let i = 0; i < 8 && !located; i++) located = normal.pushFrame(input);
+            for (let i = 0; i < 8 * frameStep && !located; i++) located = normal.pushFrame(input);
             if (!located) throw new Error("Normal stack did not localize");
             const pixels = normalizedRegionToPixels(located.region, width, 1440);
             expect(Math.abs(pixels.x - (input.cropX + 220))).toBeLessThanOrEqual(1);
             expect(Math.abs(pixels.y - (input.cropY + 100))).toBeLessThanOrEqual(1);
             expect([pixels.width, pixels.height]).toEqual(scale === 80 ? [362, 311] : [453, 389]);
-            expect(located.replayFrames).toHaveLength(6);
+            expect(located.replayFrames).toHaveLength(6 * frameStep);
             expect(located.replayFrames.every((f) => f.width === pixels.width && f.height === pixels.height)).toBe(
                 true,
             );
             expect(() => searchRegionAroundLootRegion(located.region, width, 1440, "normal", scale)).not.toThrow();
 
             for (const [x, y] of [[0, 0], scale === 80 ? [400, 500] : [300, 475]]) {
-                const rare = new RareLootLocalizer(scale);
+                const rare = new RareLootLocalizer(scale, sampleFps);
                 const banner = rareSearch(width, scale, x, y);
-                expect(rare.pushFrame(banner)).toBeNull();
-                expect(rare.pushFrame(banner)).toBeNull();
+                for (let i = 0; i < 2 * frameStep; i++) expect(rare.pushFrame(banner)).toBeNull();
                 const found = rare.pushFrame(banner);
                 if (!found) throw new Error("Rare banner did not localize");
                 expect(normalizedRegionToPixels(found.region, width, 1440)).toEqual({
@@ -143,22 +149,22 @@ for (const scale of [80, 100] as const) {
         it("requires rare entrance confirmation and rejects blank search frames", () => {
             const geometry = findRareLootGeometry(3440, 1440, scale);
             if (!geometry) throw new Error("Missing rare geometry");
-            const analyzer = new RareLootFrameAnalyzer(geometry);
+            const analyzer = new RareLootFrameAnalyzer(geometry, sampleFps);
             const crop = blank(geometry.width, geometry.height);
             expect(analyzer.pushFrame(crop).count).toBe(0);
             const search = rareSearch(3440, scale, 0, 0);
             for (let y = 0; y < crop.height; y++) {
                 crop.pixels.set(search.pixels.subarray(y * 800 * 4, (y * 800 + crop.width) * 4), y * crop.width * 4);
             }
-            for (let i = 0; i < 3; i++) expect(analyzer.pushFrame(crop).count).toBe(0);
+            for (let i = 0; i < 4 * frameStep - 1; i++) expect(analyzer.pushFrame(crop).count).toBe(0);
             expect(analyzer.pushFrame(crop).count).toBe(1);
-            const normal = new NormalLootLocalizer(scale);
-            const rare = new RareLootLocalizer(scale);
-            for (let i = 0; i < 20; i++) {
+            const normal = new NormalLootLocalizer(scale, sampleFps);
+            const rare = new RareLootLocalizer(scale, sampleFps);
+            for (let i = 0; i < 20 * frameStep; i++) {
                 expect(normal.pushFrame(searchFrame(3440))).toBeNull();
                 expect(rare.pushFrame(searchFrame(3440))).toBeNull();
             }
-            expect(normal.retainedFrameCount).toBe(12);
+            expect(normal.retainedFrameCount).toBe(12 * frameStep);
         });
     });
 }

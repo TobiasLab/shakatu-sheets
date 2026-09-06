@@ -68,8 +68,8 @@ time from timestamps. It never dispatches a session mutation. Session persistenc
 the save queue, and retries its latest failed snapshot before destroying the window. A persistent failure keeps the app
 open with an actionable error.
 
-PipeWire is requested at a maximum of 16 FPS, at native source dimensions. Known bounded producer rates bypass downstream sampling so arrival jitter cannot drop valid frames. For producers
-without a usable rate limit, a deadline-based consumer gate tolerates 3 ms of jitter and limits processing to 16 FPS. Crops validate contiguous rows before
+PipeWire is requested at a maximum of 16 FPS, at native source dimensions. A deadline-based consumer gate also bounds
+processing to 16 FPS while tolerating 3 ms of arrival jitter. Crops validate contiguous rows before
 conversion, retain source stride handling and exact channel/alpha conversion, and preserve the version 3 binary header.
 Normal/rare geometry is selected together by explicit resolution/UI-scale registry entries. The 3440×1440 and
 2560×1440 entries share the same native ROI geometry at 80% UI scale. Manual placement is the default. The selected normal or rare

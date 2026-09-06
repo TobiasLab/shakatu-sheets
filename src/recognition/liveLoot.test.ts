@@ -1478,3 +1478,19 @@ it.each([2, 3, 4])("retains an identical row through short 16 FPS gaps (%i empty
     }
     expect(tracker.finish().filter(({ baseline }) => !baseline)).toHaveLength(emptyCount < 4 ? 0 : 1);
 });
+
+it("rejects gradual changes between the spaced OCR frames at 16 FPS", () => {
+    const track = {
+        id: "drifting",
+        firstFrame: 0,
+        baseline: false,
+        observations: [1, 1.06, 1.12, 1.18, 1.24].map((fingerprint, frame) => ({
+            frame,
+            slot: 0,
+            centerY: 70,
+            score: 300,
+            fingerprint,
+        })),
+    };
+    expect(selectLootOcrObservations(track, 100, { delayFrames: 0, frameStep: 2 }, distance)).toEqual([]);
+});

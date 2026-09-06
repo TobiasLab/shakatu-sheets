@@ -147,7 +147,7 @@ per recognition pipeline. PNG disk work and ROI transport can approximately doub
 
 Normal tracking sees every sample and retains one-sample birth lookahead. The normal entrance delay remains 125 ms.
 OCR examines a consecutive stable run, then spaces candidate reads 125 ms apart: three primary reads and at most two extra
-reads from the same 625 ms observation span. Intermediate samples must also pass the score and identity checks. The rolling
+reads from the same 625 ms observation span. Intermediate samples must also pass the score and identity checks, and fingerprints 125 ms apart must remain consistent. The rolling
 normal ROI buffer is capped at 12 frames; the rare buffer at eight. Short empty gaps clear tracked rows after four samples
 instead of two, preserving the 250 ms threshold. Rare shell confirmation, active lifetime, reappearance gaps, replacement
 separation, and the 1.5-second OCR entrance delay are scaled to preserve their prior durations.
@@ -164,6 +164,11 @@ The measured totals and 71 reviewed arrivals above are from the real 8 FPS corpu
 New synthetic regressions cover OCR spacing/read limits, short empty gaps, rare replacement isolation and delayed OCR,
 localization cadence, and replay acceptance at both rates. Native Windows gameplay and a real 16 FPS grind still need testing.
 
-Local checks for the 16 FPS trial passed: 307 frontend tests, 81 Rust tests (one ignored), production frontend build,
+Local checks for the 16 FPS trial and PR review passed: 318 frontend tests, 81 Rust tests (one ignored), production frontend build,
 Biome, Rust formatting, strict native Clippy, and strict Windows MSVC cross-target Clippy. Cross-target checks do not
 validate Windows capture during gameplay.
+
+PR review added a regression for gradual fingerprint drift at 16 FPS: adjacent samples could each differ by less than
+the stability threshold while the spaced OCR samples exceeded it. Selection now checks both intervals. Scale integration
+tests exercise recognition, automatic placement, rare entrance confirmation, and history bounds at 8/16 FPS, both UI scales,
+and both 1440p widths. These use synthetic pixels and stub OCR readings; they do not establish real-game accuracy.

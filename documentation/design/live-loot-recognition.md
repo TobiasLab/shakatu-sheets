@@ -90,11 +90,11 @@ offscreen canvases while visible canvases remain frozen. Native capture forces o
 sources do not repeatedly send previews. Selection, preview, and stop commands carry a capture
 token so delayed commands from a previous request cannot modify or terminate a newer capture.
 
-Linux applies the local eight-FPS sampling deadline even when PipeWire advertises a bounded producer rate. This prevents
+Linux applies the local 16 FPS sampling deadline even when PipeWire advertises a bounded producer rate. This prevents
 an unexpectedly fast producer from bypassing the capture/recognition work limit; the existing jitter allowance remains.
 
 Debug Linux and Windows builds expose a separate `Save ROI samples for 30 minutes` action after both capture areas are confirmed. It
-writes synchronized normal and rare PNG crops at the existing 8 FPS sampling cadence under the repository's ignored
+writes synchronized normal and rare PNG crops at the 16 FPS sampling cadence under the repository's ignored
 `dev-samples/live-loot/` directory. A bounded background encoder drops and reports pairs when storage cannot keep pace,
 rather than delaying capture or recognition. The backend enforces the 30-minute deadline and finalizes the run when
 capture ends, the source or selection changes, or the user stops collection early. Each run includes source, UI-scale,
@@ -251,8 +251,9 @@ Discriminative, confirmed stack shifts also survive that loss. A stationary stac
 confirmed birth does not create another event; count growth and distinct consecutive replacements remain countable.
 Baseline suppression and distinct event IDs for repeated identical drops remain in place.
 
-OCR starts with three consecutive observations whose neighboring fingerprints are visually consistent after the entrance
-delay. Normal tracking retains a bounded window spanning six observations at 8 FPS or eleven at 16 FPS and may select two clearer supplementary frames. It reads
+OCR starts with three observations spaced 125 ms apart after the entrance delay. Both adjacent captured frames and
+frames 125 ms apart must have consistent fingerprints. Normal tracking retains a bounded window spanning six observations
+at 8 FPS or eleven at 16 FPS and may select two clearer supplementary frames. It reads
 the original three first and uses supplementary frames only for unresolved results, preserving all original readings and
 requiring a strict majority across the combined frame set. A confident conflicting item/quantity pair in any frame vetoes
 acceptance. A later different run cannot replace the first usable three observations. Short tracks are flushed before
