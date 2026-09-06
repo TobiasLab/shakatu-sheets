@@ -1,4 +1,5 @@
 import { type ReactNode, useState } from "react";
+import type { SessionStatus } from "../../domain/session";
 import type { DatabaseStatus } from "../../hooks/usePersistedSession";
 import { Icon } from "../Icon/Icon";
 import styles from "./AppShell.module.css";
@@ -19,7 +20,7 @@ export function AppShell({
     view: AppView;
     onViewChange: (view: AppView) => void;
     onOpenCapture: () => void;
-    sessionStatus: string;
+    sessionStatus: SessionStatus;
     spotName: string;
     captureStatus: string;
     databaseStatus: DatabaseStatus;

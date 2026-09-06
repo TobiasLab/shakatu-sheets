@@ -15,10 +15,10 @@ export function useLiveSession(session: SessionState, dispatch: Dispatch<Session
     const market = useMarketPrices(databaseLoaded, session.region, session.grindSpotId);
 
     useEffect(() => {
-        if (market.marketPrices === null || selectedDrop.marketItemId === undefined) return;
+        if (valuation === "expense" || market.marketPrices === null || selectedDrop.marketItemId === undefined) return;
         const snapshot = market.marketPrices.find((price) => price.itemId === selectedDrop.marketItemId);
         setUnitPrice(snapshot ? String(snapshot.basePrice) : "");
-    }, [market.marketPrices, selectedDrop]);
+    }, [market.marketPrices, selectedDrop, valuation]);
 
     useEffect(() => {
         setSelectedDrop(spot.trash);
@@ -26,7 +26,7 @@ export function useLiveSession(session: SessionState, dispatch: Dispatch<Session
         setUnitPrice(spot.trash.unitPrice === null ? "" : String(spot.trash.unitPrice));
         setCustomName("");
         setValuation(spot.trash.valuation);
-    }, [session.grindSpotId, spot.trash]);
+    }, [session.id, session.grindSpotId, spot.trash]);
 
     const editingDisabled = !databaseLoaded || session.status === "finished";
 
@@ -43,7 +43,7 @@ export function useLiveSession(session: SessionState, dispatch: Dispatch<Session
 
     function changeRegion(region: SessionState["region"]) {
         market.clearMarketPrices();
-        if (selectedDrop.marketItemId !== undefined) setUnitPrice("");
+        if (valuation !== "expense" && selectedDrop.marketItemId !== undefined) setUnitPrice("");
         dispatch({ type: "set-region", region });
     }
 
@@ -64,8 +64,7 @@ export function useLiveSession(session: SessionState, dispatch: Dispatch<Session
             !Number.isSafeInteger(parsedQuantity) ||
             parsedQuantity <= 0 ||
             parsedPrice < 0 ||
-            !Number.isSafeInteger(parsedPrice) ||
-            !Number.isFinite(parsedQuantity)
+            !Number.isSafeInteger(parsedPrice)
         )
             return "Enter a name, a positive whole quantity, and a whole silver price of 0 or more.";
         const combinedQuantity = session.entries.reduce(

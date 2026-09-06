@@ -76,10 +76,10 @@ function LedgerEntryRow({
                         <strong>{entry.name}</strong>
                         <span>
                             {entry.valuation === "market"
-                                ? "Market · 84.5% kept"
+                                ? `Market · ${Math.round(entry.saleMultiplier * 1000) / 10}% kept`
                                 : entry.valuation === "expense"
                                   ? "Expense"
-                                  : "Vendor · 100% kept"}
+                                  : `Vendor · ${Math.round(entry.saleMultiplier * 1000) / 10}% kept`}
                             {entry.source === "recognition" ? " · Auto" : ""}
                         </span>
                         {error && (
@@ -154,9 +154,10 @@ export function LootLedger({
 }) {
     const [query, setQuery] = useState("");
     const [filter, setFilter] = useState("all");
+    const normalizedQuery = query.trim().toLocaleLowerCase();
     const visibleEntries = entries.filter(
         (entry) =>
-            entry.name.toLocaleLowerCase().includes(query.trim().toLocaleLowerCase()) &&
+            entry.name.toLocaleLowerCase().includes(normalizedQuery) &&
             (filter === "all" ||
                 (filter === "expense" ? entry.valuation === "expense" : entry.valuation !== "expense")),
     );
@@ -231,19 +232,16 @@ export function LootLedger({
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    {visibleEntries
-                                        .slice()
-                                        .reverse()
-                                        .map((entry) => (
-                                            <LedgerEntryRow
-                                                key={entry.id}
-                                                entry={entry}
-                                                grindSpotId={grindSpotId}
-                                                editingDisabled={editingDisabled}
-                                                onRemove={onRemove}
-                                                onUpdate={onUpdate}
-                                            />
-                                        ))}
+                                    {visibleEntries.reverse().map((entry) => (
+                                        <LedgerEntryRow
+                                            key={entry.id}
+                                            entry={entry}
+                                            grindSpotId={grindSpotId}
+                                            editingDisabled={editingDisabled}
+                                            onRemove={onRemove}
+                                            onUpdate={onUpdate}
+                                        />
+                                    ))}
                                 </tbody>
                             </table>
                         </section>

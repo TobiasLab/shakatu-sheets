@@ -196,6 +196,7 @@ export function LiveSessionView({
                 />
                 <div className={styles.ContentGrid}>
                     <LootLedger
+                        key={session.id}
                         tools={<SessionTools controller={controller} visible={visible} />}
                         entries={session.entries}
                         grindSpotId={session.grindSpotId}
