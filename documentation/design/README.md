@@ -1,6 +1,6 @@
 # Design
 
-The application uses a normal desktop window rather than an in-game overlay. The grind desk puts session time and earnings first. Charcoal and gold is the default for new installations; saved
+The application uses a normal desktop window rather than an in-game overlay. The grind desk puts session time and earnings first. Neutral dark is the default for new installations; saved
 light, moss, and dark preferences are retained. The current flow is:
 
 1. Select a grind spot and region.
@@ -39,18 +39,24 @@ The local video sampling and annotation contract is described in the
 
 ## Workspace design
 
-The app uses a horizontal navigation bar with labeled Grind desk, History, and Settings destinations. Session and capture
-status remain visible in the header at compact widths. A footer reports local save state; save failures appear as a full-width
-alert. A skip link and visible keyboard focus are available throughout. Charcoal and gold uses slate surfaces with warm
-accents; moss and light remain supported, with saved theme choices preserved. All visuals use CSS, bundled item icons, and
-small inline SVGs; no remote fonts, animation library, or new dependency is required.
+The interface follows a restrained desktop workspace direction inspired by the Codex app: neutral dark/light surfaces,
+system typography, plain section dividers, small monochrome icons, and color reserved for meaningful states. A left sidebar
+provides Grind desk, History, Capture setup, and Settings, plus the current session and save state. It can collapse on desktop
+and becomes a labeled-for-assistive-technology icon rail below 1000px. A thin workspace bar keeps session status visible at
+compact sizes; persistence failures appear in a full-width alert. The sidebar collapse preference is transient UI state.
+
+Main screens use flat content rather than metric cards or decorative panels. Dark, light, and moss themes retain their saved
+identifiers. Theme previews reflect the sidebar/workspace contrast. Styling uses CSS, bundled item icons, and small SVGs;
+there are no remote fonts, automatic network requests, new dependencies, or decorative animations.
 
 The desk groups spot, region, and an explicit market-price disclosure above a single earnings/timer overview. The spot
 selector explains its lock after time or entries are recorded. Net silver/hour shows a dash until elapsed time is available.
 Manual time remains under Enter hours, while gross, expenses, and deductions are under Value breakdown. Neither timer ticks
 nor local filters mutate session snapshots.
 
-The editable ledger occupies the main column, alongside automatic capture. Quantity and unit price are aligned in a table;
+Capture and the ledger share the full workspace width. The capture strip expands inline for placement; source controls and
+platform guidance remain available during a session. Entry and screenshot actions sit beside the ledger heading so they do
+not cover table rows. The editable ledger follows below. Quantity and unit price are aligned in a table;
 Enter saves, Escape restores the saved values, and invalid edits restore values with an explanation. A blank price is invalid,
 while an explicit zero remains valid. Search and loot/expense filters only change the visible rows. Narrow windows scroll the
 table within its labeled, keyboard-scrollable region rather than widening the whole app.
@@ -72,5 +78,5 @@ Advanced diagnostics, diagnostic JSONL, and optional paired ROI collection retai
 History shows totals for the current filter over the latest 20 finished sessions, including aggregate net, elapsed time, and
 net per hour weighted by elapsed time. Session selection shows its time, earnings, and recorded entries before Garmoth upload
 controls. Explicit reopen and confirmed deletion remain available. The finished desk offers a direct View history action.
-Settings provides section links, visual radio choices for themes, capture guidance, and sequential Garmoth connection/character
-setup. Disabled character controls explain that the API connection comes first. Network requests remain explicit.
+Settings uses divided label/form rows with section links, visual radio choices for themes, capture guidance, and sequential
+Garmoth connection/character setup. Disabled character controls explain that the API connection comes first. Network requests remain explicit.

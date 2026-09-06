@@ -123,7 +123,7 @@
 .Ready,
 .Check {
     align-self: center;
-    font-family: "IBM Plex Mono", monospace;
+    font-family: inherit;
     font-size: 11px;
     text-transform: none;
 }

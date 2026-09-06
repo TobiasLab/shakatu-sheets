@@ -215,11 +215,8 @@ export function HistoryView({
         <>
             <header className="topbar">
                 <div>
-                    <p className="eyebrow">Your record</p>
                     <h1>Session history</h1>
-                    <p className="page-description">
-                        Review your latest 20 completed sessions, compare earnings, and pick up where you left off.
-                    </p>
+                    <p className="page-description">Your latest 20 completed sessions.</p>
                 </div>
                 <div className={styles.HistoryActions}>
                     <label>
@@ -318,7 +315,6 @@ export function HistoryView({
                     <section className="panel">
                         <div className="panel-heading">
                             <div>
-                                <p className="eyebrow">Browse sessions</p>
                                 <h2>
                                     {filteredRecords.length} session{filteredRecords.length === 1 ? "" : "s"}
                                 </h2>

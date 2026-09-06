@@ -23,6 +23,11 @@ export function App() {
         persistedSession.databaseLoaded,
     );
 
+    function openCaptureSetup() {
+        setView("live");
+        setCaptureSetupRequest((request) => request + 1);
+    }
+
     async function reopenFinishedSession(id: string) {
         const session = await reopenSession(id);
         persistedSession.dispatch({ type: "hydrate", session });
@@ -38,6 +43,8 @@ export function App() {
                 databaseError={persistedSession.databaseError}
                 sessionStatus={persistedSession.session.status}
                 captureStatus={captureStatus}
+                spotName={liveSession.spot.name}
+                onOpenCapture={openCaptureSetup}
             >
                 <div hidden={view !== "live"}>
                     <LiveSessionView
@@ -56,14 +63,7 @@ export function App() {
                         onOpenSettings={() => setView("settings")}
                     />
                 ) : view === "settings" ? (
-                    <SettingsView
-                        theme={theme}
-                        onThemeChange={setTheme}
-                        onOpenCapture={() => {
-                            setView("live");
-                            setCaptureSetupRequest((request) => request + 1);
-                        }}
-                    />
+                    <SettingsView theme={theme} onThemeChange={setTheme} onOpenCapture={openCaptureSetup} />
                 ) : null}
             </AppShell>
         </div>

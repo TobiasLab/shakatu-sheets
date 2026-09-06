@@ -53,7 +53,7 @@ async function until(expression) {
 async function click(text) {
     const point = await evaluate(
         `(() => {
-            const button = [...document.querySelectorAll('button,summary')].find(b => b.textContent.trim().replace(/\\s+/g, ' ') === ${JSON.stringify(text)} && b.getClientRects().length);
+            const button = [...document.querySelectorAll('button,summary')].find(b => (b.textContent.trim().replace(/\\s+/g, ' ') === ${JSON.stringify(text)} || b.getAttribute('aria-label') === ${JSON.stringify(text)}) && b.getClientRects().length);
             if (!button || button.disabled) return null;
             button.scrollIntoView({block:'center'});
             const rect = button.getBoundingClientRect();
@@ -154,6 +154,19 @@ try {
         await writeFile(`${output}/${name}.png`, Buffer.from(data, "base64"));
     }
     await screenshot("desk-idle");
+    if (process.env.UI_SCREENSHOT_ONLY !== "1") {
+        await click("Collapse sidebar");
+        assert(
+            await evaluate("document.querySelector('aside').getBoundingClientRect().width <= 70"),
+            "Collapsing navigation must recover workspace width",
+        );
+        await screenshot("sidebar-collapsed");
+        await click("Expand sidebar");
+        assert(
+            await evaluate("document.querySelector('aside').getBoundingClientRect().width > 200"),
+            "Expanding navigation must restore labels",
+        );
+    }
     if (process.env.UI_SCREENSHOT_ONLY === "1") {
         console.log(`Screenshot saved: ${output}/desk-idle.png`);
     } else {
@@ -335,6 +348,13 @@ try {
         await setField("main > header select", "all");
         await click("Settings");
         await screenshot("settings");
+        await click("Capture setup");
+        await until("document.activeElement.textContent.includes('Close setup')");
+        assert.equal(
+            await evaluate("window.__calls.filter(c => c.command === 'start_native_display_capture').length"),
+            1,
+            "Capture navigation must reuse the active source",
+        );
         await click("Grind desk");
         await until(
             "window.__calls.filter(c => c.command === 'set_native_display_capture_preview_enabled').at(-1)?.args.enabled === true",
@@ -459,14 +479,14 @@ try {
         await setField('input[placeholder="Search recorded items…"]', "missing");
         await until("document.body.textContent.includes('No matching entries')");
         await click("Clear filters");
-        await setField('[aria-labelledby="ledger-heading"] select', "expense");
+        await setField("#ledger-filter", "expense");
         assert.equal(await evaluate('document.querySelector("tbody").rows.length'), 1);
         assert.equal(
             await evaluate("JSON.stringify(window.__session.entries)"),
             entriesBeforeFilter,
             "Filtering must not mutate accounting",
         );
-        await setField('[aria-labelledby="ledger-heading"] select', "all");
+        await setField("#ledger-filter", "all");
         await click("Enter hours");
         await setField('input[name="completedHours"]', "1.5");
         await click("Save hours");

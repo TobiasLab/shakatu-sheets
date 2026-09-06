@@ -89,7 +89,6 @@ export function SettingsView({
         <>
             <header className="topbar">
                 <div>
-                    <p className="eyebrow">Your workspace</p>
                     <h1>Settings</h1>
                     <p className="page-description">Appearance, capture, and the services you connect.</p>
                 </div>
@@ -104,7 +103,6 @@ export function SettingsView({
                 <section id="appearance" className="panel">
                     <div className="panel-heading">
                         <div>
-                            <p className="eyebrow">Make yourself at home</p>
                             <h2>Appearance</h2>
                         </div>
                     </div>
@@ -113,12 +111,12 @@ export function SettingsView({
                             <legend>Theme</legend>
                             {(
                                 [
-                                    { id: "dark", label: "Charcoal & gold" },
-                                    { id: "moss", label: "Moss green" },
+                                    { id: "dark", label: "Dark" },
+                                    { id: "moss", label: "Moss" },
                                     { id: "light", label: "Light" },
                                 ] as const
                             ).map(({ id, label }) => (
-                                <label key={id} className={`${styles.ThemeOption} ${styles[id]}`}>
+                                <label key={id} className={`${styles.ThemeOption} ${styles[id] ?? ""}`}>
                                     <input
                                         type="radio"
                                         name="theme"
@@ -144,7 +142,6 @@ export function SettingsView({
                 <section id="capture-preferences" className="panel">
                     <div className="panel-heading">
                         <div>
-                            <p className="eyebrow">While you play</p>
                             <h2>Capture</h2>
                         </div>
                     </div>
@@ -160,15 +157,14 @@ export function SettingsView({
                 </section>
             </div>
             <h2 id="integrations" className={styles.SectionTitle}>
-                Garmoth integration <span>Optional</span>
+                Integrations <span>Optional</span>
             </h2>
             <p className={styles.SectionNote}>Connect your account to publish finished sessions when you choose.</p>
             <div className={styles.SettingsGrid}>
                 <section className="panel">
                     <div className="panel-heading">
                         <div>
-                            <p className="eyebrow">Step 01 · Connect</p>
-                            <h2>API connection</h2>
+                            <h2>Garmoth</h2>
                         </div>
                         <span>
                             {settings?.apiKeyConfigured
@@ -205,7 +201,6 @@ export function SettingsView({
                 <section className="panel">
                     <div className="panel-heading">
                         <div>
-                            <p className="eyebrow">Step 02 · Choose a build</p>
                             <h2>Character build</h2>
                         </div>
                     </div>

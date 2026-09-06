@@ -9,7 +9,7 @@ export function SessionMetrics({ controller, visible }: { controller: LiveSessio
     const totals = calculateTotals(controller.session.entries, elapsedMs);
     return (
         <section className={styles.MetricsGrid} aria-label="Session summary" aria-busy={!controller.databaseLoaded}>
-            <article className={`${styles.Metric} ${styles.Primary}`}>
+            <article className={styles.Metric}>
                 <span>Net silver / hour</span>
                 <strong>
                     {controller.databaseLoaded && elapsedMs > 0 ? formatSilver(totals.netPerHour, true) : "—"}
@@ -19,26 +19,25 @@ export function SessionMetrics({ controller, visible }: { controller: LiveSessio
             <article className={styles.Metric}>
                 <span>Session net</span>
                 <strong>{controller.databaseLoaded ? formatSilver(totals.net, true) : "—"}</strong>
-                <small>{formatSilver(totals.net)} silver</small>
+                <details className={styles.Breakdown}>
+                    <summary>Value breakdown</summary>
+                    <dl>
+                        <div>
+                            <dt>Gross value</dt>
+                            <dd>{formatSilver(totals.gross, true)}</dd>
+                        </div>
+                        <div>
+                            <dt>Expenses</dt>
+                            <dd>{formatSilver(totals.expenses, true)}</dd>
+                        </div>
+                        <div>
+                            <dt>Tax & deductions</dt>
+                            <dd>{formatSilver(totals.gross - totals.expenses - totals.net, true)}</dd>
+                        </div>
+                    </dl>
+                </details>
             </article>
             <SessionClock controller={controller} elapsedMs={elapsedMs} />
-            <details className={styles.Breakdown}>
-                <summary>Value breakdown</summary>
-                <dl>
-                    <div>
-                        <dt>Gross value</dt>
-                        <dd>{formatSilver(totals.gross, true)}</dd>
-                    </div>
-                    <div>
-                        <dt>Expenses</dt>
-                        <dd>{formatSilver(totals.expenses, true)}</dd>
-                    </div>
-                    <div>
-                        <dt>Tax & deductions</dt>
-                        <dd>{formatSilver(totals.gross - totals.expenses - totals.net, true)}</dd>
-                    </div>
-                </dl>
-            </details>
         </section>
     );
 }
@@ -52,41 +51,6 @@ function SessionClock({ controller, elapsedMs }: { controller: LiveSessionContro
                 <span>Session time</span>
                 <time>{databaseLoaded ? formatDuration(elapsedMs) : "—"}</time>
             </div>
-            {timeEditable && (
-                <details className={styles.ManualTime}>
-                    <summary>Enter hours</summary>
-                    <form
-                        className={styles.CompletedHours}
-                        onSubmit={(event) => {
-                            setCompletedHours(event);
-                            const disclosure = event.currentTarget.closest("details");
-                            if (disclosure) {
-                                disclosure.open = false;
-                                disclosure.querySelector("summary")?.focus();
-                            }
-                        }}
-                    >
-                        <label>
-                            <span>Completed hours</span>
-                            <input
-                                key={session.elapsedMs}
-                                name="completedHours"
-                                max={Math.floor(Number.MAX_SAFE_INTEGER / 36_000) / 100}
-                                type="number"
-                                min="0"
-                                step="0.01"
-                                inputMode="decimal"
-                                required
-                                disabled={!databaseLoaded}
-                                defaultValue={(session.elapsedMs / 3_600_000).toFixed(2)}
-                            />
-                        </label>
-                        <button className="button" type="submit" disabled={!databaseLoaded}>
-                            Save hours
-                        </button>
-                    </form>
-                </details>
-            )}
             <div className={styles.ClockActions}>
                 {session.status !== "running" && session.status !== "finished" && (
                     <button
@@ -131,6 +95,41 @@ function SessionClock({ controller, elapsedMs }: { controller: LiveSessionContro
                     </button>
                 )}
             </div>
+            {timeEditable && (
+                <details className={styles.ManualTime}>
+                    <summary>Enter hours</summary>
+                    <form
+                        className={styles.CompletedHours}
+                        onSubmit={(event) => {
+                            setCompletedHours(event);
+                            const disclosure = event.currentTarget.closest("details");
+                            if (disclosure) {
+                                disclosure.open = false;
+                                disclosure.querySelector("summary")?.focus();
+                            }
+                        }}
+                    >
+                        <label>
+                            <span>Completed hours</span>
+                            <input
+                                key={session.elapsedMs}
+                                name="completedHours"
+                                max={Math.floor(Number.MAX_SAFE_INTEGER / 36_000) / 100}
+                                type="number"
+                                min="0"
+                                step="0.01"
+                                inputMode="decimal"
+                                required
+                                disabled={!databaseLoaded}
+                                defaultValue={(session.elapsedMs / 3_600_000).toFixed(2)}
+                            />
+                        </label>
+                        <button className="button" type="submit" disabled={!databaseLoaded}>
+                            Save hours
+                        </button>
+                    </form>
+                </details>
+            )}
         </section>
     );
 }

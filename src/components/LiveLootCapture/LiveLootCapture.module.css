@@ -1,9 +1,9 @@
 .CapturePanel {
     margin-bottom: 0;
-    padding: 18px 20px;
-    border-radius: 10px;
-    border: 1px solid var(--line-strong);
-    background: var(--surface);
+    padding: 16px 0;
+    border-radius: 0;
+    border: 0;
+    background: transparent;
 }
 
 .Intro {
@@ -592,8 +592,8 @@
 
 .CapturePanel {
     min-width: 0;
-    padding: 22px;
-    border-color: var(--line);
+    padding: 0 0 20px;
+    border-bottom: 1px solid var(--line);
 }
 .Intro {
     flex-wrap: wrap;
@@ -603,7 +603,7 @@
     min-width: 0;
 }
 .Intro h2 {
-    font-size: 19px;
+    font-size: 14px;
 }
 .Intro span,
 .Note,
@@ -646,11 +646,38 @@
     padding-top: 13px;
 }
 .CapturePanel[data-setup-open="false"] .Intro {
-    display: grid;
+    display: flex;
 }
 .CapturePanel[data-setup-open="false"] .Actions {
     display: flex;
 }
 .CapturePanel[data-setup-open="false"] .ReviewFeed li {
     flex-wrap: wrap;
+}
+
+.CapturePanel[data-setup-open="false"] > .Note {
+    font-size: 11px;
+    max-width: 650px;
+}
+.CapturePanel[data-setup-open="false"] > .PrivacyNote {
+    border: 0;
+    padding-top: 0;
+    margin-top: 10px;
+    font-size: 10px;
+}
+.CapturePanel[data-setup-open="false"] > .SetupProgress {
+    display: none;
+}
+.Intro span {
+    font-size: 12px;
+}
+
+.CapturePanel :global(.primary-button) {
+    background: transparent;
+    color: var(--text);
+    border-color: var(--line-strong);
+}
+.CapturePanel :global(.primary-button):hover:not(:disabled) {
+    background: var(--surface-raised);
+    border-color: var(--button-hover-border);
 }
