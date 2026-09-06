@@ -122,16 +122,26 @@ export function LiveLootCapture(props: LiveLootCaptureProps) {
         acceptReviewResult,
     } = useLiveLootCapture(props);
     return (
-        <section className={styles.CapturePanel} aria-labelledby="live-capture-heading">
+        <section
+            className={styles.CapturePanel}
+            aria-labelledby="live-capture-heading"
+            data-setup-open={setupOpen && status === "capturing"}
+        >
             <video ref={video} className={styles.SourceVideo} muted playsInline />
             <div className={styles.Intro}>
                 <div>
-                    <p className="eyebrow">Capture assistant</p>
+                    <p className="eyebrow">Live recognition</p>
                     <h2 id="live-capture-heading">Automatic loot</h2>
                     <span>
                         {recognitionStatus === "active"
                             ? "Tracking your loot while you play"
-                            : "Choose a source to start recognizing loot"}
+                            : recognitionError
+                              ? "Recognition needs your attention"
+                              : status === "capturing"
+                                ? sourceSupported
+                                    ? "Confirm your loot areas to begin"
+                                    : "Preview only · this source has no calibrated OCR profile"
+                                : "Bring loot straight into your ledger."}
                     </span>
                 </div>
                 <div className={styles.Actions}>
@@ -168,11 +178,21 @@ export function LiveLootCapture(props: LiveLootCaptureProps) {
                 </div>
             </div>
 
+            {status === "capturing" && (
+                <section className={styles.SetupProgress} aria-label="Capture setup progress">
+                    <span>1 · Source selected</span>
+                    <span className={!regionConfirmed ? styles.CurrentStep : ""}>2 · Align areas</span>
+                    <span className={regionConfirmed ? styles.CurrentStep : ""}>
+                        3 · {regionConfirmed ? "Areas confirmed" : "Confirm & track"}
+                    </span>
+                </section>
+            )}
             {!databaseLoaded ? (
                 <p className={styles.Note}>Screen capture is available after the active session finishes loading.</p>
             ) : sessionStatus === "idle" ? (
                 <p className={styles.Note}>
-                    Set up once, then keep your attention on the game. You can also add loot manually.
+                    Optional. Choose your game screen, align the two loot areas, then confirm. You can start the timer
+                    at any point.
                 </p>
             ) : sessionStatus === "paused" ? (
                 <p className={styles.Note}>
@@ -689,7 +709,9 @@ export function LiveLootCapture(props: LiveLootCaptureProps) {
                     <div className={styles.ReviewHeader}>
                         <div>
                             <p className="eyebrow">Local OCR review</p>
-                            <h3>Needs attention</h3>
+                            <h3>
+                                Needs attention <span>({reviewResults.filter((entry) => !entry.accepted).length})</span>
+                            </h3>
                         </div>
                         <button className="button subtle" type="button" onClick={clearReviewResults}>
                             Clear
@@ -707,14 +729,18 @@ export function LiveLootCapture(props: LiveLootCaptureProps) {
                                 <li key={review.id}>
                                     <div>
                                         <span className={`${styles.ResultStatus} ${styles[review.result.status]}`}>
-                                            {review.source} {review.result.status}
+                                            {review.source === "normal" ? "Normal loot" : "Rare banner"} ·{" "}
+                                            {review.result.status === "recognized"
+                                                ? "Ready to add"
+                                                : review.result.status === "withheld"
+                                                  ? "Needs review"
+                                                  : review.result.status === "dropped"
+                                                    ? "Not processed"
+                                                    : "Could not read"}
                                         </span>
                                         <strong>{resultDescription(review.result)}</strong>
                                         {review.error && <small className={styles.ResultError}>{review.error}</small>}
                                     </div>
-                                    {review.result.status === "recognized" && review.accepted && (
-                                        <span className={styles.AutoAdded}>Added automatically</span>
-                                    )}
                                     {review.result.status === "recognized" && !review.accepted && (
                                         <button
                                             className="button"
@@ -729,9 +755,8 @@ export function LiveLootCapture(props: LiveLootCaptureProps) {
                             ))}
                     </ul>
                     <p>
-                        Recognized normal notifications and rare banners are added automatically. Insertion errors are
-                        retried three times; withheld or failed notifications can be entered through the manual loot
-                        form.
+                        These results have not been added. Use Retry add for recognized loot, or Add loot or expense to
+                        enter a correction. Clear dismisses this review list; it does not remove ledger entries.
                     </p>
                 </div>
             )}

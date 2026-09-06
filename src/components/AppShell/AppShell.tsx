@@ -1,39 +1,9 @@
 import type { ReactNode } from "react";
 import type { DatabaseStatus } from "../../hooks/usePersistedSession";
+import { Icon } from "../Icon/Icon";
 import styles from "./AppShell.module.css";
 
 export type AppView = "live" | "history" | "settings";
-
-function ViewNavigation({ view, onChange }: { view: AppView; onChange: (view: AppView) => void }) {
-    return (
-        <nav className={styles.ViewNavigation} aria-label="Application views">
-            <button
-                className={view === "live" ? styles.Active : ""}
-                type="button"
-                aria-current={view === "live" ? "page" : undefined}
-                onClick={() => onChange("live")}
-            >
-                Grind desk
-            </button>
-            <button
-                className={view === "history" ? styles.Active : ""}
-                type="button"
-                aria-current={view === "history" ? "page" : undefined}
-                onClick={() => onChange("history")}
-            >
-                History
-            </button>
-            <button
-                className={view === "settings" ? styles.Active : ""}
-                type="button"
-                aria-current={view === "settings" ? "page" : undefined}
-                onClick={() => onChange("settings")}
-            >
-                Settings
-            </button>
-        </nav>
-    );
-}
 
 export function AppShell({
     view,
@@ -54,52 +24,76 @@ export function AppShell({
 }) {
     return (
         <div className={styles.AppShell}>
-            <aside className={styles.Sidebar}>
+            <a className={styles.SkipLink} href="#workspace">
+                Skip to workspace
+            </a>
+            <header className={styles.Header}>
                 <div className={styles.Brand}>
-                    <div className={styles.BrandMark}>SS</div>
-                    <div>
-                        <strong>Shakatu</strong>
-                        <span>Sheets</span>
-                    </div>
+                    <span className={styles.BrandMark} aria-hidden="true">
+                        S
+                    </span>
+                    <span>
+                        Shakatu <strong>Sheets</strong>
+                    </span>
                 </div>
-                <ViewNavigation view={view} onChange={onViewChange} />
+                <nav className={styles.ViewNavigation} aria-label="Application views">
+                    {(
+                        [
+                            { id: "live", label: "Grind desk", icon: "desk" },
+                            { id: "history", label: "History", icon: "history" },
+                            { id: "settings", label: "Settings", icon: "settings" },
+                        ] as const
+                    ).map(({ id, label, icon }) => (
+                        <button
+                            key={id}
+                            className={view === id ? styles.Active : ""}
+                            type="button"
+                            aria-current={view === id ? "page" : undefined}
+                            onClick={() => onViewChange(id)}
+                        >
+                            <Icon name={icon} />
+                            {label}
+                        </button>
+                    ))}
+                </nav>
                 <button className={styles.SessionPresence} type="button" onClick={() => onViewChange("live")}>
-                    <span className="eyebrow">Your session</span>
-                    <strong>
+                    <i className={`${styles.StatusDot} ${sessionStatus === "running" ? styles.Running : ""}`} />
+                    <span>
                         {sessionStatus === "running"
-                            ? "On the grind"
+                            ? "Session running"
                             : sessionStatus === "paused"
-                              ? "Taking a break"
+                              ? "Session paused"
                               : sessionStatus === "finished"
                                 ? "Session complete"
-                                : "Ready when you are"}
-                    </strong>
-                    <span>{captureStatus}</span>
-                </button>
-                <div className={`${styles.DatabaseState} ${styles[databaseStatus]}`}>
-                    <span>
-                        <i className={styles.StatusDot} />
-                        {databaseStatus === "ready"
-                            ? "Saved on this device"
-                            : databaseStatus === "saving"
-                              ? "Saving…"
-                              : databaseStatus === "loading"
-                                ? "Loading session…"
-                                : "Could not save"}
+                                : "Ready to grind"}
+                        <small>{captureStatus}</small>
                     </span>
-                    {databaseError && <small role="alert">{databaseError}</small>}
+                    <Icon name="arrow" size={16} />
+                </button>
+            </header>
+            {databaseError && (
+                <div className={styles.SaveError} role="alert">
+                    <strong>Could not save your session.</strong> {databaseError}
                 </div>
-                <div className={styles.LicenseNote}>
-                    Local only <span>AGPL-3.0</span>
-                </div>
-            </aside>
-
-            <main className={styles.Workspace}>
-                <div className={styles.MobileNavigation}>
-                    <ViewNavigation view={view} onChange={onViewChange} />
-                </div>
+            )}
+            <main id="workspace" tabIndex={-1} className={styles.Workspace}>
                 {children}
             </main>
+            <footer className={styles.Footer}>
+                <span className={styles[databaseStatus]}>
+                    <i className={styles.StatusDot} />
+                    {databaseStatus === "ready"
+                        ? "Saved on this device"
+                        : databaseStatus === "saving"
+                          ? "Saving…"
+                          : databaseStatus === "loading"
+                            ? "Loading session…"
+                            : "Could not save"}
+                </span>
+                <span>
+                    Local by default <span aria-hidden="true">·</span> Shakatu Sheets
+                </span>
+            </footer>
         </div>
     );
 }

@@ -57,14 +57,16 @@ the current structure.
 
 
 The grind desk stays mounted when History or Settings is selected. Its `useLiveLootCapture` hook owns capture,
-recognition, and pending insertion retries; the component renders setup and review controls. Finishing a session or
+recognition, and pending insertion retries; the component renders setup and review controls. `SessionTools` owns native
+entry/import dialogs and keeps their contents mounted when closed. Ledger search, filters, draft edits, and submission feedback
+are transient presentation state. History aggregates only the fetched, filtered records using the existing session calculations. Finishing a session or
 explicitly stopping capture or replacing the session tears the pipeline down. Navigation and minimization do not stop recognition. Preview
 requests are serialized and follow setup visibility, page visibility, and window minimization. One metadata preview
 still announces a new capture source or changed dimensions; an unconfigured hidden stream does not send repeated
 previews or create an empty acknowledgment batch.
 
-Timer state lives only in the clock and earnings components, ticks once per second while visible, and derives elapsed
-time from timestamps. It never dispatches a session mutation. Session persistence remains ordered and transaction-backed. Window close blocks new UI input, stops capture, flushes
+The earnings/timer overview owns one clock subscription, ticks once per second while visible, and derives elapsed
+time from timestamps. Its clock receives the same elapsed value as its earnings metrics. It never dispatches a session mutation. Session persistence remains ordered and transaction-backed. Window close blocks new UI input, stops capture, flushes
 the save queue, and retries its latest failed snapshot before destroying the window. A persistent failure keeps the app
 open with an actionable error.
 

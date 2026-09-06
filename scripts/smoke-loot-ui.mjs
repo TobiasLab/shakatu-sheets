@@ -51,13 +51,33 @@ async function until(expression) {
     );
 }
 async function click(text) {
-    assert(
-        await evaluate(
-            `(() => { const button = [...document.querySelectorAll('button,summary')].find(b => b.textContent.trim() === ${JSON.stringify(text)} && b.getClientRects().length); if (!button) return false; button.click(); return true; })()`,
-        ),
-        `Missing control: ${text}`,
+    const point = await evaluate(
+        `(() => {
+            const button = [...document.querySelectorAll('button,summary')].find(b => b.textContent.trim().replace(/\\s+/g, ' ') === ${JSON.stringify(text)} && b.getClientRects().length);
+            if (!button || button.disabled) return null;
+            button.scrollIntoView({block:'center'});
+            const rect = button.getBoundingClientRect();
+            return {x:rect.x + rect.width / 2,y:rect.y + rect.height / 2};
+        })()`,
     );
+    assert(point, `Missing or disabled control: ${text}`);
+    await send("Input.dispatchMouseEvent", { type: "mousePressed", button: "left", clickCount: 1, ...point });
+    await send("Input.dispatchMouseEvent", { type: "mouseReleased", button: "left", clickCount: 1, ...point });
     await delay(150);
+}
+async function setField(selector, value) {
+    await evaluate(`(() => {
+        const field = document.querySelector(${JSON.stringify(selector)});
+        if (!field) throw new Error('Missing field: ' + ${JSON.stringify(selector)});
+        const prototype = field instanceof HTMLSelectElement ? HTMLSelectElement.prototype : HTMLInputElement.prototype;
+        Object.getOwnPropertyDescriptor(prototype, 'value').set.call(field, ${JSON.stringify(value)});
+        field.dispatchEvent(new Event('input', {bubbles:true}));
+        field.dispatchEvent(new Event('change', {bubbles:true}));
+    })()`);
+}
+async function press(key, code, windowsVirtualKeyCode) {
+    await send("Input.dispatchKeyEvent", { type: "keyDown", key, code, windowsVirtualKeyCode });
+    await send("Input.dispatchKeyEvent", { type: "keyUp", key, code, windowsVirtualKeyCode });
 }
 await send("Runtime.enable");
 await send("Page.enable");
@@ -146,7 +166,7 @@ try {
             input.dispatchEvent(new Event('change', {bubbles:true}));
         })()`);
         await until("document.body.textContent.includes('Could not decode screenshot')");
-        await click("Import a screenshot Marni tracker");
+        await evaluate("document.querySelector('[aria-label=\"Close screenshot import\"]').click()");
         await click("Start timer");
         await until("window.__session.status === 'running'");
         await click("Choose capture source");
@@ -191,7 +211,8 @@ try {
             assert.equal(selection.sourceWidth, sourceWidth);
             assert.equal(selection.sourceHeight, sourceHeight);
             assert.equal(selection.uiScalePercent, uiScale);
-            await evaluate(`for (let i=0;i<6;i++) window.__emitSearch(${JSON.stringify(selection)})`);
+            // The 16 FPS trial evaluates normal search every fourth sample and rare search every second.
+            await evaluate(`for (let i=0;i<12;i++) window.__emitSearch(${JSON.stringify(selection)})`);
             await until("document.body.textContent.includes('Auto-aligned')");
             await until(
                 "window.__calls.filter(c => c.command === 'set_native_display_capture_region').at(-1)?.args.selection?.mode === 'regions'",
@@ -214,7 +235,7 @@ try {
             const relocatedSelection = await evaluate(
                 "window.__calls.filter(c => c.command === 'set_native_display_capture_region').at(-1).args.selection",
             );
-            await evaluate(`for (let i=0;i<6;i++) window.__emitSearch(${JSON.stringify(relocatedSelection)})`);
+            await evaluate(`for (let i=0;i<12;i++) window.__emitSearch(${JSON.stringify(relocatedSelection)})`);
             await until("document.body.textContent.includes('Auto-aligned')");
             await until(
                 "window.__calls.filter(c => c.command === 'set_native_display_capture_region').at(-1)?.args.selection?.mode === 'regions'",
@@ -235,7 +256,7 @@ try {
             const rareSelection = await evaluate(
                 "window.__calls.filter(c => c.command === 'set_native_display_capture_region').at(-1).args.selection",
             );
-            await evaluate(`for (let i=0;i<3;i++) window.__emitSearch(${JSON.stringify(rareSelection)},true)`);
+            await evaluate(`for (let i=0;i<6;i++) window.__emitSearch(${JSON.stringify(rareSelection)},true)`);
             await until(
                 "window.__calls.filter(c => c.command === 'set_native_display_capture_region').at(-1)?.args.selection?.mode === 'regions'",
             );
@@ -262,6 +283,8 @@ try {
                 `Manual default, normal relocation, and rare search/cancel/confirm passed at ${source}, ${uiScale}% UI scale on ${backend}`,
             );
         }
+        await evaluate("document.querySelector('#live-capture-heading').scrollIntoView({block:'start'})");
+        await screenshot("capture-setup");
         await click("Advanced diagnostics");
         const sampledRate =
             "[...document.querySelectorAll('dt')].find(e => e.textContent === 'Sampled rate')?.nextElementSibling.textContent";
@@ -302,6 +325,14 @@ try {
             `window.__calls.filter(c => c.command === 'acknowledge_native_display_frame').length > ${ackCount}`,
         );
         await screenshot("history");
+        await setField("main > header select", "stars-end-revamp");
+        await until('document.body.textContent.includes("No Star\'s End sessions")');
+        assert.equal(
+            await evaluate("document.querySelector('[aria-label=\"Filtered history summary\"]') === null"),
+            true,
+            "Empty filters must not show totals from another profile",
+        );
+        await setField("main > header select", "all");
         await click("Settings");
         await screenshot("settings");
         await click("Grind desk");
@@ -327,13 +358,13 @@ try {
             const before = await evaluate(
                 "window.__calls.filter(c => c.command === 'acknowledge_native_display_frame').length",
             );
-            await evaluate("window.__soak = setInterval(window.__emitFrame, 125)");
+            await evaluate("window.__soak = setInterval(window.__emitFrame, 62.5)");
             await delay(seconds * 1000);
             await evaluate("clearInterval(window.__soak)");
             const after = await evaluate(
                 "window.__calls.filter(c => c.command === 'acknowledge_native_display_frame').length",
             );
-            assert(after - before >= seconds * 7, "Sustained synthetic frame delivery stalled");
+            assert(after - before >= seconds * 14, "Sustained synthetic frame delivery stalled");
             assert.equal(
                 await evaluate("window.__calls.filter(c => c.command === 'stop_native_display_capture').length"),
                 0,
@@ -365,18 +396,103 @@ try {
         );
         await until("window.__session.entries.length === 1");
         assert.equal(await evaluate("window.__session.entries[0].quantity"), 1);
+        await evaluate("document.querySelector('[aria-label=\"Close manual entry\"]').click()");
+        const quantitySelector = 'input[aria-label^="Quantity for"]';
+        const priceSelector = 'input[aria-label^="Unit price for"]';
+        await evaluate(`document.querySelector('${quantitySelector}').focus()`);
+        await setField(quantitySelector, "25");
+        await press("Enter", "Enter", 13);
+        await until("window.__session.entries[0].quantity === 25");
+        await evaluate(`document.querySelector('${quantitySelector}').focus()`);
+        await setField(quantitySelector, "99");
+        await press("Escape", "Escape", 27);
+        await evaluate("document.activeElement.blur()");
+        assert.equal(await evaluate("window.__session.entries[0].quantity"), 25, "Escape must cancel an edit");
+        const priceBefore = await evaluate("window.__session.entries[0].unitPrice");
+        await evaluate(`document.querySelector('${priceSelector}').focus()`);
+        await setField(priceSelector, "");
+        await press("Enter", "Enter", 13);
+        await until("document.body.textContent.includes('Edit not saved')");
+        assert.equal(
+            await evaluate("window.__session.entries[0].unitPrice"),
+            priceBefore,
+            "A blank price must not become zero",
+        );
+        await evaluate(`document.querySelector('${priceSelector}').focus()`);
+        await press("Escape", "Escape", 27);
+        await evaluate("document.activeElement.blur()");
         await click("Add loot or expense Manual entry");
+        assert(
+            await evaluate("document.querySelector('dialog[open]').contains(document.activeElement)"),
+            "Dialog must receive keyboard focus",
+        );
+        await setField('dialog[open] input[min="1"]', "9007199254740991");
+        await evaluate("document.querySelector('dialog[open] form').requestSubmit()");
+        await until("document.querySelector('dialog[open] [role=alert]')?.textContent.includes('combined quantity')");
+        assert.equal(
+            await evaluate("window.__session.entries[0].quantity"),
+            25,
+            "Rejected combined quantities must preserve existing loot",
+        );
+        await click("Record an expense");
+        await setField('dialog[open] input[placeholder="e.g. Elixir rotation"]', "Elixir rotation");
+        await setField('dialog[open] input[placeholder="Required"]', "5000");
+        await evaluate("document.querySelector('dialog[open] form').requestSubmit()");
+        await until("window.__session.entries.length === 2");
+        await until("document.querySelector('dialog[open] [role=status]')?.textContent.includes('Elixir rotation')");
+        assert.equal(
+            await evaluate("window.__session.entries.find(e => e.name === 'Elixir rotation').valuation"),
+            "expense",
+        );
+        // Escape from the dialog's close control exercises the browser's native dismissal and focus restoration.
+        await evaluate("document.querySelector('[aria-label=\"Close manual entry\"]').focus()");
+        await press("Escape", "Escape", 27);
+        await until("!document.querySelector('dialog[open]')");
+        assert(
+            await evaluate("document.activeElement.textContent.includes('Add loot or expense')"),
+            "Dismissal must restore the opener",
+        );
+        const entriesBeforeFilter = await evaluate("JSON.stringify(window.__session.entries)");
+        await setField('input[placeholder="Search recorded items…"]', "elixir");
+        await until("document.querySelector('tbody').rows.length === 1");
+        assert(await evaluate("document.querySelector('tbody').textContent.includes('Elixir rotation')"));
+        await setField('input[placeholder="Search recorded items…"]', "missing");
+        await until("document.body.textContent.includes('No matching entries')");
+        await click("Clear filters");
+        await setField('[aria-labelledby="ledger-heading"] select', "expense");
+        assert.equal(await evaluate('document.querySelector("tbody").rows.length'), 1);
+        assert.equal(
+            await evaluate("JSON.stringify(window.__session.entries)"),
+            entriesBeforeFilter,
+            "Filtering must not mutate accounting",
+        );
+        await setField('[aria-labelledby="ledger-heading"] select', "all");
+        await click("Enter hours");
+        await setField('input[name="completedHours"]', "1.5");
+        await click("Save hours");
+        await until("window.__session.elapsedMs === 5400000");
+        assert(
+            await evaluate(
+                "document.activeElement.textContent === 'Enter hours' && !document.activeElement.parentElement.open",
+            ),
+            "Saving hours closes the form and restores focus",
+        );
+        await click("Start timer");
+        await click("Pause timer");
+        await until("window.__session.status === 'paused'");
+        await click("Resume timer");
+        await until("window.__session.status === 'running'");
+        await click("Pause timer");
+        await until("window.__session.status === 'paused'");
         await click("Settings");
         for (const theme of ["light", "moss", "dark"]) {
-            await evaluate(
-                `(() => { const select = [...document.querySelectorAll('select')].find(e=>e.parentElement.textContent.includes('Theme')); select.value = ${JSON.stringify(theme)}; select.dispatchEvent(new Event('change', { bubbles:true })); })()`,
-            );
+            await evaluate(`document.querySelector('input[name="theme"][value="${theme}"]').click()`);
             await click("Grind desk");
             await screenshot(`desk-${theme}`);
             await click("Settings");
         }
         await click("Grind desk");
-        for (const width of backend === "windows" ? [960, 700, 640] : [960]) {
+        for (const width of [960, 700, 640]) {
             await send("Emulation.setDeviceMetricsOverride", {
                 width,
                 height: width === 960 ? 680 : 420,
@@ -388,10 +504,28 @@ try {
                 await evaluate(`document.documentElement.scrollWidth <= ${width}`),
                 `Window at ${width}px must not overflow horizontally`,
             );
+            await click("Add loot or expense Manual entry");
+            assert(
+                await evaluate(
+                    `document.querySelector('dialog[open]').scrollWidth <= document.querySelector('dialog[open]').clientWidth`,
+                ),
+                "Entry dialog must fit compact windows",
+            );
+            if (width === 640) await screenshot("manual-entry-compact");
+            await evaluate("document.querySelector('[aria-label=\"Close manual entry\"]').click()");
+            for (const view of ["History", "Settings"]) {
+                await click(view);
+                assert(
+                    await evaluate(`document.documentElement.scrollWidth <= ${width}`),
+                    `${view} must fit at ${width}px`,
+                );
+                if (width === 640) await screenshot(`${view.toLowerCase()}-compact`);
+            }
+            await click("Grind desk");
         }
         assert.equal(errors.length, 0, JSON.stringify(errors));
         console.log(
-            `UI smoke passed: timer, navigation, capture lifecycle, preview suppression, hidden diagnostics, screenshot state, minimization, minimum width. Screenshots: ${output}`,
+            `UI smoke passed: timer, navigation, capture lifecycle, preview suppression, diagnostics, screenshot state, dialog focus, expense entry, ledger editing/filtering, history filters, themes, compact screens. Screenshots: ${output}`,
         );
     }
 } finally {

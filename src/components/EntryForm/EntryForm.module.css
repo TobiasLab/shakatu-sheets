@@ -19,20 +19,20 @@
     border-bottom: 1px solid var(--line);
     background: var(--surface-raised);
     color: var(--muted);
-    font-size: 9px;
-    letter-spacing: 0.1em;
-    text-transform: uppercase;
+    font-size: 12px;
+    letter-spacing: normal;
+    text-transform: none;
 }
 
 .SearchField input {
     display: block;
     margin-top: 7px;
     padding: 10px 11px;
-    font-size: 11px;
+    font-size: 13px;
 }
 
 .ItemList {
-    max-height: 560px;
+    max-height: 450px;
     overflow-y: auto;
     scrollbar-width: thin;
 }
@@ -101,7 +101,7 @@
 }
 
 .ItemCopy strong {
-    font-size: 11px;
+    font-size: 13px;
     font-weight: 600;
 }
 
@@ -109,17 +109,17 @@
     margin-top: 4px;
     color: var(--muted);
     font-family: "IBM Plex Mono", monospace;
-    font-size: 8px;
+    font-size: 10px;
     letter-spacing: 0.08em;
-    text-transform: uppercase;
+    text-transform: none;
 }
 
 .SelectItem {
     color: var(--muted);
     font-family: "IBM Plex Mono", monospace;
-    font-size: 8px;
+    font-size: 10px;
     text-align: right;
-    text-transform: uppercase;
+    text-transform: none;
     opacity: 0;
 }
 
@@ -186,9 +186,9 @@
 
 .Form label {
     color: var(--muted);
-    font-size: 9px;
-    letter-spacing: 0.09em;
-    text-transform: uppercase;
+    font-size: 12px;
+    letter-spacing: normal;
+    text-transform: none;
 }
 
 .Form input,
@@ -197,7 +197,7 @@
     margin-top: 6px;
     padding: 10px;
     font-family: "IBM Plex Mono", monospace;
-    font-size: 11px;
+    font-size: 13px;
 }
 
 .FormRow {
@@ -236,7 +236,7 @@
     background: var(--quick-item-background);
     color: var(--muted);
     font-family: "IBM Plex Mono", monospace;
-    font-size: 8px;
+    font-size: 10px;
     cursor: pointer;
 }
 
@@ -278,7 +278,7 @@
     padding-top: 13px;
     border-top: 1px solid var(--line);
     color: var(--note-text);
-    font-size: 9px;
+    font-size: 12px;
     line-height: 1.55;
 }
 
@@ -294,5 +294,41 @@
 
     .ItemList {
         max-height: 370px;
+    }
+}
+
+.SelectedDrop,
+.ItemIcon,
+.SelectedIcon {
+    border-radius: 6px;
+}
+.Form {
+    padding: 22px;
+}
+.ItemList > button {
+    padding-block: 11px;
+}
+.SearchField {
+    padding: 16px;
+}
+.Feedback {
+    margin: 0;
+    padding: 10px 12px;
+    color: var(--success);
+    border-left: 2px solid currentColor;
+    background: var(--surface);
+    font-size: 12px;
+    line-height: 1.5;
+}
+.Feedback.Error {
+    color: var(--danger);
+}
+.SelectedDrop strong {
+    white-space: normal;
+    overflow-wrap: anywhere;
+}
+@media (max-width: 760px) {
+    .ItemList {
+        max-height: 200px;
     }
 }

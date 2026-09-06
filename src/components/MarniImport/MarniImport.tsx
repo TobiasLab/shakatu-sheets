@@ -139,7 +139,11 @@ export function MarniImport({ controller }: { controller: LiveSessionController 
                     <span>{status}</span>
                 </div>
             )}
-            {error && <p className={styles.Error}>{error}</p>}
+            {error && (
+                <p className={styles.Error} role="alert">
+                    {error}
+                </p>
+            )}
             {draft && (
                 <div className={styles.Draft}>
                     <div className={styles.DraftMeta}>
@@ -164,7 +168,8 @@ export function MarniImport({ controller }: { controller: LiveSessionController 
                         </label>
                     </div>
                     <p className={styles.ReviewNote}>
-                        Review every row. Uncertain fields are blank and ignored until corrected.
+                        Review every row marked Check. Low-confidence suggestions stay filled in; blank or invalid rows
+                        are ignored until corrected.
                     </p>
                     <div className={styles.Items}>
                         {draft.items.map((item) => {

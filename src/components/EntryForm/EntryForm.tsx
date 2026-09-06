@@ -40,12 +40,15 @@ export function EntryForm({
     setValuation,
 }: EntryFormProps) {
     const [query, setQuery] = useState("");
+    const [feedback, setFeedback] = useState<{ text: string; error: boolean } | null>(null);
+    const nameInput = useRef<HTMLInputElement>(null);
     const quantityInput = useRef<HTMLInputElement>(null);
     const normalizedQuery = query.trim().toLocaleLowerCase();
     const visibleDrops = drops.filter((drop) => drop.name.toLocaleLowerCase().includes(normalizedQuery));
 
     function selectDrop(drop: DropTemplate) {
         chooseDrop(drop);
+        setFeedback(null);
         quantityInput.current?.focus();
         quantityInput.current?.select();
     }
@@ -58,7 +61,14 @@ export function EntryForm({
     }
 
     function submitEntry(event: FormEvent<HTMLFormElement>) {
-        addEntry(event);
+        const error = addEntry(event);
+        setFeedback({
+            text:
+                error ??
+                `Added ${formatSilver(Number(quantity))} × ${customName.trim() || selectedDrop.name} to the ledger.`,
+            error: error !== null,
+        });
+        if (error) return;
         window.requestAnimationFrame(() => {
             quantityInput.current?.focus();
             quantityInput.current?.select();
@@ -72,7 +82,21 @@ export function EntryForm({
                     <p className="eyebrow">Loot catalog</p>
                     <h2>Add to session</h2>
                 </div>
-                <span>{drops.length} items</span>
+                <button
+                    className="button subtle"
+                    type="button"
+                    disabled={editingDisabled}
+                    onClick={() => {
+                        setValuation("expense");
+                        setCustomName("");
+                        setQuantity("1");
+                        setUnitPrice("");
+                        setFeedback(null);
+                        nameInput.current?.focus();
+                    }}
+                >
+                    Record an expense
+                </button>
             </div>
             <div className={styles.EntryWorkspace}>
                 <section className={styles.ItemPicker} aria-label={`${spot.name} loot items`}>
@@ -90,10 +114,12 @@ export function EntryForm({
                         {visibleDrops.map((drop) => (
                             <button
                                 key={drop.name}
-                                className={selectedDrop.name === drop.name ? styles.Selected : ""}
+                                className={
+                                    valuation !== "expense" && selectedDrop.name === drop.name ? styles.Selected : ""
+                                }
                                 type="button"
                                 disabled={editingDisabled}
-                                aria-pressed={selectedDrop.name === drop.name}
+                                aria-pressed={valuation !== "expense" && selectedDrop.name === drop.name}
                                 onClick={() => selectDrop(drop)}
                             >
                                 <span className={styles.ItemIcon}>
@@ -107,7 +133,7 @@ export function EntryForm({
                                     </small>
                                 </span>
                                 <span className={styles.SelectItem} aria-hidden="true">
-                                    {selectedDrop.name === drop.name ? "Selected" : "Select"}
+                                    {valuation !== "expense" && selectedDrop.name === drop.name ? "Selected" : "Select"}
                                 </span>
                             </button>
                         ))}
@@ -121,20 +147,24 @@ export function EntryForm({
                 </section>
                 <form className={styles.Form} onSubmit={submitEntry}>
                     <div className={styles.SelectedDrop}>
-                        <span className={styles.SelectedIcon}>
-                            <img src={selectedDrop.icon} alt="" />
-                        </span>
+                        {valuation !== "expense" && (
+                            <span className={styles.SelectedIcon}>
+                                <img src={selectedDrop.icon} alt="" />
+                            </span>
+                        )}
                         <div>
-                            <p className="eyebrow">Selected drop</p>
-                            <strong>{selectedDrop.name}</strong>
+                            <p className="eyebrow">{valuation === "expense" ? "Session expense" : "Selected drop"}</p>
+                            <strong>{valuation === "expense" ? "Record a cost" : selectedDrop.name}</strong>
                         </div>
                     </div>
                     <label>
                         Entry name
                         <input
+                            ref={nameInput}
                             value={customName}
                             disabled={editingDisabled}
-                            placeholder={selectedDrop.name}
+                            required={valuation === "expense"}
+                            placeholder={valuation === "expense" ? "e.g. Elixir rotation" : selectedDrop.name}
                             onChange={(event) => setCustomName(event.target.value)}
                         />
                     </label>
@@ -145,7 +175,7 @@ export function EntryForm({
                                 <input
                                     ref={quantityInput}
                                     type="number"
-                                    min="0"
+                                    min="1"
                                     step="1"
                                     required
                                     value={quantity}
@@ -203,6 +233,14 @@ export function EntryForm({
                         <span>Add to ledger</span>
                         <kbd>Enter</kbd>
                     </button>
+                    {feedback && (
+                        <p
+                            className={`${styles.Feedback} ${feedback.error ? styles.Error : ""}`}
+                            role={feedback.error ? "alert" : "status"}
+                        >
+                            {feedback.text}
+                        </p>
+                    )}
                     <p className={styles.DataNote}>
                         Matching items at the same price combine automatically. Edit totals directly in the ledger.
                     </p>

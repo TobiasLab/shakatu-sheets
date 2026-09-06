@@ -98,6 +98,11 @@ export function HistoryView({
 
     const filteredRecords =
         records?.filter((record) => grindSpotFilter === "all" || record.session.grindSpotId === grindSpotFilter) ?? [];
+    const trackedMs = filteredRecords.reduce((total, record) => total + record.session.elapsedMs, 0);
+    const historyTotals = calculateTotals(
+        filteredRecords.flatMap((record) => record.session.entries),
+        trackedMs,
+    );
     const selected = filteredRecords.find((record) => record.session.id === selectedId) ?? filteredRecords[0];
     const selectedTotals = selected ? calculateTotals(selected.session.entries, selected.session.elapsedMs) : null;
     let uploadPreview: GarmothUploadPreview | null = null;
@@ -210,8 +215,11 @@ export function HistoryView({
         <>
             <header className="topbar">
                 <div>
-                    <p className="eyebrow">Completed sessions</p>
+                    <p className="eyebrow">Your record</p>
                     <h1>Session history</h1>
+                    <p className="page-description">
+                        Review your latest 20 completed sessions, compare earnings, and pick up where you left off.
+                    </p>
                 </div>
                 <div className={styles.HistoryActions}>
                     <label>
@@ -248,6 +256,31 @@ export function HistoryView({
                 </div>
             </header>
 
+            {records !== null && !error && filteredRecords.length > 0 && (
+                <section className={styles.Overview} aria-label="Filtered history summary">
+                    <div>
+                        <span>
+                            Recorded net · {filteredRecords.length}{" "}
+                            {filteredRecords.length === 1 ? "session" : "sessions"}
+                        </span>
+                        <strong>
+                            {formatSilver(historyTotals.net, true)}
+                            <small> silver</small>
+                        </strong>
+                    </div>
+                    <div>
+                        <span>Time tracked</span>
+                        <strong>{formatDuration(trackedMs)}</strong>
+                    </div>
+                    <div>
+                        <span>Average net / hour</span>
+                        <strong>
+                            {formatSilver(historyTotals.netPerHour, true)}
+                            <small> silver</small>
+                        </strong>
+                    </div>
+                </section>
+            )}
             {deleteMessage && (
                 <p className={styles.DeleteStatus} role="status">
                     {deleteMessage}
@@ -285,7 +318,7 @@ export function HistoryView({
                     <section className="panel">
                         <div className="panel-heading">
                             <div>
-                                <p className="eyebrow">Recent ledger</p>
+                                <p className="eyebrow">Browse sessions</p>
                                 <h2>
                                     {filteredRecords.length} session{filteredRecords.length === 1 ? "" : "s"}
                                 </h2>
@@ -316,9 +349,9 @@ export function HistoryView({
                                             }}
                                         >
                                             <span>
-                                                <strong>{formatTimestamp(record.finishedAt)}</strong>
+                                                <strong>{getGrindSpot(record.session.grindSpotId).name}</strong>
                                                 <small>
-                                                    {getGrindSpot(record.session.grindSpotId).name} ·{" "}
+                                                    {formatTimestamp(record.finishedAt)} ·{" "}
                                                     {record.session.region.toUpperCase()} ·{" "}
                                                     {formatDuration(record.session.elapsedMs)}
                                                 </small>
@@ -352,7 +385,7 @@ export function HistoryView({
                         <section className="panel">
                             <div className="panel-heading">
                                 <div>
-                                    <p className="eyebrow">Session detail</p>
+                                    <p className="eyebrow">{formatTimestamp(selected.finishedAt)} · Completed</p>
                                     <h2>{getGrindSpot(selected.session.grindSpotId).name}</h2>
                                 </div>
                                 <div className={styles.DetailActions}>
@@ -391,6 +424,32 @@ export function HistoryView({
                                     <strong>{formatSilver(selectedTotals.netPerHour, true)}</strong>
                                 </div>
                             </div>
+                            {selected.session.entries.length === 0 ? (
+                                <div className={`empty-state ${styles.HistoryEntriesEmpty}`}>
+                                    <strong>No entries recorded</strong>
+                                </div>
+                            ) : (
+                                <div className={styles.HistoryEntries}>
+                                    {selected.session.entries.map((entry) => (
+                                        <div className={styles.HistoryEntry} key={entry.id}>
+                                            <div className={`item-swatch ${entry.valuation}`}>
+                                                {entry.valuation === "expense" ? "-" : "+"}
+                                            </div>
+                                            <span>
+                                                <strong>{entry.name}</strong>
+                                                <small>
+                                                    x{formatSilver(entry.quantity)} · {formatSilver(entry.unitPrice)}{" "}
+                                                    each
+                                                </small>
+                                            </span>
+                                            <strong className={entry.valuation === "expense" ? "negative" : ""}>
+                                                {entry.valuation === "expense" ? "-" : ""}
+                                                {formatSilver(entry.quantity * entry.unitPrice, true)}
+                                            </strong>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
                             <div className={styles.GarmothUpload}>
                                 <div className={styles.UploadHeading}>
                                     <div>
@@ -400,7 +459,11 @@ export function HistoryView({
                                                 ? "Uploaded"
                                                 : selected.garmothUploadStatus === "unknown"
                                                   ? "Confirmation unknown"
-                                                  : "Ready for review"}
+                                                  : !garmothSettingsLoaded
+                                                    ? "Loading connection…"
+                                                    : !uploadCharacter
+                                                      ? "Connect a character to share"
+                                                      : "Ready for review"}
                                         </strong>
                                     </div>
                                     {selected.garmothUploadStatus !== null ? null : !garmothSettingsLoaded ? (
@@ -479,32 +542,6 @@ export function HistoryView({
                                     </p>
                                 )}
                             </div>
-                            {selected.session.entries.length === 0 ? (
-                                <div className={`empty-state ${styles.HistoryEntriesEmpty}`}>
-                                    <strong>No entries recorded</strong>
-                                </div>
-                            ) : (
-                                <div className={styles.HistoryEntries}>
-                                    {selected.session.entries.map((entry) => (
-                                        <div className={styles.HistoryEntry} key={entry.id}>
-                                            <div className={`item-swatch ${entry.valuation}`}>
-                                                {entry.valuation === "expense" ? "-" : "+"}
-                                            </div>
-                                            <span>
-                                                <strong>{entry.name}</strong>
-                                                <small>
-                                                    x{formatSilver(entry.quantity)} · {formatSilver(entry.unitPrice)}{" "}
-                                                    each
-                                                </small>
-                                            </span>
-                                            <strong className={entry.valuation === "expense" ? "negative" : ""}>
-                                                {entry.valuation === "expense" ? "-" : ""}
-                                                {formatSilver(entry.quantity * entry.unitPrice, true)}
-                                            </strong>
-                                        </div>
-                                    ))}
-                                </div>
-                            )}
                         </section>
                     )}
                 </div>

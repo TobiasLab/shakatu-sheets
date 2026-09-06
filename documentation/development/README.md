@@ -68,8 +68,11 @@ chromium --headless --remote-debugging-port=9222 --user-data-dir=/tmp/shakatu-ui
 node scripts/smoke-loot-ui.mjs
 ```
 
-The test opens and closes its own tab, verifies navigation/minimization/preview and finish behavior, timer persistence
-isolation, manual entry, themes, and minimum window width. Screenshots go to the OS temporary directory under `shakatu-ui`; set `UI_SMOKE_OUTPUT` to
+The test opens and closes its own tab, uses real browser pointer and keyboard events, and verifies navigation/minimization/
+preview and finish behavior, timer persistence isolation, dialog focus and Escape dismissal, manual loot and expense entry,
+submission feedback, ledger edits and filters, history filtering, all three themes, and 960/700/640px layouts. Blank-price and
+Escape regressions verify that rejected/cancelled edits preserve persisted values. Screenshots include capture setup and
+compact entry, history, and settings views. Screenshots go to the OS temporary directory under `shakatu-ui`; set `UI_SMOKE_OUTPUT` to
 choose another directory. `UI_SMOKE_URL` overrides the default Vite URL. The browser fixture does not validate the real
 PipeWire portal, Windows capture, the installed webview, Garmoth, or the game's FPS.
 
@@ -78,7 +81,9 @@ manual startup, explicit normal relocation, rare search/cancellation/confirmatio
 at 80% BDO UI scale. Set `UI_SMOKE_SCALE=100` to exercise 100% native search requests, normal/rare crop sizes, and
 automatic placement. These are synthetic browser fixtures, not native gameplay validation.
 
-Set `UI_SMOKE_SOAK_SECONDS=30` when running `npm run test:ui` to exercise sustained synthetic frame delivery. This is
+Set `UI_SMOKE_SOAK_SECONDS=30` when running `npm run test:ui` to exercise sustained synthetic frame delivery at the current
+16 FPS trial rate. Automatic-placement fixtures supply 12 normal and six rare search frames to cover its rate-aware evaluation
+cadence. This is
 separate from the real-game 30-minute resource/recognition acceptance run.
 
 
@@ -86,8 +91,9 @@ For detection changes, replay developer ROI samples with `npm run benchmark:loot
 `--annotations scripts/fixtures/loot-roi-2026-09-05.json` so the sample directory can remain untouched. See the [ROI replay documentation](../design/live-loot-benchmark.md#roi-sample-replay)
 for scoring limits and optional JSON reports. Captured PNGs stay outside tracked source.
 
-Use `UI_SMOKE_BACKEND=windows` for the synthetic Windows capability path and 640/700px compact layout checks (in
-PowerShell set `$env:UI_SMOKE_BACKEND = 'windows'`). This remains a browser fixture, not native Windows validation.
+Use `UI_SMOKE_BACKEND=windows` for the synthetic Windows capability path (in
+PowerShell set `$env:UI_SMOKE_BACKEND = 'windows'`). This remains a browser fixture, not native Windows validation. Run matrix cases sequentially in one browser: concurrent tabs
+change document visibility and correctly suppress previews in the background case.
 
 The ROI replay supports `--sample-step 2 --sample-offset 0|1` for offline sampling sensitivity checks. Reports retain native
 batch IDs and distinguish recorded from replayed frame counts. This does not change gameplay capture settings. See the

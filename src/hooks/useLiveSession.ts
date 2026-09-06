@@ -51,10 +51,11 @@ export function useLiveSession(session: SessionState, dispatch: Dispatch<Session
         dispatch({ type: "set-grind-spot", grindSpotId });
     }
 
-    function addEntry(event: FormEvent) {
+    function addEntry(event: FormEvent): string | null {
         event.preventDefault();
-        if (session.status === "finished") return;
-        const name = customName.trim() || selectedDrop.name;
+        if (!databaseLoaded) return "Wait for your session to finish loading.";
+        if (session.status === "finished") return "This session is finished. Start a new session to add entries.";
+        const name = customName.trim() || (valuation === "expense" ? "" : selectedDrop.name);
         const parsedQuantity = Number(quantity);
         const parsedPrice = Number(unitPrice);
         if (
@@ -66,9 +67,19 @@ export function useLiveSession(session: SessionState, dispatch: Dispatch<Session
             !Number.isSafeInteger(parsedPrice) ||
             !Number.isFinite(parsedQuantity)
         )
-            return;
+            return "Enter a name, a positive whole quantity, and a whole silver price of 0 or more.";
+        const combinedQuantity = session.entries.reduce(
+            (total, entry) =>
+                entry.name === name && entry.valuation === valuation && entry.unitPrice === parsedPrice
+                    ? total + entry.quantity
+                    : total,
+            parsedQuantity,
+        );
+        if (!Number.isSafeInteger(combinedQuantity))
+            return "The combined quantity is too large. This entry was not added.";
         dispatch({ type: "add-entry", entry: createEntry(name, parsedQuantity, parsedPrice, valuation) });
         setQuantity("1");
+        return null;
     }
 
     function startOrResume() {
