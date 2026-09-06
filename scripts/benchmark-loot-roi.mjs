@@ -144,10 +144,7 @@ try {
             const crop = manifest[`${kind}Crop`]?.pixels;
             if (crop?.width !== profile.width || crop?.height !== profile.height)
                 throw new Error(`${run.id}: unsupported ${kind} geometry.`);
-            const analyzer = new RareLootFrameAnalyzer(
-                rareGeometry,
-                manifest.targetFps === 16 && sampleStep === 1 ? 16 : 8,
-            );
+            const analyzer = new RareLootFrameAnalyzer(rareGeometry, sampleFps);
             const results = [];
             let ocrJobs = 0;
             let ocrCalls = 0;

@@ -800,6 +800,7 @@ export function selectLootOcrObservations<TFingerprint>(
     let bestQuality = -1;
     for (const observation of track.observations) {
         const previous = run[run.length - 1];
+        const spacedPrevious = frameStep > 1 ? run[run.length - frameStep] : undefined;
         const eligible =
             observation.frame >= track.firstFrame + delayFrames &&
             observation.score >= rowThreshold * minimumScoreMultiplier;
@@ -807,7 +808,8 @@ export function selectLootOcrObservations<TFingerprint>(
             !eligible ||
             (previous &&
                 (observation.frame !== previous.frame + 1 ||
-                    (distance?.(previous.fingerprint, observation.fingerprint) ?? 0) > 0.1))
+                    (distance?.(previous.fingerprint, observation.fingerprint) ?? 0) > 0.1)) ||
+            (spacedPrevious && (distance?.(spacedPrevious.fingerprint, observation.fingerprint) ?? 0) > 0.1)
         ) {
             if (best.length >= frameCount) break;
             run = [];
