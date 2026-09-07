@@ -579,6 +579,7 @@ describe("live loot streaming coordination", () => {
                 quantity: null,
                 status: "withheld",
                 reason: "insufficient-observations",
+                capture: expect.objectContaining({ pixels: expect.any(Uint8ClampedArray) }),
             },
         ]);
     });
@@ -648,7 +649,11 @@ describe("live loot streaming coordination", () => {
         });
         pushRowSequence(failingCoordinator, [0, 1, 1, 1, 1, 1]);
         await failingCoordinator.finish();
-        expect(failed[0]).toMatchObject({ status: "failed", reason: "ocr-failure" });
+        expect(failed[0]).toMatchObject({
+            status: "failed",
+            reason: "ocr-failure",
+            capture: { pixels: expect.any(Uint8ClampedArray) },
+        });
 
         const withheld: LiveLootRecognitionResult[] = [];
         const withholdingCoordinator = new LiveLootCoordinator({
@@ -661,7 +666,11 @@ describe("live loot streaming coordination", () => {
         });
         pushRowSequence(withholdingCoordinator, [0, 1, 1, 1, 1, 1]);
         await withholdingCoordinator.finish();
-        expect(withheld[0]).toMatchObject({ status: "withheld", reason: "consensus-withheld" });
+        expect(withheld[0]).toMatchObject({
+            status: "withheld",
+            reason: "consensus-withheld",
+            capture: { pixels: expect.any(Uint8ClampedArray) },
+        });
     });
 
     it("distinguishes item-profile and quantity OCR withholding", async () => {
@@ -902,6 +911,7 @@ describe("live loot streaming coordination", () => {
                 quantity: null,
                 status: "withheld",
                 reason: "insufficient-observations",
+                capture: expect.objectContaining({ pixels: expect.any(Uint8ClampedArray) }),
             },
         ]);
         expect(() => coordinator.pushFrame(packedFrame(1))).toThrow("stopped or finished");

@@ -59,6 +59,7 @@ import {
 import {
     acceptLiveLootReviewEntry,
     appendLiveLootReviewResult,
+    correctLiveLootReviewEntry,
     type LiveLootReviewEntry,
 } from "../../recognition/liveLootReview";
 import { LIVE_LOOT_SAMPLE_FPS } from "../../recognition/lootCaptureTiming";
@@ -102,7 +103,7 @@ export type LiveLootCaptureProps = {
     grindSpotId: string;
     grindSpotName: string;
     itemDictionary: readonly string[];
-    onAcceptRecognition: (itemName: string, quantity: number) => string | null;
+    onAcceptRecognition: (itemName: string, quantity: number, source?: "manual" | "recognition") => string | null;
 };
 
 const AUTOMATIC_INSERTION_RETRY_DELAYS = [1_000, 2_000, 4_000] as const;
@@ -259,6 +260,9 @@ function resultAnnouncement(
 ) {
     const source = entry.source === "rare" ? "rare banner" : "normal loot";
     const description = resultDescription(entry.result);
+    if (entry.accepted && entry.result.status !== "recognized")
+        return `Result ${entry.id + 1}, ${source}: Added to the session.`;
+    if (entry.error && entry.result.status !== "recognized") return `Result ${entry.id + 1}, ${source}: ${entry.error}`;
     if (entry.result.status !== "recognized") return `Result ${entry.id + 1}, ${source}: ${description}`;
     if (entry.accepted) return `Result ${entry.id + 1}, ${source}: ${description}. Added to the session.`;
     if (entry.error) {
@@ -736,6 +740,17 @@ export function useLiveLootCapture({
             cancelAutomaticRetry(id);
             manualRetryAttempts.current.delete(id);
         }
+    }
+
+    function correctReviewResult(id: number, itemName: string, quantity: number) {
+        if (!sessionActive || !databaseLoaded) return;
+        const review = reviewResultsRef.current.find((entry) => entry.id === id);
+        if (!review) return;
+        const corrected = correctLiveLootReviewEntry(review, itemName, quantity, (name, count) =>
+            onAcceptRecognitionRef.current(name, count, "manual"),
+        );
+        replaceReviewEntry(corrected);
+        if (corrected.accepted) cancelAutomaticRetry(id);
     }
 
     function clearReviewResults() {
@@ -1747,6 +1762,13 @@ export function useLiveLootCapture({
         uiScalePercent,
     ]);
 
+    useLayoutEffect(() => {
+        if (!sessionActive) {
+            stopRecognition(false);
+            clearReviewResults();
+        }
+    }, [sessionActive]);
+
     useEffect(() => {
         if (!sessionActive) {
             clearAutomaticRetries();
@@ -2126,5 +2148,6 @@ export function useLiveLootCapture({
         omittedReviewResults,
         resultDescription,
         acceptReviewResult,
+        correctReviewResult,
     };
 }

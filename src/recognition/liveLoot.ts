@@ -59,6 +59,7 @@ export type LootRecognitionResult = {
 };
 
 type LiveLootEventResultBase = LootRecognitionResult & {
+    capture?: LootRoiFrame;
     status: "recognized" | "withheld" | "failed";
     reason:
         | null
@@ -127,6 +128,15 @@ export type LiveLootOcrFrame = {
     textColor?: "white" | "gold";
     diagnostics?: { passes: LootOcrPass[] };
 };
+
+/** Copy only the item row; never retain the full capture buffer for review. */
+export function copyLootReviewCapture(frame: LiveLootOcrFrame): LootRoiFrame {
+    const { roi, observation } = frame;
+    const top = Math.max(0, Math.floor(frame.bounds?.top ?? observation.centerY - 24));
+    const bottom = Math.min(roi.height, Math.ceil(frame.bounds?.bottom ?? observation.centerY + 24));
+    const height = Math.max(1, bottom - top);
+    return { width: roi.width, height, pixels: roi.pixels.slice(top * roi.width * 4, (top + height) * roi.width * 4) };
+}
 
 export type LootOcrBounds = { left: number; right: number; top: number; bottom: number };
 
@@ -1268,6 +1278,12 @@ export class LiveLootCoordinator {
         return true;
     }
 
+    private captureTrack(track: LootTrack<LootFingerprint>) {
+        const observation = [...track.observations].reverse().find(({ frame }) => this.frames.has(frame));
+        const roi = observation && this.frames.get(observation.frame);
+        return observation && roi ? copyLootReviewCapture({ frame: observation.frame, roi, observation }) : undefined;
+    }
+
     private processTrackerChanges() {
         for (const track of this.tracker.takeEndedTracks()) {
             if (this.candidates.has(track)) this.settleCandidate(track, true);
@@ -1277,6 +1293,7 @@ export class LiveLootCoordinator {
                     ...this.emptyResult(metadata),
                     status: "withheld",
                     reason: "insufficient-observations",
+                    capture: this.captureTrack(track),
                 });
             }
             this.tracker.releaseTrack(track);
@@ -1344,7 +1361,7 @@ export class LiveLootCoordinator {
                     continue;
                 }
 
-                let result: LiveLootRecognitionResult | undefined;
+                let result: LiveLootEventResult | undefined;
                 this.activeOcrDelivery = delivery;
                 try {
                     const primaryFrames = delivery.frames.slice(0, this.ocrFrameCount);
@@ -1398,6 +1415,9 @@ export class LiveLootCoordinator {
                         reason: "ocr-failure",
                     };
                 } finally {
+                    if (result && result.status !== "recognized" && delivery.frames[0]) {
+                        result.capture = copyLootReviewCapture(delivery.frames[0]);
+                    }
                     this.releaseOcrDelivery(delivery);
                     if (this.activeOcrDelivery === delivery) this.activeOcrDelivery = undefined;
                 }
@@ -1442,6 +1462,7 @@ export class LiveLootCoordinator {
                 ...this.emptyResult(metadata),
                 status: "withheld",
                 reason: "insufficient-observations",
+                capture: this.captureTrack(track),
             });
             this.candidates.delete(track);
             this.tracker.releaseTrack(track);
