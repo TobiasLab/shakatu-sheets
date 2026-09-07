@@ -469,12 +469,42 @@
 
 .ReviewFeed li {
     display: flex;
+    flex-wrap: wrap;
     align-items: center;
     justify-content: space-between;
     gap: 14px;
     padding: 10px 12px;
     border-left: 2px solid var(--line-strong);
     background: var(--surface);
+}
+
+.Correction {
+    flex: 1 0 100%;
+    min-width: 0;
+}
+.Correction canvas {
+    display: block;
+    max-width: 100%;
+    height: auto;
+    border-radius: 6px;
+    margin: 8px 0 12px;
+}
+.CorrectionFields {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: end;
+    gap: 10px;
+}
+.CorrectionFields label {
+    display: grid;
+    gap: 4px;
+    min-width: 0;
+}
+.CorrectionFields select {
+    max-width: 100%;
+}
+.CorrectionFields input {
+    width: 100px;
 }
 
 .ReviewFeed li > div {
@@ -650,9 +680,6 @@
 }
 .CapturePanel[data-setup-open="false"] .Actions {
     display: flex;
-}
-.CapturePanel[data-setup-open="false"] .ReviewFeed li {
-    flex-wrap: wrap;
 }
 
 .CapturePanel[data-setup-open="false"] > .Note {

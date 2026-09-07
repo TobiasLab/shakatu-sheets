@@ -34,12 +34,12 @@ export function LiveSessionView({
         market,
     } = controller;
     const spotEditable = session.status === "idle" && session.elapsedMs === 0 && session.entries.length === 0;
-    function acceptRecognizedLoot(itemName: string, quantity: number) {
+    function acceptCapturedLoot(itemName: string, quantity: number, source: "manual" | "recognition" = "recognition") {
         if (!databaseLoaded) return "The local database is still loading.";
         if (session.status === "finished") return "Finished sessions cannot accept more loot.";
-        if (!Number.isSafeInteger(quantity) || quantity <= 0) return "The recognized quantity is invalid.";
+        if (!Number.isSafeInteger(quantity) || quantity <= 0) return "Enter a positive whole-number quantity.";
         const drop = drops.find((candidate) => candidate.name === itemName);
-        if (!drop) return "The recognized item is not in the active grind-spot profile.";
+        if (!drop) return "The item is not in the active grind-spot profile.";
         const marketPrice = market.currentMarketPrices.find((price) => price.itemId === drop.marketItemId)?.basePrice;
         const unitPrice = marketPrice ?? drop.unitPrice;
         if (unitPrice === null || !Number.isSafeInteger(unitPrice) || unitPrice < 0) {
@@ -52,12 +52,12 @@ export function LiveSessionView({
                     : total,
             quantity,
         );
-        if (!Number.isSafeInteger(combinedQuantity)) return "The combined recognized quantity is too large.";
+        if (!Number.isSafeInteger(combinedQuantity)) return "The combined item quantity is too large.";
         dispatch({
             type: "add-entry",
             entry: {
                 ...createEntry(drop.name, quantity, unitPrice, drop.valuation),
-                source: "recognition",
+                source,
             },
         });
         return null;
@@ -192,7 +192,7 @@ export function LiveSessionView({
                     grindSpotId={session.grindSpotId}
                     grindSpotName={spot.name}
                     itemDictionary={drops.map((drop) => drop.name)}
-                    onAcceptRecognition={acceptRecognizedLoot}
+                    onAcceptRecognition={acceptCapturedLoot}
                 />
                 <div className={styles.ContentGrid}>
                     <LootLedger

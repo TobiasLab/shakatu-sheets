@@ -1,4 +1,5 @@
 import type { LootAlignmentGuide, LootUiScale } from "../../recognition/displayCapture";
+import { CaptureCorrection } from "./CaptureCorrection";
 import styles from "./LiveLootCapture.module.css";
 import { type LiveLootCaptureProps, useLiveLootCapture } from "./useLiveLootCapture";
 
@@ -120,6 +121,7 @@ export function LiveLootCapture(props: LiveLootCaptureProps) {
         omittedReviewResults,
         resultDescription,
         acceptReviewResult,
+        correctReviewResult,
     } = useLiveLootCapture(props);
     return (
         <section
@@ -717,7 +719,7 @@ export function LiveLootCapture(props: LiveLootCaptureProps) {
                     </div>
                     {omittedReviewResults > 0 && (
                         <p className={styles.FeedWarning} role="status">
-                            {`${omittedReviewResults} older ${omittedReviewResults === 1 ? "result was" : "results were"} omitted from this bounded review feed.`}
+                            {`${omittedReviewResults} older ${omittedReviewResults === 1 ? "result was" : "results were"} removed from this review feed. Unresolved item captures are retained.`}
                         </p>
                     )}
                     <ul>
@@ -749,12 +751,21 @@ export function LiveLootCapture(props: LiveLootCaptureProps) {
                                             Retry add
                                         </button>
                                     )}
+                                    {(review.result.status === "withheld" || review.result.status === "failed") && (
+                                        <CaptureCorrection
+                                            review={review}
+                                            items={itemDictionary}
+                                            disabled={!databaseLoaded || sessionStatus === "finished"}
+                                            onAdd={correctReviewResult}
+                                        />
+                                    )}
                                 </li>
                             ))}
                     </ul>
                     <p>
-                        These results have not been added. Use Retry add for recognized loot, or Add loot or expense to
-                        enter a correction. Clear dismisses this review list; it does not remove ledger entries.
+                        These results have not been added. Review the saved image and choose the item and quantity to
+                        add. Captures are kept only until you clear them, finish this session, or close the app. Clear
+                        does not remove ledger entries.
                     </p>
                 </div>
             )}
