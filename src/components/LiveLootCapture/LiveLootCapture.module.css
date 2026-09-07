@@ -495,6 +495,9 @@
     align-items: end;
     gap: 10px;
 }
+.CorrectionFields + .CorrectionFields {
+    margin-top: 12px;
+}
 .CorrectionFields label {
     display: grid;
     gap: 4px;

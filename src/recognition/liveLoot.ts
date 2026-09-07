@@ -59,7 +59,7 @@ export type LootRecognitionResult = {
 };
 
 type LiveLootEventResultBase = LootRecognitionResult & {
-    capture?: LootRoiFrame;
+    capture?: LootReviewCapture;
     status: "recognized" | "withheld" | "failed";
     reason:
         | null
@@ -129,13 +129,25 @@ export type LiveLootOcrFrame = {
     diagnostics?: { passes: LootOcrPass[] };
 };
 
+export type LootReviewCapture = LootRoiFrame & { bounds?: LootOcrBounds };
+
 /** Copy only the item row; never retain the full capture buffer for review. */
-export function copyLootReviewCapture(frame: LiveLootOcrFrame): LootRoiFrame {
+export function copyLootReviewCapture(frame: LiveLootOcrFrame): LootReviewCapture {
     const { roi, observation } = frame;
     const top = Math.max(0, Math.floor(frame.bounds?.top ?? observation.centerY - 24));
     const bottom = Math.min(roi.height, Math.ceil(frame.bounds?.bottom ?? observation.centerY + 24));
     const height = Math.max(1, bottom - top);
-    return { width: roi.width, height, pixels: roi.pixels.slice(top * roi.width * 4, (top + height) * roi.width * 4) };
+    return {
+        width: roi.width,
+        height,
+        pixels: roi.pixels.slice(top * roi.width * 4, (top + height) * roi.width * 4),
+        bounds: {
+            left: frame.bounds?.left ?? Math.round(roi.width * 0.25),
+            right: frame.bounds?.right ?? roi.width,
+            top: frame.bounds ? 0 : Math.max(0, observation.centerY - 12 - top),
+            bottom: frame.bounds ? height : Math.min(height, observation.centerY + 12 - top),
+        },
+    };
 }
 
 export type LootOcrBounds = { left: number; right: number; top: number; bottom: number };
@@ -1281,7 +1293,9 @@ export class LiveLootCoordinator {
     private captureTrack(track: LootTrack<LootFingerprint>) {
         const observation = [...track.observations].reverse().find(({ frame }) => this.frames.has(frame));
         const roi = observation && this.frames.get(observation.frame);
-        return observation && roi ? copyLootReviewCapture({ frame: observation.frame, roi, observation }) : undefined;
+        return observation && roi
+            ? copyLootReviewCapture({ frame: observation.frame, roi, observation, bounds: this.options.ocrBounds })
+            : undefined;
     }
 
     private processTrackerChanges() {
