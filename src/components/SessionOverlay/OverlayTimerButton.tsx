@@ -10,7 +10,7 @@ export function OverlayTimerButton({ session, enabled }: { session: SessionState
     const action = session.status === "running" ? "pause" : session.status === "paused" ? "resume" : "start";
     const label = action === "pause" ? "Pause timer" : action === "resume" ? "Resume timer" : "Start timer";
     return (
-        <div>
+        <>
             {session.status !== "finished" && (
                 <button
                     type="button"
@@ -39,6 +39,6 @@ export function OverlayTimerButton({ session, enabled }: { session: SessionState
                     {error}
                 </p>
             )}
-        </div>
+        </>
     );
 }
