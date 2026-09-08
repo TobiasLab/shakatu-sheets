@@ -1237,6 +1237,40 @@ describe("notification evidence regressions", () => {
         expect(bounds).toEqual(Array.from({ length: 3 }, () => ({ left: 25, right, top: 58, bottom: 82 })));
     });
 
+    it.each([
+        [undefined, 45],
+        ["korean", 45],
+        ["strong-sword", 81],
+    ] as const)("keeps tinted Strong Sword glyphs inside the OCR crop with font %s", async (font, right) => {
+        const bounds: Array<LiveLootOcrFrame["bounds"]> = [];
+        const coordinator = new LiveLootCoordinator({
+            font,
+            profile: streamingProfile,
+            dictionary: ["WON Origin Shard"],
+            readText: async (frames) => {
+                bounds.push(...frames.map((frame) => frame.bounds));
+                return frames.map(() => ["WON Origin Shard x 1"]);
+            },
+            onResult: () => undefined,
+        });
+        coordinator.pushFrame(packedFrame(0));
+        for (let index = 0; index < 5; index++) {
+            const frame = packedFrame(0);
+            for (let x = 28; x <= 72; x += 4) {
+                const color = x >= 40 && x <= 60 ? [230, 210, 185, 255] : [255, 255, 255, 255];
+                frame.pixels.set(color, (70 * 100 + x) * 4);
+            }
+            // Bright scenery after the line's trailing whitespace must still be excluded.
+            frame.pixels.set([255, 255, 255, 255], (70 * 100 + 92) * 4);
+            const { ocrExtent, ...fingerprint } = analyzeLootRoiFrame(frame, streamingProfile, font).fingerprints[0];
+            expect(fingerprint).toEqual(analyzeLootRoiFrame(frame, streamingProfile).fingerprints[0]);
+            expect(ocrExtent).toBe(font === "strong-sword" ? 54 : undefined);
+            coordinator.pushFrame(frame);
+        }
+        await coordinator.finish();
+        expect(bounds).toEqual(Array.from({ length: 3 }, () => ({ left: 25, right, top: 58, bottom: 82 })));
+    });
+
     it("accepts trailing OCR punctuation but rejects ambiguous quantities and trailing words", () => {
         expect(parseLootQuantity("Embers of Ynix - Armor x1 .")).toBe(1);
         expect(parseLootQuantity("Branch of Abundance x10 -")).toBe(10);

@@ -21,6 +21,12 @@ in quantities such as ×16 and ×180. Korean retains its existing five-pixel thr
 the existing geometry and rules. Native recording logs showed quantity bounds in only 56 of 1,488 selected Strong Sword
 frames, compared with 276 of 290 selected Korean frames; these are diagnostic coverage counts, not accuracy measurements.
 
+Strong Sword's OCR crop boundary also retains tinted glyph edges, using the existing non-strict glyph color tolerance
+of 55 rather than the tracking fingerprint's 25. Loot background colors can tint antialiased text enough to create false
+whitespace in the stricter projection. The separate `ocrExtent` preserves the full name and suffix while retaining the
+same luminance, edge-contrast, and trailing-whitespace checks. Row tracking and digit identity keep their original
+fingerprints; Korean does not use this extra projection.
+
 For normal Strong Sword OCR, preprocessing preserves grayscale antialiasing and uses bilinear 4× enlargement instead of
 thresholding to binary pixels before nearest-neighbor enlargement. The three existing pass thresholds select contrast floors
 of 60, 80, and 100, with the white-text level capped at 235 and the existing color rejection retained. This addresses visible
@@ -117,3 +123,21 @@ still reads it correctly. Synthetic tests additionally enforce temporal support,
 unsafe integers and incomplete digit reads. A 16 FPS timed replay of batches 18400–18650 recognized all 26 detected
 candidates with a peak of four pending OCR jobs on the development machine. This does not measure the user's machine
 under gameplay load. Follow-up reports and crops are kept outside the repository under `/tmp/strong-sword-followup`.
+
+## Tinted loot text follow-up
+
+The newer Strong Sword recording `run-1788899821618-395074-0001` contains 5,147 paired batches at 16 FPS, 3440×1440,
+80% UI scale. Its diagnostics reproduced the reported WON Origin Shard failures: the OCR crop ended inside the name,
+producing `WON (` instead of including `x 1`. Similar premature crops affected Ancient Spirit Dust, Black Stone, and
+Caphras Stone on colored loot backgrounds.
+
+The crop-only correction increases recognized normal events from 220 to 228 out of the same 238 candidates. Both
+WON Origin Shard ×1 failures are recovered, along with three Dust ×1, two Black Stone ×1, and one Caphras Stone ×1.
+All 220 previously accepted result objects remain identical, as do all candidate IDs and arrival frames. Eight
+insufficient-observation candidates remain, and two items remain outside the spot dictionary. There are no rare
+candidates in this recording. These counts do not establish complete arrival recall.
+
+The shared font fixture now includes 13 image-reviewed events covering all eight recovered failures and simultaneous
+trash drops, including ×180. Unit tests cover tinted glyphs, trailing scenery, unchanged tracking fingerprints, and
+unchanged default/explicit Korean crop bounds. Reports and review images remain outside the repository under
+`/tmp/strong-sword-shard`.

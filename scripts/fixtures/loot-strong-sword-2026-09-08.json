@@ -432,6 +432,134 @@
                     ]
                 }
             ]
+        },
+        {
+            "id": "run-1788899821618-395074-0001",
+            "font": "strong-sword",
+            "split": "development",
+            "normalCases": [
+                {
+                    "id": "strong-sword-tinted-904",
+                    "firstBatchId": 904,
+                    "lastBatchId": 904,
+                    "events": [
+                        {
+                            "firstBatchId": 904,
+                            "item": "Ancient Spirit Dust",
+                            "quantity": 1
+                        }
+                    ]
+                },
+                {
+                    "id": "strong-sword-tinted-1253",
+                    "firstBatchId": 1253,
+                    "lastBatchId": 1253,
+                    "events": [
+                        {
+                            "firstBatchId": 1253,
+                            "item": "WON Origin Shard",
+                            "quantity": 1
+                        }
+                    ]
+                },
+                {
+                    "id": "strong-sword-tinted-3272",
+                    "firstBatchId": 3272,
+                    "lastBatchId": 3272,
+                    "events": [
+                        {
+                            "firstBatchId": 3272,
+                            "item": "Branch of Abundance",
+                            "quantity": 4
+                        },
+                        {
+                            "firstBatchId": 3272,
+                            "item": "Black Stone",
+                            "quantity": 1
+                        },
+                        {
+                            "firstBatchId": 3272,
+                            "item": "Branch of Abundance",
+                            "quantity": 4
+                        }
+                    ]
+                },
+                {
+                    "id": "strong-sword-tinted-4107",
+                    "firstBatchId": 4107,
+                    "lastBatchId": 4107,
+                    "events": [
+                        {
+                            "firstBatchId": 4107,
+                            "item": "Branch of Abundance",
+                            "quantity": 4
+                        },
+                        {
+                            "firstBatchId": 4107,
+                            "item": "Black Stone",
+                            "quantity": 1
+                        },
+                        {
+                            "firstBatchId": 4107,
+                            "item": "Branch of Abundance",
+                            "quantity": 6
+                        }
+                    ]
+                },
+                {
+                    "id": "strong-sword-tinted-4738",
+                    "firstBatchId": 4738,
+                    "lastBatchId": 4738,
+                    "events": [
+                        {
+                            "firstBatchId": 4738,
+                            "item": "Ancient Spirit Dust",
+                            "quantity": 1
+                        }
+                    ]
+                },
+                {
+                    "id": "strong-sword-tinted-5313",
+                    "firstBatchId": 5313,
+                    "lastBatchId": 5313,
+                    "events": [
+                        {
+                            "firstBatchId": 5313,
+                            "item": "Caphras Stone",
+                            "quantity": 1
+                        }
+                    ]
+                },
+                {
+                    "id": "strong-sword-tinted-5343",
+                    "firstBatchId": 5343,
+                    "lastBatchId": 5343,
+                    "events": [
+                        {
+                            "firstBatchId": 5343,
+                            "item": "Ancient Spirit Dust",
+                            "quantity": 1
+                        }
+                    ]
+                },
+                {
+                    "id": "strong-sword-tinted-5549",
+                    "firstBatchId": 5549,
+                    "lastBatchId": 5549,
+                    "events": [
+                        {
+                            "firstBatchId": 5549,
+                            "item": "WON Origin Shard",
+                            "quantity": 1
+                        },
+                        {
+                            "firstBatchId": 5549,
+                            "item": "Branch of Abundance",
+                            "quantity": 180
+                        }
+                    ]
+                }
+            ]
         }
     ]
 }
