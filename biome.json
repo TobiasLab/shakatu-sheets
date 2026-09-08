@@ -9,7 +9,9 @@
             "vite.config.ts",
             "src/**",
             "scripts/*loot*.mjs",
-            "scripts/smoke-desktop.mjs"
+            "scripts/smoke-desktop.mjs",
+            "scripts/smoke-session-overlay.mjs",
+            "scripts/benchmark-session-format.mjs"
         ]
     },
     "assist": {

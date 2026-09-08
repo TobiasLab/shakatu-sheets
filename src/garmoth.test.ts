@@ -49,6 +49,10 @@ function finishedSession(): SessionState {
 
 describe("buildGarmothUpload", () => {
     it("keeps the backend mapping manifest aligned with grind-spot profiles", () => {
+        for (const spot of grindSpots) {
+            const keys = getGrindSpotDrops(spot.id).map((drop) => drop.garmothKey);
+            expect(new Set(keys).size).toBe(keys.length);
+        }
         expect(mappings).toEqual(
             Object.fromEntries(
                 grindSpots.map((spot) => [

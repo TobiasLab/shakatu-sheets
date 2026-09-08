@@ -89,3 +89,92 @@ GPU/device selection and cross-adapter copies on hybrid systems require actual m
 rotate in the app log directory; packing time includes GPU wait/readback, while IPC, analysis, and OCR have separate
 measurements. No minimized-WebView2 throughput or BDO frame-time result is claimed. The
 [Windows release protocol](../development/windows.md#release-gates) includes both.
+
+## Focused review — 2026-09-08
+
+Branch: `feat/performance-cleanup`, based on `9072db2`. The goal is modest reductions in gameplay overhead and
+straightforward maintenance, with no reported performance problem to justify a broad rewrite. Capture, frame delivery,
+OCR scheduling, recognition, retries, profiles, replay tools, and their regression tests remain unchanged.
+
+### Review findings
+
+| Area | Finding and decision |
+| --- | --- |
+| Number formatting | Each silver display constructed an `Intl.NumberFormat`. Reuse two formatters with the same locale, rounding, and compact settings. Implemented and measured below. |
+| Session summary | Each clock tick recalculated entry values. Separate entry totals from hourly rates; cache totals by entries while deriving the rate from elapsed time. Existing calculation tests still exercise the shared implementation. |
+| Overlay items | Each clock tick re-aggregated and formatted every icon. Extract a memoized drop-list component, keeping clock updates independent of the list. |
+| Hidden overlay | Main sent full snapshots after every session/theme change even when hidden. Publish only while shown; visibility lifecycle events trigger native visibility checks and a fresh snapshot on reopening. No polling. Both the close button and native close path notify listeners; presentation ticks explicitly pause when hidden. |
+| Other UI and dialogs | Ledger filtering is proportional to recorded entry groups, not every recognition event. Dialogs and settings use local state and explicit actions. No evidence warrants virtualization, global state machinery, or broad component rewrites. |
+| History | Loads at most 20 sessions, but reloads after saving and performs per-session queries. Potential follow-up if large histories or live-history use become slow; query/invalidation changes are deferred. |
+| Persistence | Saves open/configure a connection, read the existing session, and replace its entries in a transaction. This is a real source of repeated work, but write coalescing or incremental persistence would add ordering and durability complexity. Preserve the queue, transaction, and close-flush guarantees; no database timing or improvement claim. |
+| Market and Garmoth | Requests are explicit or tied to configuration changes, rather than recurring gameplay polling. Existing validation, timeouts, and upload serialization are useful. Defer connection/client caching absent measurements showing a problem. |
+| Startup and assets | The hidden overlay is created at startup and shares the main entry bundle. On-demand creation or separate entrypoints could reduce startup/module costs, but introduce loading/lifecycle changes. Deferred; no measured whole-app memory benefit. Item images already use local compressed assets. |
+| Capture and OCR | Existing bounded queues, preview suppression, and visibility-aware diagnostics are already documented above. Entire pipeline frozen for this pass. Shared capture visibility hooks are also untouched. |
+| Timestamp formatting | Keep per-call date formatter construction so runtime system time-zone changes retain existing behavior. No additional cache invalidation mechanism. |
+| Cleanup | Split stable entry calculations from time-dependent rates and isolate item rendering. No speculative service layers, dependency changes, or module reorganization. |
+
+### Measurements
+
+Linux x86_64 workspace, Node 22.23.2. Formatting compares the previous function with production `formatSilver`:
+median of five samples, each performing 100 passes over a rate plus the synthetic item values, both full and compact.
+Outputs are checked for equality before timing.
+
+| Entries | Formatting calls per sample | Previous | Reused formatters |
+| --- | --- | --- | --- |
+| 0 | 200 | 1.99 ms | 0.076 ms |
+| 30 | 6,200 | 64.26 ms | 1.78 ms |
+| 300 | 60,200 | 628.96 ms | 16.76 ms |
+
+Run `npm exec vite-node -- scripts/benchmark-session-format.mjs`. These are isolated formatting measurements,
+not app CPU percentages, native-webview timings, or game FPS gains.
+
+A headless Chromium harness mounts the real overlay and publisher hook with synthetic sessions and mocked Tauri
+window/event APIs. React Strict Mode is enabled. Two timer ticks produced:
+
+| Entries | Previous silver-format calls | Optimized silver-format calls |
+| --- | --- | --- |
+| 0 | 4 | 4 |
+| 30 | 244 | 4 |
+| 300 | 2,404 | 4 |
+
+Each hidden session update previously emitted one full state snapshot; it now emits zero once the hide event has
+been processed. Timer ticks emit zero snapshots in both versions. This measures eliminated presentation work and
+message counts, not IPC throughput or native memory. An already in-flight message can finish while a hide event is
+being processed. Native visibility queries occur on lifecycle events, never once per timer tick or hidden update.
+
+Run the focused smoke check with Chromium already listening on port 9222:
+
+```sh
+node scripts/smoke-session-overlay.mjs
+```
+
+The script starts and closes its own temporary Vite server; it does not edit application files. It checks 0/30/300
+items, hidden message suppression, stopped hidden timers, reopen catch-up, theme changes, item removal, pause,
+finish/reset display, and the event used by native close. Keep this as one focused integration scenario rather than
+many tests coupled to individual hooks. For baseline comparison, point `SESSION_PERF_ROOT` at an untouched copy of
+`9072db2` with dependencies available and set `BASELINE=1`; run comparisons sequentially to keep the measured tab visible.
+
+### Test review and validation
+
+Removed six low-value frontend tests:
+
+- Three catalog tests copied names, prices, drop counts, identifiers, and an entire item object from production data.
+  Remove the duplicate catalog fixture file. Retain drop-key uniqueness in the existing frontend/backend mapping
+  consistency test, which compares independently consumed representations rather than a third hand-maintained catalog.
+- One API-wrapper test only checked that `deleteFinishedSession` forwards its ID to `invoke`. Delete the test and
+  its unused import; capture protocol tests in the same file are unchanged. Rust deletion and persistence tests remain.
+- One empty-overlay aggregation test repeated expense exclusion covered by the mixed-loot aggregation test, plus an
+  empty-array case already exercised by the overlay lifecycle smoke. Retain the mixed-price/source aggregation test.
+- The newly added formatter test constructed the same `Intl.NumberFormat` options as the implementation. Remove it;
+  the reproducible benchmark already checks equivalence with the previous formatter before measuring performance.
+
+Session calculations, state transitions, persistence ordering/failure recovery, export behavior, and all capture/OCR
+regressions remain covered. No unrelated scenarios were merged merely to reduce the test count.
+
+The full frontend suite has 337 passing tests; Rust has 81 passing tests and one existing ignored
+microbenchmark. Biome, TypeScript/production build, Rust formatting, and Clippy passed. The focused browser lifecycle
+smoke passed with mocked native events, including failed-show reporting and retry. The existing full-app UI smoke
+also passed (timer transitions, navigation, capture lifecycle, preview suppression, dialogs, ledger editing, history,
+themes, and compact layouts). It was run from a temporary copy with mock handlers added for overlay visibility/window
+queries; the tracked capture smoke script was not modified. Native dragging, compositor behavior, Windows runtime, game frame times,
+and whole-application CPU/memory remain unmeasured. The existing real-game acceptance protocol above still applies.
