@@ -97,8 +97,8 @@ code, use the same recording and annotations on an isolated checkout of that rev
 and uses its original behavior. Compare the Korean `results` arrays exactly, not just aggregate counts. Keep every report
 outside the source sample tree and use fresh output filenames.
 
-Frontend lint, 342 tests, and the production build passed. Native formatting, 83 tests (one existing ignored test), and
-Clippy passed. Browser smoke checks passed for Linux at 80% and the Windows capability path at 100%, including font-save
+Frontend lint, 354 tests, and the production build passed in the final PR review. Native formatting, 83 tests
+(one existing ignored test), and Clippy passed. Browser smoke checks passed for Linux at 80% and the Windows capability path at 100%, including font-save
 failure/retry, settings navigation, capture restart, and preserving the active capture's font. These browser checks mock
 native capture; they do not exercise the real Windows desktop capture service.
 
@@ -140,4 +140,5 @@ candidates in this recording. These counts do not establish complete arrival rec
 The shared font fixture now includes 13 image-reviewed events covering all eight recovered failures and simultaneous
 trash drops, including ×180. Unit tests cover tinted glyphs, trailing scenery, unchanged tracking fingerprints, and
 unchanged default/explicit Korean crop bounds. Reports and review images remain outside the repository under
-`/tmp/strong-sword-shard`.
+`/tmp/strong-sword-shard`. The combined fixture passes all 85 labeled Strong Sword events across both recordings,
+including the 41 reserved validation events.
