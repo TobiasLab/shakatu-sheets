@@ -1,4 +1,5 @@
 import type { LiveLootRecognitionResult } from "./liveLoot";
+import type { LootFont } from "./lootFont";
 
 // History limit only: unresolved item captures remain available for the entire session.
 export const maximumLiveLootReviewResults = 50;
@@ -6,6 +7,7 @@ export const maximumLiveLootReviewResults = 50;
 export type LiveLootReviewEntry = {
     id: number;
     source: "normal" | "rare";
+    font?: LootFont;
     result: LiveLootRecognitionResult;
     accepted: boolean;
     error: string;

@@ -1,4 +1,6 @@
+import { useEffect, useRef, useState } from "react";
 import { LiveLootCapture } from "../../components/LiveLootCapture/LiveLootCapture";
+import { useLiveLootCapture } from "../../components/LiveLootCapture/useLiveLootCapture";
 import { LootLedger } from "../../components/LootLedger/LootLedger";
 import { grindSpots } from "../../data/grindSpots";
 import { createEntry, type SessionState } from "../../domain/session";
@@ -68,6 +70,65 @@ export function LiveSessionView({
             },
         });
         return null;
+    }
+
+    const capture = useLiveLootCapture({
+        lootFont,
+        lootFontReady,
+        visible,
+        setupRequest: captureSetupRequest,
+        onStatusChange: onCaptureStatusChange,
+        databaseLoaded,
+        sessionId: session.id,
+        sessionStatus: session.status,
+        grindSpotId: session.grindSpotId,
+        grindSpotName: spot.name,
+        itemDictionary: drops.map((drop) => drop.name),
+        onAcceptRecognition: acceptCapturedLoot,
+    });
+    const finishDialog = useRef<HTMLDialogElement>(null);
+    const finishRequest = useRef(0);
+    const [preparingReview, setPreparingReview] = useState(false);
+    const [finishError, setFinishError] = useState("");
+    const unresolvedCount = capture.reviewResults.filter((entry) => !entry.accepted).length;
+    useEffect(() => {
+        finishDialog.current?.close();
+        setPreparingReview(false);
+        setFinishError("");
+        return () => {
+            finishRequest.current += 1;
+        };
+    }, [session.id]);
+
+    async function requestFinish() {
+        if (preparingReview || !databaseLoaded || session.status === "finished") return;
+        const request = ++finishRequest.current;
+        if (session.status === "running") dispatch({ type: "pause", now: Date.now() });
+        setPreparingReview(true);
+        setFinishError("");
+        finishDialog.current?.showModal();
+        document.getElementById("finish-review-title")?.focus();
+        try {
+            const remaining = await capture.prepareReview();
+            if (request !== finishRequest.current) return;
+            if (remaining === null) {
+                setFinishError("Capture changed while preparing review. Keep the session open and try again.");
+            } else if (remaining === 0) {
+                finishDialog.current?.close();
+                dispatch({ type: "finish", now: Date.now() });
+            }
+        } catch (error) {
+            if (request === finishRequest.current) setFinishError(`Could not finish reading drops: ${String(error)}`);
+        } finally {
+            if (request === finishRequest.current) setPreparingReview(false);
+        }
+    }
+
+    function keepSessionOpen() {
+        finishRequest.current += 1;
+        if (preparingReview) capture.stopCapture();
+        setPreparingReview(false);
+        finishDialog.current?.close();
     }
 
     return (
@@ -190,7 +251,62 @@ export function LiveSessionView({
                     </div>
                 </details>
             </section>
-            <SessionMetrics controller={controller} visible={visible} />
+            <SessionMetrics controller={controller} visible={visible} onFinish={() => void requestFinish()} />
+            <dialog
+                ref={finishDialog}
+                className={styles.FinishDialog}
+                aria-labelledby="finish-review-title"
+                onCancel={keepSessionOpen}
+            >
+                <h2 id="finish-review-title" tabIndex={-1}>
+                    {preparingReview ? "Reading final drops…" : "Review before finishing"}
+                </h2>
+                <p role="status">
+                    {preparingReview
+                        ? "The timer is paused while the remaining captures are read."
+                        : finishError
+                          ? "Review preparation did not complete. Your session is still open."
+                          : unresolvedCount > 0
+                            ? `${unresolvedCount} ${unresolvedCount === 1 ? "entry still needs" : "entries still need"} attention. These drops have not been added to your session.`
+                            : "All captured drops have been reviewed."}
+                </p>
+                {!preparingReview && unresolvedCount > 0 && (
+                    <p>Review or dismiss them now. Finishing without adding them discards their saved captures.</p>
+                )}
+                {finishError && <p role="alert">{finishError}</p>}
+                <div className={styles.FinishActions}>
+                    {!preparingReview && unresolvedCount > 0 && (
+                        <button
+                            type="button"
+                            className="button primary-button"
+                            onClick={() => {
+                                keepSessionOpen();
+                                const heading = document.getElementById("loot-review-heading");
+                                heading?.scrollIntoView({ block: "start" });
+                                heading?.focus({ preventScroll: true });
+                            }}
+                        >
+                            Review drops
+                        </button>
+                    )}
+                    <button type="button" className="button" onClick={keepSessionOpen}>
+                        Keep session open
+                    </button>
+                    {!preparingReview && !finishError && (
+                        <button
+                            type="button"
+                            className="button subtle"
+                            disabled={!databaseLoaded}
+                            onClick={() => {
+                                finishDialog.current?.close();
+                                dispatch({ type: "finish", now: Date.now() });
+                            }}
+                        >
+                            {unresolvedCount > 0 ? "Finish without adding these drops" : "Finish session"}
+                        </button>
+                    )}
+                </div>
+            </dialog>
             {session.status === "finished" && (
                 <section className={styles.Completion} aria-label="Session complete">
                     <div>
@@ -203,20 +319,7 @@ export function LiveSessionView({
                 </section>
             )}
             <div className={styles.DeskBody}>
-                <LiveLootCapture
-                    lootFont={lootFont}
-                    lootFontReady={lootFontReady}
-                    visible={visible}
-                    setupRequest={captureSetupRequest}
-                    onStatusChange={onCaptureStatusChange}
-                    databaseLoaded={databaseLoaded}
-                    sessionId={session.id}
-                    sessionStatus={session.status}
-                    grindSpotId={session.grindSpotId}
-                    grindSpotName={spot.name}
-                    itemDictionary={drops.map((drop) => drop.name)}
-                    onAcceptRecognition={acceptCapturedLoot}
-                />
+                <LiveLootCapture controller={capture} />
                 <div className={styles.ContentGrid}>
                     <LootLedger
                         key={session.id}

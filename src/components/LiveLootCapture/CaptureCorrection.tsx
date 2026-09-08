@@ -38,7 +38,14 @@ export function CaptureCorrection({
         setRetryMessage("");
         setSuggestion(null);
         try {
-            const result = await retryLootCapture(capture, review.source, items, controller.signal);
+            const result = await retryLootCapture(
+                capture,
+                review.source,
+                items,
+                controller.signal,
+                undefined,
+                review.font,
+            );
             if (controller.signal.aborted) return;
             setSuggestion(result);
             setRetryMessage(

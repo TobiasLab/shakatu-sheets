@@ -1,7 +1,7 @@
 import type { LootAlignmentGuide, LootUiScale } from "../../recognition/displayCapture";
 import { CaptureCorrection } from "./CaptureCorrection";
 import styles from "./LiveLootCapture.module.css";
-import { type LiveLootCaptureProps, useLiveLootCapture } from "./useLiveLootCapture";
+import type { useLiveLootCapture } from "./useLiveLootCapture";
 
 type SourceDimensions = { width: number; height: number };
 function AlignmentGuide({ frameSize, guide }: { frameSize: SourceDimensions; guide: LootAlignmentGuide }) {
@@ -30,7 +30,7 @@ function AlignmentGuide({ frameSize, guide }: { frameSize: SourceDimensions; gui
         </div>
     );
 }
-export function LiveLootCapture(props: LiveLootCaptureProps) {
+export function LiveLootCapture({ controller }: { controller: ReturnType<typeof useLiveLootCapture> }) {
     const {
         setupButton,
         setupOpen,
@@ -118,11 +118,12 @@ export function LiveLootCapture(props: LiveLootCaptureProps) {
         recognitionAnnouncement,
         reviewResults,
         clearReviewResults,
+        dismissReviewResult,
         omittedReviewResults,
         resultDescription,
         acceptReviewResult,
         correctReviewResult,
-    } = useLiveLootCapture(props);
+    } = controller;
     return (
         <section
             className={styles.CapturePanel}
@@ -132,7 +133,9 @@ export function LiveLootCapture(props: LiveLootCaptureProps) {
             <video ref={video} className={styles.SourceVideo} muted playsInline />
             <div className={styles.Intro}>
                 <div>
-                    <h2 id="live-capture-heading">Loot capture</h2>
+                    <h2 id="live-capture-heading" tabIndex={-1}>
+                        Loot capture
+                    </h2>
                     <span>
                         {recognitionStatus === "active"
                             ? "Tracking your loot while you play"
@@ -709,7 +712,7 @@ export function LiveLootCapture(props: LiveLootCaptureProps) {
                     <div className={styles.ReviewHeader}>
                         <div>
                             <p className="eyebrow">Local OCR review</p>
-                            <h3>
+                            <h3 id="loot-review-heading" tabIndex={-1}>
                                 Needs attention <span>({reviewResults.filter((entry) => !entry.accepted).length})</span>
                             </h3>
                         </div>
@@ -741,6 +744,22 @@ export function LiveLootCapture(props: LiveLootCaptureProps) {
                                         <strong>{resultDescription(review.result)}</strong>
                                         {review.error && <small className={styles.ResultError}>{review.error}</small>}
                                     </div>
+                                    <button
+                                        className="button subtle"
+                                        type="button"
+                                        aria-label={`Dismiss review entry ${review.id + 1}`}
+                                        onClick={(event) => {
+                                            const row = event.currentTarget.closest("li");
+                                            const next = row?.nextElementSibling ?? row?.previousElementSibling;
+                                            dismissReviewResult(review.id);
+                                            const target =
+                                                next?.querySelector<HTMLButtonElement>("button") ??
+                                                document.getElementById("live-capture-heading");
+                                            target?.focus();
+                                        }}
+                                    >
+                                        Dismiss
+                                    </button>
                                     {review.result.status === "recognized" && !review.accepted && (
                                         <button
                                             className="button"

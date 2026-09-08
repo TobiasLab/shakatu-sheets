@@ -274,13 +274,23 @@ Track rows by position, motion, appearance time, text, and icon similarity. Assi
 retain that ID while it moves through the stack, and count it once. Text-only deduplication is insufficient because two
 consecutive drops can have the same item and quantity.
 
-The first prototype shows every result in a recent-event feed and identifies whether it came from the normal stack or rare
-banner. Recognized matches from either source are immediately added to the ledger. Users can remove or edit an inserted
+Recognized matches from either source are immediately added to the ledger. Users can remove or edit an inserted
 entry through the ledger before finishing the session. If insertion fails, the app retries it after one, two, and four
 seconds while the same session remains active. An exhausted result remains actionable while retained in the bounded feed,
-with the latest validation error and a manual retry control. Withheld and failed recognition results remain visible without
-inventing an item or quantity and require manual entry. Before release, broader benchmark data must establish whether
-automatic insertion needs stricter confidence gating.
+with the latest validation error and a manual retry control. The review feed shows unresolved results; users can correct
+the item and quantity, retry OCR on the retained crop, or dismiss an individual entry. Dismissal cancels pending insertion
+retries and leaves ledger loot unchanged. OCR retries use the font frozen when that capture started, including after the
+user changes the font setting. A retry suggests a correction for the user to confirm; it does not add loot automatically.
+Dismissing during a retry discards its result and lets the single-crop read settle before disposing its worker, avoiding
+Tesseract's termination race during asynchronous image preparation.
+
+Finishing pauses the timer, drains pending OCR, and stops capture before checking unresolved entries. If any remain, a
+dialog lets the user return to review, keep the session open, or explicitly finish without adding those drops. Captures
+remain available while reviewing the paused session and are discarded when it finishes. With no unresolved entries,
+finishing proceeds immediately after OCR drains. Review time is excluded from session duration. Canceling while OCR is
+being drained stops capture and keeps the session open; canceled preparation cannot finish a subsequent session.
+
+Before release, broader benchmark data must establish whether automatic insertion needs stricter confidence gating.
 
 ## Privacy And Safety
 
