@@ -71,6 +71,7 @@ function installTauriMock() {
     const listeners = new Map();
     let next = 0;
     window.__event = (event, payload) => {
+        if (window.__dropTimer && event === "session-overlay-timer-request") return;
         for (const [id, args] of listeners) {
             if (args.event === event) callbacks.get(args.handler)?.({ event, id, payload: structuredClone(payload) });
         }
@@ -299,6 +300,29 @@ try {
                 `[...document.querySelectorAll('main button')].find(b=>b.getAttribute('aria-label')==='${label}').click()`,
             );
         }
+        await send("Emulation.setDeviceMetricsOverride", {
+            width: 320,
+            height: 250,
+            deviceScaleFactor: 1,
+            mobile: false,
+        });
+        await evaluate("window.__dropTimer=true");
+        await clickTimer("Pause timer");
+        await until('document.body.innerText.includes("did not respond")');
+        assert(
+            await evaluate(`(() => {
+            const button = document.querySelector('[aria-label="Pause timer"]');
+            return !button.disabled && button.getBoundingClientRect().right <= document.querySelector('main').getBoundingClientRect().right;
+        })()`),
+            "A timer error must leave the control enabled and inside the narrow overlay",
+        );
+        await evaluate("window.__dropTimer=false");
+        await send("Emulation.setDeviceMetricsOverride", {
+            width: 1000,
+            height: 800,
+            deviceScaleFactor: 1,
+            mobile: false,
+        });
         await clickTimer("Pause timer");
         await until(
             'window.__savedSession.status === "paused" && !!document.querySelector(\'[aria-label="Resume timer"]:not(:disabled)\')',
