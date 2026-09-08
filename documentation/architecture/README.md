@@ -90,14 +90,21 @@ See [repeated loot arrivals](../design/repeated-loot-arrivals.md) for evidence, 
 
 The desktop live-session toolbar opens a separate, resizable, always-on-top `session-overlay` window.
 Drag its header to move it; the close button hides it, preserving its position until the app exits.
-The main window sends session and theme snapshots through targeted Tauri events only while the overlay is shown.
+The main window sends session, theme, opacity, and timer-availability snapshots through targeted Tauri events only while the overlay is shown.
 A ready handshake and show/hide lifecycle events synchronize the latest snapshot on opening or reloading.
-Both close paths publish the visibility event; listeners confirm native visibility without polling. The overlay only renders these snapshots: it does not load or save sessions, fetch prices,
-or start capture. Its timer derives elapsed time from session timestamps independently of main-window visibility.
+Both close paths publish the visibility event; listeners confirm native visibility without polling. The overlay renders these snapshots without loading or saving sessions or fetching prices,
+and does not start capture. Its timer derives elapsed time from session timestamps independently of main-window visibility.
 Net silver/hour uses the same tax and expense calculation as the session summary. Item badges combine quantities
 by name across prices and sources, exclude expenses, and show compact large counts with exact totals in tooltips.
 Custom items without a profile icon display their first two letters. Finishing or resetting a session updates the overlay.
-Closing the main window retains the existing save-before-destroy flow, then exits the app including the overlay.
+Start, pause, and resume buttons send requests to the main window, which validates the session ID, timer state,
+and close/load status before dispatching the existing session action. Requests receive an acknowledgement or an error;
+the overlay never owns a second session timer. Finished sessions have no timer controls.
+Settings → Appearance controls opacity from 25–100%, fading the entire overlay through a transparent native window.
+The main window loads and saves this preference in SQLite and previews changes in overlay snapshots. Saves are ordered
+and pending saves are awaited before closing; hiding the overlay or leaving Settings does not interrupt persistence.
+Position and size are not persisted by the app.
+Closing the main window retains the save-before-destroy flow, then exits the app including the overlay.
 The overlay uses a separate capability for events, hiding, dragging, and minimized-state inspection.
 
 Browser preview disables the pop-out button. Desktop verification should cover dragging and resizing, hiding and

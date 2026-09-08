@@ -460,3 +460,24 @@ fn restricts_local_database_permissions() {
     );
     remove_temporary_database(&path);
 }
+
+#[test]
+fn overlay_opacity_persists_and_rejects_invalid_values() {
+    use super::overlay::{load_overlay_opacity_at_path, save_overlay_opacity_at_path};
+
+    let (path, connection) = temporary_database();
+    drop(connection);
+    assert_eq!(load_overlay_opacity_at_path(&path).unwrap(), 100);
+    save_overlay_opacity_at_path(&path, 55).unwrap();
+    for invalid in [0, 24, 101, 255] {
+        assert!(save_overlay_opacity_at_path(&path, invalid).is_err());
+        assert_eq!(load_overlay_opacity_at_path(&path).unwrap(), 55);
+    }
+    for value in [25, 100] {
+        save_overlay_opacity_at_path(&path, value).unwrap();
+        assert_eq!(load_overlay_opacity_at_path(&path).unwrap(), value);
+    }
+    save_settings(&path, &[("session_overlay_opacity", Some("invalid"))]).unwrap();
+    assert_eq!(load_overlay_opacity_at_path(&path).unwrap(), 100);
+    remove_temporary_database(&path);
+}

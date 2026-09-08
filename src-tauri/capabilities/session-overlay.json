@@ -1,7 +1,7 @@
 {
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "session-overlay",
-  "description": "Read-only session overlay window controls and session events",
+  "description": "Session overlay window controls and timer requests",
   "windows": [
     "session-overlay"
   ],

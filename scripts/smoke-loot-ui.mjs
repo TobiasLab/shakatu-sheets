@@ -99,6 +99,8 @@ await send("Page.addScriptToEvaluateOnNewDocument", {
         async invoke(command, args = {}) {
             calls.push({ command, args });
             if (command === "load_active_session") return null;
+            if (command === "load_overlay_opacity") return 100;
+            if (command === "save_overlay_opacity") return;
             if (command === "load_market_prices") return [];
             if (command === "list_finished_sessions") return [{ session: {id:"fixture-finished",status:"finished",region:"eu",grindSpotId:"sycraia-lower-revamp",startedAt:null,elapsedMs:3600000,entries:[{id:"fixture-loot",name:"Ancient Spirit Dust",quantity:12,unitPrice:3000000,valuation:"vendor",saleMultiplier:1,source:"manual",createdAt:1788520000000}]},finishedAt:1788523600000,garmothUploadStatus:null }];
             if (command === "native_capture_capabilities") return { backend: ${JSON.stringify(backend)}, available: true, reason: null, debugRoiSamples: true };

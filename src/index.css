@@ -320,3 +320,8 @@ summary {
     background: var(--mint);
     color: var(--accent-contrast);
 }
+
+:root[data-window="session-overlay"],
+:root[data-window="session-overlay"] body {
+    background: transparent;
+}

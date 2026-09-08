@@ -8,28 +8,43 @@ import { createServer } from "vite";
 const harness = `import React, { useState } from "react";
 import ReactDOM from "react-dom/client";
 import { useSessionOverlay } from "./hooks/useSessionOverlay";
+import { usePersistedSession } from "./hooks/usePersistedSession";
+import { useOverlayOpacity } from "./hooks/useOverlayOpacity";
+import { SettingsView } from "./views/Settings/Settings";
+import { requestOverlayTimer } from "./api/sessionOverlay";
 import { SessionOverlay } from "./components/SessionOverlay/SessionOverlay";
-import { createSession, createEntry } from "./domain/session";
+import { createEntry } from "./domain/session";
 import "./index.css";
 
+document.documentElement.dataset.window = "session-overlay";
 function Harness() {
-    const [snapshot, setSnapshot] = useState({
-        session: { ...createSession(), status: "running", elapsedMs: 3600000, startedAt: Date.now() },
-        theme: "dark",
-    });
-    const overlay = useSessionOverlay(snapshot);
-    window.updateSession = (count, status = "running") => setSnapshot(previous => ({
-        ...previous,
+    const [theme, setTheme] = useState("dark");
+    const [settingsVisible, setSettingsVisible] = useState(true);
+    const opacity = useOverlayOpacity();
+    const persisted = usePersistedSession(opacity.flush);
+    const overlay = useSessionOverlay({
+        session: persisted.session, theme, opacity: opacity.opacity,
+        timerEnabled: persisted.databaseLoaded && !persisted.closing,
+    }, persisted.requestOverlayTimer);
+    window.currentSession = persisted.session;
+    window.databaseLoaded = persisted.databaseLoaded;
+    window.requestTimer = requestOverlayTimer;
+    window.updateSession = (count, status = "running") => persisted.dispatch({
+        type: "hydrate",
         session: {
-            ...previous.session,
+            ...persisted.session,
             status,
+            elapsedMs: 3600000,
             startedAt: status === "running" ? Date.now() : null,
             entries: Array.from({ length: count }, (_, i) => createEntry("Item " + i, i + 1, 100000, "vendor")),
         },
-    }));
-    window.updateTheme = theme => setSnapshot(previous => ({ ...previous, theme }));
+    });
+    window.updateTheme = setTheme;
+    window.showSettings = setSettingsVisible;
     window.openOverlay = overlay.openOverlay;
-    return <><p id="publisher-error">{overlay.error}</p><SessionOverlay /></>;
+    return <><p id="publisher-error">{overlay.error}</p>
+        {settingsVisible && <SettingsView theme={theme} onThemeChange={setTheme} onOpenCapture={() => {}} overlayOpacity={opacity} />}
+        <SessionOverlay /></>;
 }
 ReactDOM.createRoot(document.getElementById("root")).render(<React.StrictMode><Harness /></React.StrictMode>);
 `;
@@ -39,6 +54,7 @@ function installTauriMock() {
     window.__shown = false;
     window.__calls = [];
     window.__formats = 0;
+    window.__savedOpacity = 65;
     const NativeFormat = Intl.NumberFormat;
     Intl.NumberFormat = function CountingNumberFormat(...args) {
         const formatter = new NativeFormat(...args);
@@ -76,6 +92,23 @@ function installTauriMock() {
         async invoke(command, args = {}) {
             window.__calls.push({ command, args });
             switch (command) {
+                case "load_active_session":
+                    return null;
+                case "save_session":
+                    window.__savedSession = structuredClone(args.session);
+                    return;
+                case "load_garmoth_settings":
+                    return { apiKeyConfigured: false, characterIds: [], characters: [], selectedCharacterId: null };
+                case "load_overlay_opacity":
+                    return window.__savedOpacity;
+                case "save_overlay_opacity":
+                    await new Promise((resolve) => setTimeout(resolve, 50));
+                    if (window.__failOpacity) throw Error("Synthetic opacity save failure");
+                    window.__savedOpacity = args.opacity;
+                    return;
+                case "plugin:window|destroy":
+                    window.__destroyed = true;
+                    return;
                 case "plugin:window|get_all_windows":
                     return ["main", "session-overlay"];
                 case "plugin:window|is_visible":
@@ -172,7 +205,7 @@ try {
     await server.listen();
     await send("Page.navigate", { url: server.resolvedUrls.local[0] });
     await send("Page.bringToFront");
-    await until('typeof window.updateSession === "function"');
+    await until('window.databaseLoaded && document.querySelector("#overlay-opacity")?.value === "65"');
     await sleep(200);
     const sends = () =>
         evaluate(
@@ -231,6 +264,73 @@ try {
         await evaluate("window.__failShow=false;window.openOverlay()");
         await until('document.querySelector("#publisher-error").textContent === ""');
         console.info("Overlay lifecycle smoke passed");
+
+        assert.equal(await evaluate('document.querySelector("main input[type=range]")'), null);
+        assert.equal(await evaluate('document.querySelector("main").style.opacity'), "0.65");
+        assert.equal(await evaluate("getComputedStyle(document.body).backgroundColor"), "rgba(0, 0, 0, 0)");
+        async function setOpacity(value) {
+            await evaluate(`(() => {
+                const input = document.querySelector('#overlay-opacity');
+                Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set.call(input, '${value}');
+                input.dispatchEvent(new Event('input', { bubbles: true }));
+            })()`);
+        }
+        await setOpacity(25);
+        await until('document.querySelector("main").style.opacity === "0.25"');
+        await setOpacity(80);
+        await setOpacity(55);
+        await evaluate("window.showSettings(false)");
+        await until("window.__savedOpacity === 55");
+        await evaluate("window.showSettings(true)");
+        await until('document.querySelector("#overlay-opacity")?.value === "55"');
+        await evaluate("window.__failOpacity=true");
+        await setOpacity(70);
+        await until('document.body.innerText.includes("Synthetic opacity save failure")');
+        await evaluate(
+            `window.__failOpacity=false; [...document.querySelectorAll('button')].find(b=>b.textContent==='Retry save').click()`,
+        );
+        await until(
+            'window.__savedOpacity === 70 && !document.body.innerText.includes("Synthetic opacity save failure")',
+        );
+        console.info("Settings opacity preview, ordered saves, and retry passed");
+
+        async function clickTimer(label) {
+            await evaluate(`[...document.querySelectorAll('main button')].find(b=>b.textContent==='${label}').click()`);
+        }
+        await clickTimer("Pause timer");
+        await until('window.__savedSession.status === "paused" && document.body.innerText.includes("Resume timer")');
+        const pausedTime = await evaluate('document.querySelector("time").textContent');
+        await sleep(1200);
+        assert.equal(await evaluate('document.querySelector("time").textContent'), pausedTime);
+        await clickTimer("Resume timer");
+        await until('window.__savedSession.status === "running" && document.body.innerText.includes("Pause timer")');
+        await sleep(1200);
+        assert.notEqual(await evaluate('document.querySelector("time").textContent'), pausedTime);
+        assert.match(
+            await evaluate(`window.requestTimer('stale-session', 'pause').then(()=>'',String)`),
+            /session has changed/,
+        );
+        assert.equal(await evaluate("window.currentSession.status"), "running");
+        await evaluate('window.updateSession(0,"finished")');
+        await until('document.body.innerText.includes("Finished")');
+        assert.equal(await evaluate(`document.querySelectorAll('main button').length`), 2);
+        assert.match(
+            await evaluate(`window.requestTimer(window.currentSession.id, 'resume').then(()=>'',String)`),
+            /timer state has changed/,
+        );
+        await evaluate('window.updateSession(0,"idle")');
+        await until('document.body.innerText.includes("Start timer")');
+        await clickTimer("Start timer");
+        await until('window.__savedSession.status === "running" && document.body.innerText.includes("Pause timer")');
+        await setOpacity(85);
+        await evaluate('window.__event("tauri://close-requested", {})');
+        assert.match(
+            await evaluate(`window.requestTimer(window.currentSession.id, 'pause').then(()=>'',String)`),
+            /not available/,
+        );
+        await until("window.__destroyed");
+        assert.equal(await evaluate("window.__savedOpacity"), 85);
+        console.info("Overlay timer actions, stale requests, and save-before-close passed");
     }
     assert.deepEqual(browserErrors, []);
 } finally {

@@ -1,25 +1,37 @@
 import { isTauri } from "@tauri-apps/api/core";
 import { emit, emitTo, listen } from "@tauri-apps/api/event";
 import { Window } from "@tauri-apps/api/window";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import {
     OVERLAY_READY,
     OVERLAY_STATE,
+    OVERLAY_TIMER_REQUEST,
+    OVERLAY_TIMER_RESULT,
     OVERLAY_VISIBILITY_CHANGED,
     type OverlaySnapshot,
+    type OverlayTimerRequest,
 } from "../components/SessionOverlay/sessionOverlay";
 
-export function useSessionOverlay(snapshot: OverlaySnapshot) {
-    const { session, theme } = snapshot;
+export function useSessionOverlay(
+    snapshot: OverlaySnapshot,
+    onTimerRequest: (request: OverlayTimerRequest) => string | null,
+) {
+    const { session, theme, timerEnabled, opacity } = snapshot;
+    const timerHandler = useRef(onTimerRequest);
     const latest = useRef(snapshot);
     const visible = useRef(false);
     const [error, setError] = useState("");
+    useLayoutEffect(() => {
+        timerHandler.current = onTimerRequest;
+    }, [onTimerRequest]);
     useEffect(() => {
-        latest.current = { session, theme };
+        latest.current = { session, theme, timerEnabled, opacity };
         if (isTauri() && visible.current) {
-            void emitTo("session-overlay", OVERLAY_STATE, { session, theme }).catch((error) => setError(String(error)));
+            void emitTo("session-overlay", OVERLAY_STATE, { session, theme, timerEnabled, opacity }).catch((error) =>
+                setError(String(error)),
+            );
         }
-    }, [session, theme]);
+    }, [session, theme, timerEnabled, opacity]);
     useEffect(() => {
         if (!isTauri()) return;
         let disposed = false;
@@ -37,7 +49,17 @@ export function useSessionOverlay(snapshot: OverlaySnapshot) {
                 if (!disposed) setError(String(error));
             });
         };
-        const stops = [listen(OVERLAY_READY, refresh), listen(OVERLAY_VISIBILITY_CHANGED, refresh)];
+        const stops = [
+            listen(OVERLAY_READY, refresh),
+            listen(OVERLAY_VISIBILITY_CHANGED, refresh),
+            listen<OverlayTimerRequest>(OVERLAY_TIMER_REQUEST, ({ payload }) => {
+                if (disposed) return;
+                const error = timerHandler.current(payload);
+                void emitTo("session-overlay", OVERLAY_TIMER_RESULT, { requestId: payload.requestId, error }).catch(
+                    (error) => setError(String(error)),
+                );
+            }),
+        ];
         void Promise.all(stops)
             .then(refresh)
             .catch((error) => {

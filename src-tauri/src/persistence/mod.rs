@@ -8,6 +8,7 @@ use tauri::{AppHandle, Manager};
 
 mod garmoth_uploads;
 pub(crate) mod market_prices;
+pub(crate) mod overlay;
 pub(crate) mod sessions;
 mod settings;
 

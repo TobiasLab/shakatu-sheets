@@ -2,6 +2,7 @@ import { useLayoutEffect, useState } from "react";
 import { reopenSession } from "./api/tauri";
 import { AppShell, type AppView } from "./components/AppShell/AppShell";
 import { useLiveSession } from "./hooks/useLiveSession";
+import { useOverlayOpacity } from "./hooks/useOverlayOpacity";
 import { usePersistedSession } from "./hooks/usePersistedSession";
 import { useSessionOverlay } from "./hooks/useSessionOverlay";
 import { useTheme } from "./hooks/useTheme";
@@ -17,14 +18,23 @@ export function App() {
     useLayoutEffect(() => {
         window.scrollTo(0, 0);
     }, [view]);
-    const persistedSession = usePersistedSession();
+    const overlayOpacity = useOverlayOpacity();
+    const persistedSession = usePersistedSession(overlayOpacity.flush);
     const liveSession = useLiveSession(
         persistedSession.session,
         persistedSession.dispatch,
         persistedSession.databaseLoaded,
     );
 
-    const overlay = useSessionOverlay({ session: persistedSession.session, theme });
+    const overlay = useSessionOverlay(
+        {
+            session: persistedSession.session,
+            theme,
+            opacity: overlayOpacity.opacity,
+            timerEnabled: persistedSession.databaseLoaded && !persistedSession.closing,
+        },
+        persistedSession.requestOverlayTimer,
+    );
 
     function openCaptureSetup() {
         setView("live");
@@ -67,7 +77,12 @@ export function App() {
                         onOpenSettings={() => setView("settings")}
                     />
                 ) : view === "settings" ? (
-                    <SettingsView theme={theme} onThemeChange={setTheme} onOpenCapture={openCaptureSetup} />
+                    <SettingsView
+                        theme={theme}
+                        onThemeChange={setTheme}
+                        onOpenCapture={openCaptureSetup}
+                        overlayOpacity={overlayOpacity}
+                    />
                 ) : null}
             </AppShell>
         </div>

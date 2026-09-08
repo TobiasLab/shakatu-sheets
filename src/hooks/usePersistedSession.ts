@@ -1,12 +1,17 @@
 import { useEffect, useLayoutEffect, useReducer, useRef, useState } from "react";
 import { loadActiveSession, saveSession, supportsTauriApi } from "../api/tauri";
+import type { OverlayTimerRequest } from "../components/SessionOverlay/sessionOverlay";
 import { createSession, pauseRestoredSession, reduceSession } from "../domain/session";
 
 import { createSessionPersistence } from "./sessionPersistence";
 
 export type DatabaseStatus = "loading" | "ready" | "saving" | "error";
 
-export function usePersistedSession() {
+export function usePersistedSession(beforeClose?: () => Promise<void>) {
+    const beforeCloseRef = useRef(beforeClose);
+    useLayoutEffect(() => {
+        beforeCloseRef.current = beforeClose;
+    }, [beforeClose]);
     const [session, dispatch] = useReducer(reduceSession, undefined, () => createSession());
     const [databaseLoaded, setDatabaseLoaded] = useState(false);
     const [databaseStatus, setDatabaseStatus] = useState<DatabaseStatus>("loading");
@@ -29,6 +34,7 @@ export function usePersistedSession() {
                     setClosing(true);
                     window.dispatchEvent(new Event("shakatu-stop-capture"));
                     try {
+                        await beforeCloseRef.current?.();
                         await persistenceQueue.current.flush();
                         await windowHandle.destroy();
                     } catch (error) {
@@ -90,5 +96,17 @@ export function usePersistedSession() {
             });
     }, [session, databaseLoaded]);
 
-    return { session, dispatch, databaseLoaded, databaseStatus, databaseError, closing };
+    function requestOverlayTimer(request: OverlayTimerRequest): string | null {
+        if (!databaseLoaded || closingRef.current) return "The session is not available for timer changes.";
+        if (request.sessionId !== session.id) return "The current session has changed. Try again.";
+        const valid =
+            (request.action === "start" && session.status === "idle") ||
+            (request.action === "pause" && session.status === "running") ||
+            (request.action === "resume" && session.status === "paused");
+        if (!valid) return "The timer state has changed. Try again.";
+        dispatch({ type: request.action, now: Date.now() });
+        return null;
+    }
+
+    return { session, dispatch, databaseLoaded, databaseStatus, databaseError, closing, requestOverlayTimer };
 }

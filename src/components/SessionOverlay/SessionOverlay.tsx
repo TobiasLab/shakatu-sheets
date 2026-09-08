@@ -5,6 +5,7 @@ import { getDropIcon, getGrindSpot } from "../../data/grindSpots";
 import { calculateEntryTotals } from "../../domain/session";
 import { formatDuration, formatSilver } from "../../format";
 import { useElapsedTime } from "../../hooks/useElapsedTime";
+import { OverlayTimerButton } from "./OverlayTimerButton";
 import styles from "./SessionOverlay.module.css";
 import {
     aggregateDrops,
@@ -56,7 +57,7 @@ export function SessionOverlay() {
         if (theme) document.documentElement.dataset.theme = theme;
     }, [theme]);
     return (
-        <main className={styles.Overlay}>
+        <main className={styles.Overlay} style={{ opacity: (snapshot?.opacity ?? 100) / 100 }}>
             <header className={styles.Header}>
                 <button
                     type="button"
@@ -111,6 +112,7 @@ function OverlayContent({ snapshot, visible }: { snapshot: OverlaySnapshot; visi
                 <div className={styles.Clock}>
                     <time>{formatDuration(elapsedMs)}</time>
                     <span>{session.status}</span>
+                    <OverlayTimerButton key={session.id} session={session} enabled={snapshot.timerEnabled} />
                 </div>
             </div>
             <OverlayDrops entries={entries} grindSpotId={grindSpotId} />
