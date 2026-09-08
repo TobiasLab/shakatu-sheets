@@ -181,7 +181,7 @@ export function getElapsedMs(state: SessionState, now: number): number {
     return state.elapsedMs + Math.max(0, now - state.startedAt);
 }
 
-export function calculateTotals(entries: SessionEntry[], elapsedMs: number) {
+export function calculateEntryTotals(entries: SessionEntry[]) {
     let gross = 0;
     let expenses = 0;
     let netRevenue = 0;
@@ -194,15 +194,13 @@ export function calculateTotals(entries: SessionEntry[], elapsedMs: number) {
             netRevenue += value * entry.saleMultiplier;
         }
     }
-    const net = netRevenue - expenses;
-    const hours = elapsedMs / 3_600_000;
+    return { gross, expenses, net: netRevenue - expenses };
+}
 
-    return {
-        gross,
-        expenses,
-        net,
-        netPerHour: hours > 0 ? net / hours : 0,
-    };
+export function calculateTotals(entries: SessionEntry[], elapsedMs: number) {
+    const totals = calculateEntryTotals(entries);
+    const hours = elapsedMs / 3_600_000;
+    return { ...totals, netPerHour: hours > 0 ? totals.net / hours : 0 };
 }
 
 export function createEntry(name: string, quantity: number, unitPrice: number, valuation: Valuation): SessionEntry {

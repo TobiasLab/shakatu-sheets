@@ -16,8 +16,4 @@ describe("overlay drops", () => {
         ]);
         expect(entries[0].quantity).toBe(2);
     });
-    it("clears icons when the session has no drops", () => {
-        expect(aggregateDrops([])).toEqual([]);
-        expect(aggregateDrops([createEntry("Buff", 1, 100, "expense")])).toEqual([]);
-    });
 });

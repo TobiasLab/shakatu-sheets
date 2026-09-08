@@ -31,7 +31,9 @@ pub fn run() {
         if window.label() == "session-overlay" {
             if let tauri::WindowEvent::CloseRequested { api, .. } = event {
                 api.prevent_close();
-                let _ = window.hide();
+                if window.hide().is_ok() {
+                    let _ = window.emit("session-overlay-visibility-changed", ());
+                }
             }
             return;
         }
@@ -114,7 +116,7 @@ mod market;
 mod native_capture;
 mod persistence;
 
-use tauri::Manager;
+use tauri::{Emitter, Manager};
 
 #[cfg(target_os = "windows")]
 mod windows_window;

@@ -1,4 +1,5 @@
-import { calculateTotals } from "../../domain/session";
+import { useMemo } from "react";
+import { calculateEntryTotals } from "../../domain/session";
 import { formatDuration, formatSilver } from "../../format";
 import { useElapsedTime } from "../../hooks/useElapsedTime";
 import type { LiveSessionController } from "../../hooks/useLiveSession";
@@ -6,14 +7,14 @@ import styles from "./LiveSession.module.css";
 
 export function SessionMetrics({ controller, visible }: { controller: LiveSessionController; visible: boolean }) {
     const elapsedMs = useElapsedTime(controller.session, visible);
-    const totals = calculateTotals(controller.session.entries, elapsedMs);
+    const entries = controller.session.entries;
+    const totals = useMemo(() => calculateEntryTotals(entries), [entries]);
+    const netPerHour = elapsedMs > 0 ? totals.net / (elapsedMs / 3_600_000) : 0;
     return (
         <section className={styles.MetricsGrid} aria-label="Session summary" aria-busy={!controller.databaseLoaded}>
             <article className={styles.Metric}>
                 <span>Net silver / hour</span>
-                <strong>
-                    {controller.databaseLoaded && elapsedMs > 0 ? formatSilver(totals.netPerHour, true) : "—"}
-                </strong>
+                <strong>{controller.databaseLoaded && elapsedMs > 0 ? formatSilver(netPerHour, true) : "—"}</strong>
                 <small>{elapsedMs > 0 ? "After tax & expenses" : "Start timer or enter completed hours"}</small>
             </article>
             <article className={styles.Metric}>

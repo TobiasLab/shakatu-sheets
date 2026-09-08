@@ -1,18 +1,40 @@
-import { emitTo, listen } from "@tauri-apps/api/event";
+import { emit, emitTo, listen } from "@tauri-apps/api/event";
 import { getCurrentWindow } from "@tauri-apps/api/window";
-import { useEffect, useState } from "react";
+import { memo, useEffect, useMemo, useState } from "react";
 import { getDropIcon, getGrindSpot } from "../../data/grindSpots";
-import { calculateTotals } from "../../domain/session";
+import { calculateEntryTotals } from "../../domain/session";
 import { formatDuration, formatSilver } from "../../format";
 import { useElapsedTime } from "../../hooks/useElapsedTime";
 import styles from "./SessionOverlay.module.css";
-import { aggregateDrops, OVERLAY_READY, OVERLAY_STATE, type OverlaySnapshot } from "./sessionOverlay";
+import {
+    aggregateDrops,
+    OVERLAY_READY,
+    OVERLAY_STATE,
+    OVERLAY_VISIBILITY_CHANGED,
+    type OverlaySnapshot,
+} from "./sessionOverlay";
 
 export function SessionOverlay() {
     const [snapshot, setSnapshot] = useState<OverlaySnapshot | null>(null);
+    const [visible, setVisible] = useState(false);
     const [error, setError] = useState("");
     useEffect(() => {
         let disposed = false;
+        let revision = 0;
+        async function refreshVisibility() {
+            const request = ++revision;
+            const showing = await getCurrentWindow().isVisible();
+            if (!disposed && request === revision) setVisible(showing);
+        }
+        const refresh = () => {
+            void refreshVisibility().catch((error) => {
+                if (!disposed) setError(String(error));
+            });
+        };
+        const visibilityStop = listen(OVERLAY_VISIBILITY_CHANGED, refresh);
+        void visibilityStop.then(refresh).catch((error) => {
+            if (!disposed) setError(String(error));
+        });
         const stop = listen<OverlaySnapshot>(OVERLAY_STATE, ({ payload }) => {
             if (!disposed) setSnapshot(payload);
         });
@@ -25,7 +47,8 @@ export function SessionOverlay() {
             });
         return () => {
             disposed = true;
-            void stop.then((unlisten) => unlisten()).catch(() => undefined);
+            for (const pending of [stop, visibilityStop])
+                void pending.then((unlisten) => unlisten()).catch(() => undefined);
         };
     }, []);
     const theme = snapshot?.theme;
@@ -55,6 +78,7 @@ export function SessionOverlay() {
                     onClick={() => {
                         void getCurrentWindow()
                             .hide()
+                            .then(() => emit(OVERLAY_VISIBILITY_CHANGED))
                             .catch((error) => setError(String(error)));
                     }}
                 >
@@ -62,31 +86,48 @@ export function SessionOverlay() {
                 </button>
             </header>
             {error && <p role="alert">{error}</p>}
-            {snapshot ? <OverlayContent snapshot={snapshot} /> : <p>Waiting for the current session…</p>}
+            {snapshot ? (
+                <OverlayContent snapshot={snapshot} visible={visible} />
+            ) : (
+                <p>Waiting for the current session…</p>
+            )}
         </main>
     );
 }
 
-function OverlayContent({ snapshot }: { snapshot: OverlaySnapshot }) {
+function OverlayContent({ snapshot, visible }: { snapshot: OverlaySnapshot; visible: boolean }) {
     const { session } = snapshot;
-    const elapsedMs = useElapsedTime(session, true);
-    const totals = calculateTotals(session.entries, elapsedMs);
-    const drops = aggregateDrops(session.entries);
+    const elapsedMs = useElapsedTime(session, visible);
+    const { entries, grindSpotId } = session;
+    const totals = useMemo(() => calculateEntryTotals(entries), [entries]);
+    const netPerHour = elapsedMs > 0 ? totals.net / (elapsedMs / 3_600_000) : 0;
     return (
         <>
             <div className={styles.Metrics}>
                 <div>
                     <span>Net silver / hour</span>
-                    <strong>{elapsedMs > 0 ? formatSilver(totals.netPerHour, true) : "—"}</strong>
+                    <strong>{elapsedMs > 0 ? formatSilver(netPerHour, true) : "—"}</strong>
                 </div>
                 <div className={styles.Clock}>
                     <time>{formatDuration(elapsedMs)}</time>
                     <span>{session.status}</span>
                 </div>
             </div>
+            <OverlayDrops entries={entries} grindSpotId={grindSpotId} />
+        </>
+    );
+}
+
+const OverlayDrops = memo(function OverlayDrops({
+    entries,
+    grindSpotId,
+}: Pick<OverlaySnapshot["session"], "entries" | "grindSpotId">) {
+    const drops = aggregateDrops(entries);
+    return (
+        <>
             <ul className={styles.Drops} aria-label="Dropped items">
                 {drops.map(({ name, quantity }) => {
-                    const icon = getDropIcon(session.grindSpotId, name);
+                    const icon = getDropIcon(grindSpotId, name);
                     const label = `${name}: ${formatSilver(quantity)}`;
                     return (
                         <li key={name} title={label} aria-label={label}>
@@ -105,4 +146,4 @@ function OverlayContent({ snapshot }: { snapshot: OverlaySnapshot }) {
             {drops.length === 0 && <p className={styles.Empty}>No drops yet</p>}
         </>
     );
-}
+});

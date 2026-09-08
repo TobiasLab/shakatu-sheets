@@ -90,8 +90,9 @@ See [repeated loot arrivals](../design/repeated-loot-arrivals.md) for evidence, 
 
 The desktop live-session toolbar opens a separate, resizable, always-on-top `session-overlay` window.
 Drag its header to move it; the close button hides it, preserving its position until the app exits.
-The main window sends session and theme snapshots through targeted Tauri events, including a ready handshake
-for initial loading. The overlay only renders these snapshots: it does not load or save sessions, fetch prices,
+The main window sends session and theme snapshots through targeted Tauri events only while the overlay is shown.
+A ready handshake and show/hide lifecycle events synchronize the latest snapshot on opening or reloading.
+Both close paths publish the visibility event; listeners confirm native visibility without polling. The overlay only renders these snapshots: it does not load or save sessions, fetch prices,
 or start capture. Its timer derives elapsed time from session timestamps independently of main-window visibility.
 Net silver/hour uses the same tax and expense calculation as the session summary. Item badges combine quantities
 by name across prices and sources, exclude expenses, and show compact large counts with exact totals in tooltips.

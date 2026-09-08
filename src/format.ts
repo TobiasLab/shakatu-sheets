@@ -1,8 +1,11 @@
+const silverFormatter = new Intl.NumberFormat("en");
+const compactSilverFormatter = new Intl.NumberFormat("en", { notation: "compact", maximumFractionDigits: 2 });
+
 export function formatSilver(value: number, compact = false) {
     if (compact) {
-        return new Intl.NumberFormat("en", { notation: "compact", maximumFractionDigits: 2 }).format(value);
+        return compactSilverFormatter.format(value);
     }
-    return new Intl.NumberFormat("en").format(Math.round(value));
+    return silverFormatter.format(Math.round(value));
 }
 
 export function formatDuration(milliseconds: number) {
