@@ -24,6 +24,7 @@ export type LootFingerprint = {
     full: Uint8Array;
     quantity: Uint8Array;
     textGap?: number;
+    ocrExtent?: number;
     digits?: LootQuantityGlyphs;
 };
 
@@ -271,7 +272,7 @@ function rowFingerprint(frame: LootRoiFrame, centerY: number, scale: number, fon
     const right = Math.round(frame.width * 0.96);
     const quantityLeft = Math.round(frame.width * 0.58);
 
-    function project(startX: number) {
+    function project(startX: number, maximumChroma = 25) {
         const projection = new Uint8Array(right - startX);
         for (let x = startX; x < right; x += 1) {
             let brightPixels = 0;
@@ -280,7 +281,11 @@ function rowFingerprint(frame: LootRoiFrame, centerY: number, scale: number, fon
                 const chroma =
                     Math.max(frame.pixels[offset], frame.pixels[offset + 1], frame.pixels[offset + 2]) -
                     Math.min(frame.pixels[offset], frame.pixels[offset + 1], frame.pixels[offset + 2]);
-                if (luminance(frame, offset) >= 150 && chroma <= 25 && isGlyphPixel(frame, offset, false, scale))
+                if (
+                    luminance(frame, offset) >= 150 &&
+                    chroma <= maximumChroma &&
+                    isGlyphPixel(frame, offset, false, scale)
+                )
                     brightPixels += 1;
             }
             projection[x - startX] = brightPixels;
@@ -293,6 +298,7 @@ function rowFingerprint(frame: LootRoiFrame, centerY: number, scale: number, fon
         full,
         quantity: full.slice(quantityLeft - left),
         textGap: Math.round(8 * scale),
+        ...(font === "strong-sword" ? { ocrExtent: lootTextExtent(project(left, 55), Math.round(8 * scale)) } : {}),
         digits: locateLootQuantity(frame, centerY, full, scale, font),
     };
 }
@@ -1261,7 +1267,8 @@ export class LiveLootCoordinator {
                     .map(
                         (observation) =>
                             Math.round(this.options.profile.width * 0.27) +
-                            lootTextExtent(observation.fingerprint.full, observation.fingerprint.textGap),
+                            (observation.fingerprint.ocrExtent ??
+                                lootTextExtent(observation.fingerprint.full, observation.fingerprint.textGap)),
                     ),
             );
             const frames = selected.map((observation) => {
