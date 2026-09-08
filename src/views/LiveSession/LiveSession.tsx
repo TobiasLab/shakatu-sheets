@@ -4,12 +4,15 @@ import { grindSpots } from "../../data/grindSpots";
 import { createEntry, type SessionState } from "../../domain/session";
 import { formatTimestamp } from "../../format";
 import type { LiveSessionController } from "../../hooks/useLiveSession";
+import type { LootFont } from "../../recognition/lootFont";
 import styles from "./LiveSession.module.css";
 import { SessionMetrics } from "./SessionSummary";
 import { SessionTools } from "./SessionTools";
 
 export function LiveSessionView({
     controller,
+    lootFont,
+    lootFontReady,
     overlay,
     visible,
     onCaptureStatusChange,
@@ -19,6 +22,8 @@ export function LiveSessionView({
     overlay: { openOverlay: () => Promise<void>; error: string; available: boolean };
     onOpenHistory: () => void;
     controller: LiveSessionController;
+    lootFont: LootFont;
+    lootFontReady: boolean;
     visible: boolean;
     captureSetupRequest: number;
     onCaptureStatusChange: (status: string) => void;
@@ -199,6 +204,8 @@ export function LiveSessionView({
             )}
             <div className={styles.DeskBody}>
                 <LiveLootCapture
+                    lootFont={lootFont}
+                    lootFontReady={lootFontReady}
                     visible={visible}
                     setupRequest={captureSetupRequest}
                     onStatusChange={onCaptureStatusChange}

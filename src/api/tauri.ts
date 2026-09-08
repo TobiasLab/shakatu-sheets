@@ -8,6 +8,7 @@ import {
     type NormalizedRegion,
     RARE_LOOT_REGION_SIZES,
 } from "../recognition/displayCapture";
+import type { LootFont } from "../recognition/lootFont";
 import type { RoiOcrIssue } from "../recognition/roiOcrDiagnostics";
 
 export type MarketPriceSnapshot = {
@@ -116,6 +117,7 @@ export type NativeCaptureFrame = {
 export type NativeCaptureError = { kind: "error"; message: string };
 
 export type LootCaptureSettings = {
+    font?: LootFont;
     region: NormalizedRegion;
     rareRegion?: NormalizedRegion | null;
     rareRegionConfirmed: boolean;

@@ -682,3 +682,34 @@ it("restores full-line OCR parameters after a quantity retry before reading rare
     expect(normal.diagnostics.passes[6]).toEqual({ threshold: 130, scale: 4, region: "quantity", text: "6" });
     await reader.terminate();
 });
+
+it("preserves Strong Sword antialiasing without changing Korean or gold preprocessing", () => {
+    const frame = sourceFrame(20, 30);
+    setPixel(frame, 7, 14, 160);
+    setPixel(frame, 8, 14, 235);
+    const original = frame.pixels.slice();
+    const korean = preprocessLootOcrFrame(frame, 15, 150);
+    const strong = preprocessLootOcrFrame(frame, 15, 150, undefined, "white", 4, "strong-sword");
+    expect(strong.pixels.some((value, index) => index % 4 !== 3 && value > 0 && value < 255)).toBe(true);
+    expect(preprocessLootOcrFrame(frame, 15, 150, undefined, "white", 2, "korean")).toEqual(korean);
+    expect(preprocessLootOcrFrame(frame, 15, 150, undefined, "gold", 4, "strong-sword")).toEqual(
+        preprocessLootOcrFrame(frame, 15, 150, undefined, "gold", 4),
+    );
+    expect(frame.pixels).toEqual(original);
+});
+
+it("keeps Strong Sword quantity corroboration conservative and bounds OCR work", async () => {
+    const recognize = vi.fn(async (threshold: number, scale: number, region: string) => {
+        expect(scale).toBe(4);
+        return region === "quantity" ? "6" : threshold === 150 ? "Branch of Abundance x 6" : "Branch of Abundance x &";
+    });
+    expect(await readLootOcrFrame("white", recognize, true, "strong-sword")).toEqual(
+        Array(3).fill("Branch of Abundance x 6"),
+    );
+    expect(recognize).toHaveBeenCalledTimes(6);
+    const unreadable = vi.fn(async () => "Branch of Abundance x &");
+    expect(await readLootOcrFrame("white", unreadable, true, "strong-sword")).toEqual(
+        Array(3).fill("Branch of Abundance x &"),
+    );
+    expect(unreadable).toHaveBeenCalledTimes(3);
+});

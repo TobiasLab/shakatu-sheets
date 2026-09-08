@@ -1,5 +1,6 @@
 import { fadingLootArrivals, type LootRowAppearance, lootRowAppearances, lootRowsFaded } from "./lootArrival";
 import type { LootSampleFps } from "./lootCaptureTiming";
+import type { LootFont } from "./lootFont";
 import { type LootQuantityGlyphs, locateLootQuantity, lootQuantityDistance } from "./lootQuantity";
 
 export type LootRoiFrame = {
@@ -171,6 +172,7 @@ export type LootOcrSelectionOptions = {
 export type LiveLootFrameAnalyzer = (frame: LootRoiFrame) => LootDetectedRows<LootFingerprint>;
 
 export type LiveLootCoordinatorOptions = {
+    font?: LootFont;
     sampleFps?: LootSampleFps;
     profile: LootDetectionProfile;
     dictionary: readonly string[];
@@ -263,7 +265,7 @@ function rowScore(frame: LootRoiFrame, centerY: number, rowThreshold: number, sc
         : 0;
 }
 
-function rowFingerprint(frame: LootRoiFrame, centerY: number, scale: number): LootFingerprint {
+function rowFingerprint(frame: LootRoiFrame, centerY: number, scale: number, font: LootFont): LootFingerprint {
     const halfBand = Math.round(6 * scale);
     const left = Math.round(frame.width * 0.27);
     const right = Math.round(frame.width * 0.96);
@@ -291,13 +293,14 @@ function rowFingerprint(frame: LootRoiFrame, centerY: number, scale: number): Lo
         full,
         quantity: full.slice(quantityLeft - left),
         textGap: Math.round(8 * scale),
-        digits: locateLootQuantity(frame, centerY, full, scale),
+        digits: locateLootQuantity(frame, centerY, full, scale, font),
     };
 }
 
 export function analyzeLootRoiFrame(
     frame: LootRoiFrame,
     profile: LootDetectionProfile,
+    font: LootFont = "korean",
 ): LootDetectedRows<LootFingerprint> {
     validateProfile(profile);
     if (frame.width !== profile.width || frame.height !== profile.height) {
@@ -320,7 +323,7 @@ export function analyzeLootRoiFrame(
     let count = 0;
     for (let slot = profile.maxRows - 1; slot >= 0 && detected[slot]; slot -= 1) count += 1;
     const fingerprints = Array.from({ length: count }, (_, index) =>
-        rowFingerprint(frame, profile.bottomCenter - (count - index - 1) * profile.spacing, scale),
+        rowFingerprint(frame, profile.bottomCenter - (count - index - 1) * profile.spacing, scale, font),
     );
     const observations: LootRowObservation<LootFingerprint>[] = [];
     for (let slot = profile.maxRows - count; slot < profile.maxRows; slot += 1) {
@@ -1093,7 +1096,8 @@ export class LiveLootCoordinator {
         this.maxPendingOcrJobs = maxPendingOcrJobs;
         this.maxPendingResults = maxPendingResults;
         this.maximumRetainedFrames = retainedFrameCount;
-        this.analyzeFrame = options.analyzeFrame ?? ((frame) => analyzeLootRoiFrame(frame, options.profile));
+        this.analyzeFrame =
+            options.analyzeFrame ?? ((frame) => analyzeLootRoiFrame(frame, options.profile, options.font));
         this.ocrSelection = {
             frameCount: ocrFrameCount,
             frameStep,

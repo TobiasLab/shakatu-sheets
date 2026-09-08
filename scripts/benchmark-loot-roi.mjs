@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { appendFile, readdir, readFile, writeFile } from "node:fs/promises";
 import { isAbsolute, join, relative, resolve, sep } from "node:path";
 import { setTimeout as delay } from "node:timers/promises";
@@ -6,6 +7,7 @@ import { parseArgs } from "node:util";
 import { LiveLootCoordinator, NORMAL_LOOT_OCR_SELECTION } from "../src/recognition/liveLoot.ts";
 import { preprocessLootOcrFrame, readLootOcrFrame } from "../src/recognition/liveLootOcr.ts";
 import { findLiveLootProfile, findRareLootGeometry } from "../src/recognition/liveLootProfiles.ts";
+import { isLootFont } from "../src/recognition/lootFont.ts";
 import {
     RARE_LOOT_OCR_SELECTION,
     RareLootFrameAnalyzer,
@@ -112,6 +114,8 @@ try {
         if (!/^run-\d+-\d+-\d+$/.test(run.id)) throw new Error("Invalid run directory.");
         const directory = join(root, run.id);
         const manifest = JSON.parse(await readFile(join(directory, "manifest.json"), "utf8"));
+        const font = run.font ?? manifest.font ?? "korean";
+        if (!isLootFont(font)) throw new Error(`${run.id}: invalid font.`);
         const artifact = findLiveLootProfile(
             manifest.sourceDimensions?.width,
             manifest.sourceDimensions?.height,
@@ -150,6 +154,7 @@ try {
             let ocrCalls = 0;
             let lastOcrEventId;
             const coordinator = new LiveLootCoordinator({
+                font,
                 sampleFps,
                 ocrSelection: NORMAL_LOOT_OCR_SELECTION,
                 profile,
@@ -188,6 +193,7 @@ try {
                                     region === "quantity" ? frame.observation.fingerprint.digits?.bounds : frame.bounds,
                                     frame.textColor,
                                     scale,
+                                    font,
                                 );
                                 const grayscale = Buffer.alloc(image.width * image.height);
                                 for (let i = 0; i < grayscale.length; i += 1) grayscale[i] = image.pixels[i * 4];
@@ -200,6 +206,7 @@ try {
                                 return text;
                             },
                             frame.textColor !== "gold" && !!frame.observation.fingerprint.digits,
+                            font,
                         );
                         readings.push(texts);
                     }
@@ -244,8 +251,16 @@ try {
             } finally {
                 coordinator.stop();
             }
+            const expectedDigest = useOcr && sampleStep === 1 ? run.expectedResultsSha256?.[kind] : undefined;
+            const matchesBaseline =
+                expectedDigest === undefined
+                    ? undefined
+                    : createHash("sha256").update(JSON.stringify(results)).digest("hex") === expectedDigest;
+            if (matchesBaseline === false) failed = true;
             const summary = {
+                ...(matchesBaseline === undefined ? {} : { matchesBaseline }),
                 run: run.id,
+                font,
                 kind,
                 frames: replayIds.length,
                 sourceFrames: normalIds.length,

@@ -104,6 +104,8 @@ pub(super) fn rare_loot_region_dimensions(ui_scale_percent: u32) -> Result<(u32,
 #[derive(Clone, Copy, Debug, Deserialize, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct LootCaptureSettings {
+    #[serde(default)]
+    pub font: crate::persistence::loot_font::LootFont,
     pub region: NormalizedRegion,
     #[serde(default)]
     pub rare_region: Option<NormalizedRegion>,
@@ -261,6 +263,7 @@ mod tests {
         height: u32,
     ) -> LootCaptureSettings {
         LootCaptureSettings {
+            font: Default::default(),
             region: NormalizedRegion {
                 x: x as f64 / source_width as f64,
                 y: y as f64 / source_height as f64,

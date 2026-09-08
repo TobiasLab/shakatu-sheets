@@ -11,6 +11,7 @@ fn selection_with_dimensions(
     height: u32,
 ) -> LootCaptureSettings {
     LootCaptureSettings {
+        font: Default::default(),
         region: super::super::NormalizedRegion {
             x: x as f64 / source_width as f64,
             y: y as f64 / source_height as f64,

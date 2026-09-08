@@ -7,6 +7,7 @@ use rusqlite::Connection;
 use tauri::{AppHandle, Manager};
 
 mod garmoth_uploads;
+pub(crate) mod loot_font;
 pub(crate) mod market_prices;
 pub(crate) mod overlay;
 pub(crate) mod sessions;

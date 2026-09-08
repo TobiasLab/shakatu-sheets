@@ -6,6 +6,8 @@ import {
     type LootRoiFrame,
     parseLootQuantity,
 } from "./liveLoot";
+import type { LootFont } from "./lootFont";
+import { writeStrongSwordPixels } from "./strongSword";
 
 export type LootOcrThreshold = 130 | 150 | 170;
 
@@ -19,6 +21,7 @@ export function preprocessLootOcrFrame(
     bounds?: LootOcrBounds,
     textColor: "white" | "gold" = "white",
     scale: 2 | 4 = textColor === "gold" ? 4 : 2,
+    font: LootFont = "korean",
 ): LootRoiFrame {
     const { width, height, pixels } = frame;
     if (!Number.isSafeInteger(width) || width <= 0 || !Number.isSafeInteger(height) || height <= 0) {
@@ -64,6 +67,10 @@ export function preprocessLootOcrFrame(
     }
     const output = new Uint8ClampedArray(outputBytes);
     output.fill(255);
+    if (font === "strong-sword" && textColor !== "gold") {
+        writeStrongSwordPixels(frame, { left, right, top, bottom }, threshold, scale, output, outputWidth);
+        return { width: outputWidth, height: outputHeight, pixels: output };
+    }
 
     for (let y = top; y < bottom; y += 1) {
         if (y < 0 || y >= height) continue;
@@ -97,6 +104,7 @@ export async function readLootOcrFrame(
     textColor: "white" | "gold" | undefined,
     recognize: (threshold: LootOcrThreshold, scale: 2 | 4, region: "line" | "quantity") => Promise<string>,
     quantityAvailable = false,
+    font: LootFont = "korean",
 ): Promise<string[]> {
     async function read(scale: 2 | 4) {
         const readings: string[] = [];
@@ -104,13 +112,13 @@ export async function readLootOcrFrame(
         return readings;
     }
 
-    const readings = await read(textColor === "gold" ? 4 : 2);
+    const readings = await read(textColor === "gold" || font === "strong-sword" ? 4 : 2);
     if (textColor === "gold") return readings;
     const quantities = readings.map(parseLootQuantity);
     if (quantities.some((quantity) => quantity !== null && quantities.filter((other) => other === quantity).length > 1))
         return readings;
 
-    const retried = await read(4);
+    const retried = font === "strong-sword" ? readings : await read(4);
     const chosen = retried.some((text) => parseLootQuantity(text) !== null) ? retried : readings;
     const parsed = chosen.map(parseLootQuantity);
     if (
@@ -183,6 +191,7 @@ export type LiveLootTesseractOcr = {
 };
 
 export type LiveLootTesseractOcrOptions = {
+    font?: LootFont;
     workerFactory?: LiveLootOcrWorkerFactory;
     canvasFactory?: LiveLootOcrCanvasFactory;
 };
@@ -234,6 +243,7 @@ function closedError() {
 }
 
 export async function createLiveLootTesseractOcr({
+    font = "korean",
     workerFactory = defaultWorkerFactory,
     canvasFactory = defaultCanvasFactory,
 }: LiveLootTesseractOcrOptions = {}): Promise<LiveLootTesseractOcr> {
@@ -333,6 +343,7 @@ export async function createLiveLootTesseractOcr({
                         region === "quantity" ? source.observation.fingerprint.digits?.bounds : source.bounds,
                         source.textColor,
                         scale,
+                        font,
                     );
                     source = undefined;
 
@@ -355,6 +366,7 @@ export async function createLiveLootTesseractOcr({
                 },
                 job.frames?.[frameIndex]?.textColor !== "gold" &&
                     !!job.frames?.[frameIndex]?.observation.fingerprint.digits,
+                font,
             );
             readings.push(frameReadings);
         }

@@ -2,6 +2,7 @@ import { useLayoutEffect, useState } from "react";
 import { reopenSession } from "./api/tauri";
 import { AppShell, type AppView } from "./components/AppShell/AppShell";
 import { useLiveSession } from "./hooks/useLiveSession";
+import { useLootFont } from "./hooks/useLootFont";
 import { useOverlayOpacity } from "./hooks/useOverlayOpacity";
 import { usePersistedSession } from "./hooks/usePersistedSession";
 import { useSessionOverlay } from "./hooks/useSessionOverlay";
@@ -19,7 +20,10 @@ export function App() {
         window.scrollTo(0, 0);
     }, [view]);
     const overlayOpacity = useOverlayOpacity();
-    const persistedSession = usePersistedSession(overlayOpacity.flush);
+    const lootFont = useLootFont();
+    const persistedSession = usePersistedSession(async () => {
+        await Promise.all([overlayOpacity.flush(), lootFont.flush()]);
+    });
     const liveSession = useLiveSession(
         persistedSession.session,
         persistedSession.dispatch,
@@ -62,6 +66,8 @@ export function App() {
                 <div hidden={view !== "live"}>
                     <LiveSessionView
                         controller={liveSession}
+                        lootFont={lootFont.font}
+                        lootFontReady={lootFont.loaded && !lootFont.saving && !lootFont.error}
                         overlay={overlay}
                         onOpenHistory={() => setView("history")}
                         visible={view === "live"}
@@ -82,6 +88,7 @@ export function App() {
                         onThemeChange={setTheme}
                         onOpenCapture={openCaptureSetup}
                         overlayOpacity={overlayOpacity}
+                        lootFont={lootFont}
                     />
                 ) : null}
             </AppShell>
