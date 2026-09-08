@@ -3,6 +3,7 @@ import { reopenSession } from "./api/tauri";
 import { AppShell, type AppView } from "./components/AppShell/AppShell";
 import { useLiveSession } from "./hooks/useLiveSession";
 import { usePersistedSession } from "./hooks/usePersistedSession";
+import { useSessionOverlay } from "./hooks/useSessionOverlay";
 import { useTheme } from "./hooks/useTheme";
 import { HistoryView } from "./views/History/History";
 import { LiveSessionView } from "./views/LiveSession/LiveSession";
@@ -22,6 +23,8 @@ export function App() {
         persistedSession.dispatch,
         persistedSession.databaseLoaded,
     );
+
+    const overlay = useSessionOverlay({ session: persistedSession.session, theme });
 
     function openCaptureSetup() {
         setView("live");
@@ -49,6 +52,7 @@ export function App() {
                 <div hidden={view !== "live"}>
                     <LiveSessionView
                         controller={liveSession}
+                        overlay={overlay}
                         onOpenHistory={() => setView("history")}
                         visible={view === "live"}
                         captureSetupRequest={captureSetupRequest}

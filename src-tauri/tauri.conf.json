@@ -17,6 +17,20 @@
         "height": 820,
         "minWidth": 960,
         "minHeight": 680
+      },
+      {
+        "label": "session-overlay",
+        "title": "Session overlay",
+        "url": "index.html",
+        "width": 360,
+        "height": 250,
+        "minWidth": 320,
+        "minHeight": 180,
+        "visible": false,
+        "focus": false,
+        "decorations": false,
+        "alwaysOnTop": true,
+        "skipTaskbar": true
       }
     ],
     "security": {

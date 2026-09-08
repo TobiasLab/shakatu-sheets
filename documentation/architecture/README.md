@@ -85,3 +85,21 @@ includes recognized results and per-pass metadata; there are no database schema 
 Normal arrival detection supplements text identity with bounded local-contrast signatures of fading rows. Confirmed
 displacement creates distinct events for repeated drops, and fading top rows preserve surviving bottom-track identities.
 See [repeated loot arrivals](../design/repeated-loot-arrivals.md) for evidence, limits, and performance measurements.
+
+## Session overlay
+
+The desktop live-session toolbar opens a separate, resizable, always-on-top `session-overlay` window.
+Drag its header to move it; the close button hides it, preserving its position until the app exits.
+The main window sends session and theme snapshots through targeted Tauri events, including a ready handshake
+for initial loading. The overlay only renders these snapshots: it does not load or save sessions, fetch prices,
+or start capture. Its timer derives elapsed time from session timestamps independently of main-window visibility.
+Net silver/hour uses the same tax and expense calculation as the session summary. Item badges combine quantities
+by name across prices and sources, exclude expenses, and show compact large counts with exact totals in tooltips.
+Custom items without a profile icon display their first two letters. Finishing or resetting a session updates the overlay.
+Closing the main window retains the existing save-before-destroy flow, then exits the app including the overlay.
+The overlay uses a separate capability for events, hiding, dragging, and minimized-state inspection.
+
+Browser preview disables the pop-out button. Desktop verification should cover dragging and resizing, hiding and
+reopening, loot edits/removals, pause/resume/reset, continued timing while the main window is minimized, and app exit.
+Always-on-top behavior depends on the desktop compositor; exclusive fullscreen games may cover the window.
+Window behavior follows [Tauri's window API](https://v2.tauri.app/reference/javascript/api/namespacewindow/).
