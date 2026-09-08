@@ -111,7 +111,9 @@ function OverlayContent({ snapshot, visible }: { snapshot: OverlaySnapshot; visi
                 </div>
                 <div className={styles.Clock}>
                     <time>{formatDuration(elapsedMs)}</time>
-                    <span>{session.status}</span>
+                    <span className={styles.Status} data-status={session.status}>
+                        {session.status}
+                    </span>
                     <OverlayTimerButton key={session.id} session={session} enabled={snapshot.timerEnabled} />
                 </div>
             </div>

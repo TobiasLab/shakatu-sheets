@@ -52,12 +52,44 @@
     color: var(--gold);
 }
 .Clock {
+    display: grid;
+    grid-template-columns: auto;
+    align-items: center;
+    column-gap: 10px;
+    row-gap: 4px;
+    flex-shrink: 0;
     text-align: right;
     font-variant-numeric: tabular-nums;
 }
-.Clock span {
-    margin-top: 5px;
+.Clock time {
+    grid-column: 1;
+    font-size: 16px;
+    font-weight: 600;
+    line-height: 1.2;
+    white-space: nowrap;
+}
+.Clock .Status {
+    grid-column: 1;
+    grid-row: 2;
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 5px;
+    font-size: 10px;
     text-transform: capitalize;
+}
+.Status::before {
+    content: "";
+    width: 5px;
+    height: 5px;
+    border-radius: 50%;
+    background: var(--muted);
+}
+.Status[data-status="running"]::before {
+    background: var(--success);
+}
+.Status[data-status="paused"]::before {
+    background: var(--gold);
 }
 .Drops {
     display: flex;
@@ -108,10 +140,14 @@
 .TimerButton:global(.button) {
     width: 30px;
     min-height: 30px;
-    margin-top: 6px;
+    grid-column: 2;
+    grid-row: 1 / 3;
     padding: 0;
 }
 .ControlError {
+    grid-column: 1 / -1;
+    max-width: 160px;
+    margin: 4px 0 0;
     font-size: 11px;
     color: var(--danger);
     overflow-wrap: anywhere;
