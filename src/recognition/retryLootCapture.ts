@@ -1,5 +1,6 @@
 import { analyzeLootReadings, type LootReviewCapture } from "./liveLoot";
-import { createLiveLootTesseractOcr, type LiveLootTesseractOcr } from "./liveLootOcr";
+import { createLiveLootTesseractOcr, type LiveLootTesseractOcr, type LiveLootTesseractOcrOptions } from "./liveLootOcr";
+import type { LootFont } from "./lootFont";
 
 /** A one-frame suggestion for human review, independent of live capture's temporal consensus. */
 export async function retryLootCapture(
@@ -7,10 +8,11 @@ export async function retryLootCapture(
     source: "normal" | "rare",
     dictionary: readonly string[],
     signal: AbortSignal,
-    createOcr: () => Promise<LiveLootTesseractOcr> = createLiveLootTesseractOcr,
+    createOcr: (options?: LiveLootTesseractOcrOptions) => Promise<LiveLootTesseractOcr> = createLiveLootTesseractOcr,
+    font: LootFont = "korean",
 ) {
     signal.throwIfAborted();
-    const ocr = await createOcr();
+    const ocr = await createOcr({ font });
     let suggestion: { item: string; quantity: number } | null;
     try {
         signal.throwIfAborted();
@@ -29,7 +31,9 @@ export async function retryLootCapture(
                     textColor: source === "rare" ? "gold" : "white",
                 },
             ],
-            signal,
+            // Tesseract prepares canvas images asynchronously. Terminating during that
+            // preparation races its worker submission; finish this one crop, then discard it.
+            new AbortController().signal,
         );
         signal.throwIfAborted();
         suggestion = analyzeLootReadings(readings, dictionary).consensus;

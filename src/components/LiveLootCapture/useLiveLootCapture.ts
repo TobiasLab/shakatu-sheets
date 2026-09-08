@@ -297,6 +297,7 @@ export function useLiveLootCapture({
     itemDictionary,
     onAcceptRecognition,
 }: LiveLootCaptureProps) {
+    const closingRecognition = useRef(false);
     const [captureFont, setCaptureFont] = useState<LootFont>("korean");
     const windowVisible = useWindowVisible();
     const [setupOpen, setSetupOpen] = useState(false);
@@ -631,6 +632,7 @@ export function useLiveLootCapture({
     }
 
     function pushRecognitionFrame(frame: LootRoiFrame) {
+        if (closingRecognition.current) return;
         const current = recognition.current;
         if (!current) {
             if (recognitionRequestedRef.current) {
@@ -658,6 +660,7 @@ export function useLiveLootCapture({
     }
 
     function pushRareRecognitionFrame(frame: LootRoiFrame) {
+        if (closingRecognition.current) return;
         const current = recognition.current;
         if (!current) {
             if (recognitionRequestedRef.current) {
@@ -761,6 +764,15 @@ export function useLiveLootCapture({
         if (corrected.accepted) cancelAutomaticRetry(id);
     }
 
+    function dismissReviewResult(id: number) {
+        cancelAutomaticRetry(id);
+        manualRetryAttempts.current.delete(id);
+        const next = reviewResultsRef.current.filter((entry) => entry.id !== id);
+        reviewResultsRef.current = next;
+        setReviewResults(next);
+        setRecognitionAnnouncement("Dismissed review entry. Session loot is unchanged.");
+    }
+
     function clearReviewResults() {
         clearAutomaticRetries();
         manualRetryAttempts.current.clear();
@@ -851,6 +863,7 @@ export function useLiveLootCapture({
     }
 
     function pushLocalizationFrame(frame: LootSearchFrame) {
+        if (closingRecognition.current) return;
         if (placementModeRef.current !== "localizing") return;
         const currentLocalizer = localizer.current;
         if (!currentLocalizer) return;
@@ -966,7 +979,27 @@ export function useLiveLootCapture({
         measurementStarted.current = now;
     }
 
+    async function prepareReview() {
+        const captureRequest = requestId.current;
+        const reviewSession = activeSessionId.current;
+        try {
+            await recognitionStartup.current;
+            if (!mounted.current || activeSessionId.current !== reviewSession || requestId.current !== captureRequest)
+                return null;
+            closingRecognition.current = true;
+            const pipeline = recognition.current;
+            if (pipeline) await Promise.all([pipeline.normalCoordinator.finish(), pipeline.rareCoordinator.finish()]);
+            if (!mounted.current || activeSessionId.current !== reviewSession || requestId.current !== captureRequest)
+                return null;
+            return reviewResultsRef.current.filter((entry) => !entry.accepted).length;
+        } finally {
+            if (mounted.current && activeSessionId.current === reviewSession && requestId.current === captureRequest)
+                stopCapture();
+        }
+    }
+
     function stopCapture() {
+        closingRecognition.current = false;
         requestId.current += 1;
         releaseStream();
     }
@@ -1469,6 +1502,7 @@ export function useLiveLootCapture({
                     const pendingEntry: LiveLootReviewEntry = {
                         id,
                         source,
+                        font: captureFont,
                         result,
                         accepted: false,
                         error: "",
@@ -2168,6 +2202,8 @@ export function useLiveLootCapture({
         recognitionAnnouncement,
         reviewResults,
         clearReviewResults,
+        dismissReviewResult,
+        prepareReview,
         omittedReviewResults,
         resultDescription,
         acceptReviewResult,

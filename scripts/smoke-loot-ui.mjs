@@ -139,6 +139,20 @@ await send("Page.addScriptToEvaluateOnNewDocument", {
                     }
                     args.frames.onmessage(data);
                 };
+                window.__emitLoot = (rows) => {
+                    const settings = calls.filter(c => c.command === "set_native_display_capture_region" && c.args.selection?.mode === "regions").at(-1).args.selection.settings;
+                    const scale = settings.uiScalePercent / 80;
+                    const width = settings.uiScalePercent === 100 ? 453 : 362;
+                    const height = settings.uiScalePercent === 100 ? 389 : 311;
+                    const data = new ArrayBuffer(40 + width * height * 4);
+                    [3,2,1,batch++,width,height,${sourceWidth},${sourceHeight},Math.round(settings.region.x * ${sourceWidth}),Math.round(settings.region.y * ${sourceHeight})].forEach((v,i)=>new DataView(data).setUint32(i*4,v,true));
+                    const pixels = new Uint8ClampedArray(data,40);
+                    for (let row=0;row<rows;row++) {
+                        const center = (settings.uiScalePercent === 100 ? 255 : 204) - row * (settings.uiScalePercent === 100 ? 49 : 39);
+                        for (let x=Math.round(108*scale);x<Math.round(250*scale);x+=4) for (let y=center-5;y<=center+5;y++) pixels.set([230,230,230,255],(y*width+x)*4);
+                    }
+                    args.frames.onmessage(data);
+                };
                 setTimeout(window.__emitFrame,50);
                 return;
             }
@@ -632,6 +646,69 @@ try {
             "strong-sword",
             "Changing back to Korean does not mutate Strong Sword capture",
         );
+        await click("Grind desk");
+        await click("Start timer");
+        await click("Confirm both areas");
+        await until("document.body.textContent.includes('Tracking your loot while you play')");
+        await evaluate("window.__emitLoot(0)");
+        for (let rows = 1; rows <= 3; rows++) {
+            for (let frame = 0; frame < 16; frame++) {
+                await evaluate(`window.__emitLoot(${rows})`);
+                await delay(65);
+            }
+        }
+        const reviewEntries = "document.querySelectorAll('[aria-label^=\"Dismiss review entry\"]')";
+        await until(`${reviewEntries}.length === 3`);
+        const entriesBeforeReview = await evaluate("window.__session.entries.length");
+        await click("Retry OCR");
+        await click("Dismiss");
+        await until(`${reviewEntries}.length === 2`);
+        await delay(300);
+        assert.equal(
+            await evaluate("window.__session.entries.length"),
+            entriesBeforeReview,
+            "Dismissing a retry must not add loot",
+        );
+        // Finish while a new notification is still being tracked, before its OCR result.
+        for (let frame = 0; frame < 4; frame++) {
+            await evaluate("window.__emitLoot(4)");
+            await delay(65);
+        }
+        await click("Finish");
+        await until("document.querySelector('#finish-review-title')?.textContent === 'Review before finishing'");
+        await until("window.__session.status === 'paused'");
+        assert.equal(
+            await evaluate(`${reviewEntries}.length`),
+            3,
+            "Finishing must drain the final notification and retain unresolved captures",
+        );
+        assert(await evaluate("document.querySelector('dialog[open]').contains(document.activeElement)"));
+        await screenshot("finish-review");
+        await press("Escape", "Escape", 27);
+        assert.equal(await evaluate("window.__session.status"), "paused", "Escape must keep the session open");
+        await click("Finish");
+        await until("document.querySelector('#finish-review-title')?.textContent === 'Review before finishing'");
+        await click("Review drops");
+        assert.equal(await evaluate("document.activeElement.id"), "loot-review-heading");
+        const reviewForm =
+            "document.querySelector('[aria-label^=\"Dismiss review entry\"]').closest('li').querySelector('form')";
+        await evaluate(`(${reviewForm}).querySelector('select').setAttribute('id','review-item-test')`);
+        await evaluate(`(${reviewForm}).querySelector('input').setAttribute('id','review-quantity-test')`);
+        await setField("#review-item-test", "Ancient Spirit Dust");
+        await setField("#review-quantity-test", "2");
+        await evaluate(`(${reviewForm}).requestSubmit()`);
+        await until(`${reviewEntries}.length === 2`);
+        await until("window.__session.entries.some(e=>e.name==='Ancient Spirit Dust' && e.quantity===2)");
+        await click("Finish");
+        await until("document.querySelector('#finish-review-title')?.textContent === 'Review before finishing'");
+        await click("Finish without adding these drops");
+        await until("window.__session.status === 'finished'");
+        assert.equal(
+            await evaluate("window.__session.entries.length"),
+            entriesBeforeReview + 1,
+            "Finishing must not add dismissed or unresolved drops",
+        );
+        assert.equal(await evaluate(`${reviewEntries}.length`), 0);
         await evaluate("window.dispatchEvent(new Event('shakatu-stop-capture'))");
         assert.equal(errors.length, 0, JSON.stringify(errors));
         console.log(

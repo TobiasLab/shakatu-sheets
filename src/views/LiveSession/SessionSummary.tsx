@@ -5,7 +5,15 @@ import { useElapsedTime } from "../../hooks/useElapsedTime";
 import type { LiveSessionController } from "../../hooks/useLiveSession";
 import styles from "./LiveSession.module.css";
 
-export function SessionMetrics({ controller, visible }: { controller: LiveSessionController; visible: boolean }) {
+export function SessionMetrics({
+    controller,
+    visible,
+    onFinish,
+}: {
+    controller: LiveSessionController;
+    visible: boolean;
+    onFinish: () => void;
+}) {
     const elapsedMs = useElapsedTime(controller.session, visible);
     const entries = controller.session.entries;
     const totals = useMemo(() => calculateEntryTotals(entries), [entries]);
@@ -38,12 +46,20 @@ export function SessionMetrics({ controller, visible }: { controller: LiveSessio
                     </dl>
                 </details>
             </article>
-            <SessionClock controller={controller} elapsedMs={elapsedMs} />
+            <SessionClock controller={controller} elapsedMs={elapsedMs} onFinish={onFinish} />
         </section>
     );
 }
 
-function SessionClock({ controller, elapsedMs }: { controller: LiveSessionController; elapsedMs: number }) {
+function SessionClock({
+    controller,
+    elapsedMs,
+    onFinish,
+}: {
+    controller: LiveSessionController;
+    elapsedMs: number;
+    onFinish: () => void;
+}) {
     const { session, databaseLoaded, dispatch, setCompletedHours, startOrResume } = controller;
     const timeEditable = session.status === "idle" || session.status === "paused";
     return (
@@ -76,12 +92,7 @@ function SessionClock({ controller, elapsedMs }: { controller: LiveSessionContro
                 {(session.status === "running" ||
                     session.status === "paused" ||
                     (session.status === "idle" && session.elapsedMs > 0)) && (
-                    <button
-                        className="button subtle"
-                        type="button"
-                        disabled={!databaseLoaded}
-                        onClick={() => dispatch({ type: "finish", now: Date.now() })}
-                    >
+                    <button className="button subtle" type="button" disabled={!databaseLoaded} onClick={onFinish}>
                         Finish
                     </button>
                 )}

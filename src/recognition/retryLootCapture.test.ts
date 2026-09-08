@@ -19,6 +19,17 @@ function worker(readings = [["Black Stone x 3", "Black Stone x 3", "Black Stone 
 }
 
 describe("saved capture OCR", () => {
+    it.each([undefined, "korean", "strong-sword"] as const)(
+        "uses the saved font %s for its retry worker",
+        async (font) => {
+            const ocr = worker();
+            const create = vi.fn(async () => ocr);
+            await retryLootCapture(capture, "normal", dictionary, new AbortController().signal, create, font);
+            expect(create).toHaveBeenCalledExactlyOnceWith({ font: font ?? "korean" });
+            expect(ocr.terminate).toHaveBeenCalledOnce();
+        },
+    );
+
     it.each(["normal", "rare"] as const)(
         "reads exactly the saved %s frame and returns a suggestion",
         async (source) => {
@@ -34,7 +45,7 @@ describe("saved capture OCR", () => {
                         textColor: source === "rare" ? "gold" : "white",
                     }),
                 ],
-                controller.signal,
+                expect.any(AbortSignal),
             );
             expect(ocr.terminate).toHaveBeenCalledOnce();
         },
@@ -97,8 +108,10 @@ describe("saved capture OCR", () => {
     it("discards late results when cancelled during recognition", async () => {
         const controller = new AbortController();
         const ocr = worker();
-        ocr.readText.mockImplementation(async () => {
+        ocr.readText.mockImplementation(async (_frames, readSignal) => {
             controller.abort();
+            expect(readSignal.aborted).toBe(false);
+            expect(ocr.terminate).not.toHaveBeenCalled();
             return [["Black Stone x 3"]];
         });
         await expect(
