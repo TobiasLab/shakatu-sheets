@@ -10,11 +10,13 @@ import { SessionTools } from "./SessionTools";
 
 export function LiveSessionView({
     controller,
+    overlay,
     visible,
     onCaptureStatusChange,
     captureSetupRequest,
     onOpenHistory,
 }: {
+    overlay: { openOverlay: () => Promise<void>; error: string; available: boolean };
     onOpenHistory: () => void;
     controller: LiveSessionController;
     visible: boolean;
@@ -69,7 +71,21 @@ export function LiveSessionView({
                 <div>
                     <h1>{spotEditable ? "New session" : spot.name}</h1>
                 </div>
+                <button
+                    type="button"
+                    className="button"
+                    disabled={!databaseLoaded || !overlay.available}
+                    title={
+                        overlay.available
+                            ? "Open a draggable, always-on-top session window"
+                            : "Available in the desktop app"
+                    }
+                    onClick={overlay.openOverlay}
+                >
+                    Pop out session
+                </button>
             </header>
+            {overlay.error && <p role="alert">{overlay.error}</p>}
             <section className={styles.SetupBar} aria-label="Session setup">
                 <div className={styles.SessionMeta}>
                     <label>

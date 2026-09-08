@@ -27,13 +27,24 @@ pub fn run() {
         Ok(())
     });
 
-    #[cfg(target_os = "windows")]
     let builder = builder.on_window_event(|window, event| {
+        if window.label() == "session-overlay" {
+            if let tauri::WindowEvent::CloseRequested { api, .. } = event {
+                api.prevent_close();
+                let _ = window.hide();
+            }
+            return;
+        }
+        #[cfg(target_os = "windows")]
         if matches!(event, tauri::WindowEvent::ScaleFactorChanged { .. }) {
             let _ = windows_window::fit(window);
         }
+        #[cfg(target_os = "windows")]
         if matches!(event, tauri::WindowEvent::Destroyed) {
             native_capture::shutdown(&window.state::<native_capture::NativeCaptureState>());
+        }
+        if matches!(event, tauri::WindowEvent::Destroyed) {
+            window.app_handle().exit(0);
         }
     });
 
