@@ -15,6 +15,8 @@ import {
     type OverlaySnapshot,
 } from "./sessionOverlay";
 
+const quantityFormatter = new Intl.NumberFormat("de-DE", { maximumFractionDigits: 0 });
+
 export function SessionOverlay() {
     const [snapshot, setSnapshot] = useState<OverlaySnapshot | null>(null);
     const [visible, setVisible] = useState(false);
@@ -109,6 +111,10 @@ function OverlayContent({ snapshot, visible }: { snapshot: OverlaySnapshot; visi
                     <span>Net silver / hour</span>
                     <strong>{elapsedMs > 0 ? formatSilver(netPerHour, true) : "—"}</strong>
                 </div>
+                <div>
+                    <span>Session net</span>
+                    <strong>{formatSilver(totals.net, true)}</strong>
+                </div>
                 <div className={styles.Clock}>
                     <time>{formatDuration(elapsedMs)}</time>
                     <span className={styles.Status} data-status={session.status}>
@@ -132,7 +138,8 @@ const OverlayDrops = memo(function OverlayDrops({
             <ul className={styles.Drops} aria-label="Dropped items">
                 {drops.map(({ name, quantity }) => {
                     const icon = getDropIcon(grindSpotId, name);
-                    const label = `${name}: ${formatSilver(quantity)}`;
+                    const formattedQuantity = quantityFormatter.format(quantity);
+                    const label = `${name}: ${formattedQuantity}`;
                     return (
                         <li key={name} title={label} aria-label={label}>
                             {icon ? (
@@ -142,7 +149,7 @@ const OverlayDrops = memo(function OverlayDrops({
                                     {name.slice(0, 2)}
                                 </span>
                             )}
-                            <span className={styles.Quantity}>{formatSilver(quantity, quantity >= 10000)}</span>
+                            <span className={styles.Quantity}>{formattedQuantity}</span>
                         </li>
                     );
                 })}
