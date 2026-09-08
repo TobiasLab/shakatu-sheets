@@ -105,3 +105,22 @@
     color: var(--muted);
     font-size: 12px;
 }
+.TimerButton {
+    margin-top: 6px;
+    padding: 3px 8px;
+    border: 1px solid var(--line-strong);
+    border-radius: 4px;
+    background: var(--button-background);
+    color: var(--text);
+    font-size: 11px;
+    cursor: pointer;
+}
+.TimerButton:disabled {
+    cursor: default;
+    opacity: 0.6;
+}
+.ControlError {
+    font-size: 11px;
+    color: var(--danger);
+    overflow-wrap: anywhere;
+}

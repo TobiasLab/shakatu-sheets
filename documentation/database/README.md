@@ -24,7 +24,7 @@ Migration 1 creates:
 - `session_entries`: loot and expense rows owned by a session.
 - `schema_migrations`: applied migration versions.
 - `price_snapshots`: user-triggered regional market-price imports.
-- `settings`: local Garmoth configuration, including the API key and selected character.
+- `settings`: local Garmoth configuration, capture calibration, and overlay appearance preferences.
 
 Migration 1 has run on development machines and must not be rewritten. Future schema changes require a new ordered
 migration with its own literal version number.
@@ -53,6 +53,7 @@ the session ID so a session cannot be uploaded concurrently or retried silently 
 - Garmoth API keys, fetched character summaries, and the selected character are stored in the existing local `settings`
   table. The API key is never returned to the frontend after it is saved. On Unix, the application-data directory and
   SQLite files are restricted to the current user.
+- Overlay opacity uses the `session_overlay_opacity` setting (integer percent, 25–100; default 100). No migration is needed.
 - Live loot calibration stores only validated normalized rectangle coordinates and source dimensions in `settings`.
   Preview and region pixels remain in memory and are never written to the database.
 - Connect failures that occur before request transmission release the upload reservation for an explicit retry. Any

@@ -6,8 +6,9 @@ import { App } from "./App";
 import { SessionOverlay } from "./components/SessionOverlay/SessionOverlay";
 import "./index.css";
 
+const overlayWindow = isTauri() && getCurrentWindow().label === "session-overlay";
+if (overlayWindow) document.documentElement.dataset.window = "session-overlay";
+
 ReactDOM.createRoot(document.getElementById("root") as HTMLElement).render(
-    <React.StrictMode>
-        {isTauri() && getCurrentWindow().label === "session-overlay" ? <SessionOverlay /> : <App />}
-    </React.StrictMode>,
+    <React.StrictMode>{overlayWindow ? <SessionOverlay /> : <App />}</React.StrictMode>,
 );

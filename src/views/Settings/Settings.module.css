@@ -69,6 +69,23 @@
 .SettingsForm button {
     justify-self: start;
 }
+.OpacitySlider {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+}
+.OpacitySlider input {
+    flex: 1;
+    min-width: 0;
+    padding: 0;
+    accent-color: var(--gold);
+}
+.OpacitySlider output {
+    min-width: 4ch;
+    text-align: right;
+    font-size: 12px;
+    font-variant-numeric: tabular-nums;
+}
 .Feedback {
     padding: 14px 16px;
     margin: 20px 0 0;

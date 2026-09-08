@@ -6,6 +6,7 @@ import {
     saveGarmothApiKey,
     selectGarmothCharacter,
 } from "../../api/tauri";
+import type { useOverlayOpacity } from "../../hooks/useOverlayOpacity";
 import type { Theme } from "../../hooks/useTheme";
 import styles from "./Settings.module.css";
 
@@ -13,10 +14,12 @@ export function SettingsView({
     theme,
     onThemeChange,
     onOpenCapture,
+    overlayOpacity,
 }: {
     theme: Theme;
     onThemeChange: (theme: Theme) => void;
     onOpenCapture: () => void;
+    overlayOpacity: ReturnType<typeof useOverlayOpacity>;
 }) {
     const [settings, setSettings] = useState<GarmothSettings | null>(null);
     const [characterIds, setCharacterIds] = useState("");
@@ -137,6 +140,37 @@ export function SettingsView({
                             ))}
                         </fieldset>
                         <p>Saved automatically. Your choice applies throughout the app.</p>
+                        <label htmlFor="overlay-opacity">Overlay opacity</label>
+                        <div className={styles.OpacitySlider}>
+                            <input
+                                id="overlay-opacity"
+                                type="range"
+                                min="25"
+                                max="100"
+                                step="5"
+                                value={overlayOpacity.opacity}
+                                disabled={!overlayOpacity.loaded}
+                                aria-describedby="overlay-opacity-description"
+                                onChange={(event) => overlayOpacity.updateOpacity(event.target.valueAsNumber)}
+                            />
+                            <output htmlFor="overlay-opacity">{overlayOpacity.opacity}%</output>
+                        </div>
+                        <p id="overlay-opacity-description">
+                            Fades the entire overlay. Changes apply immediately and are saved automatically.
+                            {overlayOpacity.saving && " Saving…"}
+                        </p>
+                        {overlayOpacity.error && (
+                            <div role="alert" className={styles.Error}>
+                                {overlayOpacity.error}
+                                <button
+                                    type="button"
+                                    className="button"
+                                    onClick={() => overlayOpacity.updateOpacity(overlayOpacity.opacity)}
+                                >
+                                    Retry save
+                                </button>
+                            </div>
+                        )}
                     </div>
                 </section>
                 <section id="capture-preferences" className="panel">
