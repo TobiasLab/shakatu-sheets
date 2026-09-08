@@ -236,7 +236,8 @@ use the central glyph band and exclude scenery after a trailing whitespace gap. 
 comparison so an appended quantity digit still changes identity. Fingerprints are computed only for detected rows, and
 quantity projections reuse the full projection. Normal OCR uses the earliest trailing whitespace boundary across its
 three original projections, including the full gap, and can extend to the detector's full text envelope for long names.
-Explicit rare OCR bounds remain separate. Normal text is enlarged 2× for Tesseract, while gold rare text retains 4×
+Explicit rare OCR bounds remain separate. The following preprocessing and retry rules describe the default Korean
+font; [Strong Sword](strong-sword-font.md) uses separate preprocessing and an additional unanimous digit fallback. Normal text is enlarged 2× for Tesseract, while gold rare text retains 4×
 enlargement. The native source crops and the three luminance thresholds (130, 150, 170) are unchanged. A normal frame
 without two matching parsed quantities retries those thresholds once at 4×; a retry with no parsed quantity preserves
 the original readings. A localized digits-only pass can corroborate an unresolved quantity already present in the full-line

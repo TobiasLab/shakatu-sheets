@@ -40,12 +40,13 @@ force. Short tracks are flushed at expiry, before their pixels leave the rolling
 queue limits and cancellation remain bounded. At 8 FPS the larger selection window can add up to 375 ms before OCR starts;
 it does not add Tesseract calls to the usual successful three-frame path. Rare OCR keeps its existing window and gold pass.
 
-Full-line OCR still uses three thresholds at 2× enlargement and, when needed, a single 4× retry. For an unresolved quantity,
+For the default Korean font, full-line OCR still uses three thresholds at 2× enlargement and, when needed, a single 4× retry. For an unresolved quantity,
 a localized digits-only 4× single-word pass can corroborate a quantity already present in a full-line reading. It only repairs
 unparsed suffixes with a visible textual `x` marker; it never invents a quantity or replaces a conflicting parsed number.
 There is no extra quantity pass when no repair is possible. The shared worker restores its line segmentation and unrestricted
 character set before subsequent normal or rare text. Limits are nine threshold passes per frame and five frames per event;
-this worst case is reserved for unresolved events.
+this worst case is reserved for unresolved events. [Strong Sword](strong-sword-font.md) has separate enlargement and
+unanimous digit-recovery rules; Korean behavior remains unchanged.
 
 ## Dictionary And Diagnostics
 

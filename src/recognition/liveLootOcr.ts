@@ -121,9 +121,13 @@ export async function readLootOcrFrame(
     const retried = font === "strong-sword" ? readings : await read(4);
     const chosen = retried.some((text) => parseLootQuantity(text) !== null) ? retried : readings;
     const parsed = chosen.map(parseLootQuantity);
+    const independentQuantity =
+        font === "strong-sword" &&
+        parsed.every((value) => value === null) &&
+        chosen.every((text) => /\s+x\s*[^x]*$/i.test(text));
     if (
         !quantityAvailable ||
-        parsed.every((value) => value === null) ||
+        (parsed.every((value) => value === null) && !independentQuantity) ||
         !chosen.some((text) => parseLootQuantity(text) === null && /\s+x\s*[^x]*$/i.test(text)) ||
         parsed.some((value) => value !== null && parsed.filter((other) => other === value).length > 1)
     )
@@ -136,10 +140,13 @@ export async function readLootOcrFrame(
             if (Number.isSafeInteger(value) && value > 0) digits.push(value);
         }
     }
-    // A separate crop may corroborate a weak line reading, but must never invent a quantity or override a conflict.
-    const quantity = digits.find(
-        (value) => digits.filter((other) => other === value).length >= 2 && parsed.includes(value),
-    );
+    // Strong Sword can recover an unreadable suffix only with unanimous digit reads. Temporal consensus still
+    // checks the recovered item/quantity pair across frames. Existing numeric readings are never overwritten.
+    const quantity = independentQuantity
+        ? digits.length === thresholds.length && digits.every((value) => value === digits[0])
+            ? digits[0]
+            : undefined
+        : digits.find((value) => digits.filter((other) => other === value).length >= 2 && parsed.includes(value));
     if (quantity === undefined) return chosen;
     return chosen.map((text) =>
         parseLootQuantity(text) === null ? text.replace(/^(.*?)\s+x\s*[^x]*$/i, `$1 x ${quantity}`) : text,

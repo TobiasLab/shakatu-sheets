@@ -1,6 +1,6 @@
 import { OEM, PSM } from "tesseract.js";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import type { LiveLootOcrFrame, LootRoiFrame } from "./liveLoot";
+import { analyzeLootReadings, type LiveLootOcrFrame, type LootRoiFrame } from "./liveLoot";
 import {
     createLiveLootTesseractOcr,
     type LiveLootOcrCanvas,
@@ -711,5 +711,54 @@ it("keeps Strong Sword quantity corroboration conservative and bounds OCR work",
     expect(await readLootOcrFrame("white", unreadable, true, "strong-sword")).toEqual(
         Array(3).fill("Branch of Abundance x &"),
     );
-    expect(unreadable).toHaveBeenCalledTimes(3);
+    expect(unreadable).toHaveBeenCalledTimes(6);
+});
+
+it("recovers a Strong Sword suffix from unanimous digits and still requires temporal agreement", async () => {
+    async function read(quantity: string) {
+        return readLootOcrFrame(
+            "white",
+            async (_threshold, _scale, region) => (region === "quantity" ? quantity : "Branch of Abundance x &"),
+            true,
+            "strong-sword",
+        );
+    }
+    const six = await read("6");
+    const four = await read("4");
+    expect(six).toEqual(Array(3).fill("Branch of Abundance x 6"));
+    expect(analyzeLootReadings([six, six, ["noise"]], ["Branch of Abundance"]).consensus).toEqual({
+        item: "Branch of Abundance",
+        quantity: 6,
+        count: 2,
+    });
+    expect(analyzeLootReadings([six, ["noise"], ["noise"]], ["Branch of Abundance"]).consensus).toBeNull();
+    expect(analyzeLootReadings([six, six, four], ["Branch of Abundance"]).consensus).toBeNull();
+});
+
+it.each([
+    ["6", "6", "4"],
+    ["6", "6", ""],
+    ["0", "0", "0"],
+    ["6.0", "6.0", "6.0"],
+    ["9007199254740992", "9007199254740992", "9007199254740992"],
+])("withholds an unreadable Strong Sword suffix when digit reads are unsafe: %j", async (...digits) => {
+    let index = 0;
+    const result = await readLootOcrFrame(
+        "white",
+        async (_threshold, _scale, region) => (region === "quantity" ? digits[index++] : "Branch of Abundance x &"),
+        true,
+        "strong-sword",
+    );
+    expect(result).toEqual(Array(3).fill("Branch of Abundance x &"));
+});
+
+it("requires a located crop and a visible suffix marker for independent Strong Sword digits", async () => {
+    for (const [text, available] of [
+        ["Branch of Abundance x &", false],
+        ["Branch of Abundance", true],
+    ] as const) {
+        const recognize = vi.fn(async () => text);
+        expect(await readLootOcrFrame("white", recognize, available, "strong-sword")).toEqual(Array(3).fill(text));
+        expect(recognize).toHaveBeenCalledTimes(3);
+    }
 });

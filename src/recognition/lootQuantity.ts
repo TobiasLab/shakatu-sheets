@@ -15,30 +15,39 @@ export function locateLootQuantity(
     font: LootFont = "korean",
 ): LootQuantityGlyphs | undefined {
     const gap = Math.round(8 * scale);
-    const wordGap = Math.ceil((font === "strong-sword" ? 4 : 4.5) * scale);
     const origin = Math.round(frame.width * 0.27);
-    const words: Array<{ left: number; right: number }> = [];
-    let start = -1;
-    let end = -1;
-    for (let x = 0; x < projection.length; x += 1) {
-        if (projection[x]) {
-            if (start < 0) start = x;
-            end = x + 1;
-        } else if (end >= 0) {
-            const space = x + 1 - end;
-            if (space === wordGap && start >= 0) {
-                words.push({ left: start + origin, right: end + origin });
-                start = -1;
+    // Try the wider gap first so spaces inside quantities such as 16 and 180 stay together.
+    const wordGaps = font === "strong-sword" ? [4, 3] : [4.5];
+    let digits: { left: number; right: number } | undefined;
+    for (const gapSize of wordGaps) {
+        const wordGap = Math.ceil(gapSize * scale);
+        const words: Array<{ left: number; right: number }> = [];
+        let start = -1;
+        let end = -1;
+        for (let x = 0; x < projection.length; x += 1) {
+            if (projection[x]) {
+                if (start < 0) start = x;
+                end = x + 1;
+            } else if (end >= 0) {
+                const space = x + 1 - end;
+                if (space === wordGap && start >= 0) {
+                    words.push({ left: start + origin, right: end + origin });
+                    start = -1;
+                }
+                if (space >= gap) break;
             }
-            if (space >= gap) break;
         }
+        // A clipped suffix has no trailing whitespace and is not safe to compare or OCR separately.
+        if (start >= 0 || words.length < 3) continue;
+        const candidate = words[words.length - 1];
+        const marker = words[words.length - 2];
+        const markerWidth = marker.right - marker.left;
+        if (markerWidth < 4 * scale || markerWidth > 8 * scale || candidate.right - candidate.left > 48 * scale)
+            continue;
+        digits = candidate;
+        break;
     }
-    // A clipped suffix has no trailing whitespace and is not safe to compare or OCR separately.
-    if (start >= 0 || words.length < 3) return undefined;
-    const digits = words[words.length - 1];
-    const marker = words[words.length - 2];
-    const markerWidth = marker.right - marker.left;
-    if (markerWidth < 4 * scale || markerWidth > 8 * scale || digits.right - digits.left > 48 * scale) return undefined;
+    if (!digits) return undefined;
     const halfHeight = Math.round(8 * scale);
     const bounds = {
         left: digits.left - 1,
