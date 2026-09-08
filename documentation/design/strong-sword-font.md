@@ -15,18 +15,22 @@ Korean uses the existing row geometry, pixel thresholds, fingerprints, quantity 
 retry policy, and consensus rules. The new optional detection/OCR font arguments default to Korean. There are no model
 changes or per-item quantity corrections.
 
-Strong Sword uses a four-native-pixel word gap at 80% scale when separating the quantity marker, compared with the
-existing Korean five-pixel threshold. This is scaled with UI size. Row detection and automatic placement otherwise retain
+Strong Sword first uses a four-native-pixel word gap at 80% scale when separating the quantity marker, then tries
+three pixels if no suffix was found. The narrower gap handles ×4; trying four first preserves the internal spacing
+in quantities such as ×16 and ×180. Korean retains its existing five-pixel threshold. Gaps scale with UI size. Row detection and automatic placement otherwise retain
 the existing geometry and rules. Native recording logs showed quantity bounds in only 56 of 1,488 selected Strong Sword
 frames, compared with 276 of 290 selected Korean frames; these are diagnostic coverage counts, not accuracy measurements.
 
 For normal Strong Sword OCR, preprocessing preserves grayscale antialiasing and uses bilinear 4× enlargement instead of
 thresholding to binary pixels before nearest-neighbor enlargement. The three existing pass thresholds select contrast floors
 of 60, 80, and 100, with the white-text level capped at 235 and the existing color rejection retained. This addresses visible
-6s being read as 4s or ampersands. It also avoids repeating the same 4× line pass as a retry. The existing conservative
-quantity-corroboration rule still requires a number already read from the full line; standalone digits cannot invent a result
-or override a conflict. Normal Strong Sword requires at most six OCR passes per selected frame. Gold/rare OCR remains on
-the original preprocessing and pass policy for both fonts.
+6s being read as 4s or ampersands. It also avoids repeating the same 4× line pass as a retry. A separate quantity crop
+can corroborate a weak full-line reading. When every Strong Sword line pass has an unreadable quantity but retains a
+textual `x` suffix marker, the worker also tries the localized digit crop. Recovery requires all three digit passes to
+return the same positive safe integer. Missing crops, invalid digits, or disagreement leave the suffix unresolved.
+Existing parsed quantities are never replaced, and the existing temporal consensus and confident-conflict veto still
+apply to recovered readings. Korean keeps its original corroboration-only policy. Normal Strong Sword requires at most
+six OCR passes per selected frame. Gold/rare OCR remains on the original preprocessing and pass policy for both fonts.
 
 100% UI scale remains available using the existing scaled geometry and quantity-gap scaling. The real recordings below
 cover 80%; synthetic tests cover 100%, but real-game Strong Sword accuracy at 100% is not established by these samples.
@@ -95,3 +99,21 @@ native capture; they do not exercise the real Windows desktop capture service.
 An additional real-image browser OCR check read the inspected Strong Sword ×6 correctly in all three passes. The Korean
 worker's readings before and after using a separate Strong Sword worker were identical, confirming that worker selection
 and browser preprocessing do not share mutable font state.
+
+## Quantity fallback follow-up
+
+The reported “OCR did not find a stable quantity suffix” error means none of the selected frame readings yielded a
+parseable quantity. Previously that condition prevented digit-only OCR entirely. Strong Sword now has the unanimous
+localized-digit recovery described above; it does not guess a quantity from the item name.
+
+The same recording still yields 433 recognized normal candidates, with all 31 development and 41 validation labels
+correct. This recording therefore establishes regression coverage, not a measured reduction in the user's newer live
+errors. Korean's full replay hashes remain identical. A consecutive-frame review around batch 14195 shows fading old
+text, so its withheld candidate is not evidence of a missed drop.
+
+Real isolated-crop OCR checks cover ×4, ×6, ×12, ×16, ×26, ×58, and ×180. All tested crops except ×6 had three matching
+correct digit reads; that ×6 produced 6/6/3 and remains withheld by independent recovery. Existing full-line recognition
+still reads it correctly. Synthetic tests additionally enforce temporal support, reject conflicting frames, and cover
+unsafe integers and incomplete digit reads. A 16 FPS timed replay of batches 18400–18650 recognized all 26 detected
+candidates with a peak of four pending OCR jobs on the development machine. This does not measure the user's machine
+under gameplay load. Follow-up reports and crops are kept outside the repository under `/tmp/strong-sword-followup`.
