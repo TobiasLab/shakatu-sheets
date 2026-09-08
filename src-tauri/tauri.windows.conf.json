@@ -1,20 +1,43 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
   "app": {
-    "windows": [{
-      "label": "main",
-      "title": "Shakatu Sheets",
-      "width": 1280,
-      "height": 820,
-      "minWidth": 640,
-      "minHeight": 420
-    }]
+    "windows": [
+      {
+        "label": "main",
+        "title": "Shakatu Sheets",
+        "width": 1280,
+        "height": 820,
+        "minWidth": 640,
+        "minHeight": 420
+      },
+      {
+        "label": "session-overlay",
+        "title": "Session overlay",
+        "url": "index.html",
+        "width": 360,
+        "height": 250,
+        "minWidth": 320,
+        "minHeight": 180,
+        "visible": false,
+        "focus": false,
+        "decorations": false,
+        "alwaysOnTop": true,
+        "skipTaskbar": true
+      }
+    ]
   },
   "bundle": {
-    "targets": ["nsis"],
+    "targets": [
+      "nsis"
+    ],
     "windows": {
-      "webviewInstallMode": { "type": "downloadBootstrapper", "silent": true },
-      "nsis": { "installMode": "currentUser" }
+      "webviewInstallMode": {
+        "type": "downloadBootstrapper",
+        "silent": true
+      },
+      "nsis": {
+        "installMode": "currentUser"
+      }
     }
   }
 }
