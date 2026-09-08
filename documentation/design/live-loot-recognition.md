@@ -340,3 +340,5 @@ rate. Full-session accuracy also depends on avoiding missed frames and duplicate
 - Can the notification region move independently through BDO's UI editor?
 - Which item-name and quantity combinations are most likely to overlap combat text?
 - What capture and recognition behavior is permitted by BDO's current terms?
+
+Font-specific capture selection and the Strong Sword evaluation are documented in [In-game font recognition](strong-sword-font.md).

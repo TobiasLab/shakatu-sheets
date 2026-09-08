@@ -481,3 +481,23 @@ fn overlay_opacity_persists_and_rejects_invalid_values() {
     assert_eq!(load_overlay_opacity_at_path(&path).unwrap(), 100);
     remove_temporary_database(&path);
 }
+
+#[test]
+fn loot_font_defaults_persists_and_rejects_unknown_values() {
+    use super::loot_font::{load_loot_font_at_path, save_loot_font_at_path, LootFont};
+    let (path, connection) = temporary_database();
+    drop(connection);
+    assert_eq!(load_loot_font_at_path(&path).unwrap(), LootFont::Korean);
+    for font in [LootFont::StrongSword, LootFont::Korean] {
+        save_loot_font_at_path(&path, font).unwrap();
+        assert_eq!(load_loot_font_at_path(&path).unwrap(), font);
+        assert_eq!(
+            serde_json::from_str::<LootFont>(&serde_json::to_string(&font).unwrap()).unwrap(),
+            font
+        );
+    }
+    assert!(serde_json::from_str::<LootFont>("\"unknown\"").is_err());
+    save_settings(&path, &[("loot_font", Some("unknown"))]).unwrap();
+    assert!(load_loot_font_at_path(&path).is_err());
+    remove_temporary_database(&path);
+}

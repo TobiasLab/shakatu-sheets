@@ -114,6 +114,7 @@ struct CropGeometry {
 #[serde(rename_all = "camelCase")]
 struct Manifest {
     version: u32,
+    font: crate::persistence::loot_font::LootFont,
     source_dimensions: Dimensions,
     ui_scale_percent: u32,
     normal_crop: CropGeometry,
@@ -243,6 +244,7 @@ impl Run {
         let outcome = self.outcome.lock().expect("collector outcome poisoned");
         Manifest {
             version: 1,
+            font: self.settings.font,
             source_dimensions: Dimensions {
                 width: self.settings.source_width,
                 height: self.settings.source_height,

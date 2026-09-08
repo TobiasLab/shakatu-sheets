@@ -1,0 +1,437 @@
+{
+    "version": 1,
+    "itemDictionary": [
+        "Branch of Abundance",
+        "Empty Picture Frame",
+        "Black Stone",
+        "Ancient Spirit Dust",
+        "Caphras Stone",
+        "Corrupt Oil of Immortality",
+        "Nev's Fragment",
+        "WON Origin Shard",
+        "WON Wandering Origin Crystal",
+        "Silent Fragment of Origin",
+        "Silent Crystal of Origin",
+        "Twilight of the End - Earring",
+        "Apeiron Earring",
+        "Broken Vestige of Goldroot",
+        "Fusion Shard",
+        "Refined Origin of Hunger",
+        "Refined Essence of Devouring",
+        "Sunset Primordial Pigment - Edana",
+        "Sunset Primordial Luster - Edana",
+        "Crimson Primordial Luster - Sovereign",
+        "Crimson Primordial Pigment - Sovereign",
+        "Violet Primordial Luster - Sovereign",
+        "Violet Primordial Pigment - Sovereign",
+        "Violet Primordial Pigment - Edana",
+        "Violet Primordial Luster - Edana",
+        "Embers of Ynix - Armor"
+    ],
+    "runs": [
+        {
+            "id": "run-1788691911921-1530901-0001",
+            "split": "development",
+            "font": "korean",
+            "expectedResultsSha256": {
+                "normal": "96322b1f22f05e7993e13f8b4a3307a0e76d19e0d4ba391287fd538ab51db6df",
+                "rare": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+            }
+        },
+        {
+            "id": "run-1788894195425-217625-0001",
+            "font": "strong-sword",
+            "split": "development",
+            "normalCases": [
+                {
+                    "id": "strong-sword-development-8800-9500",
+                    "firstBatchId": 8800,
+                    "lastBatchId": 9500,
+                    "events": [
+                        {
+                            "firstBatchId": 8814,
+                            "item": "Branch of Abundance",
+                            "quantity": 4
+                        },
+                        {
+                            "firstBatchId": 8836,
+                            "item": "Branch of Abundance",
+                            "quantity": 6
+                        },
+                        {
+                            "firstBatchId": 8837,
+                            "item": "Branch of Abundance",
+                            "quantity": 4
+                        },
+                        {
+                            "firstBatchId": 8838,
+                            "item": "Branch of Abundance",
+                            "quantity": 4
+                        },
+                        {
+                            "firstBatchId": 8848,
+                            "item": "Branch of Abundance",
+                            "quantity": 4
+                        },
+                        {
+                            "firstBatchId": 8867,
+                            "item": "Branch of Abundance",
+                            "quantity": 4
+                        },
+                        {
+                            "firstBatchId": 8870,
+                            "item": "Branch of Abundance",
+                            "quantity": 4
+                        },
+                        {
+                            "firstBatchId": 8882,
+                            "item": "Ancient Spirit Dust",
+                            "quantity": 1
+                        },
+                        {
+                            "firstBatchId": 8884,
+                            "item": "Branch of Abundance",
+                            "quantity": 6
+                        },
+                        {
+                            "firstBatchId": 8885,
+                            "item": "Branch of Abundance",
+                            "quantity": 6
+                        },
+                        {
+                            "firstBatchId": 9135,
+                            "item": "Branch of Abundance",
+                            "quantity": 4
+                        },
+                        {
+                            "firstBatchId": 9142,
+                            "item": "Branch of Abundance",
+                            "quantity": 6
+                        },
+                        {
+                            "firstBatchId": 9152,
+                            "item": "Branch of Abundance",
+                            "quantity": 6
+                        },
+                        {
+                            "firstBatchId": 9154,
+                            "item": "Branch of Abundance",
+                            "quantity": 4
+                        },
+                        {
+                            "firstBatchId": 9156,
+                            "item": "Black Stone",
+                            "quantity": 1
+                        },
+                        {
+                            "firstBatchId": 9162,
+                            "item": "Branch of Abundance",
+                            "quantity": 6
+                        },
+                        {
+                            "firstBatchId": 9169,
+                            "item": "Branch of Abundance",
+                            "quantity": 6
+                        },
+                        {
+                            "firstBatchId": 9179,
+                            "item": "Branch of Abundance",
+                            "quantity": 6
+                        },
+                        {
+                            "firstBatchId": 9182,
+                            "item": "Branch of Abundance",
+                            "quantity": 6
+                        },
+                        {
+                            "firstBatchId": 9184,
+                            "item": "Branch of Abundance",
+                            "quantity": 4
+                        },
+                        {
+                            "firstBatchId": 9189,
+                            "item": "Branch of Abundance",
+                            "quantity": 6
+                        },
+                        {
+                            "firstBatchId": 9402,
+                            "item": "Branch of Abundance",
+                            "quantity": 4
+                        },
+                        {
+                            "firstBatchId": 9407,
+                            "item": "Branch of Abundance",
+                            "quantity": 4
+                        },
+                        {
+                            "firstBatchId": 9409,
+                            "item": "Branch of Abundance",
+                            "quantity": 4
+                        },
+                        {
+                            "firstBatchId": 9412,
+                            "item": "Branch of Abundance",
+                            "quantity": 6
+                        },
+                        {
+                            "firstBatchId": 9424,
+                            "item": "Branch of Abundance",
+                            "quantity": 6
+                        },
+                        {
+                            "firstBatchId": 9435,
+                            "item": "Branch of Abundance",
+                            "quantity": 6
+                        },
+                        {
+                            "firstBatchId": 9445,
+                            "item": "Branch of Abundance",
+                            "quantity": 4
+                        },
+                        {
+                            "firstBatchId": 9460,
+                            "item": "Branch of Abundance",
+                            "quantity": 6
+                        },
+                        {
+                            "firstBatchId": 9492,
+                            "item": "Branch of Abundance",
+                            "quantity": 4
+                        },
+                        {
+                            "firstBatchId": 9494,
+                            "item": "Branch of Abundance",
+                            "quantity": 6
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "id": "run-1788894195425-217625-0001",
+            "font": "strong-sword",
+            "split": "validation",
+            "normalCases": [
+                {
+                    "id": "strong-sword-validation-16000-16700",
+                    "firstBatchId": 16000,
+                    "lastBatchId": 16700,
+                    "events": [
+                        {
+                            "firstBatchId": 16165,
+                            "item": "Branch of Abundance",
+                            "quantity": 6
+                        },
+                        {
+                            "firstBatchId": 16166,
+                            "item": "Branch of Abundance",
+                            "quantity": 4
+                        },
+                        {
+                            "firstBatchId": 16168,
+                            "item": "Ancient Spirit Dust",
+                            "quantity": 2
+                        },
+                        {
+                            "firstBatchId": 16170,
+                            "item": "Branch of Abundance",
+                            "quantity": 6
+                        },
+                        {
+                            "firstBatchId": 16172,
+                            "item": "Branch of Abundance",
+                            "quantity": 4
+                        },
+                        {
+                            "firstBatchId": 16191,
+                            "item": "Branch of Abundance",
+                            "quantity": 4
+                        },
+                        {
+                            "firstBatchId": 16196,
+                            "item": "Branch of Abundance",
+                            "quantity": 4
+                        },
+                        {
+                            "firstBatchId": 16198,
+                            "item": "Branch of Abundance",
+                            "quantity": 6
+                        },
+                        {
+                            "firstBatchId": 16200,
+                            "item": "Branch of Abundance",
+                            "quantity": 6
+                        },
+                        {
+                            "firstBatchId": 16203,
+                            "item": "Branch of Abundance",
+                            "quantity": 6
+                        },
+                        {
+                            "firstBatchId": 16218,
+                            "item": "Branch of Abundance",
+                            "quantity": 4
+                        },
+                        {
+                            "firstBatchId": 16227,
+                            "item": "Branch of Abundance",
+                            "quantity": 4
+                        },
+                        {
+                            "firstBatchId": 16229,
+                            "item": "Branch of Abundance",
+                            "quantity": 6
+                        },
+                        {
+                            "firstBatchId": 16231,
+                            "item": "Branch of Abundance",
+                            "quantity": 4
+                        },
+                        {
+                            "firstBatchId": 16234,
+                            "item": "Branch of Abundance",
+                            "quantity": 6
+                        },
+                        {
+                            "firstBatchId": 16244,
+                            "item": "Branch of Abundance",
+                            "quantity": 4
+                        },
+                        {
+                            "firstBatchId": 16258,
+                            "item": "Branch of Abundance",
+                            "quantity": 6
+                        },
+                        {
+                            "firstBatchId": 16259,
+                            "item": "Branch of Abundance",
+                            "quantity": 6
+                        },
+                        {
+                            "firstBatchId": 16463,
+                            "item": "Branch of Abundance",
+                            "quantity": 6
+                        },
+                        {
+                            "firstBatchId": 16475,
+                            "item": "Branch of Abundance",
+                            "quantity": 6
+                        },
+                        {
+                            "firstBatchId": 16480,
+                            "item": "Branch of Abundance",
+                            "quantity": 6
+                        },
+                        {
+                            "firstBatchId": 16481,
+                            "item": "Branch of Abundance",
+                            "quantity": 6
+                        },
+                        {
+                            "firstBatchId": 16483,
+                            "item": "Branch of Abundance",
+                            "quantity": 4
+                        },
+                        {
+                            "firstBatchId": 16494,
+                            "item": "Branch of Abundance",
+                            "quantity": 6
+                        },
+                        {
+                            "firstBatchId": 16506,
+                            "item": "Branch of Abundance",
+                            "quantity": 4
+                        },
+                        {
+                            "firstBatchId": 16510,
+                            "item": "Branch of Abundance",
+                            "quantity": 4
+                        },
+                        {
+                            "firstBatchId": 16512,
+                            "item": "Black Stone",
+                            "quantity": 1
+                        },
+                        {
+                            "firstBatchId": 16513,
+                            "item": "Branch of Abundance",
+                            "quantity": 4
+                        },
+                        {
+                            "firstBatchId": 16522,
+                            "item": "Branch of Abundance",
+                            "quantity": 6
+                        }
+                    ]
+                },
+                {
+                    "id": "strong-sword-validation-18700-19000",
+                    "firstBatchId": 18700,
+                    "lastBatchId": 19000,
+                    "events": [
+                        {
+                            "firstBatchId": 18700,
+                            "item": "Branch of Abundance",
+                            "quantity": 4
+                        },
+                        {
+                            "firstBatchId": 18716,
+                            "item": "Branch of Abundance",
+                            "quantity": 4
+                        },
+                        {
+                            "firstBatchId": 18726,
+                            "item": "Branch of Abundance",
+                            "quantity": 4
+                        },
+                        {
+                            "firstBatchId": 18763,
+                            "item": "Branch of Abundance",
+                            "quantity": 4
+                        },
+                        {
+                            "firstBatchId": 18765,
+                            "item": "Branch of Abundance",
+                            "quantity": 6
+                        },
+                        {
+                            "firstBatchId": 18782,
+                            "item": "WON Origin Shard",
+                            "quantity": 1
+                        },
+                        {
+                            "firstBatchId": 18784,
+                            "item": "Branch of Abundance",
+                            "quantity": 180
+                        },
+                        {
+                            "firstBatchId": 18976,
+                            "item": "Branch of Abundance",
+                            "quantity": 4
+                        },
+                        {
+                            "firstBatchId": 18979,
+                            "item": "Branch of Abundance",
+                            "quantity": 6
+                        },
+                        {
+                            "firstBatchId": 18980,
+                            "item": "Branch of Abundance",
+                            "quantity": 4
+                        },
+                        {
+                            "firstBatchId": 18986,
+                            "item": "Branch of Abundance",
+                            "quantity": 6
+                        },
+                        {
+                            "firstBatchId": 19000,
+                            "item": "Branch of Abundance",
+                            "quantity": 4
+                        }
+                    ]
+                }
+            ]
+        }
+    ]
+}

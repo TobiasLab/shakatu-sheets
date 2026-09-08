@@ -1,4 +1,5 @@
 import type { LootOcrBounds, LootRoiFrame } from "./liveLoot";
+import type { LootFont } from "./lootFont";
 
 export type LootQuantityGlyphs = {
     bounds: LootOcrBounds;
@@ -11,9 +12,10 @@ export function locateLootQuantity(
     centerY: number,
     projection: Uint8Array,
     scale: number,
+    font: LootFont = "korean",
 ): LootQuantityGlyphs | undefined {
     const gap = Math.round(8 * scale);
-    const wordGap = Math.ceil(4.5 * scale);
+    const wordGap = Math.ceil((font === "strong-sword" ? 4 : 4.5) * scale);
     const origin = Math.round(frame.width * 0.27);
     const words: Array<{ left: number; right: number }> = [];
     let start = -1;

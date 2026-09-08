@@ -21,24 +21,28 @@ test.each([
     ["resolution", { sourceDimensions: { width: 1920, height: 1080 } }],
     ["UI scale", { uiScalePercent: 90 }],
     ["sample rate", { targetFps: 30 }],
-])("ROI replay rejects unsupported %s before decoding", async (_name, change) => {
-    const root = await mkdtemp(join(tmpdir(), "loot-roi-test-"));
-    try {
-        const id = "run-1-1-0001";
-        await mkdir(join(root, id));
-        await writeFile(
-            join(root, "annotations.json"),
-            JSON.stringify({ version: 1, itemDictionary: ["Gold Bar 1G"], runs: [{ id, split: "development" }] }),
-        );
-        await writeFile(join(root, id, "manifest.json"), JSON.stringify({ ...capture, ...change }));
-        await expect(exec(process.execPath, [runner, "--script", script, root])).rejects.toMatchObject({
-            code: 1,
-            stderr: expect.stringContaining("unsupported capture profile"),
-        });
-    } finally {
-        await rm(root, { recursive: true, force: true });
-    }
-});
+    ["font", { font: "unknown" }, "invalid font"],
+])(
+    "ROI replay rejects unsupported %s before decoding",
+    async (_name, change, errorMessage = "unsupported capture profile") => {
+        const root = await mkdtemp(join(tmpdir(), "loot-roi-test-"));
+        try {
+            const id = "run-1-1-0001";
+            await mkdir(join(root, id));
+            await writeFile(
+                join(root, "annotations.json"),
+                JSON.stringify({ version: 1, itemDictionary: ["Gold Bar 1G"], runs: [{ id, split: "development" }] }),
+            );
+            await writeFile(join(root, id, "manifest.json"), JSON.stringify({ ...capture, ...change }));
+            await expect(exec(process.execPath, [runner, "--script", script, root])).rejects.toMatchObject({
+                code: 1,
+                stderr: expect.stringContaining(errorMessage),
+            });
+        } finally {
+            await rm(root, { recursive: true, force: true });
+        }
+    },
+);
 
 const ffmpegAvailable = spawnSync("ffmpeg", ["-version"]).status === 0;
 test.skipIf(!ffmpegAvailable).each([
@@ -118,6 +122,19 @@ test.skipIf(!ffmpegAvailable).each([
                 expect.objectContaining({ kind: "normal", frames: 1, sourceFrames: 2, sampleStep: 2, sampleOffset: 1 }),
                 expect.objectContaining({ kind: "rare", frames: 1, sourceFrames: 2, sampleStep: 2, sampleOffset: 1 }),
             ]);
+        }
+        if (width === 3440 && uiScalePercent === 80 && !externalLabels) {
+            labels.runs[0].expectedResultsSha256 = { normal: "incorrect-baseline" };
+            await writeFile(labelsPath, JSON.stringify(labels));
+            const detectionOnly = await exec(process.execPath, args);
+            expect(detectionOnly.stdout).not.toContain('"matchesBaseline"');
+            const sampledOcr = await exec(process.execPath, [...args, "--ocr", "--sample-step", "2"]);
+            expect(sampledOcr.stdout).not.toContain('"matchesBaseline"');
+            await expect(exec(process.execPath, [...args, "--ocr"])).rejects.toMatchObject({
+                code: 1,
+                stdout: expect.stringContaining('"matchesBaseline":false'),
+            });
+            delete labels.runs[0].expectedResultsSha256;
         }
         labels.runs[0].normalCases[0].events.push({ firstBatchId: 1, item: "Gold Bar 1G", quantity: 1 });
         await writeFile(labelsPath, JSON.stringify(labels));

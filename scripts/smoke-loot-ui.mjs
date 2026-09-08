@@ -99,6 +99,12 @@ await send("Page.addScriptToEvaluateOnNewDocument", {
         async invoke(command, args = {}) {
             calls.push({ command, args });
             if (command === "load_active_session") return null;
+            if (command === "load_loot_font") return window.__savedLootFont ?? "korean";
+            if (command === "save_loot_font") {
+                if (window.__failLootFont) throw Error("Synthetic font save failure");
+                window.__savedLootFont = args.font;
+                return;
+            }
             if (command === "load_overlay_opacity") return 100;
             if (command === "save_overlay_opacity") return;
             if (command === "load_market_prices") return [];
@@ -349,6 +355,30 @@ try {
         );
         await setField("main > header select", "all");
         await click("Settings");
+        await until("document.querySelector('#loot-font')?.disabled === false");
+        assert.equal(await evaluate("document.querySelector('#loot-font').value"), "korean");
+        await evaluate("window.__failLootFont = true");
+        await setField("#loot-font", "strong-sword");
+        await until("document.body.innerText.includes('Synthetic font save failure')");
+        await evaluate("window.__failLootFont = false");
+        await click("Save selected font");
+        await until(
+            "window.__savedLootFont === 'strong-sword' && !document.body.innerText.includes('Synthetic font save failure')",
+        );
+        assert.equal(
+            await evaluate(
+                "window.__calls.filter(c => c.command === 'set_native_display_capture_region' && c.args.selection?.mode === 'regions').at(-1).args.selection.settings.font",
+            ),
+            "korean",
+            "An active capture keeps its original font",
+        );
+        await click("Grind desk");
+        await click("Settings");
+        assert.equal(
+            await evaluate("document.querySelector('#loot-font').value"),
+            "strong-sword",
+            "Font selection survives settings navigation",
+        );
         await screenshot("settings");
         await click("Capture setup");
         await until("document.activeElement.textContent.includes('Close setup')");
@@ -586,6 +616,23 @@ try {
             1,
             "New loot must not be hidden by the previous session's filters",
         );
+        await click("Capture setup");
+        await click("Choose capture source");
+        await until("window.__calls.filter(c => c.command === 'start_native_display_capture').length === 2");
+        await until(
+            "window.__calls.filter(c => c.command === 'set_native_display_capture_region' && c.args.selection?.mode === 'regions').at(-1)?.args.selection.settings.font === 'strong-sword'",
+        );
+        await click("Settings");
+        await setField("#loot-font", "korean");
+        await until("window.__savedLootFont === 'korean'");
+        assert.equal(
+            await evaluate(
+                "window.__calls.filter(c => c.command === 'set_native_display_capture_region' && c.args.selection?.mode === 'regions').at(-1).args.selection.settings.font",
+            ),
+            "strong-sword",
+            "Changing back to Korean does not mutate Strong Sword capture",
+        );
+        await evaluate("window.dispatchEvent(new Event('shakatu-stop-capture'))");
         assert.equal(errors.length, 0, JSON.stringify(errors));
         console.log(
             `UI smoke passed: timer, navigation, capture lifecycle, preview suppression, diagnostics, screenshot state, dialog focus, expense price isolation, new-session reset, ledger editing/filtering, history filters, themes, compact screens. Screenshots: ${output}`,

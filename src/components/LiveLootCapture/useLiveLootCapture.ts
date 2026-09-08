@@ -63,6 +63,7 @@ import {
     type LiveLootReviewEntry,
 } from "../../recognition/liveLootReview";
 import { LIVE_LOOT_SAMPLE_FPS } from "../../recognition/lootCaptureTiming";
+import type { LootFont } from "../../recognition/lootFont";
 import { RARE_LOOT_OCR_SELECTION, RareLootFrameAnalyzer, rareLootDetectionProfile } from "../../recognition/rareLoot";
 import { RareLootLocalizer } from "../../recognition/rareLootLocalization";
 import { RoiOcrDiagnostics, type RoiOcrIssue, roiOcrFailure } from "../../recognition/roiOcrDiagnostics";
@@ -94,6 +95,8 @@ type OcrDiagnostics = Record<OcrSource, OcrPipelineDiagnostics> & {
     analysis: OcrWorkerDiagnostics;
 };
 export type LiveLootCaptureProps = {
+    lootFont: LootFont;
+    lootFontReady: boolean;
     setupRequest: number;
     visible: boolean;
     onStatusChange: (status: string) => void;
@@ -209,6 +212,7 @@ function regionsCaptureSelection(
     source: SourceDimensions | null,
     uiScalePercent: LootUiScale,
     rareRegionConfirmed: boolean,
+    font: LootFont,
 ): NativeCaptureSelection | null {
     if (!normalRegion || !rareRegion || !source) return null;
     const normalPixels = normalizedRegionToPixels(normalRegion, source.width, source.height);
@@ -225,6 +229,7 @@ function regionsCaptureSelection(
     return {
         mode: "regions",
         settings: {
+            font,
             region: normalRegion,
             rareRegion,
             rareRegionConfirmed,
@@ -279,6 +284,8 @@ function resultAnnouncement(
 }
 
 export function useLiveLootCapture({
+    lootFont,
+    lootFontReady,
     setupRequest,
     visible,
     onStatusChange,
@@ -290,6 +297,7 @@ export function useLiveLootCapture({
     itemDictionary,
     onAcceptRecognition,
 }: LiveLootCaptureProps) {
+    const [captureFont, setCaptureFont] = useState<LootFont>("korean");
     const windowVisible = useWindowVisible();
     const [setupOpen, setSetupOpen] = useState(false);
     const [diagnosticsOpen, setDiagnosticsOpen] = useState(false);
@@ -530,7 +538,7 @@ export function useLiveLootCapture({
             return;
         }
         diagnosticWrites.current += 1;
-        void logRoiOcrIssue(issue)
+        void logRoiOcrIssue({ ...issue, font: captureFont })
             .catch((error) => {
                 if (mounted.current) setSampleDiagnosticError(`Could not save OCR diagnostics: ${String(error)}`);
             })
@@ -1079,8 +1087,9 @@ export function useLiveLootCapture({
 
     async function startCapture() {
         setSetupOpen(true);
-        if (!captureAllowed) return;
+        if (!captureAllowed || !lootFontReady) return;
         stopCapture();
+        setCaptureFont(lootFont);
         setError("");
         const useNativeCapture = captureCapabilities?.backend != null;
         if (useNativeCapture && !captureCapabilities?.available) {
@@ -1363,6 +1372,7 @@ export function useLiveLootCapture({
         if (!sourceDimensions || !normalRegion || !rareRegion) return;
         const saveRequest = requestId.current;
         const settings = {
+            font: captureFont,
             region: normalRegion,
             rareRegion,
             rareRegionConfirmed: true,
@@ -1440,7 +1450,7 @@ export function useLiveLootCapture({
             if (!mounted.current || generation !== recognitionGeneration.current) return;
             let createdOcr: LiveLootTesseractOcr | null = null;
             try {
-                const ocr = await createLiveLootTesseractOcr();
+                const ocr = await createLiveLootTesseractOcr({ font: captureFont });
                 createdOcr = ocr;
                 if (!mounted.current || generation !== recognitionGeneration.current) {
                     await ocr.terminate();
@@ -1483,6 +1493,7 @@ export function useLiveLootCapture({
                 const normalDiagnostics = new RoiOcrDiagnostics("normal", generation, emitOcrIssue);
                 const rareDiagnostics = new RoiOcrDiagnostics("rare", generation, emitOcrIssue);
                 const normalCoordinator = new LiveLootCoordinator({
+                    font: captureFont,
                     sampleFps: LIVE_LOOT_SAMPLE_FPS,
                     ocrSelection: NORMAL_LOOT_OCR_SELECTION,
                     profile: calibratedProfile.profile,
@@ -1496,6 +1507,7 @@ export function useLiveLootCapture({
                 });
                 const rareAnalyzer = new RareLootFrameAnalyzer(rareGeometry, LIVE_LOOT_SAMPLE_FPS);
                 const rareCoordinator = new LiveLootCoordinator({
+                    font: captureFont,
                     sampleFps: LIVE_LOOT_SAMPLE_FPS,
                     profile: rareLootDetectionProfile(rareGeometry),
                     dictionary: itemDictionaryRef.current,
@@ -1562,7 +1574,15 @@ export function useLiveLootCapture({
         return () => {
             if (generation === recognitionGeneration.current) stopRecognition(false);
         };
-    }, [calibratedProfile, grindSpotId, recognitionRequested, recognitionReset, sessionId, sourceDimensions]);
+    }, [
+        calibratedProfile,
+        captureFont,
+        grindSpotId,
+        recognitionRequested,
+        recognitionReset,
+        sessionId,
+        sourceDimensions,
+    ]);
 
     useEffect(() => {
         if (recognitionStatus !== "active" || !diagnosticsRequested) return;
@@ -1716,6 +1736,7 @@ export function useLiveLootCapture({
                 sourceDimensions,
                 uiScalePercent,
                 rareRegionConfirmed,
+                captureFont,
             );
         }
         const selectionKey = JSON.stringify(selection);
@@ -1751,6 +1772,7 @@ export function useLiveLootCapture({
         });
     }, [
         automaticLocalizationAvailable,
+        captureFont,
         normalCaptureRegion,
         placementMode,
         rareCaptureRegion,
@@ -2010,6 +2032,7 @@ export function useLiveLootCapture({
                   sourceDimensions,
                   uiScalePercent,
                   rareRegionConfirmed,
+                  captureFont,
               );
     const sampleCollectionActive = sampleCollection?.phase === "running";
     const sampleCollectionFinalizing = sampleCollection?.phase === "finalizing";
@@ -2069,7 +2092,7 @@ export function useLiveLootCapture({
         togglePreviews,
         previewsEnabled,
         stopCapture,
-        captureAllowed,
+        captureAllowed: captureAllowed && lootFontReady,
         captureBackend: captureCapabilities?.backend,
         sourceWaiting,
         startCapture,

@@ -65,3 +65,35 @@ it.each([1, 1.25])("locates a multidigit suffix independently of the item name a
         locateLootQuantity({ width, height, pixels }, 40, projection.subarray(0, Math.round(65 * scale)), scale),
     ).toBeUndefined();
 });
+
+it.each([1, 1.25])(
+    "separates Strong Sword's narrower marker gaps without changing Korean extraction at %s",
+    (scale) => {
+        const width = Math.round(362 * scale);
+        const height = 80;
+        const origin = Math.round(width * 0.27);
+        const pixels = new Uint8ClampedArray(width * height * 4);
+        const projection = new Uint8Array(Math.round(width * 0.69));
+        for (const [left, right] of [
+            [5, 35],
+            [39, 45],
+            [49, 54],
+            [56, 61],
+        ]) {
+            for (let x = Math.round(left * scale); x < Math.round(right * scale); x += 1) {
+                projection[x] = 6;
+                for (let y = 36; y < 43; y += 1)
+                    pixels.fill(255, (y * width + origin + x) * 4, (y * width + origin + x + 1) * 4);
+            }
+        }
+        const frame = { width, height, pixels };
+        expect(locateLootQuantity(frame, 40, projection, scale)).toBeUndefined();
+        const found = locateLootQuantity(frame, 40, projection, scale, "strong-sword");
+        expect(found?.bounds.left).toBe(origin + Math.round(49 * scale) - 1);
+        expect(found?.bounds.right).toBe(origin + Math.round(61 * scale) + 1);
+        expect(
+            locateLootQuantity(frame, 40, projection.subarray(0, Math.round(60 * scale)), scale, "strong-sword"),
+        ).toBeUndefined();
+        expect(locateLootQuantity(frame, 40, projection, scale, "korean")).toBeUndefined();
+    },
+);

@@ -9,6 +9,7 @@ const harness = `import React, { useState } from "react";
 import ReactDOM from "react-dom/client";
 import { useSessionOverlay } from "./hooks/useSessionOverlay";
 import { usePersistedSession } from "./hooks/usePersistedSession";
+import { useLootFont } from "./hooks/useLootFont";
 import { useOverlayOpacity } from "./hooks/useOverlayOpacity";
 import { SettingsView } from "./views/Settings/Settings";
 import { requestOverlayTimer } from "./api/sessionOverlay";
@@ -21,6 +22,7 @@ function Harness() {
     const [theme, setTheme] = useState("dark");
     const [settingsVisible, setSettingsVisible] = useState(true);
     const opacity = useOverlayOpacity();
+    const lootFont = useLootFont();
     const persisted = usePersistedSession(opacity.flush);
     const overlay = useSessionOverlay({
         session: persisted.session, theme, opacity: opacity.opacity,
@@ -43,7 +45,7 @@ function Harness() {
     window.showSettings = setSettingsVisible;
     window.openOverlay = overlay.openOverlay;
     return <><p id="publisher-error">{overlay.error}</p>
-        {settingsVisible && <SettingsView theme={theme} onThemeChange={setTheme} onOpenCapture={() => {}} overlayOpacity={opacity} />}
+        {settingsVisible && <SettingsView lootFont={lootFont} theme={theme} onThemeChange={setTheme} onOpenCapture={() => {}} overlayOpacity={opacity} />}
         <SessionOverlay /></>;
 }
 ReactDOM.createRoot(document.getElementById("root")).render(<React.StrictMode><Harness /></React.StrictMode>);
@@ -100,6 +102,12 @@ function installTauriMock() {
                     return;
                 case "load_garmoth_settings":
                     return { apiKeyConfigured: false, characterIds: [], characters: [], selectedCharacterId: null };
+                case "load_loot_font":
+                    return window.__savedLootFont ?? "korean";
+                case "save_loot_font":
+                    if (window.__failLootFont) throw Error("Synthetic font save failure");
+                    window.__savedLootFont = args.font;
+                    return;
                 case "load_overlay_opacity":
                     return window.__savedOpacity;
                 case "save_overlay_opacity":

@@ -6,8 +6,10 @@ import {
     saveGarmothApiKey,
     selectGarmothCharacter,
 } from "../../api/tauri";
+import type { useLootFont } from "../../hooks/useLootFont";
 import type { useOverlayOpacity } from "../../hooks/useOverlayOpacity";
 import type { Theme } from "../../hooks/useTheme";
+import { isLootFont } from "../../recognition/lootFont";
 import styles from "./Settings.module.css";
 
 export function SettingsView({
@@ -15,11 +17,13 @@ export function SettingsView({
     onThemeChange,
     onOpenCapture,
     overlayOpacity,
+    lootFont,
 }: {
     theme: Theme;
     onThemeChange: (theme: Theme) => void;
     onOpenCapture: () => void;
     overlayOpacity: ReturnType<typeof useOverlayOpacity>;
+    lootFont: ReturnType<typeof useLootFont>;
 }) {
     const [settings, setSettings] = useState<GarmothSettings | null>(null);
     const [characterIds, setCharacterIds] = useState("");
@@ -184,6 +188,35 @@ export function SettingsView({
                             Tracking continues while you browse or minimize. Live previews run only when setup is open
                             and visible.
                         </p>
+                        <label htmlFor="loot-font">In-game font</label>
+                        <select
+                            id="loot-font"
+                            value={lootFont.font}
+                            disabled={!lootFont.loaded && !lootFont.error}
+                            aria-describedby="loot-font-description"
+                            onChange={(event) => {
+                                if (isLootFont(event.target.value)) void lootFont.updateFont(event.target.value);
+                            }}
+                        >
+                            <option value="korean">Korean Font</option>
+                            <option value="strong-sword">Strong Sword</option>
+                        </select>
+                        <p id="loot-font-description">
+                            Match the font selected in the game. Applies when capture next starts.
+                            {lootFont.saving && " Saving…"}
+                        </p>
+                        {lootFont.error && (
+                            <div role="alert" className={styles.Error}>
+                                {lootFont.error}
+                                <button
+                                    type="button"
+                                    className="button"
+                                    onClick={() => void lootFont.updateFont(lootFont.font)}
+                                >
+                                    Save selected font
+                                </button>
+                            </div>
+                        )}
                         <button type="button" className="button" onClick={onOpenCapture}>
                             Go to capture setup
                         </button>

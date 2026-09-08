@@ -25,6 +25,7 @@ impl Drop for TempDir {
 
 fn settings() -> LootCaptureSettings {
     LootCaptureSettings {
+        font: Default::default(),
         region: NormalizedRegion {
             x: 10.0 / 1920.0,
             y: 20.0 / 1080.0,
@@ -107,6 +108,7 @@ fn writes_valid_paired_pngs_and_final_manifest() {
     let manifest: serde_json::Value =
         serde_json::from_slice(&fs::read(run_path.join("manifest.json")).unwrap()).unwrap();
     assert_eq!(manifest["version"], 1);
+    assert_eq!(manifest["font"], "korean");
     assert_eq!(manifest["targetFps"], 16);
     assert_eq!(manifest["phase"], "finished");
     assert_eq!(manifest["writtenBatchCount"], 1);
@@ -146,6 +148,7 @@ fn explicit_stop_writes_an_already_accepted_pair() {
     let manifest: serde_json::Value =
         serde_json::from_slice(&fs::read(temp.0.join("manifest.json")).unwrap()).unwrap();
     assert_eq!(manifest["version"], 1);
+    assert_eq!(manifest["font"], "korean");
     assert_eq!(manifest["targetFps"], 16);
     assert_eq!(manifest["acceptedBatchCount"], 1);
     assert_eq!(manifest["writtenBatchCount"], 1);

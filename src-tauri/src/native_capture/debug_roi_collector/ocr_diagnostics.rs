@@ -55,6 +55,8 @@ struct OcrPass {
 #[derive(Deserialize, Serialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct OcrIssue {
+    #[serde(default)]
+    font: crate::persistence::loot_font::LootFont,
     capture_token: u64,
     collection_path: String,
     source: Source,

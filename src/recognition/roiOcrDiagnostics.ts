@@ -5,6 +5,7 @@ import type {
     LootOcrPass,
     LootRoiFrame,
 } from "./liveLoot";
+import type { LootFont } from "./lootFont";
 
 type RoiSampleReference = NonNullable<LootRoiFrame["sample"]>;
 type DiagnosticFrame = {
@@ -18,6 +19,7 @@ type DiagnosticFrame = {
     passes?: LootOcrPass[];
 };
 export type RoiOcrIssue = {
+    font?: LootFont;
     captureToken: number;
     collectionPath: string;
     source: "normal" | "rare";
