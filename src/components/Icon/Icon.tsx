@@ -8,7 +8,9 @@ type IconName =
     | "plus"
     | "upload"
     | "arrow"
-    | "trash";
+    | "trash"
+    | "play"
+    | "pause";
 
 const paths: Record<IconName, string> = {
     brand: "M5 4h14v16H5z M8 8h8 M8 12h8 M8 16h4",
@@ -18,6 +20,8 @@ const paths: Record<IconName, string> = {
     history: "M3 11a9 9 0 1 1 2.5 7 M3 4v7h7 M12 7v5l3 2",
     settings: "M4 7h16 M4 17h16 M8 4v6 M16 14v6",
     plus: "M12 5v14 M5 12h14",
+    play: "M8 5l11 7-11 7z",
+    pause: "M7 5h3v14H7z M14 5h3v14h-3z",
     upload: "M12 16V3 M7 8l5-5 5 5 M4 15v6h16v-6",
     arrow: "M5 12h14 M14 7l5 5-5 5",
     trash: "M3 6h18 M9 6V3h6v3 M5 6l1 15h12l1-15 M10 10v7 M14 10v7",

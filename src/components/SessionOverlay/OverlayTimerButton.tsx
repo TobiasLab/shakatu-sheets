@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { requestOverlayTimer } from "../../api/sessionOverlay";
 import type { SessionState } from "../../domain/session";
+import { Icon } from "../Icon/Icon";
 import styles from "./SessionOverlay.module.css";
 
 export function OverlayTimerButton({ session, enabled }: { session: SessionState; enabled: boolean }) {
@@ -13,7 +14,10 @@ export function OverlayTimerButton({ session, enabled }: { session: SessionState
             {session.status !== "finished" && (
                 <button
                     type="button"
-                    className={styles.TimerButton}
+                    className={`button primary-button ${styles.TimerButton}`}
+                    aria-label={label}
+                    aria-busy={busy}
+                    title={busy ? "Updating timer…" : label}
                     disabled={!enabled || busy}
                     onClick={async () => {
                         setBusy(true);
@@ -27,7 +31,7 @@ export function OverlayTimerButton({ session, enabled }: { session: SessionState
                         }
                     }}
                 >
-                    {busy ? "Updating…" : label}
+                    <Icon name={action === "pause" ? "pause" : "play"} size={16} />
                 </button>
             )}
             {error && (
