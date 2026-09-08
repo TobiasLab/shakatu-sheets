@@ -295,15 +295,21 @@ try {
         console.info("Settings opacity preview, ordered saves, and retry passed");
 
         async function clickTimer(label) {
-            await evaluate(`[...document.querySelectorAll('main button')].find(b=>b.textContent==='${label}').click()`);
+            await evaluate(
+                `[...document.querySelectorAll('main button')].find(b=>b.getAttribute('aria-label')==='${label}').click()`,
+            );
         }
         await clickTimer("Pause timer");
-        await until('window.__savedSession.status === "paused" && document.body.innerText.includes("Resume timer")');
+        await until(
+            'window.__savedSession.status === "paused" && !!document.querySelector(\'[aria-label="Resume timer"]:not(:disabled)\')',
+        );
         const pausedTime = await evaluate('document.querySelector("time").textContent');
         await sleep(1200);
         assert.equal(await evaluate('document.querySelector("time").textContent'), pausedTime);
         await clickTimer("Resume timer");
-        await until('window.__savedSession.status === "running" && document.body.innerText.includes("Pause timer")');
+        await until(
+            'window.__savedSession.status === "running" && !!document.querySelector(\'[aria-label="Pause timer"]:not(:disabled)\')',
+        );
         await sleep(1200);
         assert.notEqual(await evaluate('document.querySelector("time").textContent'), pausedTime);
         assert.match(
@@ -319,9 +325,11 @@ try {
             /timer state has changed/,
         );
         await evaluate('window.updateSession(0,"idle")');
-        await until('document.body.innerText.includes("Start timer")');
+        await until("!!document.querySelector('[aria-label=\"Start timer\"]:not(:disabled)')");
         await clickTimer("Start timer");
-        await until('window.__savedSession.status === "running" && document.body.innerText.includes("Pause timer")');
+        await until(
+            'window.__savedSession.status === "running" && !!document.querySelector(\'[aria-label="Pause timer"]:not(:disabled)\')',
+        );
         await setOpacity(85);
         await evaluate('window.__event("tauri://close-requested", {})');
         assert.match(
