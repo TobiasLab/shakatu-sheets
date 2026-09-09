@@ -11,7 +11,9 @@ use windows::{
             Direct3D11::*,
             Dxgi::{Common::*, IDXGIDevice},
         },
-        System::WinRT::Direct3D11::CreateDirect3D11DeviceFromDXGIDevice,
+        System::WinRT::Direct3D11::{
+            CreateDirect3D11DeviceFromDXGIDevice, IDirect3DDxgiInterfaceAccess,
+        },
     },
 };
 
@@ -50,32 +52,40 @@ struct Preview {
     shader: ID3D11ComputeShader,
 }
 
+pub(super) fn create_device() -> Result<IDirect3DDevice, String> {
+    let mut device = None;
+    unsafe {
+        D3D11CreateDevice(
+            None,
+            D3D_DRIVER_TYPE_HARDWARE,
+            windows::Win32::Foundation::HMODULE::default(),
+            D3D11_CREATE_DEVICE_BGRA_SUPPORT,
+            Some(&[D3D_FEATURE_LEVEL_11_0]),
+            D3D11_SDK_VERSION,
+            Some(&mut device),
+            None,
+            None,
+        )
+    }
+    .map_err(|e| capture_error("creating the D3D11 capture device", e))?;
+    let device = device.ok_or("D3D11 returned no capture device.")?;
+    let dxgi: IDXGIDevice = device
+        .cast()
+        .map_err(|e| capture_error("accessing the DXGI capture device", e))?;
+    unsafe { CreateDirect3D11DeviceFromDXGIDevice(&dxgi) }
+        .and_then(|device| device.cast())
+        .map_err(|e| capture_error("creating the WinRT capture device", e))
+}
+
 impl Gpu {
-    pub(super) fn new() -> Result<Self, String> {
-        let mut device = None;
-        let mut context = None;
-        unsafe {
-            D3D11CreateDevice(
-                None,
-                D3D_DRIVER_TYPE_HARDWARE,
-                windows::Win32::Foundation::HMODULE::default(),
-                D3D11_CREATE_DEVICE_BGRA_SUPPORT,
-                Some(&[D3D_FEATURE_LEVEL_11_0]),
-                D3D11_SDK_VERSION,
-                Some(&mut device),
-                None,
-                Some(&mut context),
-            )
-        }
-        .map_err(|e| capture_error("preparing or reading GPU pixels", e))?;
-        let device = device.ok_or("D3D11 returned no capture device.")?;
-        let context = context.ok_or("D3D11 returned no capture context.")?;
-        let dxgi: IDXGIDevice = device
+    pub(super) fn from_winrt(winrt: IDirect3DDevice) -> Result<Self, String> {
+        let access: IDirect3DDxgiInterfaceAccess = winrt
             .cast()
-            .map_err(|e| capture_error("preparing or reading GPU pixels", e))?;
-        let winrt = unsafe { CreateDirect3D11DeviceFromDXGIDevice(&dxgi) }
-            .and_then(|device| device.cast())
-            .map_err(|e| capture_error("preparing or reading GPU pixels", e))?;
+            .map_err(|e| capture_error("accessing the capture device", e))?;
+        let device: ID3D11Device = unsafe { access.GetInterface() }
+            .map_err(|e| capture_error("accessing the D3D11 capture device", e))?;
+        let context = unsafe { device.GetImmediateContext() }
+            .map_err(|e| capture_error("accessing the capture GPU context", e))?;
         Ok(Self {
             device,
             context,

@@ -224,6 +224,8 @@ pub fn native_capture_capabilities() -> NativeCaptureCapabilities {
 pub fn shutdown(state: &NativeCaptureState) {
     #[cfg(any(target_os = "linux", target_os = "windows"))]
     control::shutdown(&state.capture);
+    #[cfg(target_os = "windows")]
+    windows::shutdown();
     #[cfg(not(any(target_os = "linux", target_os = "windows")))]
     let _ = state;
 }
@@ -233,5 +235,6 @@ pub fn configure_diagnostics(app: &tauri::AppHandle) {
     use tauri::Manager;
     if let Ok(path) = app.path().app_log_dir() {
         diagnostics::set_log_directory(path);
+        windows::log_environment();
     }
 }

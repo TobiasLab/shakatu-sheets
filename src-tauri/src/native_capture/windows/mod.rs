@@ -1,21 +1,25 @@
 mod capture;
 mod frame;
+mod session;
 
 use super::control::*;
 use super::protocol::error_frame;
 use super::NativeCaptureSelection;
-use std::future::IntoFuture;
 use std::sync::atomic::Ordering;
 use std::time::Duration;
 use tauri::ipc::{Channel, InvokeResponseBody};
 use windows::{
     core::Interface,
-    Graphics::Capture::{GraphicsCapturePicker, GraphicsCaptureSession},
+    Graphics::Capture::{
+        Direct3D11CaptureFramePool, GraphicsCaptureItem, GraphicsCapturePicker,
+        GraphicsCaptureSession, IDirect3D11CaptureFramePoolStatics2,
+    },
     Win32::{
         System::WinRT::{RoInitialize, RoUninitialize, RO_INIT_MULTITHREADED},
         UI::Shell::IInitializeWithWindow,
     },
 };
+use windows_future::{AsyncStatus, IAsyncOperation};
 
 #[cfg(debug_assertions)]
 use super::debug_roi_collector::{CAPTURE_ENDED, CAPTURE_REPLACED};
@@ -48,6 +52,17 @@ pub(super) fn unavailable_reason() -> Option<String> {
         Ok(apartment) => apartment,
         Err(error) => return Some(error),
     };
+    if let Err(error) =
+        windows::core::factory::<Direct3D11CaptureFramePool, IDirect3D11CaptureFramePoolStatics2>()
+    {
+        return Some(
+            if error.code() == windows::Win32::Foundation::E_NOINTERFACE {
+                "Screen capture requires Windows 10 version 1809 or later.".into()
+            } else {
+                capture_error("checking frame pool support", error)
+            },
+        );
+    }
     match GraphicsCaptureSession::IsSupported() {
         Ok(true) => None,
         Ok(false) => Some(
@@ -58,6 +73,20 @@ pub(super) fn unavailable_reason() -> Option<String> {
 }
 
 pub(super) async fn start(
+    state: &CaptureState,
+    window: tauri::WebviewWindow,
+    frames: Channel<InvokeResponseBody>,
+    capture_token: u64,
+    selection: Option<NativeCaptureSelection>,
+) -> Result<(), String> {
+    let result = start_capture(state, window, frames, capture_token, selection).await;
+    if let Err(error) = &result {
+        log_lifecycle(error);
+    }
+    result
+}
+
+async fn start_capture(
     state: &CaptureState,
     window: tauri::WebviewWindow,
     frames: Channel<InvokeResponseBody>,
@@ -112,26 +141,40 @@ pub(super) async fn start(
     let operation = receiver
         .await
         .map_err(|_| "The capture window closed during source selection.")??;
-    let mut result = Box::pin(operation.clone().into_future());
-    let item = loop {
-        if control.cancelled.load(Ordering::Acquire) {
-            let _ = operation.Cancel();
-            return Err("Screen sharing was cancelled.".into());
+    // Finish selection and create the capture session in the picker's UI
+    // apartment. The selected item never passes through a Tokio thread.
+    let prepared = loop {
+        let (sender, receiver) = tokio::sync::oneshot::channel();
+        let operation = operation.clone();
+        let picker_control = control.clone();
+        let owner = window.clone();
+        window
+            .run_on_main_thread(move || {
+                let result =
+                    poll_picker(&operation, picker_control.cancelled.load(Ordering::Acquire))
+                        .and_then(|item| {
+                            item.map(|item| {
+                                session::start(
+                                    item,
+                                    move |capture_id| {
+                                        let _ = owner
+                                            .run_on_main_thread(move || session::close(capture_id));
+                                    },
+                                    &picker_control,
+                                )
+                            })
+                            .transpose()
+                        });
+                let _ = sender.send(result);
+            })
+            .map_err(|e| capture_error("scheduling the source picker result", e))?;
+        if let Some(prepared) = receiver
+            .await
+            .map_err(|_| "The capture window closed during source selection.")??
+        {
+            break prepared;
         }
-        match tokio::time::timeout(Duration::from_millis(100), &mut result).await {
-            Ok(result) => {
-                break nullable_result(result)
-                    .map_err(|error| {
-                        if error.code() == windows::Win32::Foundation::E_ABORT {
-                            "Screen sharing was cancelled.".to_string()
-                        } else {
-                            capture_error("reading the selected monitor or window", error)
-                        }
-                    })?
-                    .ok_or_else(|| "Screen sharing was cancelled.".to_string())?
-            }
-            Err(_) => continue,
-        }
+        tokio::time::sleep(Duration::from_millis(100)).await;
     };
     if control.cancelled.load(Ordering::Acquire) {
         return Err("Screen sharing was cancelled.".into());
@@ -141,7 +184,7 @@ pub(super) async fn start(
     let collector = state.debug_collector.clone();
     tauri::async_runtime::spawn_blocking(move || {
         let result = capture::run(
-            item,
+            prepared,
             &frames,
             &worker_control,
             #[cfg(debug_assertions)]
@@ -155,12 +198,42 @@ pub(super) async fn start(
         worker_control.finished.store(true, Ordering::Release);
         if !worker_control.cancelled.load(Ordering::Acquire) {
             if let Err(error) = result {
+                log_lifecycle(&format!("capture {}: {error}", worker_control.capture_id));
                 let _ = frames.send(InvokeResponseBody::Raw(error_frame(&error)));
             }
         }
     });
     guard.worker_started = true;
     Ok(())
+}
+
+// Must be called on the UI thread that opened the picker. None means pending;
+// a completed null result or E_ABORT means the user cancelled selection.
+fn poll_picker(
+    operation: &IAsyncOperation<GraphicsCaptureItem>,
+    cancelled: bool,
+) -> Result<Option<GraphicsCaptureItem>, String> {
+    if cancelled {
+        let _ = operation.Cancel();
+        return Err("Screen sharing was cancelled.".into());
+    }
+    if operation
+        .Status()
+        .map_err(|e| capture_error("checking source selection", e))?
+        == AsyncStatus::Started
+    {
+        return Ok(None);
+    }
+    let item = nullable_result(operation.GetResults())
+        .map_err(|error| {
+            if error.code() == windows::Win32::Foundation::E_ABORT {
+                "Screen sharing was cancelled.".to_string()
+            } else {
+                capture_error("reading the selected monitor or window", error)
+            }
+        })?
+        .ok_or_else(|| "Screen sharing was cancelled.".to_string())?;
+    Ok(Some(item))
 }
 
 // windows-core 0.61 represents a successful null interface as Error::empty (S_OK).
@@ -177,8 +250,40 @@ pub(super) fn nullable_result<T>(
 
 pub(super) fn capture_error(stage: &str, error: impl std::fmt::Display) -> String {
     format!(
-        "Windows capture failed while {stage}: {error}. Choose a monitor or window and try again."
+        "Windows capture failed while {stage}: {error}. [wgc-ui-2] Choose a monitor or window and try again."
     )
+}
+
+pub(super) fn shutdown() {
+    session::shutdown();
+}
+
+pub(super) fn log_environment() {
+    use windows::{
+        Wdk::System::SystemServices::RtlGetVersion,
+        Win32::System::SystemInformation::OSVERSIONINFOW,
+    };
+    let mut version = OSVERSIONINFOW {
+        dwOSVersionInfoSize: std::mem::size_of::<OSVERSIONINFOW>() as u32,
+        ..Default::default()
+    };
+    if unsafe { RtlGetVersion(&mut version) }.is_ok() {
+        log_lifecycle(&format!(
+            "Windows {}.{} build {}",
+            version.dwMajorVersion, version.dwMinorVersion, version.dwBuildNumber
+        ));
+    }
+}
+
+fn log_lifecycle(message: &str) {
+    let timestamp = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_millis();
+    super::diagnostics::emit(&format!(
+        "{timestamp} wgc-ui-2 {:?}: {message}",
+        std::thread::current().id()
+    ));
 }
 
 #[cfg(test)]
@@ -187,7 +292,7 @@ mod tests {
     use windows::{
         core::Type,
         Graphics::Capture::{Direct3D11CaptureFrame, GraphicsCaptureItem},
-        Win32::Foundation::{E_ACCESSDENIED, E_POINTER},
+        Win32::Foundation::{E_ABORT, E_ACCESSDENIED, E_POINTER, RPC_E_WRONG_THREAD},
     };
 
     #[test]
@@ -208,6 +313,49 @@ mod tests {
         for code in [E_ACCESSDENIED, E_POINTER] {
             let result = nullable_result::<()>(Err(windows::core::Error::from_hresult(code)));
             assert_eq!(result.unwrap_err().code(), code);
+        }
+    }
+
+    #[test]
+    fn pending_picker_can_be_cancelled_without_reading_results() {
+        let _apartment = Apartment::enter().unwrap();
+        let (_complete, receiver) = std::sync::mpsc::channel::<()>();
+        let operation = IAsyncOperation::<GraphicsCaptureItem>::spawn(move || {
+            let _ = receiver.recv();
+            Err(windows::core::Error::from_hresult(E_ABORT))
+        });
+        assert!(poll_picker(&operation, false).unwrap().is_none());
+        assert_eq!(
+            poll_picker(&operation, true).unwrap_err(),
+            "Screen sharing was cancelled."
+        );
+    }
+
+    #[test]
+    fn completed_picker_cancellation_does_not_start_capture() {
+        let _apartment = Apartment::enter().unwrap();
+        let null_item = unsafe {
+            <GraphicsCaptureItem as Type<GraphicsCaptureItem>>::from_abi(std::ptr::null_mut())
+        };
+        for result in [null_item, Err(windows::core::Error::from_hresult(E_ABORT))] {
+            let operation = IAsyncOperation::ready(result);
+            assert_eq!(
+                poll_picker(&operation, false).unwrap_err(),
+                "Screen sharing was cancelled."
+            );
+        }
+    }
+
+    #[test]
+    fn picker_failures_preserve_the_operation_and_hresult() {
+        let _apartment = Apartment::enter().unwrap();
+        for code in [E_ACCESSDENIED, E_POINTER, RPC_E_WRONG_THREAD] {
+            let operation = IAsyncOperation::<GraphicsCaptureItem>::ready(Err(
+                windows::core::Error::from_hresult(code),
+            ));
+            let error = poll_picker(&operation, false).unwrap_err();
+            assert!(error.contains("reading the selected monitor or window"));
+            assert!(error.contains(&format!("0x{:08X}", code.0 as u32)));
         }
     }
 }

@@ -1,7 +1,9 @@
 # Windows support
 
-Windows 11 x64 with SDR and BDO in borderless mode is the primary target. Select either a monitor or the borderless
-BDO window in the Windows source picker. Windows 10 is an unverified compatibility target. Bordered windows, exclusive
+Windows 10 (version 1809 or later) and Windows 11 x64 with SDR and BDO in borderless mode are intended capture targets.
+Select either a monitor or the borderless BDO window in the Windows source picker. The affected Windows 10 user
+confirmed capture works with revision `wgc-ui-2`; broader native validation remains required on both OS versions.
+Bordered windows, exclusive
 fullscreen, HDR, ARM64, and capture of protected content are outside the release target.
 
 The implementation is ready for native validation, **not verified Windows release support**. This Linux workspace can
@@ -16,13 +18,13 @@ provisional. See [UI-scale support and evidence](../design/live-loot-ui-scale.md
 | Check | Result |
 | --- | --- |
 | Biome, TypeScript/production frontend build | Passed |
-| Frontend and benchmark unit tests | 194 passed, including real FFmpeg decoding |
-| Linux Rust tests | 75 passed, one opt-in timing benchmark ignored |
+| Frontend and benchmark unit tests | 357 passed, including real FFmpeg decoding on 2026-09-09 |
+| Linux Rust tests | 83 passed, one opt-in timing benchmark ignored on 2026-09-09 |
 | Linux Rust formatting and debug/release Clippy, warnings denied | Passed |
 | Final Linux AppImage | Built successfully |
 | Browser UI fixtures, Linux and Windows capabilities | Passed; each acknowledged 240 synthetic frames in 30 seconds. Windows compact layout checked at 640/700px. |
-| Full Windows debug code and test targets | Cross-target Clippy passed with all targets/features and warnings denied on 2026-09-05, including debug ROI collection. Windows tests were compiled, not executed. |
-| Full Windows executable | Cross-compiled successfully on Ubuntu on 2026-09-05 with cargo-xwin 0.23.1 and LLVM 18. Verified as a 29 MiB x86-64 Windows GUI executable; linker warnings concern missing Microsoft CRT debug-symbol files (LNK4099). |
+| Full Windows debug/release code and test targets | Cross-target Clippy passed with all targets/features and warnings denied on 2026-09-09, including debug ROI collection and the native capture regression fixture. Windows tests were compiled, not executed. |
+| Full Windows executable | Cross-compiled successfully on Ubuntu on 2026-09-09 with cargo-xwin 0.23.1 and LLVM 18. Verified as a 29 MiB x86-64 Windows GUI executable; linker warnings concern missing Microsoft CRT debug-symbol files (LNK4099). |
 | NSIS, installed WebView2, BDO and signing | Not run; Windows runtime validation and signing remain pending. |
 
 ## Native development
@@ -96,12 +98,58 @@ when it has no next frame, including when draining the pool after receiving one 
 nullable result as an empty pool and continues waiting; a null picker result means cancellation. Real failure HRESULTs,
 including `E_POINTER`, still propagate. Regression tests cover both nullable interfaces and real failures; they have
 been cross-compiled, not executed on Windows. Error messages now name the failing capture step. The rebuilt executable
-still needs a successful monitor/window capture retry on Windows. The application does not require elevation or inject into the game.
+has since passed the user-reported Windows 10 retry described below. The application does not require elevation or inject into the game.
+
+A Windows 10 user reported `RPC_E_WRONG_THREAD` (`0x8001010E`) for both monitor and window selection. The initial
+candidate marshaled the selected item to a worker, but the user reported the failure persisted. That candidate has
+been superseded by capture revision `wgc-ui-2`:
+
+- Picker status, cancellation, and `GetResults` run on the Tauri UI thread. The selected item stays there.
+- `windows/session.rs` creates the device, frame pool, and session, configures the session, registers callbacks, and
+  calls `StartCapture` on that same UI thread. Thread-local session ownership prevents moving lifecycle objects to
+  the worker. Stop queues cleanup on the UI thread; application exit explicitly clears sessions before UI teardown.
+- Only the free-threaded pool and D3D device cross to the worker, through `AgileReference`. The worker initializes
+  COM, resolves them, and obtains its GPU context there. Pixel processing, pool draining, and resizing remain in the
+  background. No D3D immediate-context operations run concurrently on the UI thread.
+- Missing cursor control (`E_NOINTERFACE`) keeps the OS cursor behavior; other cursor-setting failures propagate.
+  The minimum update interval is best effort: absent interfaces or rejected settings use the shared 16 FPS consumer
+  gate, with unexpected rejections logged. Other capture setup failures still propagate. The free-threaded pool
+  requires Windows 10 version 1809 or newer; capability probing reports this requirement explicitly.
+- Errors name the individual failing operation and include `[wgc-ui-2]`. Startup logs record the actual Windows
+  build, capture revision, thread IDs, session setup/cleanup, and first-frame arrival. Logs contain no pixels or
+  source/window names.
+
+On 2026-09-09, the user confirmed that revision `wgc-ui-2` restored capture on the affected Windows 10 machine.
+This is a user-reported runtime success; the exact Windows build and originally failing operation were not supplied.
+It does not establish completion of the full native acceptance matrix. Remaining validation covers monitor and
+window selection separately, cancelling/reopening the picker, stop/restart, replacing a pending source, source closure,
+and app exit. For any further failures, inspect the complete error or capture log. See the log location below.
+
+The design follows [Microsoft's cross-apartment interface guidance](https://learn.microsoft.com/en-us/windows/win32/com/accessing-interfaces-across-apartments),
+the [free-threaded pool contract](https://learn.microsoft.com/en-us/uwp/api/windows.graphics.capture.direct3d11captureframepool.createfreethreaded),
+and the [capture snapshot sample](https://github.com/robmikh/Win32CaptureSample/blob/master/Win32CaptureSample/CaptureSnapshot.cpp),
+which returns to the originating apartment for session shutdown. Cursor control was added in Windows 10 version 2004;
+see the [session API version history](https://learn.microsoft.com/en-us/uwp/api/windows.graphics.capture.graphicscapturesession).
 
 `windows/capture.rs` uses a free-threaded WGC frame pool with two frames and a single bounded notification slot. It
-requests a 62.5 ms minimum update interval when that interface exists; older systems use the shared 16 FPS consumer gate.
+requests a 62.5 ms minimum update interval; absent or rejected settings use the shared 16 FPS consumer gate.
 The worker keeps the latest frame and checks the one-outstanding-batch budget before texture conversion. Actual cadence
 and hybrid-GPU cost require hardware measurement.
+
+For an interactive native regression test on Windows 10 version 1903+ or Windows 11, run:
+
+```powershell
+cargo test --manifest-path src-tauri/Cargo.toml --locked native_ui_session_delivers_frames_to_mta_worker -- --ignored --nocapture
+```
+
+This creates its own visible test window, starts a session on an STA thread, marshals the device and frame pool to
+an MTA worker, and reads a GPU preview. It exercises the production session registry and guard for normal cleanup,
+cancellation before setup, abandoned startup after setup, and app shutdown followed by late guard cleanup. A channel
+stands in for Tauri’s UI dispatch queue; actual event-loop teardown and cancellation during `StartCapture` still require
+manual testing. It saves no screenshots. It uses the window interop API (introduced in version 1903) to avoid manual picker interaction; picker consent and monitor
+selection still require the manual checks above. The ordinary Windows tests cover nullable results, pending/cancelled
+selection, preserved failure HRESULTs, absent optional interfaces, and rejected update-interval fallback. These tests
+can be compiled here but cannot execute in this Linux workspace.
 
 `windows/frame.rs` copies normal and rare regions from the same source texture into reusable ROI-sized staging textures.
 Only those exact native pixels are mapped to the CPU; padded BGRA rows become tightly packed RGBA. A compute shader
@@ -144,9 +192,9 @@ npm run benchmark:loot:roi -- 'C:\path with spaces\dev-samples\live-loot' --ocr
 npm run benchmark:loot:roi -- 'C:\path with spaces\dev-samples\live-loot' --validation --ocr
 ```
 
-Set `SHAKATU_CAPTURE_DIAGNOSTICS=1` only when measuring. Windows writes aggregate counters under
-`%LOCALAPPDATA%\io.github.shakatusheets\logs\capture.log`, rotating at 1 MiB with one previous file. Counters contain no
-pixels or window names. Packing time includes GPU copy/readback wait and CPU packing; it is not an isolated GPU timing.
+Windows writes capture startup/error records to `%LOCALAPPDATA%\io.github.shakatusheets\logs\capture.log`, rotating at
+1 MiB with one previous file. Set `SHAKATU_CAPTURE_DIAGNOSTICS=1` only when measuring to additionally record aggregate
+frame counters. Records contain no pixels or window names. Packing time includes GPU copy/readback wait and CPU packing; it is not an isolated GPU timing.
 See [the game-impact protocol](../design/performance.md) for measurements with diagnostics disabled too.
 
 ## Local builds and optional packaging

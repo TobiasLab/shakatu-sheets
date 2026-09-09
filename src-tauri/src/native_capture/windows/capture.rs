@@ -1,18 +1,14 @@
-use super::{capture_error, frame::Gpu, nullable_result, Apartment};
+use super::{capture_error, frame::Gpu, nullable_result, session::PreparedCapture, Apartment};
 #[cfg(debug_assertions)]
 use crate::native_capture::debug_roi_collector::{
     DebugRoiSampleCollector, SampledRoiPair, SOURCE_MISMATCH,
 };
 use crate::native_capture::{control::*, protocol::*, NativeCaptureSelection};
-use std::sync::{
-    atomic::{AtomicBool, Ordering},
-    mpsc, Arc,
-};
+use std::sync::{atomic::Ordering, Arc};
 use std::time::{Duration, Instant, SystemTime};
 use tauri::ipc::{Channel, InvokeResponseBody};
 use windows::{
-    core::{IInspectable, Interface},
-    Foundation::{TimeSpan, TypedEventHandler},
+    core::Interface,
     Graphics::{Capture::*, DirectX::DirectXPixelFormat},
     Win32::{
         Graphics::Direct3D11::{ID3D11Texture2D, D3D11_TEXTURE2D_DESC},
@@ -25,25 +21,6 @@ use windows::{
     },
 };
 
-struct Resources {
-    item: GraphicsCaptureItem,
-    pool: Direct3D11CaptureFramePool,
-    session: GraphicsCaptureSession,
-    arrival: Option<i64>,
-    closed: Option<i64>,
-}
-impl Drop for Resources {
-    fn drop(&mut self) {
-        if let Some(token) = self.arrival {
-            let _ = self.pool.RemoveFrameArrived(token);
-        }
-        if let Some(token) = self.closed {
-            let _ = self.item.RemoveClosed(token);
-        }
-        let _ = self.session.Close();
-        let _ = self.pool.Close();
-    }
-}
 struct Frame(Direct3D11CaptureFrame);
 impl Drop for Frame {
     fn drop(&mut self) {
@@ -52,83 +29,29 @@ impl Drop for Frame {
 }
 
 pub(super) fn run(
-    item: GraphicsCaptureItem,
+    prepared: PreparedCapture,
     frames: &Channel<InvokeResponseBody>,
     control: &Arc<CaptureControl>,
     #[cfg(debug_assertions)] collector: &DebugRoiSampleCollector,
 ) -> Result<(), String> {
     let _apartment = Apartment::enter()?;
-    let mut gpu = Gpu::new()?;
-    let mut size = item
-        .Size()
-        .map_err(|e| capture_error("configuring or reading the capture stream", e))?;
-    if size.Width <= 0 || size.Height <= 0 {
-        return Err("The selected capture source is empty.".into());
-    }
-    let pool = Direct3D11CaptureFramePool::CreateFreeThreaded(
-        &gpu.winrt,
-        DirectXPixelFormat::B8G8R8A8UIntNormalized,
-        2,
-        size,
-    )
-    .map_err(|e| capture_error("configuring or reading the capture stream", e))?;
-    let session = match pool.CreateCaptureSession(&item) {
-        Ok(session) => session,
-        Err(error) => {
-            let _ = pool.Close();
-            return Err(capture_error("acquiring capture frames", error));
-        }
-    };
-    let mut resources = Resources {
-        item,
-        pool,
-        session,
-        arrival: None,
-        closed: None,
-    };
-    resources
-        .session
-        .SetIsCursorCaptureEnabled(false)
-        .map_err(|e| capture_error("configuring or reading the capture stream", e))?;
-    // Interface probing permits older Windows versions without making them release targets.
-    let producer_limited = resources
-        .session
-        .SetMinUpdateInterval(TimeSpan {
-            Duration: (SAMPLE_INTERVAL.as_nanos() / 100) as i64,
-        })
-        .is_ok();
-    let (wake, receiver) = mpsc::sync_channel(1);
-    resources.arrival = Some(
-        resources
-            .pool
-            .FrameArrived(
-                &TypedEventHandler::<Direct3D11CaptureFramePool, IInspectable>::new(move |_, _| {
-                    let _ = wake.try_send(());
-                    Ok(())
-                }),
-            )
-            .map_err(|e| capture_error("configuring or reading the capture stream", e))?,
-    );
-    let closed = Arc::new(AtomicBool::new(false));
-    let closed_callback = closed.clone();
-    resources.closed = Some(
-        resources
-            .item
-            .Closed(
-                &TypedEventHandler::<GraphicsCaptureItem, IInspectable>::new(move |_, _| {
-                    closed_callback.store(true, Ordering::Release);
-                    Ok(())
-                }),
-            )
-            .map_err(|e| capture_error("configuring or reading the capture stream", e))?,
-    );
-    if control.cancelled.load(Ordering::Acquire) {
-        return Ok(());
-    }
-    resources
-        .session
-        .StartCapture()
-        .map_err(|e| capture_error("configuring or reading the capture stream", e))?;
+    let PreparedCapture {
+        device,
+        source,
+        session: _session,
+    } = prepared;
+    let device = device
+        .resolve()
+        .map_err(|e| capture_error("resolving the device on the capture thread", e))?;
+    let mut gpu = Gpu::from_winrt(device)?;
+    let pool = source
+        .pool
+        .resolve()
+        .map_err(|e| capture_error("resolving the frame pool on the capture thread", e))?;
+    let mut size = source.size;
+    let producer_limited = source.producer_limited;
+    let receiver = source.receiver;
+    let closed = source.closed;
     let started = Instant::now();
     let mut last_clock = SystemTime::now();
     let mut last_desktop_check = Instant::now();
@@ -178,7 +101,7 @@ pub(super) fn run(
         // Keep only the latest of the two pool frames. Notifications contain no pixels.
         let mut latest = None;
         for _ in 0..2 {
-            match nullable_result(resources.pool.TryGetNextFrame()) {
+            match nullable_result(pool.TryGetNextFrame()) {
                 Ok(Some(frame)) => {
                     latest = Some(Frame(frame));
                     if let Some(metrics) = diagnostics.as_mut() {
@@ -190,26 +113,30 @@ pub(super) fn run(
             }
         }
         let Some(frame) = latest else { continue };
+        if !received {
+            super::log_lifecycle(&format!(
+                "capture {}: first frame received",
+                control.capture_id
+            ));
+        }
         received = true;
         let content = frame
             .0
             .ContentSize()
-            .map_err(|e| capture_error("configuring or reading the capture stream", e))?;
+            .map_err(|e| capture_error("reading the captured frame size", e))?;
         if content.Width <= 0 || content.Height <= 0 {
             continue;
         }
         if content != size {
             drop(frame);
             gpu.reset();
-            resources
-                .pool
-                .Recreate(
-                    &gpu.winrt,
-                    DirectXPixelFormat::B8G8R8A8UIntNormalized,
-                    2,
-                    content,
-                )
-                .map_err(|e| capture_error("configuring or reading the capture stream", e))?;
+            pool.Recreate(
+                &gpu.winrt,
+                DirectXPixelFormat::B8G8R8A8UIntNormalized,
+                2,
+                content,
+            )
+            .map_err(|e| capture_error("resizing the capture frame pool", e))?;
             size = content;
             published = None;
             next_sample = None;
@@ -257,12 +184,12 @@ pub(super) fn run(
         let surface = frame
             .0
             .Surface()
-            .map_err(|e| capture_error("configuring or reading the capture stream", e))?;
+            .map_err(|e| capture_error("reading the captured frame surface", e))?;
         let access: IDirect3DDxgiInterfaceAccess = surface
             .cast()
-            .map_err(|e| capture_error("configuring or reading the capture stream", e))?;
+            .map_err(|e| capture_error("accessing the captured DXGI surface", e))?;
         let texture: ID3D11Texture2D = unsafe { access.GetInterface() }
-            .map_err(|e| capture_error("configuring or reading the capture stream", e))?;
+            .map_err(|e| capture_error("accessing the captured D3D11 texture", e))?;
         let mut desc = D3D11_TEXTURE2D_DESC::default();
         unsafe {
             texture.GetDesc(&mut desc);
