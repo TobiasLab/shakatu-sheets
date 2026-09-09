@@ -65,7 +65,7 @@ pub(super) fn set_log_directory(path: std::path::PathBuf) {
     let _ = LOG_DIRECTORY.set(path);
 }
 
-fn emit(message: &str) {
+pub(super) fn emit(message: &str) {
     #[cfg(not(target_os = "windows"))]
     eprintln!("{message}");
     #[cfg(target_os = "windows")]
