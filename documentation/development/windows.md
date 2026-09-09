@@ -157,6 +157,26 @@ reduces visible previews on the GPU to at most 640×360 before readback. Closing
 preview work; one bootstrap preview announces a source or changed dimensions. The full source is never read back to CPU.
 The version-3 binary protocol, token checks, acknowledgments, bounded OCR queues, and shared English OCR parser are retained.
 
+### Importing normal loot placement
+
+Capture setup offers **Import normal loot position**. Select the account-level
+`Documents/Black Desert/UserCache/<account>/gamevariable.xml`, with a capture source selected and previews enabled.
+The file is read only on request; its contents and path are not saved or uploaded. Confirming the placement saves
+only the existing capture-region settings. The same import is available on Linux for a copied settings file.
+
+The Rust parser reads the active `UIData` entry with `Index="159"`, identified by a controlled normal-notification
+movement in the supplied settings snapshots. It ignores saved presets and uses `RelativePosX`/`RelativePosY` as the
+normal envelope center, with the current capture dimensions and calibrated crop size. Anchored `PosX`/`PosY` are not
+screen coordinates; the observed move switched from `RightBottom` to `LeftBottom`. Saved display dimensions are not
+used because they differed from the gameplay layout in the supplied files. This assumes the captured source covers
+the game viewport; a monitor capture with a smaller game window may need manual adjustment.
+
+Only the normal envelope moves. Rare placement is preserved, recognition is reset, and the user checks the preview
+before confirming. The center-to-OCR-row offset still needs in-game validation. Character files without coordinates,
+hidden or unsaved panels, duplicate active entries, invalid coordinates, unsupported UI scales, and files over 2 MiB
+are rejected. The XML scale must match the selected capture scale. Selecting another source or resizing during the
+read discards the result. `quick-xml` 0.41.0 was already in the lockfile and is now a direct dependency for this parser.
+
 Coordinates refer to physical pixels within the selected capture item. Windows display scaling and BDO's UI scale are
 independent. No desktop origin, monitor DPI multiplier, or virtual-desktop normalization is applied to detector crops.
 New Windows sources require fresh region confirmation, even if their dimensions match saved hints. A source resize

@@ -80,6 +80,9 @@ export function LiveLootCapture({ controller }: { controller: ReturnType<typeof 
         nudgeSelectedRegion,
         uiScalePercent,
         changeUiScale,
+        importNormalLootLayout,
+        importingLayout,
+        layoutImportMessage,
         calibratedProfile,
         automaticLocalizationAvailable,
         beginAutomaticLocalization,
@@ -437,6 +440,11 @@ export function LiveLootCapture({ controller }: { controller: ReturnType<typeof 
                                         </button>
                                     </div>
                                 )}
+                                <p>
+                                    Import the account-level gamevariable.xml from Documents / Black Desert / UserCache
+                                    / your account folder.
+                                </p>
+                                {layoutImportMessage && <p role="status">{layoutImportMessage}</p>}
                                 <div className={styles.CalibrationBar}>
                                     <label className={styles.ScaleControl}>
                                         BDO UI scale
@@ -450,6 +458,20 @@ export function LiveLootCapture({ controller }: { controller: ReturnType<typeof 
                                             <option value={80}>80%</option>
                                             <option value={100}>100%</option>
                                         </select>
+                                    </label>
+                                    <label className={`button ${styles.FileButton}`}>
+                                        {importingLayout ? "Reading layout..." : "Import normal loot position"}
+                                        <input
+                                            type="file"
+                                            accept=".xml"
+                                            aria-label="Import normal loot position from gamevariable.xml"
+                                            disabled={savingRegion || !sourceSupported || !previewsEnabled}
+                                            onChange={(event) => {
+                                                const file = event.currentTarget.files?.[0];
+                                                event.currentTarget.value = "";
+                                                void importNormalLootLayout(file);
+                                            }}
+                                        />
                                     </label>
                                     {placementMode !== "localizing" &&
                                         automaticLocalizationAvailable &&

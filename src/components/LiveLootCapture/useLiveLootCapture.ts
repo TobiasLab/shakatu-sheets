@@ -9,6 +9,7 @@ import {
     type NativeCaptureFrame,
     type NativeCaptureSelection,
     nativeCaptureCapabilities,
+    readNormalLootLayout,
     saveLootCaptureSettings,
     setNativeDisplayCapturePreviewEnabled,
     setNativeDisplayCaptureRegion,
@@ -382,7 +383,11 @@ export function useLiveLootCapture({
     const [uiScalePercent, setUiScalePercent] = useState<LootUiScale>(80);
     const [regionConfirmed, setRegionConfirmed] = useState(false);
     const [rareRegionConfirmed, setRareRegionConfirmed] = useState(false);
-    const [savingRegion, setSavingRegion] = useState(false);
+    const [persistingRegion, setSavingRegion] = useState(false);
+    const [importingLayout, setImportingLayout] = useState(false);
+    const [layoutImportMessage, setLayoutImportMessage] = useState("");
+    const layoutImportBusy = useRef(false);
+    const savingRegion = persistingRegion || importingLayout;
     const [recognitionStatus, setRecognitionStatus] = useState<RecognitionStatus>("idle");
     const [recognitionError, setRecognitionError] = useState("");
     const [recognitionReset, setRecognitionReset] = useState(0);
@@ -999,6 +1004,7 @@ export function useLiveLootCapture({
     }
 
     function stopCapture() {
+        setLayoutImportMessage("");
         closingRecognition.current = false;
         requestId.current += 1;
         releaseStream();
@@ -1282,6 +1288,51 @@ export function useLiveLootCapture({
             activeStream.current = null;
             setStatus("idle");
             setError(displayCaptureErrorMessage(captureError));
+        }
+    }
+
+    async function importNormalLootLayout(file: File | undefined) {
+        const source = sourceDimensionsRef.current;
+        if (!file || savingRegion || layoutImportBusy.current || !source || !previewsEnabledRef.current) return;
+        const captureRequest = requestId.current;
+        const scale = uiScaleRef.current;
+        const stillCurrent = () =>
+            mounted.current &&
+            captureRequest === requestId.current &&
+            source === sourceDimensionsRef.current &&
+            scale === uiScaleRef.current &&
+            previewsEnabledRef.current;
+        layoutImportBusy.current = true;
+        setImportingLayout(true);
+        setLayoutImportMessage("");
+        try {
+            if (file.size > 2 * 1024 * 1024) throw new Error("The settings file is too large (maximum 2 MiB).");
+            const position = await readNormalLootLayout(await file.text());
+            if (!stillCurrent()) return;
+            if (position.uiScalePercent !== scale) {
+                throw new Error(
+                    `This file uses ${position.uiScalePercent}% UI scale. Select that scale in capture setup before importing.`,
+                );
+            }
+            const next = positionLootRegion(position.x, position.y, source.width, source.height, scale, "normal");
+            clearLocalization();
+            restartRecognition();
+            updateSearchRegion(null);
+            updatePlacementMode("manual");
+            selectRegionKind("normal");
+            updateRegion("normal", next);
+            updateCaptureRegion("normal", next);
+            updateRegionConfirmed(false);
+            clearRegionPreview("normal");
+            setError("");
+            setLayoutImportMessage(
+                "Normal area moved to the saved layout position. Check the item-name rows in the preview, adjust if needed, then confirm both areas.",
+            );
+        } catch (failure) {
+            if (stillCurrent()) setLayoutImportMessage(failure instanceof Error ? failure.message : String(failure));
+        } finally {
+            layoutImportBusy.current = false;
+            if (mounted.current) setImportingLayout(false);
         }
     }
 
@@ -2164,6 +2215,9 @@ export function useLiveLootCapture({
         nudgeSelectedRegion,
         uiScalePercent,
         changeUiScale,
+        importNormalLootLayout,
+        importingLayout,
+        layoutImportMessage,
         calibratedProfile,
         automaticLocalizationAvailable,
         beginAutomaticLocalization,

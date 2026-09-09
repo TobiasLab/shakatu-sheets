@@ -156,6 +156,11 @@ await send("Page.addScriptToEvaluateOnNewDocument", {
                 setTimeout(window.__emitFrame,50);
                 return;
             }
+            if (command === "read_normal_loot_layout") {
+                if (args.xml === '<wrong-scale/>') return {x:0.2,y:0.7,uiScalePercent:${uiScale === 80 ? 100 : 80}};
+                if (args.xml !== '<layout-fixture/>') throw new Error('Invalid layout fixture');
+                return {x:0.2,y:0.7,uiScalePercent:${uiScale}};
+            }
             if (command === "plugin:window|is_minimized") return window.__minimized;
             if (command === "plugin:event|listen") { const id = args.handler; listeners.set(id, args); return id; }
             if (command === "debug_roi_sample_collection_status") throw new Error("Debug collection unavailable in test");
@@ -236,6 +241,58 @@ try {
                 false,
                 "Changing UI scale must not start search",
             );
+            const beforeImport = await evaluate(
+                "window.__calls.filter(c => c.command === 'set_native_display_capture_region').at(-1).args.selection.settings",
+            );
+            await evaluate(`(() => {
+                const input = document.querySelector('input[aria-label="Import normal loot position from gamevariable.xml"]');
+                const transfer = new DataTransfer();
+                transfer.items.add(new File(['<layout-fixture/>'], 'gamevariable.xml', {type:'application/xml'}));
+                input.files = transfer.files;
+                input.dispatchEvent(new Event('change', {bubbles:true}));
+            })()`);
+            await until("document.body.textContent.includes('Normal area moved to the saved layout position')");
+            await until(
+                "window.__calls.filter(c => c.command === 'set_native_display_capture_region').at(-1)?.args.selection?.settings?.region.x < 0.3",
+            );
+            const imported = await evaluate(
+                "window.__calls.filter(c => c.command === 'set_native_display_capture_region').at(-1).args.selection.settings",
+            );
+            assert.deepEqual(imported.rareRegion, beforeImport.rareRegion);
+            assert.equal(
+                Math.round(imported.region.x * sourceWidth),
+                Math.round(0.2 * sourceWidth - (uiScale === 80 ? 362 : 453) / 2),
+            );
+            assert.equal(
+                Math.round(imported.region.y * sourceHeight),
+                Math.round(0.7 * sourceHeight - (uiScale === 80 ? 311 : 389) / 2),
+            );
+            assert.equal(imported.region.width, beforeImport.region.width);
+            assert.equal(imported.region.height, beforeImport.region.height);
+            assert(
+                await evaluate(
+                    "[...document.querySelectorAll('button')].some(b => b.textContent.trim() === 'Confirm both areas' && !b.disabled)",
+                ),
+            );
+            for (const [contents, message] of [
+                ["<invalid/>", "Invalid layout fixture"],
+                ["<wrong-scale/>", "Select that scale in capture setup before importing."],
+            ]) {
+                await evaluate(`(() => {
+                    const input = document.querySelector('input[aria-label="Import normal loot position from gamevariable.xml"]');
+                    const transfer = new DataTransfer();
+                    transfer.items.add(new File([${JSON.stringify(contents)}], 'gamevariable.xml'));
+                    input.files = transfer.files;
+                    input.dispatchEvent(new Event('change', {bubbles:true}));
+                })()`);
+                await until(`document.body.textContent.includes(${JSON.stringify(message)})`);
+                assert.deepEqual(
+                    await evaluate(
+                        "window.__calls.filter(c => c.command === 'set_native_display_capture_region').at(-1).args.selection.settings",
+                    ),
+                    imported,
+                );
+            }
             await click("Adjust automatically");
             await until(
                 "window.__calls.some(c => c.command === 'set_native_display_capture_region' && c.args.selection?.mode === 'search')",

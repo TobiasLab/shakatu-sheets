@@ -3548,6 +3548,7 @@ dependencies = [
  "ashpd",
  "pipewire",
  "png 0.18.1",
+ "quick-xml",
  "reqwest",
  "rusqlite",
  "serde",
