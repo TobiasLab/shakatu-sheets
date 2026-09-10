@@ -112,6 +112,29 @@ export function positionLootRegion(
     };
 }
 
+// Position the visible text guide while retaining the calibrated OCR margins.
+export function positionLootAlignmentGuide(
+    centerX: number,
+    centerY: number,
+    sourceWidth: number,
+    sourceHeight: number,
+    uiScalePercent: LootUiScale,
+    kind: LootRegionKind = "normal",
+): NormalizedRegion {
+    const guide = lootAlignmentGuide(uiScalePercent, kind);
+    const crop = lootRegionSize(uiScalePercent, kind);
+    const left = Math.round(centerX * sourceWidth - guide.x - guide.width / 2);
+    const top = Math.round(centerY * sourceHeight - guide.y - guide.height / 2);
+    return positionLootRegion(
+        (left + crop.width / 2) / sourceWidth,
+        (top + crop.height / 2) / sourceHeight,
+        sourceWidth,
+        sourceHeight,
+        uiScalePercent,
+        kind,
+    );
+}
+
 export function positionLootSearchRegion(
     normalizedCenterX: number,
     normalizedCenterY: number,

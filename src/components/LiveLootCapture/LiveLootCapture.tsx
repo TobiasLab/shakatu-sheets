@@ -4,7 +4,15 @@ import styles from "./LiveLootCapture.module.css";
 import type { useLiveLootCapture } from "./useLiveLootCapture";
 
 type SourceDimensions = { width: number; height: number };
-function AlignmentGuide({ frameSize, guide }: { frameSize: SourceDimensions; guide: LootAlignmentGuide }) {
+function AlignmentGuide({
+    frameSize,
+    guide,
+    label,
+}: {
+    frameSize: SourceDimensions;
+    guide: LootAlignmentGuide;
+    label?: string;
+}) {
     return (
         <div
             className={styles.RecognitionGuide}
@@ -17,7 +25,7 @@ function AlignmentGuide({ frameSize, guide }: { frameSize: SourceDimensions; gui
             }}
         >
             <span className={styles.GuideLabel}>
-                {guide.rowCenters.length === 1 ? "Item-name center" : "Item-name rows"}
+                {label ?? (guide.rowCenters.length === 1 ? "Item-name center" : "Item-name rows")}
             </span>
             {guide.rowCenters.map((center) => (
                 <i
@@ -58,6 +66,7 @@ export function LiveLootCapture({ controller }: { controller: ReturnType<typeof 
         activeRegionKindRef,
         updateCaptureRegion,
         moveRegion,
+        beginRegionDrag,
         normalRegionRef,
         rareRegionRef,
         canvas,
@@ -254,7 +263,14 @@ export function LiveLootCapture({ controller }: { controller: ReturnType<typeof 
                             <div
                                 className={styles.PreviewStage}
                                 onPointerDown={(event) => {
-                                    if (!previewsEnabledRef.current || savingRegion) return;
+                                    if (
+                                        !previewsEnabledRef.current ||
+                                        savingRegion ||
+                                        event.button !== 0 ||
+                                        !event.isPrimary
+                                    )
+                                        return;
+                                    beginRegionDrag(event);
                                     draggingRegion.current = true;
                                     if (placementModeRef.current !== "localizing") {
                                         updateCaptureRegion(activeRegionKindRef.current, null);
@@ -313,7 +329,8 @@ export function LiveLootCapture({ controller }: { controller: ReturnType<typeof 
                                     (placementMode !== "localizing" || activeRegionKind !== "normal") &&
                                     normalRegion && (
                                         <div
-                                            className={`${styles.RegionOverlay} ${styles.NormalRegionOverlay} ${
+                                            data-loot-region="normal"
+                                            className={`${styles.RegionOverlay} ${styles.NormalRegionOverlay} ${!diagnosticsOpen ? styles.HiddenEnvelope : ""} ${
                                                 activeRegionKind === "normal" ? styles.ActiveRegionOverlay : ""
                                             }`}
                                             style={{
@@ -323,10 +340,13 @@ export function LiveLootCapture({ controller }: { controller: ReturnType<typeof 
                                                 height: `${normalRegion.height * 100}%`,
                                             }}
                                         >
-                                            <span className={styles.OverlayLabel}>Capture envelope</span>
+                                            {diagnosticsOpen && (
+                                                <span className={styles.OverlayLabel}>Normal capture margin</span>
+                                            )}
                                             <AlignmentGuide
                                                 frameSize={normalGuideFrameSize}
                                                 guide={normalAlignmentGuide}
+                                                label="Normal loot"
                                             />
                                         </div>
                                     )}
@@ -334,7 +354,8 @@ export function LiveLootCapture({ controller }: { controller: ReturnType<typeof 
                                     (placementMode !== "localizing" || activeRegionKind !== "rare") &&
                                     rareRegion && (
                                         <div
-                                            className={`${styles.RegionOverlay} ${styles.RareRegionOverlay} ${
+                                            data-loot-region="rare"
+                                            className={`${styles.RegionOverlay} ${styles.RareRegionOverlay} ${!diagnosticsOpen ? styles.HiddenEnvelope : ""} ${
                                                 activeRegionKind === "rare" ? styles.ActiveRegionOverlay : ""
                                             }`}
                                             style={{
@@ -344,10 +365,14 @@ export function LiveLootCapture({ controller }: { controller: ReturnType<typeof 
                                                 height: `${rareRegion.height * 100}%`,
                                             }}
                                         >
-                                            <span className={styles.OverlayLabel}>
-                                                {rareRecognitionReady ? "Rare recognition area" : "Rare alignment area"}
-                                            </span>
-                                            <AlignmentGuide frameSize={rareGuideFrameSize} guide={rareAlignmentGuide} />
+                                            {diagnosticsOpen && (
+                                                <span className={styles.OverlayLabel}>Rare capture margin</span>
+                                            )}
+                                            <AlignmentGuide
+                                                frameSize={rareGuideFrameSize}
+                                                guide={rareAlignmentGuide}
+                                                label="Rare loot"
+                                            />
                                         </div>
                                     )}
                                 {!previewsEnabled && (

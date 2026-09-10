@@ -261,11 +261,11 @@ try {
             assert.deepEqual(imported.rareRegion, beforeImport.rareRegion);
             assert.equal(
                 Math.round(imported.region.x * sourceWidth),
-                Math.round(0.2 * sourceWidth - (uiScale === 80 ? 362 : 453) / 2),
+                Math.round(0.2 * sourceWidth - (uiScale === 80 ? 214 : 268)),
             );
             assert.equal(
                 Math.round(imported.region.y * sourceHeight),
-                Math.round(0.7 * sourceHeight - (uiScale === 80 ? 311 : 389) / 2),
+                Math.round(0.7 * sourceHeight - (uiScale === 80 ? 126 : 157.5)),
             );
             assert.equal(imported.region.width, beforeImport.region.width);
             assert.equal(imported.region.height, beforeImport.region.height);
@@ -274,6 +274,65 @@ try {
                     "[...document.querySelectorAll('button')].some(b => b.textContent.trim() === 'Confirm both areas' && !b.disabled)",
                 ),
             );
+            const guidePoint = await evaluate(`(() => {
+                const envelope = document.querySelector('[data-loot-region="normal"]');
+                if (getComputedStyle(envelope).outlineStyle !== 'none') throw new Error('Capture margin should be hidden');
+                const guide = envelope.querySelector('[aria-hidden="true"]');
+                guide.scrollIntoView({block:'center'});
+                const box = guide.getBoundingClientRect();
+                return {x:box.left + box.width * 0.2,y:box.top + box.height * 0.5};
+            })()`);
+            await send("Input.dispatchMouseEvent", {
+                type: "mousePressed",
+                button: "left",
+                clickCount: 1,
+                ...guidePoint,
+            });
+            await send("Input.dispatchMouseEvent", {
+                type: "mouseReleased",
+                button: "left",
+                clickCount: 1,
+                ...guidePoint,
+            });
+            await delay(150);
+            assert.deepEqual(
+                await evaluate(
+                    "window.__calls.filter(c => c.command === 'set_native_display_capture_region').at(-1).args.selection.settings.region",
+                ),
+                imported.region,
+                "Grabbing off-center must not jump",
+            );
+            const stageWidth = await evaluate(
+                "document.querySelector('[aria-label=\"Sampled capture preview\"]').getBoundingClientRect().width",
+            );
+            await send("Input.dispatchMouseEvent", {
+                type: "mousePressed",
+                button: "left",
+                clickCount: 1,
+                ...guidePoint,
+            });
+            await send("Input.dispatchMouseEvent", {
+                type: "mouseMoved",
+                button: "left",
+                buttons: 1,
+                x: guidePoint.x + 20,
+                y: guidePoint.y,
+            });
+            await send("Input.dispatchMouseEvent", {
+                type: "mouseReleased",
+                button: "left",
+                clickCount: 1,
+                x: guidePoint.x + 20,
+                y: guidePoint.y,
+            });
+            await delay(150);
+            const dragged = await evaluate(
+                "window.__calls.filter(c => c.command === 'set_native_display_capture_region').at(-1).args.selection.settings",
+            );
+            assert(
+                Math.abs((dragged.region.x - imported.region.x) * sourceWidth - (20 * sourceWidth) / stageWidth) <= 1,
+            );
+            assert.deepEqual(dragged.rareRegion, imported.rareRegion);
             for (const [contents, message] of [
                 ["<invalid/>", "Invalid layout fixture"],
                 ["<wrong-scale/>", "Select that scale in capture setup before importing."],
@@ -290,7 +349,7 @@ try {
                     await evaluate(
                         "window.__calls.filter(c => c.command === 'set_native_display_capture_region').at(-1).args.selection.settings",
                     ),
-                    imported,
+                    dragged,
                 );
             }
             await click("Adjust automatically");

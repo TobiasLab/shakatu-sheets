@@ -9,6 +9,7 @@ import {
     normalizedRegionToPixels,
     nudgeLootRegion,
     pixelRegionToNormalized,
+    positionLootAlignmentGuide,
     positionLootRegion,
     positionLootSearchRegion,
     searchRegionAroundLootRegion,
@@ -231,6 +232,29 @@ it("keeps search areas inside both new source resolutions", () => {
             expect(search.y).toBeLessThanOrEqual(exact.y);
             expect(search.x + 800).toBeGreaterThanOrEqual(exact.x + exact.width);
             expect(search.y + 600).toBeGreaterThanOrEqual(exact.y + exact.height);
+        }
+    }
+});
+
+describe("visible loot guide placement", () => {
+    for (const scale of [80, 100] as const) {
+        for (const kind of ["normal", "rare"] as const) {
+            it(`centers the ${kind} guide at ${scale}% without resizing OCR pixels`, () => {
+                const guide = lootAlignmentGuide(scale, kind);
+                const region = positionLootAlignmentGuide(0.4, 0.6, 3440, 1440, scale, kind);
+                const crop = normalizedRegionToPixels(region, 3440, 1440);
+                expect(crop.width).toBe(lootRegionSize(scale, kind).width);
+                expect(crop.height).toBe(lootRegionSize(scale, kind).height);
+                expect(Math.abs(crop.x + guide.x + guide.width / 2 - 0.4 * 3440)).toBeLessThanOrEqual(0.5);
+                expect(Math.abs(crop.y + guide.y + guide.height / 2 - 0.6 * 1440)).toBeLessThanOrEqual(0.5);
+                const edge = normalizedRegionToPixels(
+                    positionLootAlignmentGuide(0, 1, 3440, 1440, scale, kind),
+                    3440,
+                    1440,
+                );
+                expect(edge.x).toBe(0);
+                expect(edge.y + edge.height).toBe(1440);
+            });
         }
     }
 });

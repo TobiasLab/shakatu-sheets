@@ -157,6 +157,14 @@ reduces visible previews on the GPU to at most 640×360 before readback. Closing
 preview work; one bootstrap preview announces a source or changed dimensions. The full source is never read back to CPU.
 The version-3 binary protocol, token checks, acknowledgments, bounded OCR queues, and shared English OCR parser are retained.
 
+### Positioning the loot guides
+
+Setup shows draggable green text guides for normal and rare loot. Grabbing inside a guide preserves the pointer offset;
+clicking elsewhere centers the selected guide there. Arrow buttons still move by one source pixel. The calibrated OCR
+crop dimensions and row positions are unchanged: the larger crop moves with the guide and stays within the source.
+Advanced diagnostics reveals the outer capture margins. At source edges the guide cannot move beyond the point where
+its full OCR crop would leave the source. Confirm both areas after positioning.
+
 ### Importing normal loot placement
 
 Capture setup offers **Import normal loot position**. Select the account-level
@@ -166,12 +174,12 @@ only the existing capture-region settings. The same import is available on Linux
 
 The Rust parser reads the active `UIData` entry with `Index="159"`, identified by a controlled normal-notification
 movement in the supplied settings snapshots. It ignores saved presets and uses `RelativePosX`/`RelativePosY` as the
-normal envelope center, with the current capture dimensions and calibrated crop size. Anchored `PosX`/`PosY` are not
+normal visible guide center, with the current capture dimensions and calibrated crop size. Anchored `PosX`/`PosY` are not
 screen coordinates; the observed move switched from `RightBottom` to `LeftBottom`. Saved display dimensions are not
 used because they differed from the gameplay layout in the supplied files. This assumes the captured source covers
 the game viewport; a monitor capture with a smaller game window may need manual adjustment.
 
-Only the normal envelope moves. Rare placement is preserved, recognition is reset, and the user checks the preview
+Only the normal placement moves. Rare placement is preserved, recognition is reset, and the user checks the preview
 before confirming. The center-to-OCR-row offset still needs in-game validation. Character files without coordinates,
 hidden or unsaved panels, duplicate active entries, invalid coordinates, unsupported UI scales, and files over 2 MiB
 are rejected. The XML scale must match the selected capture scale. Selecting another source or resizing during the

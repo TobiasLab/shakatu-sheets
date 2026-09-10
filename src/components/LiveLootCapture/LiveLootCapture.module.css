@@ -733,3 +733,25 @@
     outline: 2px solid currentColor;
     outline-offset: 2px;
 }
+
+.HiddenEnvelope {
+    outline: none;
+    background: none;
+    box-shadow: none;
+}
+
+.PreviewStage .RegionOverlay .RecognitionGuide {
+    pointer-events: auto;
+    cursor: grab;
+    outline: 1px dashed #52e69a;
+    background: rgb(0 166 80 / 8%);
+}
+
+.PreviewStage .ActiveRegionOverlay .RecognitionGuide {
+    outline-width: 2px;
+    box-shadow: 0 0 0 1px rgb(0 0 0 / 80%);
+}
+
+.PreviewStage .RecognitionGuide:active {
+    cursor: grabbing;
+}
