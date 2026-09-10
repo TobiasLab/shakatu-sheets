@@ -169,6 +169,7 @@ export const aphrodonTemple: GrindSpotProfile = {
         commonDrops.blackStone,
         commonDrops.ancientSpiritDust,
         commonDrops.caphrasStone,
+        commonDrops.sealedBlackMagicCrystal,
         commonDrops.corruptOil,
         commonDrops.nevsFragment,
         vendor("WON Origin Shard", 821_430, 12_000_000),
