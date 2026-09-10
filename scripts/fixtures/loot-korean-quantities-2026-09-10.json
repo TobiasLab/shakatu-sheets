@@ -1,0 +1,666 @@
+{
+    "version": 1,
+    "itemDictionary": [
+        "Branch of Abundance",
+        "Empty Picture Frame",
+        "Black Stone",
+        "Ancient Spirit Dust",
+        "Caphras Stone",
+        "Corrupt Oil of Immortality",
+        "Nev's Fragment",
+        "WON Origin Shard",
+        "WON Wandering Origin Crystal",
+        "Silent Fragment of Origin",
+        "Silent Crystal of Origin",
+        "Twilight of the End - Earring",
+        "Apeiron Earring",
+        "Broken Vestige of Goldroot",
+        "Fusion Shard",
+        "Refined Origin of Hunger",
+        "Refined Essence of Devouring",
+        "Sunset Primordial Pigment - Edana",
+        "Sunset Primordial Luster - Edana",
+        "Crimson Primordial Luster - Sovereign",
+        "Crimson Primordial Pigment - Sovereign",
+        "Violet Primordial Luster - Sovereign",
+        "Violet Primordial Pigment - Sovereign",
+        "Violet Primordial Pigment - Edana",
+        "Violet Primordial Luster - Edana",
+        "Embers of Ynix - Armor"
+    ],
+    "runs": [
+        {
+            "id": "run-1788955453059-1734491-0004",
+            "split": "development",
+            "font": "korean",
+            "normalCases": [
+                {
+                    "id": "korean-quantity-103686",
+                    "firstBatchId": 103686,
+                    "lastBatchId": 103686,
+                    "events": [
+                        {
+                            "firstBatchId": 103686,
+                            "item": "Caphras Stone",
+                            "quantity": 11
+                        }
+                    ]
+                },
+                {
+                    "id": "korean-quantity-103688",
+                    "firstBatchId": 103688,
+                    "lastBatchId": 103688,
+                    "events": [
+                        {
+                            "firstBatchId": 103688,
+                            "item": "Branch of Abundance",
+                            "quantity": 190
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "id": "run-1789058186427-49040-0001",
+            "split": "development",
+            "font": "korean",
+            "normalCases": [
+                {
+                    "id": "korean-quantity-3521",
+                    "firstBatchId": 3521,
+                    "lastBatchId": 3521,
+                    "events": [
+                        {
+                            "firstBatchId": 3521,
+                            "item": "Branch of Abundance",
+                            "quantity": 10
+                        }
+                    ]
+                },
+                {
+                    "id": "korean-quantity-3529",
+                    "firstBatchId": 3529,
+                    "lastBatchId": 3529,
+                    "events": [
+                        {
+                            "firstBatchId": 3529,
+                            "item": "Branch of Abundance",
+                            "quantity": 10
+                        }
+                    ]
+                },
+                {
+                    "id": "korean-quantity-3530",
+                    "firstBatchId": 3530,
+                    "lastBatchId": 3530,
+                    "events": [
+                        {
+                            "firstBatchId": 3530,
+                            "item": "Branch of Abundance",
+                            "quantity": 10
+                        }
+                    ]
+                },
+                {
+                    "id": "korean-quantity-3844",
+                    "firstBatchId": 3844,
+                    "lastBatchId": 3844,
+                    "events": [
+                        {
+                            "firstBatchId": 3844,
+                            "item": "Branch of Abundance",
+                            "quantity": 10
+                        }
+                    ]
+                },
+                {
+                    "id": "korean-quantity-3877",
+                    "firstBatchId": 3877,
+                    "lastBatchId": 3877,
+                    "events": [
+                        {
+                            "firstBatchId": 3877,
+                            "item": "Branch of Abundance",
+                            "quantity": 10
+                        }
+                    ]
+                },
+                {
+                    "id": "korean-quantity-4053",
+                    "firstBatchId": 4053,
+                    "lastBatchId": 4053,
+                    "events": [
+                        {
+                            "firstBatchId": 4053,
+                            "item": "Branch of Abundance",
+                            "quantity": 10
+                        }
+                    ]
+                },
+                {
+                    "id": "korean-quantity-4055",
+                    "firstBatchId": 4055,
+                    "lastBatchId": 4055,
+                    "events": [
+                        {
+                            "firstBatchId": 4055,
+                            "item": "Branch of Abundance",
+                            "quantity": 10
+                        }
+                    ]
+                },
+                {
+                    "id": "korean-quantity-4129",
+                    "firstBatchId": 4129,
+                    "lastBatchId": 4129,
+                    "events": [
+                        {
+                            "firstBatchId": 4129,
+                            "item": "Branch of Abundance",
+                            "quantity": 10
+                        }
+                    ]
+                },
+                {
+                    "id": "korean-quantity-4135",
+                    "firstBatchId": 4135,
+                    "lastBatchId": 4135,
+                    "events": [
+                        {
+                            "firstBatchId": 4135,
+                            "item": "Branch of Abundance",
+                            "quantity": 10
+                        }
+                    ]
+                },
+                {
+                    "id": "korean-quantity-4608",
+                    "firstBatchId": 4608,
+                    "lastBatchId": 4608,
+                    "events": [
+                        {
+                            "firstBatchId": 4608,
+                            "item": "Branch of Abundance",
+                            "quantity": 10
+                        }
+                    ]
+                },
+                {
+                    "id": "korean-quantity-4692",
+                    "firstBatchId": 4692,
+                    "lastBatchId": 4692,
+                    "events": [
+                        {
+                            "firstBatchId": 4692,
+                            "item": "Branch of Abundance",
+                            "quantity": 10
+                        }
+                    ]
+                },
+                {
+                    "id": "korean-quantity-4695",
+                    "firstBatchId": 4695,
+                    "lastBatchId": 4695,
+                    "events": [
+                        {
+                            "firstBatchId": 4695,
+                            "item": "Branch of Abundance",
+                            "quantity": 10
+                        }
+                    ]
+                },
+                {
+                    "id": "korean-quantity-4716",
+                    "firstBatchId": 4716,
+                    "lastBatchId": 4716,
+                    "events": [
+                        {
+                            "firstBatchId": 4716,
+                            "item": "Branch of Abundance",
+                            "quantity": 10
+                        }
+                    ]
+                },
+                {
+                    "id": "korean-quantity-5030",
+                    "firstBatchId": 5030,
+                    "lastBatchId": 5030,
+                    "events": [
+                        {
+                            "firstBatchId": 5030,
+                            "item": "Branch of Abundance",
+                            "quantity": 10
+                        }
+                    ]
+                },
+                {
+                    "id": "korean-quantity-5233",
+                    "firstBatchId": 5233,
+                    "lastBatchId": 5233,
+                    "events": [
+                        {
+                            "firstBatchId": 5233,
+                            "item": "Branch of Abundance",
+                            "quantity": 10
+                        }
+                    ]
+                },
+                {
+                    "id": "korean-quantity-5291",
+                    "firstBatchId": 5291,
+                    "lastBatchId": 5291,
+                    "events": [
+                        {
+                            "firstBatchId": 5291,
+                            "item": "Branch of Abundance",
+                            "quantity": 10
+                        }
+                    ]
+                },
+                {
+                    "id": "korean-quantity-5301",
+                    "firstBatchId": 5301,
+                    "lastBatchId": 5301,
+                    "events": [
+                        {
+                            "firstBatchId": 5301,
+                            "item": "Branch of Abundance",
+                            "quantity": 10
+                        }
+                    ]
+                },
+                {
+                    "id": "korean-quantity-5588",
+                    "firstBatchId": 5588,
+                    "lastBatchId": 5588,
+                    "events": [
+                        {
+                            "firstBatchId": 5588,
+                            "item": "Branch of Abundance",
+                            "quantity": 10
+                        }
+                    ]
+                },
+                {
+                    "id": "korean-quantity-5592",
+                    "firstBatchId": 5592,
+                    "lastBatchId": 5592,
+                    "events": [
+                        {
+                            "firstBatchId": 5592,
+                            "item": "Branch of Abundance",
+                            "quantity": 10
+                        }
+                    ]
+                },
+                {
+                    "id": "korean-quantity-5595",
+                    "firstBatchId": 5595,
+                    "lastBatchId": 5595,
+                    "events": [
+                        {
+                            "firstBatchId": 5595,
+                            "item": "Branch of Abundance",
+                            "quantity": 10
+                        }
+                    ]
+                },
+                {
+                    "id": "korean-quantity-5626",
+                    "firstBatchId": 5626,
+                    "lastBatchId": 5626,
+                    "events": [
+                        {
+                            "firstBatchId": 5626,
+                            "item": "Branch of Abundance",
+                            "quantity": 10
+                        }
+                    ]
+                },
+                {
+                    "id": "korean-quantity-5628",
+                    "firstBatchId": 5628,
+                    "lastBatchId": 5628,
+                    "events": [
+                        {
+                            "firstBatchId": 5628,
+                            "item": "Branch of Abundance",
+                            "quantity": 10
+                        }
+                    ]
+                },
+                {
+                    "id": "korean-quantity-5629",
+                    "firstBatchId": 5629,
+                    "lastBatchId": 5629,
+                    "events": [
+                        {
+                            "firstBatchId": 5629,
+                            "item": "Branch of Abundance",
+                            "quantity": 10
+                        }
+                    ]
+                },
+                {
+                    "id": "korean-quantity-6118",
+                    "firstBatchId": 6118,
+                    "lastBatchId": 6118,
+                    "events": [
+                        {
+                            "firstBatchId": 6118,
+                            "item": "Branch of Abundance",
+                            "quantity": 10
+                        }
+                    ]
+                },
+                {
+                    "id": "korean-quantity-6137",
+                    "firstBatchId": 6137,
+                    "lastBatchId": 6137,
+                    "events": [
+                        {
+                            "firstBatchId": 6137,
+                            "item": "Branch of Abundance",
+                            "quantity": 10
+                        }
+                    ]
+                },
+                {
+                    "id": "korean-quantity-6206",
+                    "firstBatchId": 6206,
+                    "lastBatchId": 6206,
+                    "events": [
+                        {
+                            "firstBatchId": 6206,
+                            "item": "Branch of Abundance",
+                            "quantity": 10
+                        }
+                    ]
+                },
+                {
+                    "id": "korean-quantity-6237",
+                    "firstBatchId": 6237,
+                    "lastBatchId": 6237,
+                    "events": [
+                        {
+                            "firstBatchId": 6237,
+                            "item": "Branch of Abundance",
+                            "quantity": 10
+                        }
+                    ]
+                },
+                {
+                    "id": "korean-quantity-6449",
+                    "firstBatchId": 6449,
+                    "lastBatchId": 6449,
+                    "events": [
+                        {
+                            "firstBatchId": 6449,
+                            "item": "Branch of Abundance",
+                            "quantity": 10
+                        }
+                    ]
+                },
+                {
+                    "id": "korean-quantity-6451",
+                    "firstBatchId": 6451,
+                    "lastBatchId": 6451,
+                    "events": [
+                        {
+                            "firstBatchId": 6451,
+                            "item": "Branch of Abundance",
+                            "quantity": 10
+                        }
+                    ]
+                },
+                {
+                    "id": "korean-quantity-6510",
+                    "firstBatchId": 6510,
+                    "lastBatchId": 6510,
+                    "events": [
+                        {
+                            "firstBatchId": 6510,
+                            "item": "Branch of Abundance",
+                            "quantity": 10
+                        }
+                    ]
+                },
+                {
+                    "id": "korean-quantity-6518",
+                    "firstBatchId": 6518,
+                    "lastBatchId": 6518,
+                    "events": [
+                        {
+                            "firstBatchId": 6518,
+                            "item": "Branch of Abundance",
+                            "quantity": 10
+                        }
+                    ]
+                },
+                {
+                    "id": "korean-quantity-6519",
+                    "firstBatchId": 6519,
+                    "lastBatchId": 6519,
+                    "events": [
+                        {
+                            "firstBatchId": 6519,
+                            "item": "Branch of Abundance",
+                            "quantity": 10
+                        }
+                    ]
+                },
+                {
+                    "id": "korean-quantity-6521",
+                    "firstBatchId": 6521,
+                    "lastBatchId": 6521,
+                    "events": [
+                        {
+                            "firstBatchId": 6521,
+                            "item": "Branch of Abundance",
+                            "quantity": 10
+                        }
+                    ]
+                },
+                {
+                    "id": "korean-quantity-6553",
+                    "firstBatchId": 6553,
+                    "lastBatchId": 6553,
+                    "events": [
+                        {
+                            "firstBatchId": 6553,
+                            "item": "Branch of Abundance",
+                            "quantity": 10
+                        }
+                    ]
+                },
+                {
+                    "id": "korean-quantity-6792",
+                    "firstBatchId": 6792,
+                    "lastBatchId": 6792,
+                    "events": [
+                        {
+                            "firstBatchId": 6792,
+                            "item": "Branch of Abundance",
+                            "quantity": 10
+                        }
+                    ]
+                },
+                {
+                    "id": "korean-quantity-6834",
+                    "firstBatchId": 6834,
+                    "lastBatchId": 6834,
+                    "events": [
+                        {
+                            "firstBatchId": 6834,
+                            "item": "Branch of Abundance",
+                            "quantity": 10
+                        }
+                    ]
+                },
+                {
+                    "id": "korean-quantity-6863",
+                    "firstBatchId": 6863,
+                    "lastBatchId": 6863,
+                    "events": [
+                        {
+                            "firstBatchId": 6863,
+                            "item": "Branch of Abundance",
+                            "quantity": 10
+                        }
+                    ]
+                },
+                {
+                    "id": "korean-quantity-6867",
+                    "firstBatchId": 6867,
+                    "lastBatchId": 6867,
+                    "events": [
+                        {
+                            "firstBatchId": 6867,
+                            "item": "Branch of Abundance",
+                            "quantity": 10
+                        }
+                    ]
+                },
+                {
+                    "id": "korean-quantity-7053",
+                    "firstBatchId": 7053,
+                    "lastBatchId": 7053,
+                    "events": [
+                        {
+                            "firstBatchId": 7053,
+                            "item": "Branch of Abundance",
+                            "quantity": 10
+                        }
+                    ]
+                },
+                {
+                    "id": "korean-quantity-7382",
+                    "firstBatchId": 7382,
+                    "lastBatchId": 7382,
+                    "events": [
+                        {
+                            "firstBatchId": 7382,
+                            "item": "Branch of Abundance",
+                            "quantity": 10
+                        }
+                    ]
+                },
+                {
+                    "id": "korean-quantity-7443",
+                    "firstBatchId": 7443,
+                    "lastBatchId": 7443,
+                    "events": [
+                        {
+                            "firstBatchId": 7443,
+                            "item": "Branch of Abundance",
+                            "quantity": 10
+                        }
+                    ]
+                },
+                {
+                    "id": "korean-quantity-7478",
+                    "firstBatchId": 7478,
+                    "lastBatchId": 7478,
+                    "events": [
+                        {
+                            "firstBatchId": 7478,
+                            "item": "Branch of Abundance",
+                            "quantity": 10
+                        }
+                    ]
+                },
+                {
+                    "id": "korean-quantity-7483",
+                    "firstBatchId": 7483,
+                    "lastBatchId": 7483,
+                    "events": [
+                        {
+                            "firstBatchId": 7483,
+                            "item": "Branch of Abundance",
+                            "quantity": 10
+                        }
+                    ]
+                },
+                {
+                    "id": "korean-quantity-7497",
+                    "firstBatchId": 7497,
+                    "lastBatchId": 7497,
+                    "events": [
+                        {
+                            "firstBatchId": 7497,
+                            "item": "Branch of Abundance",
+                            "quantity": 10
+                        }
+                    ]
+                },
+                {
+                    "id": "korean-quantity-7742",
+                    "firstBatchId": 7742,
+                    "lastBatchId": 7742,
+                    "events": [
+                        {
+                            "firstBatchId": 7742,
+                            "item": "Branch of Abundance",
+                            "quantity": 10
+                        }
+                    ]
+                },
+                {
+                    "id": "korean-quantity-7746",
+                    "firstBatchId": 7746,
+                    "lastBatchId": 7746,
+                    "events": [
+                        {
+                            "firstBatchId": 7746,
+                            "item": "Branch of Abundance",
+                            "quantity": 10
+                        }
+                    ]
+                },
+                {
+                    "id": "korean-quantity-7781",
+                    "firstBatchId": 7781,
+                    "lastBatchId": 7781,
+                    "events": [
+                        {
+                            "firstBatchId": 7781,
+                            "item": "Branch of Abundance",
+                            "quantity": 10
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "id": "run-1788955377785-1734491-0003",
+            "split": "development",
+            "font": "korean",
+            "normalCases": [
+                {
+                    "id": "korean-quantity-102291",
+                    "firstBatchId": 102291,
+                    "lastBatchId": 102291,
+                    "events": [
+                        {
+                            "firstBatchId": 102291,
+                            "item": "Ancient Spirit Dust",
+                            "quantity": 2
+                        }
+                    ]
+                },
+                {
+                    "id": "korean-quantity-102544",
+                    "firstBatchId": 102544,
+                    "lastBatchId": 102544,
+                    "events": [
+                        {
+                            "firstBatchId": 102544,
+                            "item": "Branch of Abundance",
+                            "quantity": 182
+                        }
+                    ]
+                }
+            ]
+        }
+    ]
+}

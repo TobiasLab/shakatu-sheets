@@ -1,8 +1,8 @@
 import type { LootOcrBounds, LootRoiFrame } from "./liveLoot";
 import type { LootOcrThreshold } from "./liveLootOcr";
 
-/** Preserve antialiased digit strokes before enlargement; binary masks lose Strong Sword's digit shapes. */
-export function writeStrongSwordPixels(
+/** Preserve antialiased digit strokes before enlargement; binary masks can lose small digit shapes. */
+export function writeAntialiasedLootPixels(
     frame: LootRoiFrame,
     bounds: LootOcrBounds,
     threshold: LootOcrThreshold,
