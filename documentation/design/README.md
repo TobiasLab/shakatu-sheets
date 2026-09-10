@@ -15,6 +15,12 @@ The grind-spot selector is available only while a session is idle with no elapse
 time or loot is recorded so one session cannot mix profiles. The current profiles are Sycraia Ruins Lower Level,
 revamped Star's End, Zephyrus Castle, Aphrodon Temple, Hermesia Inner Castle, and Magaia Temple.
 
+Aphrodon Temple includes Sealed Black Magic Crystal following the
+[September 10, 2026 patch](https://www.naeu.playblackdesert.com/en-US/News/Detail?countryType=en-US&groupContentNo=10577).
+The profile reuses the existing market item and local icon, ID `768160`, with export key `768160_0`, verified against
+[Garmoth's grind-tracker metadata](https://api.garmoth.com/api/external/grind-tracker). The shared profile supplies the
+manual loot catalog, recognition dictionary, market-price requests, and export mapping.
+
 The interface distinguishes market, vendor, and expense values. Market prices are never guessed when unavailable and
 network access only occurs after the user presses the Arsha fetch button. Saved prices show when they were fetched and
 remain manually editable when adding an entry. If the selected region has no saved prices, the interface clearly labels
