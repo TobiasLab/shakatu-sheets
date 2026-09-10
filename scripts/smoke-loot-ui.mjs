@@ -142,14 +142,14 @@ await send("Page.addScriptToEvaluateOnNewDocument", {
                 window.__emitLoot = (rows) => {
                     const settings = calls.filter(c => c.command === "set_native_display_capture_region" && c.args.selection?.mode === "regions").at(-1).args.selection.settings;
                     const scale = settings.uiScalePercent / 80;
-                    const width = settings.uiScalePercent === 100 ? 453 : 362;
-                    const height = settings.uiScalePercent === 100 ? 389 : 311;
+                    const width = settings.uiScalePercent === 100 ? 341 : 272;
+                    const height = settings.uiScalePercent === 100 ? 226 : 180;
                     const data = new ArrayBuffer(40 + width * height * 4);
                     [3,2,1,batch++,width,height,${sourceWidth},${sourceHeight},Math.round(settings.region.x * ${sourceWidth}),Math.round(settings.region.y * ${sourceHeight})].forEach((v,i)=>new DataView(data).setUint32(i*4,v,true));
                     const pixels = new Uint8ClampedArray(data,40);
                     for (let row=0;row<rows;row++) {
-                        const center = (settings.uiScalePercent === 100 ? 255 : 204) - row * (settings.uiScalePercent === 100 ? 49 : 39);
-                        for (let x=Math.round(108*scale);x<Math.round(250*scale);x+=4) for (let y=center-5;y<=center+5;y++) pixels.set([230,230,230,255],(y*width+x)*4);
+                        const center = (settings.uiScalePercent === 100 ? 211 : 168) - row * (settings.uiScalePercent === 100 ? 49 : 39);
+                        for (let x=Math.round(108*scale)-(settings.uiScalePercent === 100 ? 97 : 78);x<Math.round(250*scale)-(settings.uiScalePercent === 100 ? 97 : 78);x+=4) for (let y=center-5;y<=center+5;y++) pixels.set([230,230,230,255],(y*width+x)*4);
                     }
                     args.frames.onmessage(data);
                 };
@@ -261,11 +261,11 @@ try {
             assert.deepEqual(imported.rareRegion, beforeImport.rareRegion);
             assert.equal(
                 Math.round(imported.region.x * sourceWidth),
-                Math.round(0.2 * sourceWidth - (uiScale === 80 ? 214 : 268)),
+                Math.round(0.2 * sourceWidth - (uiScale === 80 ? 136 : 170.5)),
             );
             assert.equal(
                 Math.round(imported.region.y * sourceHeight),
-                Math.round(0.7 * sourceHeight - (uiScale === 80 ? 126 : 157.5)),
+                Math.round(0.7 * sourceHeight - (uiScale === 80 ? 90 : 113)),
             );
             assert.equal(imported.region.width, beforeImport.region.width);
             assert.equal(imported.region.height, beforeImport.region.height);
@@ -372,12 +372,17 @@ try {
                 "window.__calls.filter(c => c.command === 'save_loot_capture_settings').at(-1).args.settings.region",
             );
             assert.ok(
-                Math.abs(Math.round(region.x * sourceWidth) - (Math.round(selection.region.x * sourceWidth) + 219)) <=
-                    1,
+                Math.abs(
+                    Math.round(region.x * sourceWidth) -
+                        (Math.round(selection.region.x * sourceWidth) + 219 + (uiScale === 80 ? 78 : 97)),
+                ) <= 1,
             );
-            assert.equal(Math.round(region.width * sourceWidth), uiScale === 80 ? 362 : 453);
-            assert.equal(Math.round(region.height * sourceHeight), uiScale === 80 ? 311 : 389);
-            assert.equal(Math.round(region.y * sourceHeight), Math.round(selection.region.y * sourceHeight) + 100);
+            assert.equal(Math.round(region.width * sourceWidth), uiScale === 80 ? 272 : 341);
+            assert.equal(Math.round(region.height * sourceHeight), uiScale === 80 ? 180 : 226);
+            assert.equal(
+                Math.round(region.y * sourceHeight),
+                Math.round(selection.region.y * sourceHeight) + 100 + (uiScale === 80 ? 36 : 44),
+            );
             await click("Loot stack");
             await click("Adjust automatically");
             await until(
@@ -420,14 +425,14 @@ try {
             );
             assert.equal(
                 Math.round(rareRegion.x * sourceWidth),
-                Math.round(rareSelection.region.x * sourceWidth) + 200,
+                Math.round(rareSelection.region.x * sourceWidth) + (uiScale === 80 ? 252 : 265),
             );
             assert.equal(
                 Math.round(rareRegion.y * sourceHeight),
-                Math.round(rareSelection.region.y * sourceHeight) + 200,
+                Math.round(rareSelection.region.y * sourceHeight) + (uiScale === 80 ? 220 : 225),
             );
-            assert.equal(Math.round(rareRegion.width * sourceWidth), uiScale === 80 ? 400 : 500);
-            assert.equal(Math.round(rareRegion.height * sourceHeight), uiScale === 80 ? 100 : 125);
+            assert.equal(Math.round(rareRegion.width * sourceWidth), uiScale === 80 ? 340 : 425);
+            assert.equal(Math.round(rareRegion.height * sourceHeight), uiScale === 80 ? 72 : 90);
             await until("[...document.querySelectorAll('button')].some(b => b.textContent === 'Set up capture')");
             await click("Set up capture");
             console.info(

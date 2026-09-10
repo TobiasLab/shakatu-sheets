@@ -160,10 +160,11 @@ The version-3 binary protocol, token checks, acknowledgments, bounded OCR queues
 ### Positioning the loot guides
 
 Setup shows draggable green text guides for normal and rare loot. Grabbing inside a guide preserves the pointer offset;
-clicking elsewhere centers the selected guide there. Arrow buttons still move by one source pixel. The calibrated OCR
-crop dimensions and row positions are unchanged: the larger crop moves with the guide and stays within the source.
-Advanced diagnostics reveals the outer capture margins. At source edges the guide cannot move beyond the point where
-its full OCR crop would leave the source. Confirm both areas after positioning.
+clicking elsewhere centers the selected guide there. Arrow buttons still move by one source pixel. The guide now matches the actual native capture area, so it can reach every source edge.
+Normal crops are 272×180 at 80% and 341×226 at 100%; rare crops are 340×72 and 425×90.
+Text, quantity, and rare banner coordinates are translated to preserve the original recognition pixels.
+Saved larger crops are migrated on load, preserving their text placement. Historical ROI recordings retain their original
+geometry for replay. Confirm both areas after positioning.
 
 ### Importing normal loot placement
 
@@ -271,7 +272,7 @@ this repository has no labeled Windows corpus for the hardware acceptance checks
 
 Manual placement is the default. **Adjust automatically** searches the selected normal or rare area using the same
 800×600 native capture on both platforms at all three resolutions with 80% or 100% BDO UI scale. Normal search returns
-a 362×311 or 453×389 crop; rare search returns a 400×100 or 500×125 crop for user confirmation. Rare search and the new
+a 272×180 or 341×226 crop; rare search returns a 340×72 or 425×90 crop for user confirmation. Rare search and the new
 100% geometry need real-game acceptance with positive banners and negative scenes.
 
 References: [Tauri prerequisites](https://v2.tauri.app/start/prerequisites/),

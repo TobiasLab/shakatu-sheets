@@ -87,16 +87,16 @@ pub(super) fn default_ui_scale_percent() -> u32 {
 
 pub(super) fn loot_region_dimensions(ui_scale_percent: u32) -> Result<(u32, u32), String> {
     match ui_scale_percent {
-        80 => Ok((362, 311)),
-        100 => Ok((453, 389)),
+        80 => Ok((272, 180)),
+        100 => Ok((341, 226)),
         _ => Err("loot capture UI scale must be 80 or 100 percent".into()),
     }
 }
 
 pub(super) fn rare_loot_region_dimensions(ui_scale_percent: u32) -> Result<(u32, u32), String> {
     match ui_scale_percent {
-        80 => Ok((400, 100)),
-        100 => Ok((500, 125)),
+        80 => Ok((340, 72)),
+        100 => Ok((425, 90)),
         _ => Err("loot capture UI scale must be 80 or 100 percent".into()),
     }
 }
@@ -232,8 +232,35 @@ impl NativeCaptureSelection {
 }
 
 pub(super) fn parse_loot_capture_settings(value: &str) -> Result<LootCaptureSettings, String> {
-    let settings: LootCaptureSettings = serde_json::from_str(value)
+    let mut settings: LootCaptureSettings = serde_json::from_str(value)
         .map_err(|error| format!("saved loot capture settings are invalid: {error}"))?;
+    // Convert old saved envelopes to their text bounds once on load. Native
+    // commands still require the new exact sizes; new saves persist the crop.
+    let translate = |region: &mut NormalizedRegion, rare: bool| -> Result<(), String> {
+        let (old_width, old_height, dx, dy, width, height) = match (settings.ui_scale_percent, rare)
+        {
+            (80, false) => (362, 311, 78, 36, 272, 180),
+            (100, false) => (453, 389, 97, 44, 341, 226),
+            (80, true) => (400, 100, 52, 20, 340, 72),
+            (100, true) => (500, 125, 65, 25, 425, 90),
+            _ => return Ok(()),
+        };
+        let pixels =
+            normalized_to_pixel_region(*region, settings.source_width, settings.source_height)?;
+        if (pixels.width, pixels.height) == (old_width, old_height) {
+            *region = NormalizedRegion {
+                x: (pixels.x + dx) as f64 / settings.source_width as f64,
+                y: (pixels.y + dy) as f64 / settings.source_height as f64,
+                width: width as f64 / settings.source_width as f64,
+                height: height as f64 / settings.source_height as f64,
+            };
+        }
+        Ok(())
+    };
+    translate(&mut settings.region, false)?;
+    if let Some(region) = settings.rare_region.as_mut() {
+        translate(region, true)?;
+    }
     settings
         .validate()
         .map_err(|error| format!("saved {error}"))?;
@@ -358,6 +385,63 @@ mod tests {
     }
 
     #[test]
+    fn saved_legacy_crops_migrate_once_without_moving_text() {
+        for (scale, normal, rare) in [
+            (
+                80,
+                (362, 311, 78, 36, 272, 180),
+                (400, 100, 52, 20, 340, 72),
+            ),
+            (
+                100,
+                (453, 389, 97, 44, 341, 226),
+                (500, 125, 65, 25, 425, 90),
+            ),
+        ] {
+            let mut settings =
+                selection_with_dimensions(3440, 1440, scale, 100, 200, normal.0, normal.1);
+            settings.rare_region = Some(NormalizedRegion {
+                x: 300.0 / 3440.0,
+                y: 400.0 / 1440.0,
+                width: rare.0 as f64 / 3440.0,
+                height: rare.1 as f64 / 1440.0,
+            });
+            settings.rare_region_confirmed = true;
+            let parsed =
+                parse_loot_capture_settings(&serde_json::to_string(&settings).unwrap()).unwrap();
+            assert_eq!(
+                parsed.pixel_region().unwrap(),
+                PixelRegion {
+                    x: 100 + normal.2,
+                    y: 200 + normal.3,
+                    width: normal.4,
+                    height: normal.5,
+                }
+            );
+            assert_eq!(
+                normalized_to_pixel_region(parsed.rare_region.unwrap(), 3440, 1440).unwrap(),
+                PixelRegion {
+                    x: 300 + rare.2,
+                    y: 400 + rare.3,
+                    width: rare.4,
+                    height: rare.5,
+                }
+            );
+            assert!(parsed.rare_region_confirmed);
+            let saved = serde_json::to_string(&parsed).unwrap();
+            let loaded = parse_loot_capture_settings(&saved).unwrap();
+            assert_eq!(
+                loaded.pixel_region().unwrap(),
+                parsed.pixel_region().unwrap()
+            );
+            assert_eq!(
+                normalized_to_pixel_region(loaded.rare_region.unwrap(), 3440, 1440).unwrap(),
+                normalized_to_pixel_region(parsed.rare_region.unwrap(), 3440, 1440).unwrap(),
+            );
+        }
+    }
+
+    #[test]
     fn loot_capture_settings_json_round_trips_and_uses_camel_case() {
         let settings = selection(2560, 1440, 100, 100, 200);
 
@@ -372,8 +456,8 @@ mod tests {
             PixelRegion {
                 x: 100,
                 y: 200,
-                width: 453,
-                height: 389,
+                width: 341,
+                height: 226,
             }
         );
     }
@@ -485,8 +569,8 @@ mod tests {
         settings.rare_region = Some(NormalizedRegion {
             x: 1200.0 / 2560.0,
             y: 900.0 / 1440.0,
-            width: 500.0 / 2560.0,
-            height: 125.0 / 1440.0,
+            width: 425.0 / 2560.0,
+            height: 90.0 / 1440.0,
         });
         settings.rare_region_confirmed = true;
 
@@ -501,8 +585,8 @@ mod tests {
             Some(PixelRegion {
                 x: 1200,
                 y: 900,
-                width: 500,
-                height: 125,
+                width: 425,
+                height: 90,
             })
         );
     }
@@ -541,17 +625,17 @@ mod tests {
             .unwrap_err()
             .contains("unsupported loot capture source"));
 
-        let unsupported_scale = selection_with_dimensions(1920, 1080, 90, 10, 10, 362, 311);
+        let unsupported_scale = selection_with_dimensions(1920, 1080, 90, 10, 10, 272, 180);
         assert!(unsupported_scale
             .validate()
             .unwrap_err()
             .contains("80 or 100"));
 
-        let wrong_size = selection_with_dimensions(3440, 1440, 100, 10, 10, 452, 389);
+        let wrong_size = selection_with_dimensions(3440, 1440, 100, 10, 10, 339, 226);
         assert!(wrong_size
             .validate()
             .unwrap_err()
-            .contains("exactly 453x389"));
+            .contains("exactly 341x226"));
     }
 
     #[test]
@@ -567,7 +651,7 @@ mod tests {
         assert_eq!(parsed.ui_scale_percent, 80);
         assert_eq!(parsed.rare_region, None);
         assert!(!parsed.rare_region_confirmed);
-        assert_eq!(parsed.pixel_region().unwrap().width, 362);
+        assert_eq!(parsed.pixel_region().unwrap().width, 272);
     }
 
     #[test]
@@ -577,13 +661,13 @@ mod tests {
             x: 1000.0 / 3440.0,
             y: 1000.0 / 1440.0,
             width: 399.0 / 3440.0,
-            height: 100.0 / 1440.0,
+            height: 72.0 / 1440.0,
         });
 
         assert!(settings
             .validate()
             .unwrap_err()
-            .contains("rare loot capture region for 80% UI scale must map to exactly 400x100"));
+            .contains("rare loot capture region for 80% UI scale must map to exactly 340x72"));
 
         let mut missing = selection(3440, 1440, 80, 100, 200);
         missing.rare_region_confirmed = true;

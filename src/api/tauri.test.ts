@@ -57,33 +57,33 @@ describe("native capture frame protocol", () => {
             cropX: 0,
             cropY: 0,
         });
-        expect(parseNativeCaptureMessage(message(2, 362, 311, 3440, 1440))).toMatchObject({
+        expect(parseNativeCaptureMessage(message(2, 272, 180, 3440, 1440))).toMatchObject({
             kind: "region",
-            width: 362,
-            height: 311,
+            width: 272,
+            height: 180,
             cropX: 2433,
             cropY: 990,
         });
-        expect(parseNativeCaptureMessage(message(2, 453, 389, 1920, 1080))).toMatchObject({
+        expect(parseNativeCaptureMessage(message(2, 341, 226, 1920, 1080))).toMatchObject({
             kind: "region",
-            width: 453,
-            height: 389,
+            width: 341,
+            height: 226,
             sourceWidth: 1920,
             sourceHeight: 1080,
         });
-        expect(parseNativeCaptureMessage(message(3, 400, 100, 2560, 1440))).toMatchObject({
+        expect(parseNativeCaptureMessage(message(3, 340, 72, 2560, 1440))).toMatchObject({
             kind: "rare-region",
-            width: 400,
-            height: 100,
+            width: 340,
+            height: 72,
             sourceWidth: 2560,
             sourceHeight: 1440,
-            cropX: 2160,
+            cropX: 2220,
             cropY: 990,
         });
-        expect(parseNativeCaptureMessage(message(3, 500, 125, 1920, 1080))).toMatchObject({
+        expect(parseNativeCaptureMessage(message(3, 425, 90, 1920, 1080))).toMatchObject({
             kind: "rare-region",
-            width: 500,
-            height: 125,
+            width: 425,
+            height: 90,
         });
         expect(parseNativeCaptureMessage(message(4, 800, 600, 3440, 1440))).toMatchObject({
             kind: "search-region",
@@ -120,14 +120,14 @@ describe("native capture frame protocol", () => {
     it("rejects malformed and unsupported frames", () => {
         expect(() => parseNativeCaptureMessage(new ArrayBuffer(39))).toThrow(/invalid/);
         expect(() => parseNativeCaptureMessage(message(1, 641, 1, 3440, 1440))).toThrow(/invalid/);
-        expect(() => parseNativeCaptureMessage(message(2, 363, 311, 3440, 1440))).toThrow(/invalid/);
+        expect(() => parseNativeCaptureMessage(message(2, 363, 180, 3440, 1440))).toThrow(/invalid/);
         expect(() => parseNativeCaptureMessage(message(2, 400, 350, 1920, 1080))).toThrow(/invalid/);
-        expect(() => parseNativeCaptureMessage(message(2, 400, 100, 1920, 1080))).toThrow(/invalid/);
-        expect(() => parseNativeCaptureMessage(message(2, 362, 311, 1280, 720))).toThrow(/invalid/);
-        expect(() => parseNativeCaptureMessage(message(3, 362, 311, 3440, 1440))).toThrow(/invalid/);
+        expect(() => parseNativeCaptureMessage(message(2, 340, 72, 1920, 1080))).toThrow(/invalid/);
+        expect(() => parseNativeCaptureMessage(message(2, 272, 180, 1280, 720))).toThrow(/invalid/);
+        expect(() => parseNativeCaptureMessage(message(3, 272, 180, 3440, 1440))).toThrow(/invalid/);
         expect(() => parseNativeCaptureMessage(message(3, 401, 100, 3440, 1440))).toThrow(/invalid/);
-        expect(() => parseNativeCaptureMessage(message(3, 400, 100, 1280, 720))).toThrow(/invalid/);
-        const outOfBounds = message(3, 400, 100, 1920, 1080);
+        expect(() => parseNativeCaptureMessage(message(3, 340, 72, 1280, 720))).toThrow(/invalid/);
+        const outOfBounds = message(3, 340, 72, 1920, 1080);
         new DataView(outOfBounds).setUint32(32, 1600, true);
         expect(() => parseNativeCaptureMessage(outOfBounds)).toThrow(/invalid/);
         expect(() => parseNativeCaptureMessage(message(4, 799, 600, 3440, 1440))).toThrow(/invalid/);
@@ -156,7 +156,7 @@ describe("native capture frame protocol", () => {
         const onFrame = vi.fn();
         startNativeDisplayCapture(1, null, onFrame, vi.fn());
 
-        tauri.onMessage?.(message(3, 400, 100, 2560, 1440));
+        tauri.onMessage?.(message(3, 340, 72, 2560, 1440));
 
         expect(onFrame).toHaveBeenCalledWith(expect.objectContaining({ kind: "rare-region" }));
         expect(tauri.invoke).toHaveBeenLastCalledWith("acknowledge_native_display_frame", {
@@ -189,7 +189,7 @@ describe("native capture frame protocol", () => {
             uiScalePercent: 80,
         };
         const settings: LootCaptureSettings = {
-            region: { x: 2433 / 3440, y: 990 / 1440, width: 362 / 3440, height: 311 / 1440 },
+            region: { x: 2433 / 3440, y: 990 / 1440, width: 272 / 3440, height: 180 / 1440 },
             rareRegionConfirmed: false,
             sourceWidth: 3440,
             sourceHeight: 1440,
@@ -241,7 +241,7 @@ describe("native capture frame protocol", () => {
         const onError = vi.fn();
         startNativeDisplayCapture(1, null, vi.fn(), onError);
 
-        tauri.onMessage?.(message(3, 400, 100, 2560, 1440));
+        tauri.onMessage?.(message(3, 340, 72, 2560, 1440));
 
         await vi.waitFor(() =>
             expect(onError).toHaveBeenCalledWith("Native display capture acknowledgement failed: channel closed"),

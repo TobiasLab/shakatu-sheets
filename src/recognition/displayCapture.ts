@@ -26,48 +26,49 @@ export const SUPPORTED_LOOT_SOURCES = [
     { width: 2560, height: 1440 },
     { width: 1920, height: 1080 },
 ] as const;
-export const LOOT_REGION_SIZES: Record<LootUiScale, { width: number; height: number }> = {
+export const LEGACY_LOOT_REGION_SIZES: Record<LootUiScale, { width: number; height: number }> = {
     80: { width: 362, height: 311 },
     100: { width: 453, height: 389 },
 };
-export const RARE_LOOT_REGION_SIZES: Record<LootUiScale, { width: number; height: number }> = {
+export const LEGACY_RARE_LOOT_REGION_SIZES: Record<LootUiScale, { width: number; height: number }> = {
     80: { width: 400, height: 100 },
     100: { width: 500, height: 125 },
 };
+// Bounds within the original calibration crops. Keep every pixel read by OCR.
+export const LOOT_CROP_BOUNDS = {
+    80: { normal: { x: 78, y: 36, width: 272, height: 180 }, rare: { x: 52, y: 20, width: 340, height: 72 } },
+    100: { normal: { x: 97, y: 44, width: 341, height: 226 }, rare: { x: 65, y: 25, width: 425, height: 90 } },
+} as const;
+export const LOOT_REGION_SIZES = { 80: LOOT_CROP_BOUNDS[80].normal, 100: LOOT_CROP_BOUNDS[100].normal };
+export const RARE_LOOT_REGION_SIZES = { 80: LOOT_CROP_BOUNDS[80].rare, 100: LOOT_CROP_BOUNDS[100].rare };
+
 export const LOOT_SEARCH_REGION_SIZE = { width: 800, height: 600 } as const;
 const DEFAULT_LOOT_CENTERS: Record<LootRegionKind, { x: number; y: number }> = {
     normal: { x: 2614 / 3440, y: 1145.5 / 1440 },
     rare: { x: 2300 / 3440, y: 870 / 1440 },
 };
-const BASE_ALIGNMENT_GUIDES: Record<
-    LootRegionKind,
-    { left: number; top: number; right: number; bottom: number; rowCenters: readonly number[] }
-> = {
-    normal: { left: 78, top: 36, right: 350, bottom: 216, rowCenters: [48, 87, 126, 165, 204] },
-    rare: { left: 52, top: 20, right: 388, bottom: 92, rowCenters: [57] },
-};
-
 export function isSupportedLootSource(width: number, height: number): boolean {
     return SUPPORTED_LOOT_SOURCES.some((source) => source.width === width && source.height === height);
 }
 
 export function lootRegionSize(uiScalePercent: LootUiScale, kind: LootRegionKind = "normal") {
-    return kind === "normal" ? LOOT_REGION_SIZES[uiScalePercent] : RARE_LOOT_REGION_SIZES[uiScalePercent];
+    const { width, height } = LOOT_CROP_BOUNDS[uiScalePercent][kind];
+    return { width, height };
 }
 
 export function lootAlignmentGuide(uiScalePercent: LootUiScale, kind: LootRegionKind = "normal"): LootAlignmentGuide {
-    const base = BASE_ALIGNMENT_GUIDES[kind];
-    const scale = uiScalePercent / 80;
-    const x = Math.round(base.left * scale);
-    const y = Math.round(base.top * scale);
-    const right = Math.round(base.right * scale);
-    const bottom = Math.round(base.bottom * scale);
+    const crop = LOOT_CROP_BOUNDS[uiScalePercent][kind];
+    const bottom = uiScalePercent === 80 ? 204 : 255;
+    const spacing = uiScalePercent === 80 ? 39 : 49;
     return {
-        x,
-        y,
-        width: right - x,
-        height: bottom - y,
-        rowCenters: base.rowCenters.map((center) => Math.round(center * scale)),
+        x: 0,
+        y: 0,
+        width: crop.width,
+        height: crop.height,
+        rowCenters:
+            kind === "normal"
+                ? Array.from({ length: 5 }, (_, row) => bottom - (4 - row) * spacing - crop.y)
+                : [(uiScalePercent === 80 ? 57 : 71) - crop.y],
     };
 }
 
@@ -78,7 +79,17 @@ export function defaultLootRegion(
     kind: LootRegionKind = "normal",
 ): NormalizedRegion {
     const center = DEFAULT_LOOT_CENTERS[kind];
-    return positionLootRegion(center.x, center.y, sourceWidth, sourceHeight, uiScalePercent, kind);
+    const old =
+        kind === "normal" ? LEGACY_LOOT_REGION_SIZES[uiScalePercent] : LEGACY_RARE_LOOT_REGION_SIZES[uiScalePercent];
+    const crop = LOOT_CROP_BOUNDS[uiScalePercent][kind];
+    return positionLootRegion(
+        center.x + (crop.x + crop.width / 2 - old.width / 2) / sourceWidth,
+        center.y + (crop.y + crop.height / 2 - old.height / 2) / sourceHeight,
+        sourceWidth,
+        sourceHeight,
+        uiScalePercent,
+        kind,
+    );
 }
 
 export function positionLootRegion(
@@ -110,29 +121,6 @@ export function positionLootRegion(
         width: regionSize.width / sourceWidth,
         height: regionSize.height / sourceHeight,
     };
-}
-
-// Position the visible text guide while retaining the calibrated OCR margins.
-export function positionLootAlignmentGuide(
-    centerX: number,
-    centerY: number,
-    sourceWidth: number,
-    sourceHeight: number,
-    uiScalePercent: LootUiScale,
-    kind: LootRegionKind = "normal",
-): NormalizedRegion {
-    const guide = lootAlignmentGuide(uiScalePercent, kind);
-    const crop = lootRegionSize(uiScalePercent, kind);
-    const left = Math.round(centerX * sourceWidth - guide.x - guide.width / 2);
-    const top = Math.round(centerY * sourceHeight - guide.y - guide.height / 2);
-    return positionLootRegion(
-        (left + crop.width / 2) / sourceWidth,
-        (top + crop.height / 2) / sourceHeight,
-        sourceWidth,
-        sourceHeight,
-        uiScalePercent,
-        kind,
-    );
 }
 
 export function positionLootSearchRegion(
@@ -287,4 +275,13 @@ export function displayCaptureErrorMessage(error: unknown): string {
         if (error.name === "AbortError") return "Screen sharing stopped before capture began.";
     }
     return error instanceof Error ? error.message : String(error);
+}
+
+// Translate calibrated text bands while retaining support for historical recordings.
+export function normalLootColumn(width: number, fraction: number): number {
+    for (const scale of [80, 100] as const) {
+        const crop = LOOT_CROP_BOUNDS[scale].normal;
+        if (width === crop.width) return Math.round(LEGACY_LOOT_REGION_SIZES[scale].width * fraction) - crop.x;
+    }
+    return Math.round(width * fraction);
 }

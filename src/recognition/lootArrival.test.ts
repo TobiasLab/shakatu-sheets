@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { LEGACY_LOOT_REGION_SIZES, LOOT_CROP_BOUNDS } from "./displayCapture";
 import { type LootDetectedRows, LootRowTracker, rowBirthCount } from "./liveLoot";
 import { findLiveLootProfile } from "./liveLootProfiles";
 import { fadingLootArrivals, type LootRowAppearance, lootRowAppearances, lootRowsFaded } from "./lootArrival";
@@ -124,7 +125,9 @@ it.each([80, 100] as const)("extracts faint glyph contrast in bounded native geo
     const scale = profile.pixelScale ?? 1;
     for (let row = 0; row < 5; row++) {
         const center = profile.bottomCenter - (4 - row) * profile.spacing;
-        for (let x = Math.round(profile.width * 0.27); x < Math.round(profile.width * 0.55); x++) {
+        const legacyWidth = LEGACY_LOOT_REGION_SIZES[uiScale].width;
+        const offsetX = LOOT_CROP_BOUNDS[uiScale].normal.x;
+        for (let x = Math.round(legacyWidth * 0.27) - offsetX; x < Math.round(legacyWidth * 0.55) - offsetX; x++) {
             if (Math.floor(x / scale) % 5 >= 3) continue;
             for (let y = center - Math.round(4 * scale); y <= center + Math.round(4 * scale); y++) {
                 const offset = (y * profile.width + x) * 4;

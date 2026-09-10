@@ -7,10 +7,10 @@ describe("findLiveLootProfile", () => {
             version: 1,
             capture: { sourceWidth: 3440, sourceHeight: 1440, uiScalePercent: 80, sampleFps: 8 },
             profile: {
-                width: 362,
-                height: 311,
+                width: 272,
+                height: 180,
                 maxRows: 5,
-                bottomCenter: 204,
+                bottomCenter: 168,
                 spacing: 39,
                 rowThreshold: 196,
             },
@@ -34,9 +34,9 @@ describe("findLiveLootProfile", () => {
         for (const width of [2560, 3440]) {
             expect(findLiveLootProfile(width, 1440, 100)).toMatchObject({
                 capture: { sourceWidth: width, uiScalePercent: 100 },
-                profile: { width: 453, height: 389, bottomCenter: 255, spacing: 49, pixelScale: 1.25 },
+                profile: { width: 341, height: 226, bottomCenter: 211, spacing: 49, pixelScale: 1.25 },
             });
-            expect(findRareLootGeometry(width, 1440, 100)).toMatchObject({ width: 500, height: 125 });
+            expect(findRareLootGeometry(width, 1440, 100)).toMatchObject({ width: 425, height: 90 });
         }
         expect(findLiveLootProfile(1920, 1080, 80)).toBeNull();
         expect(findLiveLootProfile(1920, 1080, 100)).toBeNull();

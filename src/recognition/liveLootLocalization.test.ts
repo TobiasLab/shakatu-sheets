@@ -27,7 +27,7 @@ function searchFrame(
                 }
             }
         }
-        const markerOffset = (cropY * SEARCH_WIDTH + regionX) * 4;
+        const markerOffset = ((cropY + 36) * SEARCH_WIDTH + regionX + 78) * 4;
         pixels.set([marker, marker + 1, marker + 2, 255], markerOffset);
     }
     return {
@@ -54,10 +54,10 @@ describe("normal loot localization", () => {
 
         expect(result).not.toBeNull();
         expect(normalizedRegionToPixels(result?.region ?? { x: 0, y: 0, width: 1, height: 1 }, 3440, 1440)).toEqual({
-            x: 1219,
-            y: 600,
-            width: 362,
-            height: 311,
+            x: 1297,
+            y: 636,
+            width: 272,
+            height: 180,
         });
         expect(result?.replayFrames).toHaveLength(6);
     });
@@ -66,10 +66,10 @@ describe("normal loot localization", () => {
         const result = locate(Array.from({ length: 6 }, () => searchFrame(299, 180, 1800, 700)));
 
         expect(normalizedRegionToPixels(result?.region ?? { x: 0, y: 0, width: 1, height: 1 }, 3440, 1440)).toEqual({
-            x: 2099,
-            y: 880,
-            width: 362,
-            height: 311,
+            x: 2177,
+            y: 916,
+            width: 272,
+            height: 180,
         });
     });
 
@@ -91,8 +91,8 @@ describe("normal loot localization", () => {
         expect(
             normalizedRegionToPixels(result?.region ?? { x: 0, y: 0, width: 1, height: 1 }, 3440, 1440),
         ).toMatchObject({
-            x: 1219,
-            y: 600,
+            x: 1297,
+            y: 636,
         });
     });
 
@@ -107,14 +107,14 @@ describe("normal loot localization", () => {
             [14, 15, 16, 255],
             [15, 16, 17, 255],
         ]);
-        expect(result?.replayFrames.every((frame) => frame.width === 362 && frame.height === 311)).toBe(true);
+        expect(result?.replayFrames.every((frame) => frame.width === 272 && frame.height === 180)).toBe(true);
     });
 
     it("uses the first retained search frame as the event baseline", async () => {
         const result = locate(Array.from({ length: 6 }, () => searchFrame(219)));
         const results: LiveLootRecognitionResult[] = [];
         const coordinator = new LiveLootCoordinator({
-            profile: { width: 362, height: 311, maxRows: 5, bottomCenter: 204, spacing: 39, rowThreshold: 196 },
+            profile: { width: 272, height: 180, maxRows: 5, bottomCenter: 168, spacing: 39, rowThreshold: 196 },
             dictionary: ["Black Stone"],
             readText: async (frames) => frames.map(() => ["Black Stone x 2"]),
             onResult: (recognized) => results.push(recognized),
@@ -134,7 +134,7 @@ describe("normal loot localization", () => {
         ]);
         const results: LiveLootRecognitionResult[] = [];
         const coordinator = new LiveLootCoordinator({
-            profile: { width: 362, height: 311, maxRows: 5, bottomCenter: 204, spacing: 39, rowThreshold: 196 },
+            profile: { width: 272, height: 180, maxRows: 5, bottomCenter: 168, spacing: 39, rowThreshold: 196 },
             dictionary: ["Black Stone"],
             readText: async (frames) => frames.map(() => ["Black Stone x 2"]),
             onResult: (recognized) => results.push(recognized),
@@ -188,10 +188,10 @@ for (const [sourceWidth, sourceHeight] of [
             expect(result).not.toBeNull();
             if (!result) throw new Error("Expected an aligned region");
             expect(normalizedRegionToPixels(result.region, sourceWidth, sourceHeight)).toEqual({
-                x: cropX + 219,
-                y: cropY + 100,
-                width: 362,
-                height: 311,
+                x: cropX + 297,
+                y: cropY + 136,
+                width: 272,
+                height: 180,
             });
             expect(result.replayFrames.map((frame) => [...frame.pixels.slice(0, 4)])).toEqual(
                 frames.map((_, index) => [index + 10, index + 11, index + 12, 255]),

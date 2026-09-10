@@ -9,7 +9,6 @@ import {
     normalizedRegionToPixels,
     nudgeLootRegion,
     pixelRegionToNormalized,
-    positionLootAlignmentGuide,
     positionLootRegion,
     positionLootSearchRegion,
     searchRegionAroundLootRegion,
@@ -39,64 +38,64 @@ describe("display capture lifecycle", () => {
 describe("loot capture region", () => {
     it("maps the benchmark default to its exact native crop", () => {
         expect(normalizedRegionToPixels(defaultLootRegion(3440, 1440, 80), 3440, 1440)).toEqual({
-            x: 2433,
-            y: 990,
-            width: 362,
-            height: 311,
+            x: 2511,
+            y: 1026,
+            width: 272,
+            height: 180,
         });
         expect(normalizedRegionToPixels(defaultLootRegion(3440, 1440, 80, "rare"), 3440, 1440)).toEqual({
-            x: 2100,
-            y: 820,
-            width: 400,
-            height: 100,
+            x: 2152,
+            y: 840,
+            width: 340,
+            height: 72,
         });
     });
 
     it("provides exact normal and rare text-alignment guides at each UI scale", () => {
         expect(lootAlignmentGuide(80)).toEqual({
-            x: 78,
-            y: 36,
+            x: 0,
+            y: 0,
             width: 272,
             height: 180,
-            rowCenters: [48, 87, 126, 165, 204],
+            rowCenters: [12, 51, 90, 129, 168],
         });
         expect(lootAlignmentGuide(100)).toEqual({
-            x: 98,
-            y: 45,
-            width: 340,
-            height: 225,
-            rowCenters: [60, 109, 158, 206, 255],
+            x: 0,
+            y: 0,
+            width: 341,
+            height: 226,
+            rowCenters: [15, 64, 113, 162, 211],
         });
         expect(lootAlignmentGuide(80, "rare")).toEqual({
-            x: 52,
-            y: 20,
-            width: 336,
+            x: 0,
+            y: 0,
+            width: 340,
             height: 72,
-            rowCenters: [57],
+            rowCenters: [37],
         });
         expect(lootAlignmentGuide(100, "rare")).toEqual({
-            x: 65,
-            y: 25,
-            width: 420,
+            x: 0,
+            y: 0,
+            width: 425,
             height: 90,
-            rowCenters: [71],
+            rowCenters: [46],
         });
     });
 
     it("nudges either fixed area in source pixels and clamps at source bounds", () => {
         const normal = defaultLootRegion(3440, 1440, 80);
         expect(normalizedRegionToPixels(nudgeLootRegion(normal, -1, 1, 3440, 1440, 80), 3440, 1440)).toEqual({
-            x: 2432,
-            y: 991,
-            width: 362,
-            height: 311,
+            x: 2510,
+            y: 1027,
+            width: 272,
+            height: 180,
         });
         const rare = positionLootRegion(0, 0, 3440, 1440, 80, "rare");
         expect(normalizedRegionToPixels(nudgeLootRegion(rare, -10, -10, 3440, 1440, 80, "rare"), 3440, 1440)).toEqual({
             x: 0,
             y: 0,
-            width: 400,
-            height: 100,
+            width: 340,
+            height: 72,
         });
     });
 
@@ -104,14 +103,14 @@ describe("loot capture region", () => {
         expect(normalizedRegionToPixels(positionLootRegion(0, 0, 3440, 1440, 80), 3440, 1440)).toEqual({
             x: 0,
             y: 0,
-            width: 362,
-            height: 311,
+            width: 272,
+            height: 180,
         });
         expect(normalizedRegionToPixels(positionLootRegion(1, 1, 3440, 1440, 80), 3440, 1440)).toEqual({
-            x: 3078,
-            y: 1129,
-            width: 362,
-            height: 311,
+            x: 3168,
+            y: 1260,
+            width: 272,
+            height: 180,
         });
     });
 
@@ -160,7 +159,7 @@ describe("automatic loot search region", () => {
             1440,
         );
 
-        expect(search).toEqual({ x: 2214, y: 840, width: 800, height: 600 });
+        expect(search).toEqual({ x: 2247, y: 816, width: 800, height: 600 });
         expect(search.x).toBeLessThanOrEqual(exact.x);
         expect(search.y).toBeLessThanOrEqual(exact.y);
         expect(search.x + search.width).toBeGreaterThanOrEqual(exact.x + exact.width);
@@ -185,8 +184,8 @@ describe("automatic loot search region", () => {
     it("round-trips exact pixel regions deterministically", () => {
         for (const pixels of [
             { x: 0, y: 0, width: 800, height: 600 },
-            { x: 2214, y: 840, width: 800, height: 600 },
-            { x: 2433, y: 990, width: 362, height: 311 },
+            { x: 2247, y: 840, width: 800, height: 600 },
+            { x: 2511, y: 1026, width: 272, height: 180 },
         ]) {
             expect(normalizedRegionToPixels(pixelRegionToNormalized(pixels, 3440, 1440), 3440, 1440)).toEqual(pixels);
         }
@@ -196,11 +195,11 @@ describe("automatic loot search region", () => {
         expect(() => positionLootSearchRegion(0.5, 0.5, 2561, 1440)).toThrow(/3440x1440/);
         expect(() =>
             searchRegionAroundLootRegion(
-                pixelRegionToNormalized({ x: 10, y: 10, width: 453, height: 389 }, 3440, 1440),
+                pixelRegionToNormalized({ x: 10, y: 10, width: 341, height: 226 }, 3440, 1440),
                 3440,
                 1440,
             ),
-        ).toThrow(/362x311/);
+        ).toThrow(/272x180/);
     });
 });
 
@@ -241,17 +240,13 @@ describe("visible loot guide placement", () => {
         for (const kind of ["normal", "rare"] as const) {
             it(`centers the ${kind} guide at ${scale}% without resizing OCR pixels`, () => {
                 const guide = lootAlignmentGuide(scale, kind);
-                const region = positionLootAlignmentGuide(0.4, 0.6, 3440, 1440, scale, kind);
+                const region = positionLootRegion(0.4, 0.6, 3440, 1440, scale, kind);
                 const crop = normalizedRegionToPixels(region, 3440, 1440);
                 expect(crop.width).toBe(lootRegionSize(scale, kind).width);
                 expect(crop.height).toBe(lootRegionSize(scale, kind).height);
                 expect(Math.abs(crop.x + guide.x + guide.width / 2 - 0.4 * 3440)).toBeLessThanOrEqual(0.5);
                 expect(Math.abs(crop.y + guide.y + guide.height / 2 - 0.6 * 1440)).toBeLessThanOrEqual(0.5);
-                const edge = normalizedRegionToPixels(
-                    positionLootAlignmentGuide(0, 1, 3440, 1440, scale, kind),
-                    3440,
-                    1440,
-                );
+                const edge = normalizedRegionToPixels(positionLootRegion(0, 1, 3440, 1440, scale, kind), 3440, 1440);
                 expect(edge.x).toBe(0);
                 expect(edge.y + edge.height).toBe(1440);
             });

@@ -1,3 +1,4 @@
+import { normalLootColumn } from "./displayCapture";
 import type { LootOcrBounds, LootRoiFrame } from "./liveLoot";
 import type { LootFont } from "./lootFont";
 
@@ -14,8 +15,8 @@ export function locateLootQuantity(
     scale: number,
     font: LootFont = "korean",
 ): LootQuantityGlyphs | undefined {
+    const origin = normalLootColumn(frame.width, 0.27);
     const gap = Math.round(8 * scale);
-    const origin = Math.round(frame.width * 0.27);
     // Try the wider gap first so spaces inside quantities such as 16 and 180 stay together.
     const wordGaps = font === "strong-sword" ? [4, 3] : [4.5];
     let digits: { left: number; right: number } | undefined;

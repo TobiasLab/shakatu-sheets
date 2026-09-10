@@ -34,7 +34,6 @@ import {
     type NormalizedRegion,
     normalizedRegionToPixels,
     nudgeLootRegion,
-    positionLootAlignmentGuide,
     positionLootRegion,
     positionLootSearchRegion,
     searchRegionAroundLootRegion,
@@ -1316,14 +1315,7 @@ export function useLiveLootCapture({
                     `This file uses ${position.uiScalePercent}% UI scale. Select that scale in capture setup before importing.`,
                 );
             }
-            const next = positionLootAlignmentGuide(
-                position.x,
-                position.y,
-                source.width,
-                source.height,
-                scale,
-                "normal",
-            );
+            const next = positionLootRegion(position.x, position.y, source.width, source.height, scale, "normal");
             clearLocalization();
             restartRecognition();
             updateSearchRegion(null);
@@ -1381,7 +1373,7 @@ export function useLiveLootCapture({
         const normalizedX = (event.clientX - bounds.left) / bounds.width;
         const normalizedY = (event.clientY - bounds.top) / bounds.height;
         const localizing = placementModeRef.current === "localizing";
-        const next = (localizing ? positionLootRegion : positionLootAlignmentGuide)(
+        const next = positionLootRegion(
             normalizedX - (localizing ? 0 : dragGuideOffset.current.x),
             normalizedY - (localizing ? 0 : dragGuideOffset.current.y),
             sourceDimensions.width,

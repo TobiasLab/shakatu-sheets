@@ -1,3 +1,4 @@
+import { LOOT_CROP_BOUNDS, type LootUiScale } from "./displayCapture";
 import type { LootDetectedRows, LootDetectionProfile, LootFingerprint, LootOcrBounds, LootRoiFrame } from "./liveLoot";
 import type { LootSampleFps } from "./lootCaptureTiming";
 
@@ -21,7 +22,12 @@ export type RareLootGeometry = {
 export function validateRareLootGeometry(geometry: RareLootGeometry): RareLootGeometry {
     const { width, height, textCenterY, borderOffset, borderMinPixels } = geometry;
     if (
-        !((width === 400 && height === 100) || (width === 500 && height === 125)) ||
+        !(
+            (width === 400 && height === 100) ||
+            (width === 500 && height === 125) ||
+            (width === 340 && height === 72) ||
+            (width === 425 && height === 90)
+        ) ||
         ![textCenterY, borderOffset, borderMinPixels].every(Number.isSafeInteger) ||
         textCenterY < 0 ||
         textCenterY >= height ||
@@ -81,6 +87,27 @@ export const RARE_LOOT_GEOMETRY_100 = validateRareLootGeometry({
     borderMinPixels: 163,
     ocrBounds: { left: 140, right: 490, top: 61, bottom: 81 },
 });
+
+function compactRareGeometry(geometry: RareLootGeometry, scale: LootUiScale): RareLootGeometry {
+    const crop = LOOT_CROP_BOUNDS[scale].rare;
+    const translate = (box: LootOcrBounds) => ({
+        left: box.left - crop.x,
+        right: box.right - crop.x,
+        top: box.top - crop.y,
+        bottom: box.bottom - crop.y,
+    });
+    return validateRareLootGeometry({
+        ...geometry,
+        width: crop.width,
+        height: crop.height,
+        textCenterY: geometry.textCenterY - crop.y,
+        shell: translate(geometry.shell),
+        border: translate(geometry.border),
+        ocrBounds: translate(geometry.ocrBounds),
+    });
+}
+export const COMPACT_RARE_LOOT_GEOMETRY = compactRareGeometry(RARE_LOOT_GEOMETRY, 80);
+export const COMPACT_RARE_LOOT_GEOMETRY_100 = compactRareGeometry(RARE_LOOT_GEOMETRY_100, 100);
 
 export function rareLootDetectionProfile(geometry: RareLootGeometry): LootDetectionProfile {
     return {
