@@ -222,16 +222,137 @@ describe("preprocessLootOcrFrame", () => {
 });
 
 describe("readLootOcrFrame", () => {
-    it("keeps the smaller pass when two thresholds agree without hiding a conflicting third reading", async () => {
-        const texts = ["Branch of Abundance x 10", "Branch of Abundance x 10", "Branch of Abundance x 110"];
+    it.each([10, 11, 196, 198])(
+        "retries conflicting Korean thresholds and requires unanimous support for %s",
+        async (quantity) => {
+            const primary = [
+                `Branch of Abundance x ${quantity}`,
+                "Branch of Abundance x 16",
+                `Branch of Abundance x ${quantity}`,
+            ];
+            const retried = Array(3).fill(`Branch of Abundance x ${quantity}`);
+            const recognize = vi.fn(async (_threshold, scale) => (scale === 2 ? (primary.shift() ?? "") : retried[0]));
+            expect(await readLootOcrFrame("white", recognize)).toEqual(retried);
+            expect(recognize.mock.calls).toEqual([
+                [130, 2, "line"],
+                [150, 2, "line"],
+                [170, 2, "line"],
+                [130, 4, "line"],
+                [150, 4, "line"],
+                [170, 4, "line"],
+            ]);
+        },
+    );
+
+    it.each([
+        { retry: ["Item x 10", "Item x 16", "Item x 10"], passes: 9 },
+        { retry: ["Item x 10", "Item x 10", "Item x ?"], passes: 9 },
+        { retry: ["Item x 198", "Item x 198", "Item x 198"], passes: 6 },
+        { retry: ["noise", "noise", "noise"], passes: 6 },
+    ])("preserves the original Korean conflict when enlargement is inconclusive: $retry", async ({ retry, passes }) => {
+        const primary = ["Item x 10", "Item x 16", "Item x 10"];
+        const texts = [...primary, ...retry];
         let index = 0;
-        const recognize = vi.fn<(threshold: number, scale: number) => Promise<string>>(async () => texts[index++]);
-        expect(await readLootOcrFrame(undefined, recognize)).toEqual(texts);
-        expect(recognize.mock.calls).toEqual([
-            [130, 2, "line"],
-            [150, 2, "line"],
-            [170, 2, "line"],
-        ]);
+        const recognize = vi.fn(async () => texts[index++] ?? "noise");
+        expect(await readLootOcrFrame("white", recognize, true)).toEqual(primary);
+        expect(recognize).toHaveBeenCalledTimes(passes);
+    });
+
+    it.each([182, 190, 196, 198])(
+        "uses unanimous isolated Korean digits only when both line sizes support %s",
+        async (quantity) => {
+            const primary = [
+                "Branch of Abundance x 1590",
+                "Branch of Abundanee x 1590",
+                `Branch of Abundance x ${quantity}`,
+            ];
+            const retry = [
+                "Branch of Abundance x 1490",
+                `Branch of Abundanee x ${quantity}`,
+                "Branch of Abundance x 130",
+            ];
+            const texts = [...primary, ...retry];
+            let index = 0;
+            const recognize = vi.fn(async (_threshold, _scale, region) =>
+                region === "quantity" ? String(quantity) : texts[index++],
+            );
+            const result = await readLootOcrFrame("white", recognize, true);
+            expect(result).toEqual([`Branch of Abundanee x ${quantity}`]);
+            expect(recognize).toHaveBeenCalledTimes(9);
+            expect(analyzeLootReadings([result, result, result], ["Branch of Abundance"]).consensus?.quantity).toBe(
+                quantity,
+            );
+            expect(
+                analyzeLootReadings(
+                    [result, result, [`Branch of Abundance x ${quantity + 2}`]],
+                    ["Branch of Abundance"],
+                ).consensus,
+            ).toBeNull();
+        },
+    );
+
+    it.each([
+        ["190", "190", "180"],
+        ["190", "190", ""],
+        ["0", "0", "0"],
+        ["190.0", "190.0", "190.0"],
+        ["9007199254740992", "9007199254740992", "9007199254740992"],
+        ["182", "182", "182"],
+    ])("retains Korean line conflicts when isolated digits cannot safely corroborate them: %j", async (...digits) => {
+        const primary = ["Item x 1590", "Item x 1590", "Item x 190"];
+        let index = 0;
+        let digitIndex = 0;
+        const recognize = vi.fn(async (_threshold, _scale, region) =>
+            region === "quantity" ? digits[digitIndex++] : primary[index++ % 3],
+        );
+        expect(await readLootOcrFrame("white", recognize, true)).toEqual(primary);
+        expect(recognize).toHaveBeenCalledTimes(9);
+    });
+
+    it.each([
+        { available: false, retry: ["Item x 1490", "Item x 190", "Item x 130"] },
+        { available: true, retry: ["Item x 130", "Item x 130", "Item x 130"] },
+    ])("skips digit OCR without a crop or shared line quantity: %j", async ({ available, retry }) => {
+        const primary = ["Item x 1590", "Item x 1590", "Item x 190"];
+        const texts = [...primary, ...retry];
+        let index = 0;
+        const recognize = vi.fn(async () => texts[index++]);
+        expect(await readLootOcrFrame("white", recognize, available)).toEqual(primary);
+        expect(recognize).toHaveBeenCalledTimes(6);
+    });
+
+    it("can corroborate a Korean minority quantity without assuming the smaller-pass majority is correct", async () => {
+        const readings = ["Caphras Stone x 11", "Caphras Stone x 1", "Caphras Stone x 1"];
+        let index = 0;
+        const recognize = vi.fn(async (_threshold, scale) => (scale === 2 ? readings[index++] : "Caphras Stone x 11"));
+        expect(await readLootOcrFrame("white", recognize, true)).toEqual(Array(3).fill("Caphras Stone x 11"));
+        expect(recognize).toHaveBeenCalledTimes(6);
+    });
+
+    it("retains temporal conflict rejection after resolving Korean threshold conflicts", async () => {
+        const resolved = await readLootOcrFrame(
+            "white",
+            async (threshold, scale) => `Branch of Abundance x ${scale === 2 && threshold === 150 ? 16 : 10}`,
+        );
+        expect(
+            analyzeLootReadings(
+                [resolved, resolved, Array(3).fill("Branch of Abundance x 16")],
+                ["Branch of Abundance"],
+            ).consensus,
+        ).toBeNull();
+    });
+
+    it("does not add conflict retries to Strong Sword or gold text", async () => {
+        for (const [color, font] of [
+            ["white", "strong-sword"],
+            ["gold", "korean"],
+        ] as const) {
+            const primary = ["Item x 10", "Item x 16", "Item x 10"];
+            let index = 0;
+            const recognize = vi.fn(async () => primary[index++]);
+            expect(await readLootOcrFrame(color, recognize, true, font)).toEqual(primary);
+            expect(recognize).toHaveBeenCalledTimes(3);
+        }
     });
 
     it("retries an uncertain quantity once at the original size", async () => {
@@ -761,4 +882,23 @@ it("requires a located crop and a visible suffix marker for independent Strong S
         expect(await readLootOcrFrame("white", recognize, available, "strong-sword")).toEqual(Array(3).fill(text));
         expect(recognize).toHaveBeenCalledTimes(3);
     }
+});
+
+it("preserves gray digit edges in Korean quantity crops while keeping its full-line image binary", () => {
+    const frame = sourceFrame(20, 30);
+    setPixel(frame, 7, 14, 160);
+    setPixel(frame, 8, 14, 235);
+    const bounds = { left: 5, right: 12, top: 7, bottom: 23 };
+    const line = preprocessLootOcrFrame(frame, 15, 150, bounds, "white", 4, "korean");
+    const digits = preprocessLootOcrFrame(frame, 15, 150, bounds, "white", 4, "korean", "quantity");
+    expect(line.pixels.every((value) => value === 0 || value === 255)).toBe(true);
+    expect(digits.pixels.some((value) => value > 0 && value < 255)).toBe(true);
+    for (const font of ["korean", "strong-sword"] as const) {
+        expect(preprocessLootOcrFrame(frame, 15, 150, bounds, "gold", 4, font, "quantity")).toEqual(
+            preprocessLootOcrFrame(frame, 15, 150, bounds, "gold", 4, font),
+        );
+    }
+    expect(preprocessLootOcrFrame(frame, 15, 150, bounds, "white", 4, "strong-sword", "quantity")).toEqual(
+        preprocessLootOcrFrame(frame, 15, 150, bounds, "white", 4, "strong-sword"),
+    );
 });

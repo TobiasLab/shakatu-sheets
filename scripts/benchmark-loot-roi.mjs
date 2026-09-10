@@ -194,6 +194,7 @@ try {
                                     frame.textColor,
                                     scale,
                                     font,
+                                    region,
                                 );
                                 const grayscale = Buffer.alloc(image.width * image.height);
                                 for (let i = 0; i < grayscale.length; i += 1) grayscale[i] = image.pixels[i * 4];

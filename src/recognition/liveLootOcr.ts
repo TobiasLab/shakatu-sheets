@@ -7,7 +7,7 @@ import {
     parseLootQuantity,
 } from "./liveLoot";
 import type { LootFont } from "./lootFont";
-import { writeStrongSwordPixels } from "./strongSword";
+import { writeAntialiasedLootPixels } from "./lootOcrPixels";
 
 export type LootOcrThreshold = 130 | 150 | 170;
 
@@ -22,6 +22,7 @@ export function preprocessLootOcrFrame(
     textColor: "white" | "gold" = "white",
     scale: 2 | 4 = textColor === "gold" ? 4 : 2,
     font: LootFont = "korean",
+    region: "line" | "quantity" = "line",
 ): LootRoiFrame {
     const { width, height, pixels } = frame;
     if (!Number.isSafeInteger(width) || width <= 0 || !Number.isSafeInteger(height) || height <= 0) {
@@ -67,8 +68,8 @@ export function preprocessLootOcrFrame(
     }
     const output = new Uint8ClampedArray(outputBytes);
     output.fill(255);
-    if (font === "strong-sword" && textColor !== "gold") {
-        writeStrongSwordPixels(frame, { left, right, top, bottom }, threshold, scale, output, outputWidth);
+    if ((font === "strong-sword" || region === "quantity") && textColor !== "gold") {
+        writeAntialiasedLootPixels(frame, { left, right, top, bottom }, threshold, scale, output, outputWidth);
         return { width: outputWidth, height: outputHeight, pixels: output };
     }
 
@@ -115,8 +116,40 @@ export async function readLootOcrFrame(
     const readings = await read(textColor === "gold" || font === "strong-sword" ? 4 : 2);
     if (textColor === "gold") return readings;
     const quantities = readings.map(parseLootQuantity);
-    if (quantities.some((quantity) => quantity !== null && quantities.filter((other) => other === quantity).length > 1))
-        return readings;
+    const repeatedQuantity = quantities.some(
+        (quantity) => quantity !== null && quantities.filter((other) => other === quantity).length > 1,
+    );
+    if (font === "korean" && repeatedQuantity && new Set(quantities.filter((quantity) => quantity !== null)).size > 1) {
+        const retried = await read(4);
+        const quantity = parseLootQuantity(retried[0]);
+        // Repeated threshold errors can tie quantities across frames. A unanimous larger line can resolve
+        // the conflict; otherwise the isolated digits must corroborate both line sizes.
+        if (
+            quantity !== null &&
+            quantities.includes(quantity) &&
+            retried.every((text) => parseLootQuantity(text) === quantity)
+        )
+            return retried;
+        const candidates = retried.filter((text) => {
+            const value = parseLootQuantity(text);
+            return value !== null && quantities.includes(value);
+        });
+        if (!quantityAvailable || candidates.length === 0) return readings;
+        const digits: string[] = [];
+        for (const threshold of thresholds) digits.push((await recognize(threshold, 4, "quantity")).trim());
+        const recovered = Number(digits[0]);
+        if (
+            !digits.every((text) => /^\d+$/.test(text) && Number(text) === recovered) ||
+            !Number.isSafeInteger(recovered) ||
+            recovered <= 0
+        )
+            return readings;
+        // Keep only actual line readings corroborated by all three isolated-digit passes. Returning the
+        // supported lines also retains their item text and the temporal veto on conflicting frame pairs.
+        const supported = candidates.filter((text) => parseLootQuantity(text) === recovered);
+        return supported.length ? supported : readings;
+    }
+    if (repeatedQuantity) return readings;
 
     const retried = font === "strong-sword" ? readings : await read(4);
     const chosen = retried.some((text) => parseLootQuantity(text) !== null) ? retried : readings;
@@ -351,6 +384,7 @@ export async function createLiveLootTesseractOcr({
                         source.textColor,
                         scale,
                         font,
+                        region,
                     );
                     source = undefined;
 
