@@ -336,3 +336,7 @@ export function debugRoiSampleCollectionStatus() {
 export function logRoiOcrIssue(issue: RoiOcrIssue) {
     return invoke<boolean>("log_debug_roi_ocr_issue", { issue });
 }
+
+export function readNormalLootLayout(xml: string): Promise<{ x: number; y: number; uiScalePercent: LootUiScale }> {
+    return invoke("read_normal_loot_layout", { xml });
+}

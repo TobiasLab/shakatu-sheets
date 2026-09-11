@@ -1,14 +1,14 @@
 import { type LootUiScale, pixelRegionToNormalized } from "./displayCapture";
 import { type LootSearchFrame, validateSearchFrame } from "./liveLootLocalization";
 import type { LootSampleFps } from "./lootCaptureTiming";
-import { RARE_LOOT_GEOMETRY, RARE_LOOT_GEOMETRY_100, type RareLootGeometry } from "./rareLoot";
+import { COMPACT_RARE_LOOT_GEOMETRY, COMPACT_RARE_LOOT_GEOMETRY_100, type RareLootGeometry } from "./rareLoot";
 
 type Candidate = { x: number; y: number; score: number };
 
 // Integral sums keep the bounded search linear in its pixel count instead of rescanning each candidate's shell.
 function locateBanner(frame: LootSearchFrame, geometry: RareLootGeometry): Candidate | null {
     const { borderOffset } = geometry;
-    const margin = Math.round((8 * geometry.width) / 400);
+    const margin = Math.round(8 * (geometry.width === 340 ? 1 : 1.25));
     const stride = frame.width + 1;
     const warm = new Uint32Array(stride * (frame.height + 1));
     const edges = new Uint32Array(warm.length);
@@ -84,7 +84,7 @@ export class RareLootLocalizer {
         uiScalePercent: LootUiScale = 80,
         private readonly sampleFps: LootSampleFps = 8,
     ) {
-        this.geometry = uiScalePercent === 100 ? RARE_LOOT_GEOMETRY_100 : RARE_LOOT_GEOMETRY;
+        this.geometry = uiScalePercent === 100 ? COMPACT_RARE_LOOT_GEOMETRY_100 : COMPACT_RARE_LOOT_GEOMETRY;
     }
 
     pushFrame(frame: LootSearchFrame) {

@@ -1,4 +1,4 @@
-import { isSupportedLootSource, type LootUiScale, lootRegionSize } from "./displayCapture";
+import { isSupportedLootSource, LEGACY_LOOT_REGION_SIZES, type LootUiScale, lootRegionSize } from "./displayCapture";
 import type { LootDetectionProfile } from "./liveLoot";
 
 export type LiveLootProfileArtifactV1 = {
@@ -91,7 +91,11 @@ export function validateLiveLootProfileArtifact(value: unknown): LiveLootProfile
 
     const profile = validateLootDetectionProfile(artifact.profile);
     const expectedSize = lootRegionSize(capture.uiScalePercent);
-    if (profile.width !== expectedSize.width || profile.height !== expectedSize.height) {
+    const legacy = LEGACY_LOOT_REGION_SIZES[capture.uiScalePercent];
+    if (
+        (profile.width !== expectedSize.width || profile.height !== expectedSize.height) &&
+        (profile.width !== legacy.width || profile.height !== legacy.height)
+    ) {
         throw new Error(
             `profile dimensions must be ${expectedSize.width}x${expectedSize.height} for ${capture.uiScalePercent}% UI scale.`,
         );

@@ -58,6 +58,20 @@ it.each([1, 1.25])("locates a multidigit suffix independently of the item name a
     const found = locateLootQuantity({ width, height, pixels }, 40, projection, scale);
     expect(found?.bounds.left).toBe(origin + Math.round(53 * scale) - 1);
     expect(found?.bounds.right).toBe(origin + Math.round(66 * scale) + 1);
+    const cropX = scale === 1 ? 78 : 97;
+    const cropWidth = scale === 1 ? 272 : 341;
+    const croppedPixels = new Uint8ClampedArray(cropWidth * height * 4);
+    for (let y = 0; y < height; y++) {
+        const start = (y * width + cropX) * 4;
+        croppedPixels.set(pixels.subarray(start, start + cropWidth * 4), y * cropWidth * 4);
+    }
+    const compact = locateLootQuantity({ width: cropWidth, height, pixels: croppedPixels }, 40, projection, scale);
+    expect(compact?.pixels).toEqual(found?.pixels);
+    expect(compact?.bounds).toEqual({
+        ...found?.bounds,
+        left: origin + Math.round(53 * scale) - 1 - cropX,
+        right: origin + Math.round(66 * scale) + 1 - cropX,
+    });
     expect(
         locateLootQuantity({ width, height, pixels: new Uint8ClampedArray(pixels.length) }, 40, projection, scale),
     ).toBeUndefined();

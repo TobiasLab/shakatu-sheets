@@ -1,3 +1,4 @@
+import { normalLootColumn } from "./displayCapture";
 import { fadingLootArrivals, type LootRowAppearance, lootRowAppearances, lootRowsFaded } from "./lootArrival";
 import type { LootSampleFps } from "./lootCaptureTiming";
 import type { LootFont } from "./lootFont";
@@ -144,7 +145,7 @@ export function copyLootReviewCapture(frame: LiveLootOcrFrame): LootReviewCaptur
         height,
         pixels: roi.pixels.slice(top * roi.width * 4, (top + height) * roi.width * 4),
         bounds: {
-            left: frame.bounds?.left ?? Math.round(roi.width * 0.25),
+            left: frame.bounds?.left ?? normalLootColumn(roi.width, 0.25),
             right: frame.bounds?.right ?? roi.width,
             top: frame.bounds ? 0 : Math.max(0, observation.centerY - 12 - top),
             bottom: frame.bounds ? height : Math.min(height, observation.centerY + 12 - top),
@@ -238,10 +239,10 @@ function rowScore(frame: LootRoiFrame, centerY: number, rowThreshold: number, sc
     let textScore = 0;
     let surrounding = 0;
     let surroundingRows = 0;
-    const left = Math.round(frame.width * 0.22);
-    const right = Math.round(frame.width * 0.96);
-    const textLeft = Math.round(frame.width * 0.27);
-    const textRight = Math.round(frame.width * 0.58);
+    const left = normalLootColumn(frame.width, 0.22);
+    const right = normalLootColumn(frame.width, 0.96);
+    const textLeft = normalLootColumn(frame.width, 0.27);
+    const textRight = normalLootColumn(frame.width, 0.58);
     for (let y = centerY - halfBand; y <= centerY + halfBand; y += 1) {
         for (let x = left; x < right; x += 1) {
             if (!isGlyphPixel(frame, (y * frame.width + x) * 4, false, scale)) continue;
@@ -268,9 +269,9 @@ function rowScore(frame: LootRoiFrame, centerY: number, rowThreshold: number, sc
 
 function rowFingerprint(frame: LootRoiFrame, centerY: number, scale: number, font: LootFont): LootFingerprint {
     const halfBand = Math.round(6 * scale);
-    const left = Math.round(frame.width * 0.27);
-    const right = Math.round(frame.width * 0.96);
-    const quantityLeft = Math.round(frame.width * 0.58);
+    const left = normalLootColumn(frame.width, 0.27);
+    const right = normalLootColumn(frame.width, 0.96);
+    const quantityLeft = normalLootColumn(frame.width, 0.58);
 
     function project(startX: number, maximumChroma = 25) {
         const projection = new Uint8Array(right - startX);
@@ -1261,12 +1262,12 @@ export class LiveLootCoordinator {
         } else {
             const padding = Math.round(12 * (this.options.profile.pixelScale ?? 1));
             const normalRight = Math.min(
-                Math.round(this.options.profile.width * 0.96),
+                normalLootColumn(this.options.profile.width, 0.96),
                 ...selected
                     .slice(0, this.ocrFrameCount)
                     .map(
                         (observation) =>
-                            Math.round(this.options.profile.width * 0.27) +
+                            normalLootColumn(this.options.profile.width, 0.27) +
                             (observation.fingerprint.ocrExtent ??
                                 lootTextExtent(observation.fingerprint.full, observation.fingerprint.textGap)),
                     ),
@@ -1283,7 +1284,7 @@ export class LiveLootCoordinator {
                         this.options.ocrBounds ??
                         (this.options.analyzeFrame === undefined
                             ? {
-                                  left: Math.round(roi.width * 0.25),
+                                  left: normalLootColumn(roi.width, 0.25),
                                   right: normalRight,
                                   top: Math.max(0, observation.centerY - padding),
                                   bottom: Math.min(roi.height, observation.centerY + padding),

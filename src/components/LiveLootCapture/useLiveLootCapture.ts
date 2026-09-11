@@ -9,6 +9,7 @@ import {
     type NativeCaptureFrame,
     type NativeCaptureSelection,
     nativeCaptureCapabilities,
+    readNormalLootLayout,
     saveLootCaptureSettings,
     setNativeDisplayCapturePreviewEnabled,
     setNativeDisplayCaptureRegion,
@@ -332,6 +333,7 @@ export function useLiveLootCapture({
     const mounted = useRef(true);
     const activeSessionId = useRef(sessionId);
     const draggingRegion = useRef(false);
+    const dragGuideOffset = useRef({ x: 0, y: 0 });
     const activeRegionKindRef = useRef<LootRegionKind>("normal");
     const configuredSource = useRef("");
     const normalRegionRef = useRef<NormalizedRegion | null>(null);
@@ -382,7 +384,11 @@ export function useLiveLootCapture({
     const [uiScalePercent, setUiScalePercent] = useState<LootUiScale>(80);
     const [regionConfirmed, setRegionConfirmed] = useState(false);
     const [rareRegionConfirmed, setRareRegionConfirmed] = useState(false);
-    const [savingRegion, setSavingRegion] = useState(false);
+    const [persistingRegion, setSavingRegion] = useState(false);
+    const [importingLayout, setImportingLayout] = useState(false);
+    const [layoutImportMessage, setLayoutImportMessage] = useState("");
+    const layoutImportBusy = useRef(false);
+    const savingRegion = persistingRegion || importingLayout;
     const [recognitionStatus, setRecognitionStatus] = useState<RecognitionStatus>("idle");
     const [recognitionError, setRecognitionError] = useState("");
     const [recognitionReset, setRecognitionReset] = useState(0);
@@ -999,6 +1005,7 @@ export function useLiveLootCapture({
     }
 
     function stopCapture() {
+        setLayoutImportMessage("");
         closingRecognition.current = false;
         requestId.current += 1;
         releaseStream();
@@ -1285,6 +1292,78 @@ export function useLiveLootCapture({
         }
     }
 
+    async function importNormalLootLayout(file: File | undefined) {
+        const source = sourceDimensionsRef.current;
+        if (!file || savingRegion || layoutImportBusy.current || !source || !previewsEnabledRef.current) return;
+        const captureRequest = requestId.current;
+        const scale = uiScaleRef.current;
+        const stillCurrent = () =>
+            mounted.current &&
+            captureRequest === requestId.current &&
+            source === sourceDimensionsRef.current &&
+            scale === uiScaleRef.current &&
+            previewsEnabledRef.current;
+        layoutImportBusy.current = true;
+        setImportingLayout(true);
+        setLayoutImportMessage("");
+        try {
+            if (file.size > 2 * 1024 * 1024) throw new Error("The settings file is too large (maximum 2 MiB).");
+            const position = await readNormalLootLayout(await file.text());
+            if (!stillCurrent()) return;
+            if (position.uiScalePercent !== scale) {
+                throw new Error(
+                    `This file uses ${position.uiScalePercent}% UI scale. Select that scale in capture setup before importing.`,
+                );
+            }
+            const next = positionLootRegion(position.x, position.y, source.width, source.height, scale, "normal");
+            clearLocalization();
+            restartRecognition();
+            updateSearchRegion(null);
+            updatePlacementMode("manual");
+            selectRegionKind("normal");
+            updateRegion("normal", next);
+            updateCaptureRegion("normal", next);
+            updateRegionConfirmed(false);
+            clearRegionPreview("normal");
+            setError("");
+            setLayoutImportMessage(
+                "Normal area moved to the saved layout position. Check the item-name rows in the preview, adjust if needed, then confirm both areas.",
+            );
+        } catch (failure) {
+            if (stillCurrent()) setLayoutImportMessage(failure instanceof Error ? failure.message : String(failure));
+        } finally {
+            layoutImportBusy.current = false;
+            if (mounted.current) setImportingLayout(false);
+        }
+    }
+
+    function beginRegionDrag(event: ReactPointerEvent<HTMLDivElement>) {
+        dragGuideOffset.current = { x: 0, y: 0 };
+        if (placementModeRef.current === "localizing") return;
+        const target = (event.target as HTMLElement).closest<HTMLElement>("[data-loot-region]");
+        const selected = target?.dataset.lootRegion;
+        if (selected === "normal" || selected === "rare") selectRegionKind(selected);
+        const source = sourceDimensionsRef.current;
+        const kind = activeRegionKindRef.current;
+        const region = kind === "normal" ? normalRegionRef.current : rareRegionRef.current;
+        const bounds = event.currentTarget.getBoundingClientRect();
+        if (!source || !region || !bounds.width || !bounds.height) return;
+        const guide = lootAlignmentGuide(uiScaleRef.current, kind);
+        const x = (event.clientX - bounds.left) / bounds.width;
+        const y = (event.clientY - bounds.top) / bounds.height;
+        const left = region.x + guide.x / source.width;
+        const top = region.y + guide.y / source.height;
+        if (
+            target ||
+            (x >= left && x <= left + guide.width / source.width && y >= top && y <= top + guide.height / source.height)
+        ) {
+            dragGuideOffset.current = {
+                x: x - left - guide.width / source.width / 2,
+                y: y - top - guide.height / source.height / 2,
+            };
+        }
+    }
+
     function moveRegion(event: ReactPointerEvent<HTMLDivElement>) {
         if (savingRegion) return;
         if (!sourceDimensions || !isSupportedLootSource(sourceDimensions.width, sourceDimensions.height)) return;
@@ -1293,9 +1372,10 @@ export function useLiveLootCapture({
         const kind = activeRegionKindRef.current;
         const normalizedX = (event.clientX - bounds.left) / bounds.width;
         const normalizedY = (event.clientY - bounds.top) / bounds.height;
+        const localizing = placementModeRef.current === "localizing";
         const next = positionLootRegion(
-            normalizedX,
-            normalizedY,
+            normalizedX - (localizing ? 0 : dragGuideOffset.current.x),
+            normalizedY - (localizing ? 0 : dragGuideOffset.current.y),
             sourceDimensions.width,
             sourceDimensions.height,
             uiScaleRef.current,
@@ -2050,7 +2130,6 @@ export function useLiveLootCapture({
         searchRegion && sourceDimensions
             ? normalizedRegionToPixels(searchRegion, sourceDimensions.width, sourceDimensions.height)
             : null;
-    const expectedRegionSize = lootRegionSize(uiScalePercent, activeRegionKind);
     const normalGuideFrameSize = lootRegionSize(uiScalePercent, "normal");
     const rareGuideFrameSize = lootRegionSize(uiScalePercent, "rare");
     const normalAlignmentGuide = lootAlignmentGuide(uiScalePercent, "normal");
@@ -2109,7 +2188,7 @@ export function useLiveLootCapture({
           ? activeRegionKind === "rare"
               ? "Waiting for a rare gold banner. Drag the 800 x 600 auto-search area around the banner if needed. Confirm both areas after automatic adjustment."
               : "Waiting for at least two stacked loot notifications. Drag the 800 x 600 auto-search area to recenter the search if needed."
-          : `Drag the selected ${expectedRegionSize.width} x ${expectedRegionSize.height} area. ${
+          : `Drag the green ${activeRegionKind === "normal" ? "loot stack" : "rare loot"} box, or click the preview to place it. Use the arrows for one-pixel adjustments. ${
                 activeRegionKind === "normal"
                     ? "Each green horizontal line should run through the center of a visible item name."
                     : "The green horizontal line should run through the center of the rare item name. Rare recognition is provisional."
@@ -2142,6 +2221,7 @@ export function useLiveLootCapture({
         activeRegionKindRef,
         updateCaptureRegion,
         moveRegion,
+        beginRegionDrag,
         normalRegionRef,
         rareRegionRef,
         canvas,
@@ -2164,6 +2244,9 @@ export function useLiveLootCapture({
         nudgeSelectedRegion,
         uiScalePercent,
         changeUiScale,
+        importNormalLootLayout,
+        importingLayout,
+        layoutImportMessage,
         calibratedProfile,
         automaticLocalizationAvailable,
         beginAutomaticLocalization,

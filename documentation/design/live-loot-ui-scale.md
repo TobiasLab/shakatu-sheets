@@ -9,12 +9,12 @@ requires placement again. The selected scale must match BDO's setting; it is sep
 
 | Geometry | 80% | 100% |
 | --- | --- | --- |
-| Native normal crop | 362×311 | 453×389 |
-| Normal bottom row center / spacing | 204 / 39 px | 255 / 49 px |
+| Native normal crop | 272×180 | 341×226 |
+| Normal bottom row center / spacing | 168 / 39 px | 211 / 49 px |
 | Normal row score threshold | 196 | 306 |
 | Normal glyph half-band / trailing text gap | 6 / 8 px | 8 / 10 px |
 | Normal OCR vertical padding | 12 px | 15 px |
-| Native rare crop | 400×100 | 500×125 |
+| Native rare crop | 340×72 | 425×90 |
 | Native search area | 800×600 | 800×600 |
 
 The 100% settings derive from the 80% measurements with a 1.25 spatial factor, rounding to source pixels; area-based
@@ -22,6 +22,8 @@ thresholds use its square. The normal profile's optional `pixelScale` field cont
 text-gap fingerprints, and OCR padding. Omitted values preserve existing 80% behavior. The profile artifact reader accepts
 only 1 or 1.25 when supplied. Rare shell, border, and OCR bounds have a separate native 100% geometry.
 
+Capture bounds are trimmed to the loot guides, retaining every OCR band (including the top row at 100%).
+Old saved placements migrate to these bounds on load; replay still accepts historical larger crops.
 No frame resampling is introduced. OCR reads original native crop pixels. Both localizers use scale-specific geometry,
 and normal localization replays exact native crops from its bounded search history. The native search command carries
 the selected UI scale and validates either 80 or 100 while retaining the 800×600 search limit. Frame retention, candidate

@@ -68,6 +68,7 @@ pub fn run() {
         garmoth::settings::select_garmoth_character,
         garmoth::upload::upload_garmoth_session,
         market::fetch_market_prices,
+        loot_layout::read_normal_loot_layout,
         native_capture::native_capture_capabilities,
         native_capture::acknowledge_native_display_frame,
         native_capture::load_loot_capture_settings,
@@ -100,6 +101,7 @@ pub fn run() {
         garmoth::settings::select_garmoth_character,
         garmoth::upload::upload_garmoth_session,
         market::fetch_market_prices,
+        loot_layout::read_normal_loot_layout,
         native_capture::native_capture_capabilities,
         native_capture::acknowledge_native_display_frame,
         native_capture::load_loot_capture_settings,
@@ -120,6 +122,7 @@ pub fn run() {
         });
 }
 mod garmoth;
+mod loot_layout;
 mod market;
 mod native_capture;
 mod persistence;

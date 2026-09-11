@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { type LootUiScale, normalizedRegionToPixels, searchRegionAroundLootRegion } from "./displayCapture";
+import {
+    LOOT_CROP_BOUNDS,
+    type LootUiScale,
+    normalizedRegionToPixels,
+    searchRegionAroundLootRegion,
+} from "./displayCapture";
 import {
     analyzeLootRoiFrame,
     LiveLootCoordinator,
@@ -25,17 +30,18 @@ function paint(frame: LootRoiFrame, left: number, top: number, right: number, bo
 
 // Synthetic native pixel layouts exercise geometry and plumbing, not gameplay accuracy.
 function normalFrame(scale: LootUiScale, count: number) {
-    const frame = scale === 80 ? blank(362, 311) : blank(453, 389);
+    const bounds = LOOT_CROP_BOUNDS[scale].normal;
+    const frame = blank(bounds.width, bounds.height);
     const centers = scale === 80 ? [48, 87, 126, 165, 204] : [60, 109, 158, 206, 255];
     const factor = scale / 80;
     for (const center of centers.slice(5 - count)) {
         for (let x = 100; x <= 275; x += 5) {
             paint(
                 frame,
-                Math.round(x * factor),
-                center - Math.round(6 * factor),
-                Math.round((x + 2) * factor),
-                center + Math.round(6 * factor) + 1,
+                Math.round(x * factor) - bounds.x,
+                center - Math.round(6 * factor) - bounds.y,
+                Math.round((x + 2) * factor) - bounds.x,
+                center + Math.round(6 * factor) + 1 - bounds.y,
                 [220, 220, 220, 255],
             );
         }
@@ -108,7 +114,7 @@ for (const [scale, sampleFps] of [
             expect(ocrFrames).toHaveLength(3);
             const padding = scale === 80 ? 12 : 15;
             for (const frame of ocrFrames) {
-                expect(frame.roi.width).toBe(scale === 80 ? 362 : 453);
+                expect(frame.roi.width).toBe(scale === 80 ? 272 : 341);
                 expect(frame.bounds?.bottom).toBe(frame.observation.centerY + padding);
                 expect(frame.bounds?.top).toBe(frame.observation.centerY - padding);
             }
@@ -121,9 +127,9 @@ for (const [scale, sampleFps] of [
             for (let i = 0; i < 8 * frameStep && !located; i++) located = normal.pushFrame(input);
             if (!located) throw new Error("Normal stack did not localize");
             const pixels = normalizedRegionToPixels(located.region, width, 1440);
-            expect(Math.abs(pixels.x - (input.cropX + 220))).toBeLessThanOrEqual(1);
-            expect(Math.abs(pixels.y - (input.cropY + 100))).toBeLessThanOrEqual(1);
-            expect([pixels.width, pixels.height]).toEqual(scale === 80 ? [362, 311] : [453, 389]);
+            expect(Math.abs(pixels.x - (input.cropX + 220 + LOOT_CROP_BOUNDS[scale].normal.x))).toBeLessThanOrEqual(1);
+            expect(Math.abs(pixels.y - (input.cropY + 100 + LOOT_CROP_BOUNDS[scale].normal.y))).toBeLessThanOrEqual(1);
+            expect([pixels.width, pixels.height]).toEqual(scale === 80 ? [272, 180] : [341, 226]);
             expect(located.replayFrames).toHaveLength(6 * frameStep);
             expect(located.replayFrames.every((f) => f.width === pixels.width && f.height === pixels.height)).toBe(
                 true,
@@ -137,10 +143,10 @@ for (const [scale, sampleFps] of [
                 const found = rare.pushFrame(banner);
                 if (!found) throw new Error("Rare banner did not localize");
                 expect(normalizedRegionToPixels(found.region, width, 1440)).toEqual({
-                    x: banner.cropX + x,
-                    y: banner.cropY + y,
-                    width: scale === 80 ? 400 : 500,
-                    height: scale === 80 ? 100 : 125,
+                    x: banner.cropX + x + LOOT_CROP_BOUNDS[scale].rare.x,
+                    y: banner.cropY + y + LOOT_CROP_BOUNDS[scale].rare.y,
+                    width: scale === 80 ? 340 : 425,
+                    height: scale === 80 ? 72 : 90,
                 });
                 expect(() => searchRegionAroundLootRegion(found.region, width, 1440, "rare", scale)).not.toThrow();
             }
@@ -154,7 +160,13 @@ for (const [scale, sampleFps] of [
             expect(analyzer.pushFrame(crop).count).toBe(0);
             const search = rareSearch(3440, scale, 0, 0);
             for (let y = 0; y < crop.height; y++) {
-                crop.pixels.set(search.pixels.subarray(y * 800 * 4, (y * 800 + crop.width) * 4), y * crop.width * 4);
+                crop.pixels.set(
+                    search.pixels.subarray(
+                        ((y + LOOT_CROP_BOUNDS[scale].rare.y) * 800 + LOOT_CROP_BOUNDS[scale].rare.x) * 4,
+                        ((y + LOOT_CROP_BOUNDS[scale].rare.y) * 800 + LOOT_CROP_BOUNDS[scale].rare.x + crop.width) * 4,
+                    ),
+                    y * crop.width * 4,
+                );
             }
             for (let i = 0; i < 4 * frameStep - 1; i++) expect(analyzer.pushFrame(crop).count).toBe(0);
             expect(analyzer.pushFrame(crop).count).toBe(1);

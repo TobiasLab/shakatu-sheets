@@ -45,10 +45,10 @@ describe("rare loot localization", () => {
             const result = lock(input);
             if (!result) throw new Error("Expected stable rare placement");
             expect(normalizedRegionToPixels(result.region, width, height)).toEqual({
-                x: input.cropX + x,
-                y: input.cropY + y,
-                width: 400,
-                height: 100,
+                x: input.cropX + x + 52,
+                y: input.cropY + y + 20,
+                width: 340,
+                height: 72,
             });
             expect(result.replayFrames).toEqual([]);
         }

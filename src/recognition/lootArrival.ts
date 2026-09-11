@@ -1,3 +1,4 @@
+import { normalLootColumn } from "./displayCapture";
 import type { LootDetectedRows, LootDetectionProfile, LootRoiFrame } from "./liveLoot";
 
 export type LootRowAppearance = { contrast: Uint16Array; visibility: number };
@@ -5,8 +6,8 @@ export type LootRowAppearance = { contrast: Uint16Array; visibility: number };
 /** Keep faint glyph edges for arrival evidence; these rows are not eligible for OCR by themselves. */
 export function lootRowAppearances(frame: LootRoiFrame, profile: LootDetectionProfile): LootRowAppearance[] {
     const scale = profile.pixelScale ?? 1;
-    const left = Math.round(frame.width * 0.27);
-    const right = Math.round(frame.width * 0.55);
+    const left = normalLootColumn(frame.width, 0.27);
+    const right = normalLootColumn(frame.width, 0.55);
     const halfBand = Math.round(6 * scale);
     const step = Math.round(2 * scale) * 4;
     const light = (offset: number) =>

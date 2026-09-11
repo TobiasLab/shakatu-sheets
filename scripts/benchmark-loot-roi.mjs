@@ -120,11 +120,13 @@ try {
             manifest.sourceDimensions?.width,
             manifest.sourceDimensions?.height,
             manifest.uiScalePercent,
+            [362, 453].includes(manifest.normalCrop?.pixels?.width),
         );
         const rareGeometry = findRareLootGeometry(
             manifest.sourceDimensions?.width,
             manifest.sourceDimensions?.height,
             manifest.uiScalePercent,
+            [400, 500].includes(manifest.rareCrop?.pixels?.width),
         );
         if (
             rareGeometry === null ||

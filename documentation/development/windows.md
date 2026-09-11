@@ -157,6 +157,35 @@ reduces visible previews on the GPU to at most 640×360 before readback. Closing
 preview work; one bootstrap preview announces a source or changed dimensions. The full source is never read back to CPU.
 The version-3 binary protocol, token checks, acknowledgments, bounded OCR queues, and shared English OCR parser are retained.
 
+### Positioning the loot guides
+
+Setup shows draggable green text guides for normal and rare loot. Grabbing inside a guide preserves the pointer offset;
+clicking elsewhere centers the selected guide there. Arrow buttons still move by one source pixel. The guide now matches the actual native capture area, so it can reach every source edge.
+Normal crops are 272×180 at 80% and 341×226 at 100%; rare crops are 340×72 and 425×90.
+Text, quantity, and rare banner coordinates are translated to preserve the original recognition pixels.
+Saved larger crops are migrated on load, preserving their text placement. Historical ROI recordings retain their original
+geometry for replay. Confirm both areas after positioning.
+
+### Importing normal loot placement
+
+Capture setup offers **Import normal loot position**. Select the account-level
+`Documents/Black Desert/UserCache/<account>/gamevariable.xml`, with a capture source selected and previews enabled.
+The file is read only on request; its contents and path are not saved or uploaded. Confirming the placement saves
+only the existing capture-region settings. The same import is available on Linux for a copied settings file.
+
+The Rust parser reads the active `UIData` entry with `Index="159"`, identified by a controlled normal-notification
+movement in the supplied settings snapshots. It ignores saved presets and uses `RelativePosX`/`RelativePosY` as the
+normal visible guide center, with the current capture dimensions and calibrated crop size. Anchored `PosX`/`PosY` are not
+screen coordinates; the observed move switched from `RightBottom` to `LeftBottom`. Saved display dimensions are not
+used because they differed from the gameplay layout in the supplied files. This assumes the captured source covers
+the game viewport; a monitor capture with a smaller game window may need manual adjustment.
+
+Only the normal placement moves. Rare placement is preserved, recognition is reset, and the user checks the preview
+before confirming. The center-to-OCR-row offset still needs in-game validation. Character files without coordinates,
+hidden or unsaved panels, duplicate active entries, invalid coordinates, unsupported UI scales, and files over 2 MiB
+are rejected. The XML scale must match the selected capture scale. Selecting another source or resizing during the
+read discards the result. `quick-xml` 0.41.0 was already in the lockfile and is now a direct dependency for this parser.
+
 Coordinates refer to physical pixels within the selected capture item. Windows display scaling and BDO's UI scale are
 independent. No desktop origin, monitor DPI multiplier, or virtual-desktop normalization is applied to detector crops.
 New Windows sources require fresh region confirmation, even if their dimensions match saved hints. A source resize
@@ -243,7 +272,7 @@ this repository has no labeled Windows corpus for the hardware acceptance checks
 
 Manual placement is the default. **Adjust automatically** searches the selected normal or rare area using the same
 800×600 native capture on both platforms at all three resolutions with 80% or 100% BDO UI scale. Normal search returns
-a 362×311 or 453×389 crop; rare search returns a 400×100 or 500×125 crop for user confirmation. Rare search and the new
+a 272×180 or 341×226 crop; rare search returns a 340×72 or 425×90 crop for user confirmation. Rare search and the new
 100% geometry need real-game acceptance with positive banners and negative scenes.
 
 References: [Tauri prerequisites](https://v2.tauri.app/start/prerequisites/),

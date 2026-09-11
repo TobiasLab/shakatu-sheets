@@ -193,7 +193,7 @@ fn crops_an_exact_100_percent_region_and_encodes_the_native_origin() {
 
     assert_eq!(
         header(&frame),
-        [3, FRAME_KIND_REGION, 31, 47, 453, 389, 1920, 1080, 10, 0,]
+        [3, FRAME_KIND_REGION, 31, 47, 341, 226, 1920, 1080, 10, 0,]
     );
     assert_eq!(
         &frame[FRAME_HEADER_BYTES..FRAME_HEADER_BYTES + 8],
@@ -208,8 +208,8 @@ fn crops_a_rare_region_and_encodes_its_header() {
     selection.rare_region = Some(NormalizedRegion {
         x: 100.0 / 1920.0,
         y: 200.0 / 1080.0,
-        width: 400.0 / 1920.0,
-        height: 100.0 / 1080.0,
+        width: 340.0 / 1920.0,
+        height: 72.0 / 1080.0,
     });
     let rare_region = selection.rare_pixel_region().unwrap().unwrap();
     let stride = selection.source_width * 4;
@@ -241,8 +241,8 @@ fn crops_a_rare_region_and_encodes_its_header() {
             FRAME_KIND_RARE_REGION,
             31,
             47,
-            400,
-            100,
+            340,
+            72,
             1920,
             1080,
             100,
@@ -298,7 +298,7 @@ fn crops_a_search_region_and_encodes_the_kind_four_header() {
 
 #[test]
 fn rejects_roi_allocation_for_invalid_dimensions() {
-    let selection = selection_with_dimensions(1920, 1080, 100, 0, 0, 452, 389);
+    let selection = selection_with_dimensions(1920, 1080, 100, 0, 0, 339, 226);
     let error = crop_region_frame(
         &source_frame(
             &[],
@@ -315,7 +315,7 @@ fn rejects_roi_allocation_for_invalid_dimensions() {
     )
     .unwrap_err();
 
-    assert!(error.contains("exactly 453x389"));
+    assert!(error.contains("exactly 341x226"));
 }
 
 #[test]
@@ -430,8 +430,8 @@ fn benchmark_crop_conversion() {
     let region = PixelRegion {
         x: 2400,
         y: 900,
-        width: 453,
-        height: 389,
+        width: 341,
+        height: 226,
     };
     let source = SourceFrame {
         pixels: &pixels,

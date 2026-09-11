@@ -142,19 +142,24 @@ await send("Page.addScriptToEvaluateOnNewDocument", {
                 window.__emitLoot = (rows) => {
                     const settings = calls.filter(c => c.command === "set_native_display_capture_region" && c.args.selection?.mode === "regions").at(-1).args.selection.settings;
                     const scale = settings.uiScalePercent / 80;
-                    const width = settings.uiScalePercent === 100 ? 453 : 362;
-                    const height = settings.uiScalePercent === 100 ? 389 : 311;
+                    const width = settings.uiScalePercent === 100 ? 341 : 272;
+                    const height = settings.uiScalePercent === 100 ? 226 : 180;
                     const data = new ArrayBuffer(40 + width * height * 4);
                     [3,2,1,batch++,width,height,${sourceWidth},${sourceHeight},Math.round(settings.region.x * ${sourceWidth}),Math.round(settings.region.y * ${sourceHeight})].forEach((v,i)=>new DataView(data).setUint32(i*4,v,true));
                     const pixels = new Uint8ClampedArray(data,40);
                     for (let row=0;row<rows;row++) {
-                        const center = (settings.uiScalePercent === 100 ? 255 : 204) - row * (settings.uiScalePercent === 100 ? 49 : 39);
-                        for (let x=Math.round(108*scale);x<Math.round(250*scale);x+=4) for (let y=center-5;y<=center+5;y++) pixels.set([230,230,230,255],(y*width+x)*4);
+                        const center = (settings.uiScalePercent === 100 ? 211 : 168) - row * (settings.uiScalePercent === 100 ? 49 : 39);
+                        for (let x=Math.round(108*scale)-(settings.uiScalePercent === 100 ? 97 : 78);x<Math.round(250*scale)-(settings.uiScalePercent === 100 ? 97 : 78);x+=4) for (let y=center-5;y<=center+5;y++) pixels.set([230,230,230,255],(y*width+x)*4);
                     }
                     args.frames.onmessage(data);
                 };
                 setTimeout(window.__emitFrame,50);
                 return;
+            }
+            if (command === "read_normal_loot_layout") {
+                if (args.xml === '<wrong-scale/>') return {x:0.2,y:0.7,uiScalePercent:${uiScale === 80 ? 100 : 80}};
+                if (args.xml !== '<layout-fixture/>') throw new Error('Invalid layout fixture');
+                return {x:0.2,y:0.7,uiScalePercent:${uiScale}};
             }
             if (command === "plugin:window|is_minimized") return window.__minimized;
             if (command === "plugin:event|listen") { const id = args.handler; listeners.set(id, args); return id; }
@@ -236,6 +241,117 @@ try {
                 false,
                 "Changing UI scale must not start search",
             );
+            const beforeImport = await evaluate(
+                "window.__calls.filter(c => c.command === 'set_native_display_capture_region').at(-1).args.selection.settings",
+            );
+            await evaluate(`(() => {
+                const input = document.querySelector('input[aria-label="Import normal loot position from gamevariable.xml"]');
+                const transfer = new DataTransfer();
+                transfer.items.add(new File(['<layout-fixture/>'], 'gamevariable.xml', {type:'application/xml'}));
+                input.files = transfer.files;
+                input.dispatchEvent(new Event('change', {bubbles:true}));
+            })()`);
+            await until("document.body.textContent.includes('Normal area moved to the saved layout position')");
+            await until(
+                "window.__calls.filter(c => c.command === 'set_native_display_capture_region').at(-1)?.args.selection?.settings?.region.x < 0.3",
+            );
+            const imported = await evaluate(
+                "window.__calls.filter(c => c.command === 'set_native_display_capture_region').at(-1).args.selection.settings",
+            );
+            assert.deepEqual(imported.rareRegion, beforeImport.rareRegion);
+            assert.equal(
+                Math.round(imported.region.x * sourceWidth),
+                Math.round(0.2 * sourceWidth - (uiScale === 80 ? 136 : 170.5)),
+            );
+            assert.equal(
+                Math.round(imported.region.y * sourceHeight),
+                Math.round(0.7 * sourceHeight - (uiScale === 80 ? 90 : 113)),
+            );
+            assert.equal(imported.region.width, beforeImport.region.width);
+            assert.equal(imported.region.height, beforeImport.region.height);
+            assert(
+                await evaluate(
+                    "[...document.querySelectorAll('button')].some(b => b.textContent.trim() === 'Confirm both areas' && !b.disabled)",
+                ),
+            );
+            const guidePoint = await evaluate(`(() => {
+                const envelope = document.querySelector('[data-loot-region="normal"]');
+                if (getComputedStyle(envelope).outlineStyle !== 'none') throw new Error('Capture margin should be hidden');
+                const guide = envelope.querySelector('[aria-hidden="true"]');
+                guide.scrollIntoView({block:'center'});
+                const box = guide.getBoundingClientRect();
+                return {x:box.left + box.width * 0.2,y:box.top + box.height * 0.5};
+            })()`);
+            await send("Input.dispatchMouseEvent", {
+                type: "mousePressed",
+                button: "left",
+                clickCount: 1,
+                ...guidePoint,
+            });
+            await send("Input.dispatchMouseEvent", {
+                type: "mouseReleased",
+                button: "left",
+                clickCount: 1,
+                ...guidePoint,
+            });
+            await delay(150);
+            assert.deepEqual(
+                await evaluate(
+                    "window.__calls.filter(c => c.command === 'set_native_display_capture_region').at(-1).args.selection.settings.region",
+                ),
+                imported.region,
+                "Grabbing off-center must not jump",
+            );
+            const stageWidth = await evaluate(
+                "document.querySelector('[aria-label=\"Sampled capture preview\"]').getBoundingClientRect().width",
+            );
+            await send("Input.dispatchMouseEvent", {
+                type: "mousePressed",
+                button: "left",
+                clickCount: 1,
+                ...guidePoint,
+            });
+            await send("Input.dispatchMouseEvent", {
+                type: "mouseMoved",
+                button: "left",
+                buttons: 1,
+                x: guidePoint.x + 20,
+                y: guidePoint.y,
+            });
+            await send("Input.dispatchMouseEvent", {
+                type: "mouseReleased",
+                button: "left",
+                clickCount: 1,
+                x: guidePoint.x + 20,
+                y: guidePoint.y,
+            });
+            await delay(150);
+            const dragged = await evaluate(
+                "window.__calls.filter(c => c.command === 'set_native_display_capture_region').at(-1).args.selection.settings",
+            );
+            assert(
+                Math.abs((dragged.region.x - imported.region.x) * sourceWidth - (20 * sourceWidth) / stageWidth) <= 1,
+            );
+            assert.deepEqual(dragged.rareRegion, imported.rareRegion);
+            for (const [contents, message] of [
+                ["<invalid/>", "Invalid layout fixture"],
+                ["<wrong-scale/>", "Select that scale in capture setup before importing."],
+            ]) {
+                await evaluate(`(() => {
+                    const input = document.querySelector('input[aria-label="Import normal loot position from gamevariable.xml"]');
+                    const transfer = new DataTransfer();
+                    transfer.items.add(new File([${JSON.stringify(contents)}], 'gamevariable.xml'));
+                    input.files = transfer.files;
+                    input.dispatchEvent(new Event('change', {bubbles:true}));
+                })()`);
+                await until(`document.body.textContent.includes(${JSON.stringify(message)})`);
+                assert.deepEqual(
+                    await evaluate(
+                        "window.__calls.filter(c => c.command === 'set_native_display_capture_region').at(-1).args.selection.settings",
+                    ),
+                    dragged,
+                );
+            }
             await click("Adjust automatically");
             await until(
                 "window.__calls.some(c => c.command === 'set_native_display_capture_region' && c.args.selection?.mode === 'search')",
@@ -256,12 +372,17 @@ try {
                 "window.__calls.filter(c => c.command === 'save_loot_capture_settings').at(-1).args.settings.region",
             );
             assert.ok(
-                Math.abs(Math.round(region.x * sourceWidth) - (Math.round(selection.region.x * sourceWidth) + 219)) <=
-                    1,
+                Math.abs(
+                    Math.round(region.x * sourceWidth) -
+                        (Math.round(selection.region.x * sourceWidth) + 219 + (uiScale === 80 ? 78 : 97)),
+                ) <= 1,
             );
-            assert.equal(Math.round(region.width * sourceWidth), uiScale === 80 ? 362 : 453);
-            assert.equal(Math.round(region.height * sourceHeight), uiScale === 80 ? 311 : 389);
-            assert.equal(Math.round(region.y * sourceHeight), Math.round(selection.region.y * sourceHeight) + 100);
+            assert.equal(Math.round(region.width * sourceWidth), uiScale === 80 ? 272 : 341);
+            assert.equal(Math.round(region.height * sourceHeight), uiScale === 80 ? 180 : 226);
+            assert.equal(
+                Math.round(region.y * sourceHeight),
+                Math.round(selection.region.y * sourceHeight) + 100 + (uiScale === 80 ? 36 : 44),
+            );
             await click("Loot stack");
             await click("Adjust automatically");
             await until(
@@ -304,14 +425,14 @@ try {
             );
             assert.equal(
                 Math.round(rareRegion.x * sourceWidth),
-                Math.round(rareSelection.region.x * sourceWidth) + 200,
+                Math.round(rareSelection.region.x * sourceWidth) + (uiScale === 80 ? 252 : 265),
             );
             assert.equal(
                 Math.round(rareRegion.y * sourceHeight),
-                Math.round(rareSelection.region.y * sourceHeight) + 200,
+                Math.round(rareSelection.region.y * sourceHeight) + (uiScale === 80 ? 220 : 225),
             );
-            assert.equal(Math.round(rareRegion.width * sourceWidth), uiScale === 80 ? 400 : 500);
-            assert.equal(Math.round(rareRegion.height * sourceHeight), uiScale === 80 ? 100 : 125);
+            assert.equal(Math.round(rareRegion.width * sourceWidth), uiScale === 80 ? 340 : 425);
+            assert.equal(Math.round(rareRegion.height * sourceHeight), uiScale === 80 ? 72 : 90);
             await until("[...document.querySelectorAll('button')].some(b => b.textContent === 'Set up capture')");
             await click("Set up capture");
             console.info(

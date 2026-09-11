@@ -29,14 +29,14 @@ fn settings() -> LootCaptureSettings {
         region: NormalizedRegion {
             x: 10.0 / 1920.0,
             y: 20.0 / 1080.0,
-            width: 362.0 / 1920.0,
-            height: 311.0 / 1080.0,
+            width: 272.0 / 1920.0,
+            height: 180.0 / 1080.0,
         },
         rare_region: Some(NormalizedRegion {
             x: 500.0 / 1920.0,
             y: 600.0 / 1080.0,
-            width: 400.0 / 1920.0,
-            height: 100.0 / 1080.0,
+            width: 340.0 / 1920.0,
+            height: 72.0 / 1080.0,
         }),
         rare_region_confirmed: true,
         source_width: 1920,
@@ -72,8 +72,8 @@ fn writes_valid_paired_pngs_and_final_manifest() {
     collector
         .start_in(&temp.0, 4, 9, selection, settings, Duration::from_secs(30))
         .unwrap();
-    let normal = vec![17; 362 * 311 * 4];
-    let rare = vec![23; 400 * 100 * 4];
+    let normal = vec![17; 272 * 180 * 4];
+    let rare = vec![23; 340 * 72 * 4];
     collector.enqueue_pair(SampledRoiPair {
         capture_id: 4,
         selection,
@@ -93,7 +93,7 @@ fn writes_valid_paired_pngs_and_final_manifest() {
     let run_path = PathBuf::from(collector.status().path.unwrap());
     let normal_path = run_path.join("normal/minute-01/frame-0000000037.png");
     let rare_path = run_path.join("rare/minute-01/frame-0000000037.png");
-    for (path, dimensions) in [(normal_path, (362, 311)), (rare_path, (400, 100))] {
+    for (path, dimensions) in [(normal_path, (272, 180)), (rare_path, (340, 72))] {
         let bytes = fs::read(path).unwrap();
         assert_eq!(&bytes[..8], b"\x89PNG\r\n\x1a\n");
         assert_eq!(
@@ -113,8 +113,8 @@ fn writes_valid_paired_pngs_and_final_manifest() {
     assert_eq!(manifest["phase"], "finished");
     assert_eq!(manifest["writtenBatchCount"], 1);
     assert_eq!(manifest["finishReason"], "explicitlyStopped");
-    assert_eq!(manifest["normalCrop"]["pixels"]["width"], 362);
-    assert_eq!(manifest["rareCrop"]["pixels"]["width"], 400);
+    assert_eq!(manifest["normalCrop"]["pixels"]["width"], 272);
+    assert_eq!(manifest["rareCrop"]["pixels"]["width"], 340);
 }
 
 #[test]
@@ -127,8 +127,8 @@ fn explicit_stop_writes_an_already_accepted_pair() {
         &run,
         SamplePair {
             batch_id: 41,
-            normal_rgba: vec![17; 362 * 311 * 4],
-            rare_rgba: vec![23; 400 * 100 * 4],
+            normal_rgba: vec![17; 272 * 180 * 4],
+            rare_rgba: vec![23; 340 * 72 * 4],
         },
     );
     run.request_finish(FINISH_EXPLICIT);
@@ -531,8 +531,8 @@ fn producer_reserved_before_finish_is_accepted_and_drained() {
         &run,
         SamplePair {
             batch_id: 46,
-            normal_rgba: vec![17; 362 * 311 * 4],
-            rare_rgba: vec![23; 400 * 100 * 4],
+            normal_rgba: vec![17; 272 * 180 * 4],
+            rare_rgba: vec![23; 340 * 72 * 4],
         },
     );
     run_worker(run.clone(), receiver);
@@ -765,9 +765,9 @@ fn accepted_ocr_diagnostics_validate_quantities_and_pass_metadata() {
     value["reason"] = serde_json::Value::Null;
     value["itemName"] = serde_json::json!("Branch of Abundance");
     value["quantity"] = serde_json::json!(6);
-    value["selectedFrames"][0]["centerY"] = serde_json::json!(255);
+    value["selectedFrames"][0]["centerY"] = serde_json::json!(168);
     value["selectedFrames"][0]["bounds"] =
-        serde_json::json!({"left": 100, "right": 320, "top": 240, "bottom": 270});
+        serde_json::json!({"left": 22, "right": 242, "top": 156, "bottom": 180});
     value["selectedFrames"][0]["passes"] =
         serde_json::json!([{"threshold":150,"scale":4,"region":"quantity","text":"6"}]);
     assert!(!collector
@@ -807,7 +807,7 @@ fn accepted_ocr_diagnostics_validate_quantities_and_pass_metadata() {
             .is_err());
     }
     let mut invalid = value.clone();
-    invalid["selectedFrames"][0]["bounds"]["right"] = serde_json::json!(99);
+    invalid["selectedFrames"][0]["bounds"]["right"] = serde_json::json!(21);
     assert!(collector
         .log_ocr_issue(serde_json::from_value(invalid).unwrap())
         .is_err());

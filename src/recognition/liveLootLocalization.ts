@@ -1,5 +1,6 @@
 import {
     isSupportedLootSource,
+    LOOT_CROP_BOUNDS,
     LOOT_SEARCH_REGION_SIZE,
     type LootUiScale,
     lootRegionSize,
@@ -80,19 +81,20 @@ function rectangleSum(integral: Uint32Array, stride: number, left: number, top: 
 function locateCandidate(frame: LootSearchFrame, uiScalePercent: LootUiScale): Candidate | null {
     const scale = uiScalePercent / 80;
     const { width: cropWidth, height: cropHeight } = lootRegionSize(uiScalePercent);
-    const bottom = Math.round(204 * scale);
+    const crop = LOOT_CROP_BOUNDS[uiScalePercent].normal;
+    const bottom = Math.round(204 * scale) - crop.y;
     const spacing = Math.round(39 * scale);
     const centers = Array.from({ length: 5 }, (_, index) => bottom - (4 - index) * spacing);
     const halfBand = Math.round(6 * scale);
-    const signalLeft = Math.round(SIGNAL_LEFT_FROM_CROP * scale);
-    const signalRight = Math.round(SIGNAL_RIGHT_FROM_CROP * scale);
+    const signalLeft = Math.round(SIGNAL_LEFT_FROM_CROP * scale) - crop.x;
+    const signalRight = Math.round(SIGNAL_RIGHT_FROM_CROP * scale) - crop.x;
     const integral = buildGlyphIntegral(frame, scale);
     const stride = frame.width + 1;
     let best: Candidate | null = null;
 
     for (let cropY = 0; cropY <= frame.height - cropHeight; cropY += 1) {
         for (
-            let localCropX = Math.round(MIN_LOCAL_CROP_X * scale);
+            let localCropX = Math.round(MIN_LOCAL_CROP_X * scale) + crop.x;
             localCropX + cropWidth <= frame.width;
             localCropX += 2
         ) {
