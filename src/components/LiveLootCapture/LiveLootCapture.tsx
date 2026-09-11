@@ -382,89 +382,35 @@ export function LiveLootCapture({ controller }: { controller: ReturnType<typeof 
                                 Supported sources are 3440 x 1440, 2560 x 1440, and 1920 x 1080.
                             </p>
                         ) : (
-                            <fieldset className={styles.CalibrationPanel} disabled={!previewsEnabled}>
-                                <fieldset className={styles.AreaSelector}>
-                                    <legend>Active area</legend>
-                                    <div className={styles.AreaSelectorButtons}>
-                                        <button
-                                            className="button"
-                                            type="button"
-                                            disabled={savingRegion || placementMode === "localizing"}
-                                            aria-pressed={activeRegionKind === "normal"}
-                                            onClick={() => selectRegionKind("normal")}
-                                        >
-                                            Loot stack
-                                        </button>
-                                        <button
-                                            className="button"
-                                            type="button"
-                                            disabled={savingRegion || placementMode === "localizing"}
-                                            aria-pressed={activeRegionKind === "rare"}
-                                            onClick={() => selectRegionKind("rare")}
-                                        >
-                                            Rare loot
-                                        </button>
-                                    </div>
-                                </fieldset>
-                                <p className={styles.CalibrationInstruction}>{calibrationInstruction}</p>
-                                {placementMode === "localizing" ? (
-                                    <div className={styles.PrecisionControls}>
-                                        <span>Automatic placement</span>
-                                        <button className="button" type="button" onClick={beginManualPlacement}>
-                                            Adjust manually
-                                        </button>
-                                    </div>
-                                ) : (
-                                    <div className={styles.PrecisionControls}>
-                                        <span>Fine position (1 source pixel)</span>
-                                        <button
-                                            className="button"
-                                            type="button"
-                                            disabled={savingRegion}
-                                            onClick={resetSelectedRegion}
-                                        >
-                                            Reset selected area
-                                        </button>
-                                        <button
-                                            className="button"
-                                            type="button"
-                                            disabled={savingRegion}
-                                            onClick={() => nudgeSelectedRegion(0, -1)}
-                                        >
-                                            Up
-                                        </button>
-                                        <button
-                                            className="button"
-                                            type="button"
-                                            disabled={savingRegion}
-                                            onClick={() => nudgeSelectedRegion(0, 1)}
-                                        >
-                                            Down
-                                        </button>
-                                        <button
-                                            className="button"
-                                            type="button"
-                                            disabled={savingRegion}
-                                            onClick={() => nudgeSelectedRegion(-1, 0)}
-                                        >
-                                            Left
-                                        </button>
-                                        <button
-                                            className="button"
-                                            type="button"
-                                            disabled={savingRegion}
-                                            onClick={() => nudgeSelectedRegion(1, 0)}
-                                        >
-                                            Right
-                                        </button>
-                                    </div>
-                                )}
-                                <p>
-                                    Import the account-level gamevariable.xml from Documents / Black Desert / UserCache
-                                    / your account folder.
-                                </p>
-                                {layoutImportMessage && <p role="status">{layoutImportMessage}</p>}
-                                <div className={styles.CalibrationBar}>
+                            <fieldset
+                                className={styles.CalibrationPanel}
+                                disabled={!previewsEnabled}
+                                aria-label="Align loot areas"
+                            >
+                                <div className={styles.CalibrationHeader}>
+                                    <fieldset className={styles.AreaSelector}>
+                                        <legend>Area to adjust</legend>
+                                        <div className={styles.AreaSelectorButtons}>
+                                            <button
+                                                className="button"
+                                                type="button"
+                                                disabled={savingRegion || placementMode === "localizing"}
+                                                aria-pressed={activeRegionKind === "normal"}
+                                                onClick={() => selectRegionKind("normal")}
+                                            >
+                                                Loot stack
+                                            </button>
+                                            <button
+                                                className="button"
+                                                type="button"
+                                                disabled={savingRegion || placementMode === "localizing"}
+                                                aria-pressed={activeRegionKind === "rare"}
+                                                onClick={() => selectRegionKind("rare")}
+                                            >
+                                                Rare loot
+                                            </button>
+                                        </div>
+                                    </fieldset>
                                     <label className={styles.ScaleControl}>
                                         BDO UI scale
                                         <select
@@ -478,20 +424,98 @@ export function LiveLootCapture({ controller }: { controller: ReturnType<typeof 
                                             <option value={100}>100%</option>
                                         </select>
                                     </label>
-                                    <label className={`button ${styles.FileButton}`}>
-                                        {importingLayout ? "Reading layout..." : "Import normal loot position"}
-                                        <input
-                                            type="file"
-                                            accept=".xml"
-                                            aria-label="Import normal loot position from gamevariable.xml"
-                                            disabled={savingRegion || !sourceSupported || !previewsEnabled}
-                                            onChange={(event) => {
-                                                const file = event.currentTarget.files?.[0];
-                                                event.currentTarget.value = "";
-                                                void importNormalLootLayout(file);
-                                            }}
-                                        />
-                                    </label>
+                                </div>
+                                <p className={styles.CalibrationInstruction}>{calibrationInstruction}</p>
+                                {placementMode === "localizing" ? (
+                                    <div className={styles.PrecisionControls}>
+                                        <div className={styles.PositionLabel}>
+                                            <strong>Finding your loot area…</strong>
+                                            <span>Waiting for visible loot in the preview.</span>
+                                        </div>
+                                        <button className="button" type="button" onClick={beginManualPlacement}>
+                                            Adjust manually
+                                        </button>
+                                    </div>
+                                ) : (
+                                    <div className={styles.PrecisionControls}>
+                                        <div className={styles.PositionLabel}>
+                                            <strong>Fine-tune position</strong>
+                                            <span>
+                                                Move {activeRegionKind === "normal" ? "loot stack" : "rare loot"} by 1
+                                                pixel.
+                                            </span>
+                                        </div>
+                                        <fieldset
+                                            className={styles.DirectionPad}
+                                            disabled={savingRegion}
+                                            aria-label="Fine-tune selected area"
+                                        >
+                                            {[
+                                                { name: "Up", arrow: "↑", x: 0, y: -1 },
+                                                { name: "Left", arrow: "←", x: -1, y: 0 },
+                                                { name: "Down", arrow: "↓", x: 0, y: 1 },
+                                                { name: "Right", arrow: "→", x: 1, y: 0 },
+                                            ].map(({ name, arrow, x, y }) => (
+                                                <button
+                                                    key={name}
+                                                    className="button"
+                                                    type="button"
+                                                    data-direction={name}
+                                                    aria-label={`Move selected area ${name.toLowerCase()} by 1 pixel`}
+                                                    title={`${name} · 1 source pixel`}
+                                                    onClick={() => nudgeSelectedRegion(x, y)}
+                                                >
+                                                    <span aria-hidden="true">{arrow}</span>
+                                                </button>
+                                            ))}
+                                        </fieldset>
+                                        <button
+                                            className={`button subtle ${styles.ResetArea}`}
+                                            type="button"
+                                            disabled={savingRegion}
+                                            onClick={resetSelectedRegion}
+                                        >
+                                            Reset {activeRegionKind === "normal" ? "loot stack" : "rare loot"}
+                                        </button>
+                                    </div>
+                                )}
+                                <details className={styles.LayoutImport}>
+                                    <summary>Import loot stack position from BDO</summary>
+                                    <div>
+                                        <p>
+                                            Choose gamevariable.xml from Documents / Black Desert / UserCache / your
+                                            account folder. This updates the loot stack position only.
+                                        </p>
+                                        <label className={`button ${styles.FileButton}`}>
+                                            {importingLayout ? "Reading layout..." : "Choose layout file"}
+                                            <input
+                                                type="file"
+                                                accept=".xml"
+                                                aria-label="Import normal loot position from gamevariable.xml"
+                                                disabled={
+                                                    savingRegion ||
+                                                    importingLayout ||
+                                                    !sourceSupported ||
+                                                    !previewsEnabled
+                                                }
+                                                onChange={(event) => {
+                                                    const file = event.currentTarget.files?.[0];
+                                                    event.currentTarget.value = "";
+                                                    void importNormalLootLayout(file);
+                                                }}
+                                            />
+                                        </label>
+                                    </div>
+                                </details>
+                                {layoutImportMessage && (
+                                    <p className={styles.CalibrationInstruction} role="status">
+                                        {layoutImportMessage}
+                                    </p>
+                                )}
+                                <div className={styles.CalibrationBar}>
+                                    <span>
+                                        {regionConfirmed ? "Ready to track loot" : "Align both areas, then confirm."}
+                                    </span>
                                     {placementMode !== "localizing" &&
                                         automaticLocalizationAvailable &&
                                         normalRegion && (
@@ -506,7 +530,7 @@ export function LiveLootCapture({ controller }: { controller: ReturnType<typeof 
                                         )}
                                     {placementMode !== "localizing" && (
                                         <button
-                                            className="button"
+                                            className={`button ${styles.ConfirmAreas}`}
                                             type="button"
                                             disabled={!normalRegion || !rareRegion || regionConfirmed || savingRegion}
                                             onClick={confirmRegion}
