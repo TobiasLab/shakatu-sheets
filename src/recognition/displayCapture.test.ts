@@ -256,7 +256,7 @@ describe("visible loot guide placement", () => {
 });
 
 describe("normal loot XML placement", () => {
-    it("aligns the reported 3440x1440/80% layout with the text while preserving its horizontal position", () => {
+    it("matches the reported automatic placement from the 3440x1440/80% XML layout", () => {
         // Reported Index="159" entry: RightBottom, PosX=-331, PosY=136.
         const relativeX = 0.9183720946;
         const relativeY = 0.8078845143;
@@ -268,13 +268,13 @@ describe("normal loot XML placement", () => {
         });
         const region = positionNormalLootFromLayout(relativeX, relativeY, 3440, 1440, 80);
         const pixels = normalizedRegionToPixels(region, 3440, 1440);
-        expect(pixels).toEqual({ x: 3023, y: 1094, width: 272, height: 180 });
+        expect(pixels).toEqual({ x: 3048, y: 1094, width: 272, height: 180 });
         expect(lootAlignmentGuide(80).rowCenters.map((center) => pixels.y + center)).toEqual([
             1106, 1145, 1184, 1223, 1262,
         ]);
     });
 
-    it("scales the vertical correction with game UI scale, independently of source resolution", () => {
+    it("scales both corrections with game UI scale, independently of source resolution", () => {
         for (const [width, height] of [
             [3440, 1440],
             [2560, 1440],
@@ -291,7 +291,11 @@ describe("normal loot XML placement", () => {
                     width,
                     height,
                 );
-                expect(imported).toEqual({ ...before, y: before.y + (scale === 80 ? 21 : 26) });
+                expect(imported).toEqual({
+                    ...before,
+                    x: before.x + (scale === 80 ? 25 : 31),
+                    y: before.y + (scale === 80 ? 21 : 26),
+                });
             }
         }
     });
