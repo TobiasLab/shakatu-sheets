@@ -334,6 +334,29 @@ try {
                 false,
                 "Changing UI scale must not start search",
             );
+            const currentAreas =
+                "window.__calls.filter(c => c.command === 'set_native_display_capture_region').at(-1).args.selection.settings";
+            for (const [area, field, other] of [
+                ["Loot stack", "region", "rareRegion"],
+                ["Rare loot", "rareRegion", "region"],
+            ]) {
+                await click(area);
+                for (const [direction, dx, dy] of [
+                    ["up", 0, -1],
+                    ["left", -1, 0],
+                    ["down", 0, 1],
+                    ["right", 1, 0],
+                ]) {
+                    const before = await evaluate(currentAreas);
+                    await click(`Move selected area ${direction} by 1 pixel`);
+                    const after = await evaluate(currentAreas);
+                    assert.equal(Math.round((after[field].x - before[field].x) * sourceWidth), dx);
+                    assert.equal(Math.round((after[field].y - before[field].y) * sourceHeight), dy);
+                    assert.deepEqual(after[other], before[other], "Nudging must preserve the other area");
+                }
+            }
+            await click("Loot stack");
+            await click("Import loot stack position from BDO");
             const beforeImport = await evaluate(
                 "window.__calls.filter(c => c.command === 'set_native_display_capture_region').at(-1).args.selection.settings",
             );
@@ -534,6 +557,27 @@ try {
         }
         await evaluate("document.querySelector('#live-capture-heading').scrollIntoView({block:'start'})");
         await screenshot("capture-setup");
+        await send("Emulation.setDeviceMetricsOverride", {
+            width: 640,
+            height: 900,
+            deviceScaleFactor: 1,
+            mobile: false,
+        });
+        await evaluate(
+            "document.querySelector('fieldset[aria-label=\"Align loot areas\"]').scrollIntoView({block:'center'})",
+        );
+        assert(
+            await evaluate("document.documentElement.scrollWidth <= window.innerWidth"),
+            "Capture setup must fit compact windows",
+        );
+        await screenshot("capture-controls-compact");
+        await send("Emulation.setDeviceMetricsOverride", {
+            width: 1280,
+            height: 820,
+            deviceScaleFactor: 1,
+            mobile: false,
+        });
+
         await click("Advanced diagnostics");
         const sampledRate =
             "[...document.querySelectorAll('dt')].find(e => e.textContent === 'Sampled rate')?.nextElementSibling.textContent";
@@ -882,7 +926,10 @@ try {
         );
         await click("Grind desk");
         await click("Start timer");
-        await click("Confirm both areas");
+        const confirmation = await evaluate(
+            "[...document.querySelectorAll('button')].find(b => /^Confirm (both areas|rare area)$/.test(b.textContent.trim()) && !b.disabled)?.textContent.trim()",
+        );
+        if (confirmation) await click(confirmation);
         await until("document.body.textContent.includes('Tracking your loot while you play')");
         await evaluate("window.__emitLoot(0)");
         for (let rows = 1; rows <= 3; rows++) {
