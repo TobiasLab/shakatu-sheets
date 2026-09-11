@@ -53,7 +53,7 @@ async function until(expression) {
 async function click(text) {
     const point = await evaluate(
         `(() => {
-            const button = [...document.querySelectorAll('button,summary')].find(b => (b.textContent.trim().replace(/\\s+/g, ' ') === ${JSON.stringify(text)} || b.getAttribute('aria-label') === ${JSON.stringify(text)}) && b.getClientRects().length);
+            const button = [...document.querySelectorAll('button,summary')].filter(b => !document.querySelector('dialog[open]') || document.querySelector('dialog[open]').contains(b)).find(b => (b.textContent.trim().replace(/\\s+/g, ' ') === ${JSON.stringify(text)} || b.getAttribute('aria-label') === ${JSON.stringify(text)}) && b.getClientRects().length);
             if (!button || button.disabled) return null;
             button.scrollIntoView({block:'center'});
             const rect = button.getBoundingClientRect();
@@ -182,6 +182,61 @@ try {
     }
     await screenshot("desk-idle");
     if (process.env.UI_SCREENSHOT_ONLY !== "1") {
+        await click("Browse all spots");
+        assert.equal(await evaluate("document.activeElement?.type"), "search");
+        assert.equal(await evaluate("document.querySelectorAll('dialog[open] li').length"), 97);
+        await click("Favorites");
+        assert(await evaluate("document.querySelector('dialog[open]').textContent.includes('No favorites yet')"));
+        await click("All");
+        await setField('dialog[open] input[type="search"]', "END STAR’S");
+        await until("document.querySelectorAll('dialog[open] li').length === 1");
+        await click("Star Star's End");
+        assert(await evaluate("document.querySelector('dialog[open]') !== null"), "Starring keeps browser open");
+        assert.equal(await evaluate("window.__session.grindSpotId"), "sycraia-lower-revamp");
+        await click("Star's End");
+        await until("!document.querySelector('dialog[open]')");
+        assert.equal(await evaluate("document.activeElement?.textContent"), "Browse all spots");
+        await until("window.__session.grindSpotId === 'stars-end-revamp'");
+        assert.equal(await evaluate("window.__session.status"), "idle");
+        await click("Browse all spots");
+        assert.equal(await evaluate("document.querySelector('dialog[open] input').value"), "");
+        await setField('dialog[open] input[type="search"]', "no matching spot");
+        assert(await evaluate("document.querySelector('dialog[open]').textContent.includes('No spots match')"));
+        await click("Clear search");
+        for (const theme of ["dark", "light", "moss"]) {
+            await evaluate(`document.documentElement.dataset.theme = ${JSON.stringify(theme)}`);
+            await screenshot(`spot-browser-${theme}`);
+        }
+        await send("Emulation.setDeviceMetricsOverride", {
+            width: 640,
+            height: 720,
+            deviceScaleFactor: 1,
+            mobile: false,
+        });
+        assert(
+            await evaluate(
+                "document.querySelector('dialog[open]').scrollWidth <= document.querySelector('dialog[open]').clientWidth",
+            ),
+        );
+        await screenshot("spot-browser-compact");
+        for (let i = 0; i < 8; i++) {
+            await press("Tab", "Tab", 9);
+            assert(await evaluate("document.activeElement.closest('dialog')?.open"), "Tab stays in browser");
+        }
+        await press("Escape", "Escape", 27);
+        assert.equal(await evaluate("document.activeElement?.textContent"), "Browse all spots");
+        await send("Emulation.setDeviceMetricsOverride", {
+            width: 1280,
+            height: 820,
+            deviceScaleFactor: 1,
+            mobile: false,
+        });
+        await evaluate("document.documentElement.dataset.theme = 'dark'");
+        await click("Browse all spots");
+        await setField('dialog[open] input[type="search"]', "sycraia lower");
+        await evaluate("document.querySelector('dialog[open] li > button').click()");
+        await until("window.__session.grindSpotId === 'sycraia-lower-revamp'");
+        await screenshot("spot-shortcuts");
         await click("Collapse sidebar");
         assert(
             await evaluate("document.querySelector('aside').getBoundingClientRect().width <= 70"),
@@ -209,6 +264,10 @@ try {
         await evaluate("document.querySelector('[aria-label=\"Close screenshot import\"]').click()");
         await click("Start timer");
         await until("window.__session.status === 'running'");
+        assert(
+            await evaluate("!document.querySelector('[aria-label=\"Grind spot\"]')"),
+            "Selection controls disappear once time is recorded",
+        );
         await click("Choose capture source");
         await until(
             "window.__calls.some(c => c.command === 'set_native_display_capture_preview_enabled' && c.args.enabled)",
@@ -642,7 +701,7 @@ try {
             await evaluate("document.activeElement.textContent.includes('Add loot or expense')"),
             "Dismissal must restore the opener",
         );
-        await setField('[aria-label="Session setup"] label:nth-child(2) select', "na");
+        await setField('[aria-label="Session setup"] select[aria-label="Region"]', "na");
         await until("window.__session.region === 'na'");
         await click("Add loot or expense");
         assert.equal(
