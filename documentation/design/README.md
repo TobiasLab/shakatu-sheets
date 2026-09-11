@@ -77,7 +77,7 @@ review and does not claim they are blank.
 
 Capture setup expands to the full desk width, with source/alignment/confirmation progress, full preview, normal and rare crop
 previews, and the existing manual, automatic, nudge, scale, and confirmation controls. The alignment panel groups area
-selection and UI scale above placement guidance. Fine positioning uses a directional pad with labeled one-source-pixel
+selection and UI scale above placement guidance. Fine positioning uses a cross-shaped directional pad with labeled one-source-pixel
 actions and a separate reset named for the selected area. Layout import lives in an expandable section, and confirmation
 is emphasized in the footer. Confirming both areas closes setup and
 returns keyboard focus to its button. Setup can reopen during capture. Previews run only while setup is visible; recognition

@@ -289,7 +289,7 @@
 .DirectionPad {
     display: grid;
     grid-template-columns: repeat(3, 36px);
-    grid-template-areas: ". up ." "left down right";
+    grid-template-areas: ". up ." "left . right" ". down .";
     gap: 4px;
     margin: 0;
     padding: 0;
@@ -349,9 +349,14 @@
 }
 
 .CalibrationBar .ConfirmAreas {
-    color: var(--mint);
-    border-color: var(--accent-border);
-    background: var(--accent-surface);
+    color: var(--accent-contrast);
+    border-color: var(--mint);
+    background: var(--mint);
+}
+
+.CalibrationBar .ConfirmAreas:hover:not(:disabled) {
+    border-color: var(--accent-hover);
+    background: var(--accent-hover);
 }
 
 .ScaleControl {

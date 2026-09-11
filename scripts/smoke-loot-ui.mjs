@@ -263,7 +263,20 @@ try {
                 }
             }
             await click("Loot stack");
-            await click("Import loot stack position from BDO");
+            await evaluate(
+                "[...document.querySelectorAll('summary')].find(s => s.textContent === 'Import loot stack position from BDO').focus()",
+            );
+            await press(" ", "Space", 32);
+            await until(
+                "[...document.querySelectorAll('summary')].find(s => s.textContent === 'Import loot stack position from BDO').parentElement.open",
+            );
+            await press("Tab", "Tab", 9);
+            await until("document.activeElement?.tagName === 'INPUT'");
+            assert.equal(
+                await evaluate("document.activeElement?.getAttribute('aria-label')"),
+                "Import normal loot position from gamevariable.xml",
+                "Opening import with the keyboard must make the file chooser the next tab stop",
+            );
             const beforeImport = await evaluate(
                 "window.__calls.filter(c => c.command === 'set_native_display_capture_region').at(-1).args.selection.settings",
             );
@@ -275,6 +288,11 @@ try {
                 input.dispatchEvent(new Event('change', {bubbles:true}));
             })()`);
             await until("document.body.textContent.includes('Normal area moved to the saved layout position')");
+            assert.equal(
+                await evaluate("document.activeElement?.getAttribute('aria-label')"),
+                "Import normal loot position from gamevariable.xml",
+                "Reading a layout must preserve keyboard focus on the file chooser",
+            );
             await until(
                 "window.__calls.filter(c => c.command === 'set_native_display_capture_region').at(-1)?.args.selection?.settings?.region.x < 0.3",
             );
@@ -476,6 +494,15 @@ try {
         assert(
             await evaluate("document.documentElement.scrollWidth <= window.innerWidth"),
             "Capture setup must fit compact windows",
+        );
+        assert(
+            await evaluate(`(() => {
+            const rect = (direction) => document.querySelector('[data-direction="' + direction + '"]').getBoundingClientRect();
+            const up = rect('Up'), down = rect('Down'), left = rect('Left'), right = rect('Right');
+            return up.x === down.x && left.y === right.y && up.bottom <= left.top && left.bottom <= down.top
+                && left.right <= up.left && up.right <= right.left;
+        })()`),
+            "Direction buttons must form a cross at compact widths",
         );
         await screenshot("capture-controls-compact");
         await send("Emulation.setDeviceMetricsOverride", {
@@ -816,7 +843,17 @@ try {
         const confirmation = await evaluate(
             "[...document.querySelectorAll('button')].find(b => /^Confirm (both areas|rare area)$/.test(b.textContent.trim()) && !b.disabled)?.textContent.trim()",
         );
-        if (confirmation) await click(confirmation);
+        if (confirmation) {
+            await click(confirmation);
+            await until("document.querySelector('#capture-setup').hidden");
+        } else {
+            assert(
+                await evaluate(
+                    "[...document.querySelectorAll('button')].some(b => b.textContent.trim() === 'Both areas confirmed' && b.disabled)",
+                ),
+                "Skipping confirmation requires both areas to already be confirmed",
+            );
+        }
         await until("document.body.textContent.includes('Tracking your loot while you play')");
         await evaluate("window.__emitLoot(0)");
         for (let rows = 1; rows <= 3; rows++) {
