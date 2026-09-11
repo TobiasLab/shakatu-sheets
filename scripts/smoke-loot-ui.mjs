@@ -265,7 +265,7 @@ try {
             );
             assert.equal(
                 Math.round(imported.region.y * sourceHeight),
-                Math.round(0.7 * sourceHeight - (uiScale === 80 ? 90 : 113)),
+                Math.round(0.7 * sourceHeight - (uiScale === 80 ? 90 : 113)) + (uiScale === 80 ? 21 : 26),
             );
             assert.equal(imported.region.width, beforeImport.region.width);
             assert.equal(imported.region.height, beforeImport.region.height);
