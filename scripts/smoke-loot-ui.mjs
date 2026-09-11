@@ -261,7 +261,7 @@ try {
             assert.deepEqual(imported.rareRegion, beforeImport.rareRegion);
             assert.equal(
                 Math.round(imported.region.x * sourceWidth),
-                Math.round(0.2 * sourceWidth - (uiScale === 80 ? 136 : 170.5)),
+                Math.round(0.2 * sourceWidth - (uiScale === 80 ? 136 : 170.5)) + (uiScale === 80 ? 25 : 31),
             );
             assert.equal(
                 Math.round(imported.region.y * sourceHeight),

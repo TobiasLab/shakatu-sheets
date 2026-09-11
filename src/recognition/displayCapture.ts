@@ -131,9 +131,10 @@ export function positionNormalLootFromLayout(
     uiScalePercent: LootUiScale,
 ): NormalizedRegion {
     // Measured XML-to-text correction at 80% UI scale; see the import calibration in windows.md.
+    const textOffsetX = Math.round(25 * (uiScalePercent / 80));
     const textOffsetY = Math.round(21 * (uiScalePercent / 80));
     return positionLootRegion(
-        normalizedX,
+        normalizedX + textOffsetX / sourceWidth,
         normalizedY + textOffsetY / sourceHeight,
         sourceWidth,
         sourceHeight,
