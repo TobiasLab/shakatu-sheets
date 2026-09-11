@@ -160,17 +160,9 @@
     left: -2px;
 }
 
-.NormalRegionOverlay > .OverlayLabel {
-    background: var(--gold);
-}
-
 .SearchRegionOverlay > .OverlayLabel {
     color: #160b04;
     background: #ff8c42;
-}
-
-.RareRegionOverlay > .OverlayLabel {
-    background: #65cde5;
 }
 
 .RecognitionGuide {

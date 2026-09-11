@@ -340,9 +340,6 @@ export function LiveLootCapture({ controller }: { controller: ReturnType<typeof 
                                                 height: `${normalRegion.height * 100}%`,
                                             }}
                                         >
-                                            {diagnosticsOpen && (
-                                                <span className={styles.OverlayLabel}>Normal capture area</span>
-                                            )}
                                             <AlignmentGuide
                                                 frameSize={normalGuideFrameSize}
                                                 guide={normalAlignmentGuide}
@@ -365,9 +362,6 @@ export function LiveLootCapture({ controller }: { controller: ReturnType<typeof 
                                                 height: `${rareRegion.height * 100}%`,
                                             }}
                                         >
-                                            {diagnosticsOpen && (
-                                                <span className={styles.OverlayLabel}>Rare capture area</span>
-                                            )}
                                             <AlignmentGuide
                                                 frameSize={rareGuideFrameSize}
                                                 guide={rareAlignmentGuide}

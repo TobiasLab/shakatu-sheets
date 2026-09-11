@@ -52,20 +52,16 @@ export function findLiveLootProfile(
     uiScalePercent: LootUiScale,
     legacy = false,
 ): LiveLootProfileArtifactV1 | null {
-    if (legacy) {
-        const original = uiScalePercent === 80 ? normal1440At80 : normal1440At100;
-        return findLiveLootProfile(sourceWidth, sourceHeight, uiScalePercent)
-            ? { ...original, capture: { ...original.capture, sourceWidth } }
-            : null;
-    }
-    return (
-        profiles.find(
-            (artifact) =>
-                artifact.normal.capture.sourceWidth === sourceWidth &&
-                artifact.normal.capture.sourceHeight === sourceHeight &&
-                artifact.normal.capture.uiScalePercent === uiScalePercent,
-        )?.normal ?? null
+    const profile = profiles.find(
+        ({ normal }) =>
+            normal.capture.sourceWidth === sourceWidth &&
+            normal.capture.sourceHeight === sourceHeight &&
+            normal.capture.uiScalePercent === uiScalePercent,
     );
+    if (!profile) return null;
+    if (!legacy) return profile.normal;
+    const original = uiScalePercent === 80 ? normal1440At80 : normal1440At100;
+    return { ...original, capture: { ...original.capture, sourceWidth } };
 }
 
 export function supportsAutomaticLootLocalization(
@@ -82,18 +78,13 @@ export function findRareLootGeometry(
     uiScalePercent: LootUiScale,
     legacy = false,
 ): RareLootGeometry | null {
-    if (legacy)
-        return findRareLootGeometry(sourceWidth, sourceHeight, uiScalePercent)
-            ? uiScalePercent === 80
-                ? RARE_LOOT_GEOMETRY
-                : RARE_LOOT_GEOMETRY_100
-            : null;
-    return (
-        profiles.find(
-            ({ normal }) =>
-                normal.capture.sourceWidth === sourceWidth &&
-                normal.capture.sourceHeight === sourceHeight &&
-                normal.capture.uiScalePercent === uiScalePercent,
-        )?.rare ?? null
+    const profile = profiles.find(
+        ({ normal }) =>
+            normal.capture.sourceWidth === sourceWidth &&
+            normal.capture.sourceHeight === sourceHeight &&
+            normal.capture.uiScalePercent === uiScalePercent,
     );
+    if (!profile) return null;
+    if (!legacy) return profile.rare;
+    return uiScalePercent === 80 ? RARE_LOOT_GEOMETRY : RARE_LOOT_GEOMETRY_100;
 }
