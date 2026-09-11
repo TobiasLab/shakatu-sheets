@@ -11,9 +11,16 @@ light, moss, and dark preferences are retained. The current flow is:
 6. Pause the timer or finish the session.
 7. Filter and review completed sessions, reopen one for corrections, or permanently delete one after confirmation.
 
-The grind-spot selector is available only while a session is idle with no elapsed time or entries. It locks as soon as
-time or loot is recorded so one session cannot mix profiles. The current profiles are Sycraia Ruins Lower Level,
-revamped Star's End, Zephyrus Castle, Aphrodon Temple, Hermesia Inner Castle, and Magaia Temple.
+The Grind desk shows the selected spot with its trash-loot icon, up to four quick-access shortcuts, and a searchable
+**Browse all spots** dialog. Favorites lead the shortcuts in the order starred; recent selections fill remaining spaces
+without duplicates. Favorites and the last eight distinct selections are saved locally as UI preferences. The browser
+provides All (alphabetical), Favorites, and Recent filters; search ignores case and punctuation and matches words in any
+order. Starring does not select a spot. Selecting immediately updates the session and closes the browser.
+
+Selection is available only while a session is idle with no elapsed time or entries, and is temporarily disabled while
+loading the database or fetching market prices. After time or loot is recorded, selection controls disappear and the
+session heading shows the spot with a lock explanation. The browser uses a native modal dialog with search focus, Escape
+to close, and focus restoration. It uses bundled item icons and existing theme tokens with no network requests.
 
 Aphrodon Temple includes Sealed Black Magic Crystal following the
 [September 10, 2026 patch](https://www.naeu.playblackdesert.com/en-US/News/Detail?countryType=en-US&groupContentNo=10577).

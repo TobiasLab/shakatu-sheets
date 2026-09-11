@@ -1,8 +1,9 @@
 import { useEffect, useRef, useState } from "react";
+import { GrindSpotPicker } from "../../components/GrindSpotPicker/GrindSpotPicker";
+import { Icon } from "../../components/Icon/Icon";
 import { LiveLootCapture } from "../../components/LiveLootCapture/LiveLootCapture";
 import { useLiveLootCapture } from "../../components/LiveLootCapture/useLiveLootCapture";
 import { LootLedger } from "../../components/LootLedger/LootLedger";
-import { grindSpots } from "../../data/grindSpots";
 import { createEntry, type SessionState } from "../../domain/session";
 import { formatTimestamp } from "../../format";
 import type { LiveSessionController } from "../../hooks/useLiveSession";
@@ -136,6 +137,11 @@ export function LiveSessionView({
             <header className="topbar">
                 <div>
                     <h1>{spotEditable ? "New session" : spot.name}</h1>
+                    {!spotEditable && (
+                        <span className={styles.SpotLock}>
+                            <Icon name="lock" size={13} /> Grind spot locked for this session
+                        </span>
+                    )}
                 </div>
                 <button
                     type="button"
@@ -152,27 +158,19 @@ export function LiveSessionView({
                 </button>
             </header>
             {overlay.error && <p role="alert">{overlay.error}</p>}
+            {spotEditable && (
+                <GrindSpotPicker
+                    spot={spot}
+                    disabled={!databaseLoaded || market.fetchingPrices || !visible}
+                    onSelect={changeGrindSpot}
+                />
+            )}
             <section className={styles.SetupBar} aria-label="Session setup">
                 <div className={styles.SessionMeta}>
                     <label>
-                        <span className="sr-only">Grind spot</span>
-                        <select
-                            aria-describedby="spot-lock-note"
-                            title={spotEditable ? "Grind spot" : "Grind spot locked after recording time or loot"}
-                            value={session.grindSpotId}
-                            disabled={!databaseLoaded || !spotEditable || market.fetchingPrices}
-                            onChange={(event) => changeGrindSpot(event.target.value)}
-                        >
-                            {grindSpots.map((grindSpot) => (
-                                <option key={grindSpot.id} value={grindSpot.id}>
-                                    {grindSpot.name}
-                                </option>
-                            ))}
-                        </select>
-                    </label>
-                    <label>
                         <span className="sr-only">Region</span>
                         <select
+                            aria-label="Region"
                             value={session.region}
                             disabled={editingDisabled || market.fetchingPrices}
                             onChange={(event) => changeRegion(event.target.value as SessionState["region"])}
@@ -182,11 +180,6 @@ export function LiveSessionView({
                         </select>
                     </label>
                 </div>
-                <p id="spot-lock-note" className="sr-only">
-                    {spotEditable
-                        ? "Choose your spot before recording time or loot."
-                        : "Grind spot locked for this session."}
-                </p>
                 <details className={styles.MarketSnapshot}>
                     <summary>
                         <span>Market prices</span>
