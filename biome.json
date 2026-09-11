@@ -11,7 +11,9 @@
             "scripts/*loot*.mjs",
             "scripts/smoke-desktop.mjs",
             "scripts/smoke-session-overlay.mjs",
-            "scripts/benchmark-session-format.mjs"
+            "scripts/benchmark-session-format.mjs",
+            "scripts/sync-grind-spots.mjs",
+            "scripts/grind-spots.test.mjs"
         ]
     },
     "assist": {

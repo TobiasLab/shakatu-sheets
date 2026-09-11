@@ -85,6 +85,26 @@ describe("buildGarmothUpload", () => {
         expect(preview.mappedDropCount).toBe(2);
     });
 
+    it("maps a completed session for every imported spot", () => {
+        for (const spot of grindSpots.filter((spot) => spot.id.startsWith("garmoth-"))) {
+            const session = finishedSession();
+            session.grindSpotId = spot.id;
+            session.entries = [
+                {
+                    ...session.entries[0],
+                    name: spot.trash.name,
+                    unitPrice: spot.trash.unitPrice ?? 0,
+                    quantity: 100,
+                },
+            ];
+            const preview = buildGarmothUpload(session);
+            expect(preview.input.grindspotId).toBe(spot.garmothId);
+            expect(preview.input.drops[spot.trash.garmothKey]).toBe(100);
+            expect(preview.input.total).toBe(100 * (spot.trash.unitPrice ?? 0));
+            expect(preview.unmatchedEntries).toEqual([]);
+        }
+    });
+
     it("reports unsupported revenue entries instead of silently dropping them", () => {
         const session = finishedSession();
         session.entries.push({ ...session.entries[0], id: "custom", name: "Custom loot" });
