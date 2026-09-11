@@ -175,15 +175,23 @@ only the existing capture-region settings. The same import is available on Linux
 
 The Rust parser reads the active `UIData` entry with `Index="159"`, identified by a controlled normal-notification
 movement in the supplied settings snapshots. It ignores saved presets and uses `RelativePosX`/`RelativePosY` as the
-normal visible guide center, with the current capture dimensions and calibrated crop size. Anchored `PosX`/`PosY` are not
-screen coordinates; the observed move switched from `RightBottom` to `LeftBottom`. Saved display dimensions are not
+saved panel anchor, with the current capture dimensions and calibrated crop size. The horizontal coordinate centers
+the crop; the vertical coordinate receives the text-alignment correction below. Anchored `PosX`/`PosY` are not screen
+coordinates; the observed move switched from `RightBottom` to `LeftBottom`. Saved display dimensions are not
 used because they differed from the gameplay layout in the supplied files. This assumes the captured source covers
 the game viewport; a monitor capture with a smaller game window may need manual adjustment.
 
 Only the normal placement moves. Rare placement is preserved, recognition is reset, and the user checks the preview
-before confirming. The center-to-OCR-row offset still needs in-game validation. Character files without coordinates,
-hidden or unsaved panels, duplicate active entries, invalid coordinates, unsupported UI scales, and files over 2 MiB
-are rejected. The XML scale must match the selected capture scale. Selecting another source or resizing during the
+before confirming. The XML-to-text correction moves the crop down 21 source pixels at 80% UI scale. This is based on
+the reported 3440×1440 placement: XML produced `(3023, 1073)` and automatic placement produced `(3048, 1094)`, both
+272×180. The reported XML horizontal placement was better, so the corrected import produces `(3023, 1094)`. The
+correction scales with BDO UI scale, not resolution or monitor DPI: 26 pixels at 100% (rounded from 21 × 1.25).
+That 100% correction is extrapolated; other resolutions, moved panels, and actual text alignment still need in-game
+validation. The regression test uses the supplied `Index="159"` entry
+(`RelativePosX="0.9183720946"`, `RelativePosY="0.8078845143"`, `PendingType="RightBottom"`).
+
+Character files without coordinates, hidden or unsaved panels, duplicate active entries, invalid coordinates, unsupported
+UI scales, and files over 2 MiB are rejected. The XML scale must match the selected capture scale. Selecting another source or resizing during the
 read discards the result. `quick-xml` 0.41.0 was already in the lockfile and is now a direct dependency for this parser.
 
 Coordinates refer to physical pixels within the selected capture item. Windows display scaling and BDO's UI scale are

@@ -36,6 +36,7 @@ import {
     nudgeLootRegion,
     positionLootRegion,
     positionLootSearchRegion,
+    positionNormalLootFromLayout,
     searchRegionAroundLootRegion,
     stopDisplayCapture,
 } from "../../recognition/displayCapture";
@@ -1315,7 +1316,7 @@ export function useLiveLootCapture({
                     `This file uses ${position.uiScalePercent}% UI scale. Select that scale in capture setup before importing.`,
                 );
             }
-            const next = positionLootRegion(position.x, position.y, source.width, source.height, scale, "normal");
+            const next = positionNormalLootFromLayout(position.x, position.y, source.width, source.height, scale);
             clearLocalization();
             restartRecognition();
             updateSearchRegion(null);
