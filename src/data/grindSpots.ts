@@ -1,4 +1,5 @@
 import type { Valuation } from "../domain/session";
+import importedSpots from "./garmothSpots.json";
 
 export type DropTemplate = {
     name: string;
@@ -266,7 +267,15 @@ export const magaiaTemple: GrindSpotProfile = {
     ],
 };
 
-export const grindSpots = [sycraiaLower, starsEnd, zephyrosCastle, aphrodonTemple, hermesiaInnerCastle, magaiaTemple];
+export const grindSpots: GrindSpotProfile[] = [
+    sycraiaLower,
+    starsEnd,
+    zephyrosCastle,
+    aphrodonTemple,
+    hermesiaInnerCastle,
+    magaiaTemple,
+    ...(importedSpots as GrindSpotProfile[]),
+];
 
 export function getGrindSpot(id: string): GrindSpotProfile {
     return grindSpots.find((spot) => spot.id === id) ?? sycraiaLower;
