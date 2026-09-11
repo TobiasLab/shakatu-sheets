@@ -175,17 +175,17 @@ only the existing capture-region settings. The same import is available on Linux
 
 The Rust parser reads the active `UIData` entry with `Index="159"`, identified by a controlled normal-notification
 movement in the supplied settings snapshots. It ignores saved presets and uses `RelativePosX`/`RelativePosY` as the
-saved panel anchor, with the current capture dimensions and calibrated crop size. The horizontal coordinate centers
-the crop; the vertical coordinate receives the text-alignment correction below. Anchored `PosX`/`PosY` are not screen
+saved panel anchor, with the current capture dimensions and calibrated crop size. Both coordinates receive the
+text-alignment correction below. Anchored `PosX`/`PosY` are not screen
 coordinates; the observed move switched from `RightBottom` to `LeftBottom`. Saved display dimensions are not
 used because they differed from the gameplay layout in the supplied files. This assumes the captured source covers
 the game viewport; a monitor capture with a smaller game window may need manual adjustment.
 
 Only the normal placement moves. Rare placement is preserved, recognition is reset, and the user checks the preview
-before confirming. The XML-to-text correction moves the crop down 21 source pixels at 80% UI scale. This is based on
+before confirming. The XML-to-text correction moves the crop right 25 and down 21 source pixels at 80% UI scale. This is based on
 the reported 3440×1440 placement: XML produced `(3023, 1073)` and automatic placement produced `(3048, 1094)`, both
-272×180. The reported XML horizontal placement was better, so the corrected import produces `(3023, 1094)`. The
-correction scales with BDO UI scale, not resolution or monitor DPI: 26 pixels at 100% (rounded from 21 × 1.25).
+272×180. The corrected import matches that automatic placement at `(3048, 1094)`. The correction scales with BDO UI
+scale, not resolution or monitor DPI: right 31 and down 26 pixels at 100% (rounded after multiplying by 1.25).
 That 100% correction is extrapolated; other resolutions, moved panels, and actual text alignment still need in-game
 validation. The regression test uses the supplied `Index="159"` entry
 (`RelativePosX="0.9183720946"`, `RelativePosY="0.8078845143"`, `PendingType="RightBottom"`).
