@@ -193,11 +193,12 @@
 
 .CalibrationPanel {
     display: grid;
-    gap: 10px;
+    gap: 16px;
     min-width: 0;
-    margin-top: 10px;
-    padding: 10px;
+    margin: 12px 0 0;
+    padding: 16px;
     border: 1px solid var(--line);
+    border-radius: 8px;
     background: var(--clock-background);
 }
 
@@ -205,12 +206,19 @@
     opacity: 0.65;
 }
 
+.CalibrationHeader,
 .AreaSelectorButtons,
-.PrecisionControls {
+.PrecisionControls,
+.CalibrationBar {
     display: flex;
     align-items: center;
-    gap: 7px;
+    gap: 12px;
     flex-wrap: wrap;
+}
+
+.CalibrationHeader {
+    justify-content: space-between;
+    align-items: flex-end;
 }
 
 .AreaSelector {
@@ -221,17 +229,28 @@
 }
 
 .AreaSelector > legend,
-.PrecisionControls > span {
-    margin-right: 3px;
+.ScaleControl {
     padding: 0;
     color: var(--muted);
-    font-size: 10px;
-    letter-spacing: 0.1em;
-    text-transform: uppercase;
+    font-size: 11px;
 }
 
 .AreaSelector > legend {
-    margin-bottom: 7px;
+    margin-bottom: 8px;
+}
+
+.AreaSelectorButtons {
+    gap: 4px;
+    padding: 4px;
+    border: 1px solid var(--line);
+    border-radius: 7px;
+    background: var(--surface);
+}
+
+.AreaSelectorButtons :global(.button) {
+    border-color: transparent;
+    padding: 8px 14px;
+    font-size: 12px;
 }
 
 .AreaSelector :global(.button)[aria-pressed="true"] {
@@ -240,58 +259,114 @@
     background: color-mix(in srgb, var(--gold) 10%, var(--surface));
 }
 
-.CalibrationInstruction {
+.CalibrationInstruction,
+.LayoutImport p {
     margin: 0;
     color: var(--muted);
-    font-size: 10px;
-    line-height: 1.5;
+    font-size: 12px;
+    line-height: 1.65;
+    overflow-wrap: anywhere;
 }
 
 .PrecisionControls {
-    padding-top: 9px;
-    border-top: 1px solid var(--line);
+    padding: 14px 0;
+    border-block: 1px solid var(--line);
+    gap: 16px;
 }
 
-.PrecisionControls :global(.button),
-.AreaSelectorButtons :global(.button) {
-    padding: 7px 9px;
+.PositionLabel {
+    display: grid;
+    gap: 5px;
+    flex: 1 1 160px;
+    font-size: 12px;
+}
+
+.PositionLabel span {
+    color: var(--muted);
     font-size: 11px;
 }
 
+.DirectionPad {
+    display: grid;
+    grid-template-columns: repeat(3, 36px);
+    grid-template-areas: ". up ." "left down right";
+    gap: 4px;
+    margin: 0;
+    padding: 0;
+    border: 0;
+}
+
+.DirectionPad :global(.button) {
+    padding: 0;
+    min-height: 36px;
+    font-size: 20px;
+    line-height: 1;
+}
+
+.DirectionPad [data-direction="Up"] {
+    grid-area: up;
+}
+.DirectionPad [data-direction="Left"] {
+    grid-area: left;
+}
+.DirectionPad [data-direction="Down"] {
+    grid-area: down;
+}
+.DirectionPad [data-direction="Right"] {
+    grid-area: right;
+}
+
+.ResetArea {
+    font-size: 11px;
+}
+
+.LayoutImport summary {
+    color: var(--muted);
+    font-size: 12px;
+    cursor: pointer;
+}
+
+.LayoutImport > div {
+    display: grid;
+    justify-items: start;
+    gap: 12px;
+    padding-top: 12px;
+}
+
 .CalibrationBar {
-    display: flex;
-    align-items: center;
-    justify-content: flex-end;
-    gap: 16px;
-    padding-top: 9px;
+    padding-top: 14px;
     border-top: 1px solid var(--line);
     color: var(--muted);
-    font-size: 10px;
+    font-size: 11px;
+}
+
+.CalibrationBar > span {
+    flex: 1 1 160px;
 }
 
 .CalibrationBar :global(.button) {
-    flex: 0 0 auto;
+    font-size: 12px;
+}
+
+.CalibrationBar .ConfirmAreas {
+    color: var(--mint);
+    border-color: var(--accent-border);
+    background: var(--accent-surface);
 }
 
 .ScaleControl {
     display: grid;
-    gap: 4px;
-    color: var(--muted);
-    font-size: 10px;
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
+    gap: 8px;
 }
 
 .ScaleControl select {
-    min-width: 82px;
-    padding: 8px 9px;
+    min-width: 90px;
+    padding: 10px;
     border: 1px solid var(--line);
-    border-radius: 0;
+    border-radius: 5px;
     color: var(--text);
-    background: var(--clock-background);
-    font:
-        10px "IBM Plex Mono",
-        monospace;
+    background: var(--surface);
+    font: inherit;
 }
 
 .CalibrationError {
@@ -572,23 +647,8 @@
         width: 100%;
     }
 
-    .AreaSelectorButtons,
-    .PrecisionControls {
-        display: grid;
-        grid-template-columns: repeat(2, minmax(0, 1fr));
-    }
-
-    .PrecisionControls > span {
-        grid-column: 1 / -1;
-    }
-
-    .AreaSelectorButtons :global(.button),
-    .PrecisionControls :global(.button) {
-        width: 100%;
-    }
-
-    .PrecisionControls :global(.button):first-of-type {
-        grid-column: 1 / -1;
+    .CalibrationBar > span {
+        flex-basis: auto;
     }
 
     .ScaleControl select {
