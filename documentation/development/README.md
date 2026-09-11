@@ -99,3 +99,23 @@ change document visibility and correctly suppress previews in the background cas
 The ROI replay supports `--sample-step 2 --sample-offset 0|1` for offline sampling sensitivity checks. Reports retain native
 batch IDs and distinguish recorded from replayed frame counts. This does not change gameplay capture settings. See the
 [repeated-arrival evaluation](../design/repeated-loot-arrivals.md) for the reviewed fixture and reproduction commands.
+
+## Grind spot catalog
+
+The bundled catalog includes 97 land grind spots, including Dehkia variants. The additional 91 profiles were imported
+from Garmoth's public `https://api.garmoth.com/api/external/grind-tracker` endpoint on September 11, 2026.
+To refresh the imported profiles, run from the repository root:
+
+```sh
+npx vite-node scripts/sync-grind-spots.mjs
+```
+
+An optional saved metadata JSON path makes an import reproducible. The script selects land grind spots
+(`spot_type >= 100`), excludes `(OLD)` and `(TBD)` entries, and preserves the original six curated profiles and IDs.
+Imported profiles use stable `garmoth-<id>` IDs. It regenerates the catalog and backend upload mappings together,
+and downloads missing icons using the API's image paths. Review generated changes before committing.
+
+Taxable drops use market pricing; enhanced items require manual prices because market lookup supports base items only.
+Other drops use Garmoth's supplied fixed valuation, which may represent conversion value rather than an NPC sale price.
+Repeated drop keys are deduplicated; identically named treasure pieces are distinguished with their API keys.
+Four event entries without artwork use the existing artifact icon. Catalog and icons work offline without an API key.
