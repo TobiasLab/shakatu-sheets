@@ -123,6 +123,25 @@ export function positionLootRegion(
     };
 }
 
+export function positionNormalLootFromLayout(
+    normalizedX: number,
+    normalizedY: number,
+    sourceWidth: number,
+    sourceHeight: number,
+    uiScalePercent: LootUiScale,
+): NormalizedRegion {
+    // Measured XML-to-text correction at 80% UI scale; see the import calibration in windows.md.
+    const textOffsetY = Math.round(21 * (uiScalePercent / 80));
+    return positionLootRegion(
+        normalizedX,
+        normalizedY + textOffsetY / sourceHeight,
+        sourceWidth,
+        sourceHeight,
+        uiScalePercent,
+        "normal",
+    );
+}
+
 export function positionLootSearchRegion(
     normalizedCenterX: number,
     normalizedCenterY: number,

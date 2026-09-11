@@ -11,6 +11,7 @@ import {
     pixelRegionToNormalized,
     positionLootRegion,
     positionLootSearchRegion,
+    positionNormalLootFromLayout,
     searchRegionAroundLootRegion,
     stopDisplayCapture,
 } from "./displayCapture";
@@ -252,4 +253,66 @@ describe("visible loot guide placement", () => {
             });
         }
     }
+});
+
+describe("normal loot XML placement", () => {
+    it("aligns the reported 3440x1440/80% layout with the text while preserving its horizontal position", () => {
+        // Reported Index="159" entry: RightBottom, PosX=-331, PosY=136.
+        const relativeX = 0.9183720946;
+        const relativeY = 0.8078845143;
+        expect(normalizedRegionToPixels(positionLootRegion(relativeX, relativeY, 3440, 1440, 80), 3440, 1440)).toEqual({
+            x: 3023,
+            y: 1073,
+            width: 272,
+            height: 180,
+        });
+        const region = positionNormalLootFromLayout(relativeX, relativeY, 3440, 1440, 80);
+        const pixels = normalizedRegionToPixels(region, 3440, 1440);
+        expect(pixels).toEqual({ x: 3023, y: 1094, width: 272, height: 180 });
+        expect(lootAlignmentGuide(80).rowCenters.map((center) => pixels.y + center)).toEqual([
+            1106, 1145, 1184, 1223, 1262,
+        ]);
+    });
+
+    it("scales the vertical correction with game UI scale, independently of source resolution", () => {
+        for (const [width, height] of [
+            [3440, 1440],
+            [2560, 1440],
+            [1920, 1080],
+        ]) {
+            for (const scale of [80, 100] as const) {
+                const before = normalizedRegionToPixels(
+                    positionLootRegion(0.5, 0.5, width, height, scale),
+                    width,
+                    height,
+                );
+                const imported = normalizedRegionToPixels(
+                    positionNormalLootFromLayout(0.5, 0.5, width, height, scale),
+                    width,
+                    height,
+                );
+                expect(imported).toEqual({ ...before, y: before.y + (scale === 80 ? 21 : 26) });
+            }
+        }
+    });
+
+    it("clamps the corrected crop at source boundaries without shrinking it", () => {
+        for (const scale of [80, 100] as const) {
+            const size = lootRegionSize(scale);
+            for (const [x, y] of [
+                [0, 0],
+                [0, 1],
+                [1, 0],
+                [1, 1],
+            ]) {
+                expect(
+                    normalizedRegionToPixels(positionNormalLootFromLayout(x, y, 3440, 1440, scale), 3440, 1440),
+                ).toEqual({
+                    x: x === 0 ? 0 : 3440 - size.width,
+                    y: y === 0 ? 0 : 1440 - size.height,
+                    ...size,
+                });
+            }
+        }
+    });
 });
