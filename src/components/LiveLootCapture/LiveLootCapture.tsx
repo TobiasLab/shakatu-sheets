@@ -453,8 +453,8 @@ export function LiveLootCapture({ controller }: { controller: ReturnType<typeof 
                                             {[
                                                 { name: "Up", arrow: "↑", x: 0, y: -1 },
                                                 { name: "Left", arrow: "←", x: -1, y: 0 },
-                                                { name: "Down", arrow: "↓", x: 0, y: 1 },
                                                 { name: "Right", arrow: "→", x: 1, y: 0 },
+                                                { name: "Down", arrow: "↓", x: 0, y: 1 },
                                             ].map(({ name, arrow, x, y }) => (
                                                 <button
                                                     key={name}
@@ -492,12 +492,16 @@ export function LiveLootCapture({ controller }: { controller: ReturnType<typeof 
                                                 type="file"
                                                 accept=".xml"
                                                 aria-label="Import normal loot position from gamevariable.xml"
+                                                aria-busy={importingLayout}
+                                                aria-disabled={importingLayout}
                                                 disabled={
-                                                    savingRegion ||
-                                                    importingLayout ||
+                                                    (savingRegion && !importingLayout) ||
                                                     !sourceSupported ||
                                                     !previewsEnabled
                                                 }
+                                                onClick={(event) => {
+                                                    if (importingLayout) event.preventDefault();
+                                                }}
                                                 onChange={(event) => {
                                                     const file = event.currentTarget.files?.[0];
                                                     event.currentTarget.value = "";
