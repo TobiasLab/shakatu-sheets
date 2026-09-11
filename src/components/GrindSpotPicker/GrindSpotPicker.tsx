@@ -124,12 +124,12 @@ export function GrindSpotPicker({
                         <p>Star your favorites for quick access on the desk.</p>
                     </div>
                     <button
-                        className="button"
+                        className="button subtle"
                         type="button"
                         aria-label="Close spot browser"
                         onClick={() => dialog.current?.close()}
                     >
-                        Close
+                        Close <kbd>Esc</kbd>
                     </button>
                 </div>
                 <div className={styles.Search}>

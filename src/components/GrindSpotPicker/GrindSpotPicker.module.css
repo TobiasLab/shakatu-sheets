@@ -57,44 +57,55 @@
     color: var(--text);
 }
 .Dialog {
-    width: min(780px, calc(100vw - 40px));
+    width: min(900px, calc(100vw - 40px));
     max-width: none;
-    max-height: calc(100dvh - 48px);
+    max-height: min(620px, calc(100dvh - 48px));
     padding: 0;
     border: 1px solid var(--line-strong);
-    border-radius: 12px;
-    background: var(--surface);
+    border-radius: 16px;
+    background: var(--canvas);
     color: var(--text);
-    box-shadow: 0 20px 80px #0005;
+    box-shadow: 0 20px 70px #0004;
 }
 .Dialog[open] {
     display: flex;
     flex-direction: column;
 }
 .Dialog::backdrop {
-    background: #0008;
+    background: #0007;
 }
 .DialogHeader {
     display: flex;
     align-items: flex-start;
     justify-content: space-between;
-    gap: 16px;
-    padding: 24px 24px 16px;
+    gap: 20px;
+    padding: 22px 24px;
+    border-bottom: 1px solid var(--line);
+    flex-shrink: 0;
 }
 .DialogHeader h2 {
     margin: 0;
-    font-size: 21px;
-    font-weight: 500;
+    font-size: 18px;
+    font-weight: 550;
 }
 .DialogHeader p {
-    margin: 8px 0 0;
+    margin: 7px 0 0;
     font-size: 12px;
     color: var(--muted);
+}
+.DialogHeader kbd {
+    font-size: 10px;
+    color: var(--muted);
+    font-family: inherit;
+}
+.DialogHeader > button {
+    flex-shrink: 0;
 }
 .Search {
     display: flex;
     gap: 8px;
-    padding: 0 24px;
+    padding: 16px 24px 0;
+    flex-shrink: 0;
 }
 .Search input {
     min-height: 42px;
@@ -108,6 +119,7 @@
     flex-wrap: wrap;
     gap: 6px;
     padding: 16px 24px;
+    flex-shrink: 0;
     border-bottom: 1px solid var(--line);
 }
 .Filters button {
@@ -206,15 +218,21 @@
     color: var(--muted);
     font-size: 13px;
 }
+@media (max-width: 760px) {
+    .Dialog {
+        width: calc(100vw - 24px);
+        max-height: min(620px, calc(100dvh - 24px));
+    }
+    .DialogHeader {
+        padding: 18px;
+    }
+}
 @media (max-width: 600px) {
     .Grid {
         grid-template-columns: minmax(0, 1fr);
     }
-    .DialogHeader {
-        padding: 18px 16px 16px;
-    }
     .Search {
-        padding: 0 16px;
+        padding: 16px 16px 0;
         flex-wrap: wrap;
     }
     .Filters {
