@@ -113,36 +113,33 @@ export function AppShell({
                         <Icon name="settings" />
                         <span>Settings</span>
                     </button>
-                    <div
-                        className={styles.DatabaseState}
-                        title={databaseStatus === "ready" ? "Saved on this device" : databaseStatus}
-                    >
-                        <i className={`${styles.StatusDot} ${styles[databaseStatus] ?? ""}`} />
-                        <span>
-                            {databaseStatus === "ready"
-                                ? "Saved on this device"
-                                : databaseStatus === "saving"
-                                  ? "Saving…"
-                                  : databaseStatus === "loading"
-                                    ? "Loading session…"
-                                    : "Could not save"}
-                        </span>
-                    </div>
+                    {databaseStatus !== "ready" && (
+                        <div className={styles.DatabaseState} title={databaseStatus}>
+                            <i className={`${styles.StatusDot} ${styles[databaseStatus] ?? ""}`} />
+                            <span>
+                                {databaseStatus === "saving"
+                                    ? "Saving…"
+                                    : databaseStatus === "loading"
+                                      ? "Loading session…"
+                                      : "Could not save"}
+                            </span>
+                        </div>
+                    )}
                 </div>
             </aside>
             <div className={styles.Main}>
                 <header className={styles.WorkspaceBar}>
                     <span>{view === "live" ? "Grind desk" : view === "history" ? "History" : "Settings"}</span>
-                    <span className={styles.WorkspaceStatus}>
-                        <i className={`${styles.StatusDot} ${sessionStatus === "running" ? styles.Running : ""}`} />
-                        {sessionStatus === "running"
-                            ? "Session running"
-                            : sessionStatus === "paused"
-                              ? "Session paused"
-                              : sessionStatus === "finished"
-                                ? "Session complete"
-                                : "Ready to grind"}
-                    </span>
+                    {sessionStatus !== "idle" && (
+                        <span className={styles.WorkspaceStatus}>
+                            <i className={`${styles.StatusDot} ${sessionStatus === "running" ? styles.Running : ""}`} />
+                            {sessionStatus === "running"
+                                ? "Session running"
+                                : sessionStatus === "paused"
+                                  ? "Session paused"
+                                  : "Session complete"}
+                        </span>
+                    )}
                 </header>
                 {databaseError && (
                     <div className={styles.SaveError} role="alert">

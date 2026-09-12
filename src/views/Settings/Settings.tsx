@@ -6,6 +6,9 @@ import {
     saveGarmothApiKey,
     selectGarmothCharacter,
 } from "../../api/tauri";
+import type { SessionState } from "../../domain/session";
+import { formatTimestamp } from "../../format";
+import type { LiveSessionController } from "../../hooks/useLiveSession";
 import type { useLootFont } from "../../hooks/useLootFont";
 import type { useOverlayOpacity } from "../../hooks/useOverlayOpacity";
 import type { Theme } from "../../hooks/useTheme";
@@ -13,18 +16,24 @@ import { isLootFont } from "../../recognition/lootFont";
 import styles from "./Settings.module.css";
 
 export function SettingsView({
+    marketController,
     theme,
     onThemeChange,
     onOpenCapture,
     overlayOpacity,
     lootFont,
 }: {
+    marketController: Pick<
+        LiveSessionController,
+        "session" | "market" | "marketItemIds" | "databaseLoaded" | "editingDisabled" | "changeRegion"
+    >;
     theme: Theme;
     onThemeChange: (theme: Theme) => void;
     onOpenCapture: () => void;
     overlayOpacity: ReturnType<typeof useOverlayOpacity>;
     lootFont: ReturnType<typeof useLootFont>;
 }) {
+    const { session, market, marketItemIds, databaseLoaded, editingDisabled, changeRegion } = marketController;
     const [settings, setSettings] = useState<GarmothSettings | null>(null);
     const [characterIds, setCharacterIds] = useState("");
     const [selectedCharacterId, setSelectedCharacterId] = useState("");
@@ -97,16 +106,92 @@ export function SettingsView({
             <header className="topbar">
                 <div>
                     <h1>Settings</h1>
-                    <p className="page-description">Appearance, capture, and the services you connect.</p>
+                    <p className="page-description">Market, appearance, capture, and the services you connect.</p>
                 </div>
             </header>
 
             <nav className={styles.SectionNavigation} aria-label="Settings sections">
+                <a href="#market">Market</a>
                 <a href="#appearance">Appearance</a>
                 <a href="#capture-preferences">Capture</a>
                 <a href="#integrations">Integrations</a>
             </nav>
             <div className={styles.Preferences}>
+                <section id="market" className="panel" aria-labelledby="market-title">
+                    <div className="panel-heading">
+                        <h2 id="market-title">Market</h2>
+                    </div>
+                    <div className={styles.SettingsForm}>
+                        <label>
+                            Region
+                            <select
+                                aria-label="Region"
+                                value={session.region}
+                                disabled={editingDisabled || market.fetchingPrices}
+                                onChange={(event) => changeRegion(event.target.value as SessionState["region"])}
+                                aria-describedby={session.status === "finished" ? "region-locked" : undefined}
+                            >
+                                <option value="eu">EU</option>
+                                <option value="na">NA</option>
+                            </select>
+                        </label>
+                        {session.status === "finished" && (
+                            <p id="region-locked">Start a new session to change region.</p>
+                        )}
+                        <h3>Market prices</h3>
+                        <div className={styles.MarketDetails} aria-live="polite">
+                            <div>
+                                <p className="eyebrow">Prices from Arsha</p>
+                                {market.marketPrices === null ? (
+                                    <strong>Reading saved {session.region.toUpperCase()} prices...</strong>
+                                ) : market.currentMarketPrices.length === 0 ? (
+                                    <>
+                                        <strong>No {session.region.toUpperCase()} prices saved</strong>
+                                        <span>Fetch once from Arsha, or continue with manual unit prices.</span>
+                                    </>
+                                ) : market.usingFallbackPrices ? (
+                                    <>
+                                        <strong>
+                                            Using {market.marketPriceRegion?.toUpperCase()} prices from{" "}
+                                            {formatTimestamp(market.lastPriceFetch)}
+                                        </strong>
+                                        <span>
+                                            No {session.region.toUpperCase()} snapshot is saved.{" "}
+                                            {market.currentMarketPrices.length} of {marketItemIds.length}{" "}
+                                            {market.marketPriceRegion?.toUpperCase()} profile items are used as
+                                            fallback.
+                                        </span>
+                                    </>
+                                ) : (
+                                    <>
+                                        <strong>
+                                            {session.region.toUpperCase()} prices from{" "}
+                                            {formatTimestamp(market.lastPriceFetch)}
+                                        </strong>
+                                        <span>
+                                            {market.currentMarketPrices.length} of {marketItemIds.length} profile items
+                                            saved locally.
+                                        </span>
+                                    </>
+                                )}
+                                {market.marketError && <span className={styles.Error}>{market.marketError}</span>}
+                            </div>
+                            <button
+                                className="button"
+                                type="button"
+                                disabled={!databaseLoaded || market.fetchingPrices || market.marketPrices === null}
+                                onClick={market.fetchMarketPrices}
+                            >
+                                {market.fetchingPrices
+                                    ? "Fetching..."
+                                    : market.marketPriceRegion !== session.region
+                                      ? `Fetch ${session.region.toUpperCase()} prices`
+                                      : "Refresh prices"}
+                            </button>
+                        </div>
+                    </div>
+                </section>
+
                 <section id="appearance" className="panel">
                     <div className="panel-heading">
                         <div>
