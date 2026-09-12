@@ -1,4 +1,5 @@
 import type { LootAlignmentGuide, LootUiScale } from "../../recognition/displayCapture";
+import { Icon } from "../Icon/Icon";
 import { CaptureCorrection } from "./CaptureCorrection";
 import styles from "./LiveLootCapture.module.css";
 import type { useLiveLootCapture } from "./useLiveLootCapture";
@@ -451,11 +452,11 @@ export function LiveLootCapture({ controller }: { controller: ReturnType<typeof 
                                             aria-label="Fine-tune selected area"
                                         >
                                             {[
-                                                { name: "Up", arrow: "↑", x: 0, y: -1 },
-                                                { name: "Left", arrow: "←", x: -1, y: 0 },
-                                                { name: "Right", arrow: "→", x: 1, y: 0 },
-                                                { name: "Down", arrow: "↓", x: 0, y: 1 },
-                                            ].map(({ name, arrow, x, y }) => (
+                                                { name: "Up", x: 0, y: -1 },
+                                                { name: "Left", x: -1, y: 0 },
+                                                { name: "Right", x: 1, y: 0 },
+                                                { name: "Down", x: 0, y: 1 },
+                                            ].map(({ name, x, y }) => (
                                                 <button
                                                     key={name}
                                                     className="button"
@@ -465,7 +466,7 @@ export function LiveLootCapture({ controller }: { controller: ReturnType<typeof 
                                                     title={`${name} · 1 source pixel`}
                                                     onClick={() => nudgeSelectedRegion(x, y)}
                                                 >
-                                                    <span aria-hidden="true">{arrow}</span>
+                                                    <Icon name="arrow" />
                                                 </button>
                                             ))}
                                         </fieldset>
@@ -534,7 +535,7 @@ export function LiveLootCapture({ controller }: { controller: ReturnType<typeof 
                                         )}
                                     {placementMode !== "localizing" && (
                                         <button
-                                            className={`button ${styles.ConfirmAreas}`}
+                                            className="button primary-button"
                                             type="button"
                                             disabled={!normalRegion || !rareRegion || regionConfirmed || savingRegion}
                                             onClick={confirmRegion}

@@ -316,6 +316,16 @@
     grid-area: right;
 }
 
+.DirectionPad [data-direction="Up"] svg {
+    transform: rotate(-90deg);
+}
+.DirectionPad [data-direction="Left"] svg {
+    transform: rotate(180deg);
+}
+.DirectionPad [data-direction="Down"] svg {
+    transform: rotate(90deg);
+}
+
 .ResetArea {
     font-size: 11px;
 }
@@ -346,17 +356,6 @@
 
 .CalibrationBar :global(.button) {
     font-size: 12px;
-}
-
-.CalibrationBar .ConfirmAreas {
-    color: var(--accent-contrast);
-    border-color: var(--mint);
-    background: var(--mint);
-}
-
-.CalibrationBar .ConfirmAreas:hover:not(:disabled) {
-    border-color: var(--accent-hover);
-    background: var(--accent-hover);
 }
 
 .ScaleControl {
@@ -759,12 +758,12 @@
     font-size: 12px;
 }
 
-.CapturePanel :global(.primary-button) {
+.Intro :global(.primary-button) {
     background: transparent;
     color: var(--text);
     border-color: var(--line-strong);
 }
-.CapturePanel :global(.primary-button):hover:not(:disabled) {
+.Intro :global(.primary-button):hover:not(:disabled) {
     background: var(--surface-raised);
     border-color: var(--button-hover-border);
 }

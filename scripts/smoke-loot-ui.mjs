@@ -84,6 +84,10 @@ await send("Page.enable");
 await send("Page.addScriptToEvaluateOnNewDocument", {
     source: `
     localStorage.clear();
+    // Keep persisted-fixture assertions fast with main's one-minute autosave batching.
+    // The persistence unit tests verify the real interval and batching behavior.
+    const nativeSetInterval = window.setInterval.bind(window);
+    window.setInterval = (callback, delay, ...args) => nativeSetInterval(callback, delay === 60000 ? 100 : delay, ...args);
     window.isTauri = true;
     const calls = window.__calls = [];
     const callbacks = new Map();
@@ -98,6 +102,7 @@ await send("Page.addScriptToEvaluateOnNewDocument", {
         unregisterCallback(id) { callbacks.delete(id); },
         async invoke(command, args = {}) {
             calls.push({ command, args });
+            if (command === "plugin:window|get_all_windows") return [];
             if (command === "load_active_session") return null;
             if (command === "load_loot_font") return window.__savedLootFont ?? "korean";
             if (command === "save_loot_font") {
