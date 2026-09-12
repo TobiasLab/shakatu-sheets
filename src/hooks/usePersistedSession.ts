@@ -16,7 +16,24 @@ export function usePersistedSession(beforeClose?: () => Promise<void>) {
     const [databaseLoaded, setDatabaseLoaded] = useState(false);
     const [databaseStatus, setDatabaseStatus] = useState<DatabaseStatus>("loading");
     const [databaseError, setDatabaseError] = useState("");
-    const persistenceQueue = useRef(createSessionPersistence(saveSession));
+    const saveErrors = useRef(new Map<string, string>());
+    const persistenceQueue = useRef(
+        createSessionPersistence(async (snapshot) => {
+            setDatabaseStatus("saving");
+            try {
+                await saveSession(snapshot);
+                saveErrors.current.delete(snapshot.id);
+                const outstandingError = saveErrors.current.values().next().value;
+                setDatabaseError(outstandingError ?? "");
+                setDatabaseStatus(outstandingError === undefined ? "ready" : "error");
+            } catch (error) {
+                saveErrors.current.set(snapshot.id, String(error));
+                setDatabaseError(String(error));
+                setDatabaseStatus("error");
+                throw error;
+            }
+        }),
+    );
     const [closing, setClosing] = useState(false);
     const closingRef = useRef(false);
 
@@ -83,18 +100,13 @@ export function usePersistedSession(beforeClose?: () => Promise<void>) {
 
     useLayoutEffect(() => {
         if (!databaseLoaded) return;
-        setDatabaseStatus("saving");
-        void persistenceQueue.current
-            .enqueue(session)
-            .then(() => {
-                setDatabaseError("");
-                setDatabaseStatus("ready");
-            })
-            .catch((error: unknown) => {
-                setDatabaseError(String(error));
-                setDatabaseStatus("error");
-            });
+        void persistenceQueue.current.update(session).catch(() => undefined);
     }, [session, databaseLoaded]);
+
+    useEffect(() => {
+        if (!databaseLoaded) return;
+        return persistenceQueue.current.startAutosave();
+    }, [databaseLoaded]);
 
     function requestOverlayTimer(request: OverlayTimerRequest): string | null {
         if (!databaseLoaded || closingRef.current) return "The session is not available for timer changes.";
