@@ -1,3 +1,6 @@
+.CompactPicker {
+    min-width: 0;
+}
 .Picker {
     margin-bottom: 18px;
     min-width: 0;

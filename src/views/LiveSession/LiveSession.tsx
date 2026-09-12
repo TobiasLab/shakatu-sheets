@@ -30,8 +30,8 @@ export function LiveSessionView({
     captureSetupRequest: number;
     onCaptureStatusChange: (status: string) => void;
 }) {
-    const { session, dispatch, databaseLoaded, editingDisabled, spot, drops, changeGrindSpot, market } = controller;
-    const spotEditable = session.status === "idle" && session.elapsedMs === 0 && session.entries.length === 0;
+    const { session, dispatch, databaseLoaded, editingDisabled, spotEditable, spot, drops, changeGrindSpot, market } =
+        controller;
     function acceptCapturedLoot(itemName: string, quantity: number, source: "manual" | "recognition" = "recognition") {
         if (!databaseLoaded) return "The local database is still loading.";
         if (session.status === "finished") return "Finished sessions cannot accept more loot.";

@@ -71,7 +71,8 @@ below 1000px it becomes an icon rail with accessible labels. The workspace bar p
 Place the current task title first, followed by setup/context, the primary overview, and working content. On the Grind desk,
 time and earnings lead the overview; capture and the ledger use the available width. Place actions next to the section they
 affect. Put secondary details behind clearly named disclosures, such as Value breakdown. Region selection and market price
-status/refresh controls belong together in Settings → Market.
+status/refresh controls belong together in Settings → Market. Show the current grind spot there and provide access to the
+shared spot browser, with the same session lock as the desk.
 The workspace omits idle readiness and successful-save messages; loading, saving, and errors remain visible.
 
 Allow control rows to wrap. Use `min-width: 0` for flexible content and `minmax(0, 1fr)` for grid columns that must shrink.

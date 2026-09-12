@@ -28,6 +28,7 @@ export function useLiveSession(session: SessionState, dispatch: Dispatch<Session
         setValuation(spot.trash.valuation);
     }, [session.id, session.grindSpotId, spot.trash]);
 
+    const spotEditable = session.status === "idle" && session.elapsedMs === 0 && session.entries.length === 0;
     const editingDisabled = !databaseLoaded || session.status === "finished";
 
     function chooseDrop(drop: DropTemplate) {
@@ -104,6 +105,7 @@ export function useLiveSession(session: SessionState, dispatch: Dispatch<Session
         drops,
         marketItemIds,
         editingDisabled,
+        spotEditable,
         selectedDrop,
         quantity,
         setQuantity,

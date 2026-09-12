@@ -6,6 +6,7 @@ import {
     saveGarmothApiKey,
     selectGarmothCharacter,
 } from "../../api/tauri";
+import { GrindSpotPicker } from "../../components/GrindSpotPicker/GrindSpotPicker";
 import type { SessionState } from "../../domain/session";
 import { formatTimestamp } from "../../format";
 import type { LiveSessionController } from "../../hooks/useLiveSession";
@@ -25,7 +26,15 @@ export function SettingsView({
 }: {
     marketController: Pick<
         LiveSessionController,
-        "session" | "market" | "marketItemIds" | "databaseLoaded" | "editingDisabled" | "changeRegion"
+        | "session"
+        | "spot"
+        | "market"
+        | "marketItemIds"
+        | "databaseLoaded"
+        | "editingDisabled"
+        | "changeRegion"
+        | "spotEditable"
+        | "changeGrindSpot"
     >;
     theme: Theme;
     onThemeChange: (theme: Theme) => void;
@@ -33,7 +42,17 @@ export function SettingsView({
     overlayOpacity: ReturnType<typeof useOverlayOpacity>;
     lootFont: ReturnType<typeof useLootFont>;
 }) {
-    const { session, market, marketItemIds, databaseLoaded, editingDisabled, changeRegion } = marketController;
+    const {
+        session,
+        spot,
+        market,
+        marketItemIds,
+        databaseLoaded,
+        editingDisabled,
+        changeRegion,
+        spotEditable,
+        changeGrindSpot,
+    } = marketController;
     const [settings, setSettings] = useState<GarmothSettings | null>(null);
     const [characterIds, setCharacterIds] = useState("");
     const [selectedCharacterId, setSelectedCharacterId] = useState("");
@@ -138,7 +157,16 @@ export function SettingsView({
                         {session.status === "finished" && (
                             <p id="region-locked">Start a new session to change region.</p>
                         )}
-                        <h3>Market prices</h3>
+                        <div className={styles.MarketHeading}>
+                            <h3>Market prices for {spot.name}</h3>
+                            <GrindSpotPicker
+                                compact
+                                spot={spot}
+                                disabled={!spotEditable || !databaseLoaded || market.fetchingPrices}
+                                onSelect={changeGrindSpot}
+                            />
+                        </div>
+                        {!spotEditable && <p>Grind spot locked for this session.</p>}
                         <div className={styles.MarketDetails} aria-live="polite">
                             <div>
                                 <p className="eyebrow">Prices from Arsha</p>

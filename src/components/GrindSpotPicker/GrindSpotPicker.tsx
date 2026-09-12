@@ -24,7 +24,9 @@ export function GrindSpotPicker({
     spot,
     disabled,
     onSelect,
+    compact = false,
 }: {
+    compact?: boolean;
     spot: GrindSpotProfile;
     disabled: boolean;
     onSelect: (id: string) => void;
@@ -41,6 +43,7 @@ export function GrindSpotPicker({
 
     useEffect(() => {
         if (disabled) dialog.current?.close();
+        else setPreferences(readPreferences());
     }, [disabled]);
 
     function save(next: SpotPreferences) {
@@ -69,13 +72,17 @@ export function GrindSpotPicker({
     }
 
     return (
-        <section className={styles.Picker} aria-label="Grind spot">
+        <section className={compact ? styles.CompactPicker : styles.Picker} aria-label="Grind spot">
             <div className={styles.Selected}>
-                <img src={spot.trash.icon} alt="" width={40} height={40} />
-                <div className={styles.Identity}>
-                    <span>Grind spot</span>
-                    <h2>{spot.name}</h2>
-                </div>
+                {!compact && (
+                    <>
+                        <img src={spot.trash.icon} alt="" width={40} height={40} />
+                        <div className={styles.Identity}>
+                            <span>Grind spot</span>
+                            <h2>{spot.name}</h2>
+                        </div>
+                    </>
+                )}
                 <button
                     className="button"
                     type="button"
@@ -91,7 +98,7 @@ export function GrindSpotPicker({
                     Browse all spots
                 </button>
             </div>
-            {quickSpotIds(preferences).length > 0 && (
+            {!compact && quickSpotIds(preferences).length > 0 && (
                 <section className={styles.Shortcuts} aria-label="Quick access spots">
                     {quickSpotIds(preferences).map((id) => {
                         const quickSpot = getGrindSpot(id);

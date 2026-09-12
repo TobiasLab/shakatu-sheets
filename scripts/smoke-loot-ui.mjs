@@ -251,6 +251,26 @@ try {
         await evaluate("document.querySelector('dialog[open] li > button').click()");
         await until("window.__session.grindSpotId === 'sycraia-lower-revamp'");
         await screenshot("spot-shortcuts");
+        await click("Settings");
+        await click("Browse all spots");
+        assert.equal(await evaluate("document.activeElement?.type"), "search");
+        await setField('dialog[open] input[type="search"]', "star's end");
+        await click("Star's End");
+        await until("window.__session.grindSpotId === 'stars-end-revamp'");
+        assert(await evaluate("document.querySelector('#market h3').textContent.includes('End')"));
+        assert(await evaluate("document.activeElement.closest('#market') !== null"));
+        await click("Browse all spots");
+        await press("Escape", "Escape", 27);
+        assert(await evaluate("document.activeElement.closest('#market') !== null"));
+        await click("Grind desk");
+        assert(await evaluate("document.querySelector('[aria-label=\"Grind spot\"] h2').textContent.includes('End')"));
+        await click("Settings");
+        await click("Browse all spots");
+        await setField('dialog[open] input[type="search"]', "sycraia lower");
+        await evaluate("document.querySelector('dialog[open] li > button').click()");
+        await until("window.__session.grindSpotId === 'sycraia-lower-revamp'");
+        await screenshot("settings-spot-browser");
+        await click("Grind desk");
         await click("Collapse sidebar");
         assert(
             await evaluate("document.querySelector('aside').getBoundingClientRect().width <= 70"),
@@ -925,6 +945,7 @@ try {
         assert.equal(await evaluate(`${reviewEntries}.length`), 0);
         await click("Settings");
         assert(await evaluate("document.querySelector('#market select').disabled"));
+        assert(await evaluate("document.querySelector('#market [aria-label=\"Grind spot\"] button').disabled"));
         assert(await evaluate("document.querySelector('#region-locked').textContent.includes('Start a new session')"));
         await evaluate("window.dispatchEvent(new Event('shakatu-stop-capture'))");
         assert.equal(errors.length, 0, JSON.stringify(errors));
