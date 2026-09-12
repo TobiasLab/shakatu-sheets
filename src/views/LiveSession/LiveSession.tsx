@@ -4,8 +4,7 @@ import { Icon } from "../../components/Icon/Icon";
 import { LiveLootCapture } from "../../components/LiveLootCapture/LiveLootCapture";
 import { useLiveLootCapture } from "../../components/LiveLootCapture/useLiveLootCapture";
 import { LootLedger } from "../../components/LootLedger/LootLedger";
-import { createEntry, type SessionState } from "../../domain/session";
-import { formatTimestamp } from "../../format";
+import { createEntry } from "../../domain/session";
 import type { LiveSessionController } from "../../hooks/useLiveSession";
 import type { LootFont } from "../../recognition/lootFont";
 import styles from "./LiveSession.module.css";
@@ -31,18 +30,7 @@ export function LiveSessionView({
     captureSetupRequest: number;
     onCaptureStatusChange: (status: string) => void;
 }) {
-    const {
-        session,
-        dispatch,
-        databaseLoaded,
-        editingDisabled,
-        spot,
-        drops,
-        marketItemIds,
-        changeRegion,
-        changeGrindSpot,
-        market,
-    } = controller;
+    const { session, dispatch, databaseLoaded, editingDisabled, spot, drops, changeGrindSpot, market } = controller;
     const spotEditable = session.status === "idle" && session.elapsedMs === 0 && session.entries.length === 0;
     function acceptCapturedLoot(itemName: string, quantity: number, source: "manual" | "recognition" = "recognition") {
         if (!databaseLoaded) return "The local database is still loading.";
@@ -53,7 +41,7 @@ export function LiveSessionView({
         const marketPrice = market.currentMarketPrices.find((price) => price.itemId === drop.marketItemId)?.basePrice;
         const unitPrice = marketPrice ?? drop.unitPrice;
         if (unitPrice === null || !Number.isSafeInteger(unitPrice) || unitPrice < 0) {
-            return "No valid price is available. Fetch market prices or add this item manually.";
+            return "No valid price is available. Fetch prices in Settings → Market or add this item manually.";
         }
         const combinedQuantity = session.entries.reduce(
             (total, entry) =>
@@ -165,85 +153,6 @@ export function LiveSessionView({
                     onSelect={changeGrindSpot}
                 />
             )}
-            <section className={styles.SetupBar} aria-label="Session setup">
-                <div className={styles.SessionMeta}>
-                    <label>
-                        <span className="sr-only">Region</span>
-                        <select
-                            aria-label="Region"
-                            value={session.region}
-                            disabled={editingDisabled || market.fetchingPrices}
-                            onChange={(event) => changeRegion(event.target.value as SessionState["region"])}
-                        >
-                            <option value="eu">EU</option>
-                            <option value="na">NA</option>
-                        </select>
-                    </label>
-                </div>
-                <details className={styles.MarketSnapshot}>
-                    <summary>
-                        <span>Market prices</span>
-                        <strong>
-                            {market.marketPrices === null
-                                ? "Loading…"
-                                : market.currentMarketPrices.length === 0
-                                  ? "No saved prices"
-                                  : market.usingFallbackPrices
-                                    ? `${market.marketPriceRegion?.toUpperCase()} fallback`
-                                    : `${session.region.toUpperCase()} snapshot saved`}
-                        </strong>
-                    </summary>
-                    <div className={styles.MarketDetails} aria-live="polite">
-                        <div>
-                            <p className="eyebrow">Prices from Arsha</p>
-                            {market.marketPrices === null ? (
-                                <strong>Reading saved {session.region.toUpperCase()} prices...</strong>
-                            ) : market.currentMarketPrices.length === 0 ? (
-                                <>
-                                    <strong>No {session.region.toUpperCase()} prices saved</strong>
-                                    <span>Fetch once from Arsha, or continue with manual unit prices.</span>
-                                </>
-                            ) : market.usingFallbackPrices ? (
-                                <>
-                                    <strong>
-                                        Using {market.marketPriceRegion?.toUpperCase()} prices from{" "}
-                                        {formatTimestamp(market.lastPriceFetch)}
-                                    </strong>
-                                    <span>
-                                        No {session.region.toUpperCase()} snapshot is saved.{" "}
-                                        {market.currentMarketPrices.length} of {marketItemIds.length}{" "}
-                                        {market.marketPriceRegion?.toUpperCase()} profile items are used as fallback.
-                                    </span>
-                                </>
-                            ) : (
-                                <>
-                                    <strong>
-                                        {session.region.toUpperCase()} prices from{" "}
-                                        {formatTimestamp(market.lastPriceFetch)}
-                                    </strong>
-                                    <span>
-                                        {market.currentMarketPrices.length} of {marketItemIds.length} profile items
-                                        saved locally.
-                                    </span>
-                                </>
-                            )}
-                            {market.marketError && <span className={styles.MarketError}>{market.marketError}</span>}
-                        </div>
-                        <button
-                            className="button"
-                            type="button"
-                            disabled={!databaseLoaded || market.fetchingPrices || market.marketPrices === null}
-                            onClick={market.fetchMarketPrices}
-                        >
-                            {market.fetchingPrices
-                                ? "Fetching..."
-                                : market.marketPriceRegion !== session.region
-                                  ? `Fetch ${session.region.toUpperCase()} prices`
-                                  : "Refresh prices"}
-                        </button>
-                    </div>
-                </details>
-            </section>
             <SessionMetrics controller={controller} visible={visible} onFinish={() => void requestFinish()} />
             <dialog
                 ref={finishDialog}

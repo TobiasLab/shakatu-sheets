@@ -137,8 +137,7 @@
     border-radius: 50%;
     background: var(--muted);
 }
-.Running,
-.ready {
+.Running {
     background: var(--success);
 }
 .saving {
