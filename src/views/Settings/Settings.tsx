@@ -125,7 +125,6 @@ export function SettingsView({
             <header className="topbar">
                 <div>
                     <h1>Settings</h1>
-                    <p className="page-description">Market, appearance, capture, and the services you connect.</p>
                 </div>
             </header>
 
