@@ -1,5 +1,8 @@
 # Design
 
+See the [design language](design-language.md) for visual foundations, component conventions, modal sizing, and UI review
+criteria. This page describes screen behavior and product flows.
+
 The application uses a normal desktop window rather than an in-game overlay. The grind desk puts session time and earnings first. Neutral dark is the default for new installations; saved
 light, moss, and dark preferences are retained. The current flow is:
 
@@ -52,15 +55,10 @@ The local video sampling and annotation contract is described in the
 
 ## Workspace design
 
-The interface follows a restrained desktop workspace direction inspired by the Codex app: neutral dark/light surfaces,
-system typography, plain section dividers, small monochrome icons, and color reserved for meaningful states. A left sidebar
-provides Grind desk, History, Capture setup, and Settings, plus the current session and save state. It can collapse on desktop
-and becomes a labeled-for-assistive-technology icon rail below 1000px. A thin workspace bar keeps session status visible at
-compact sizes; persistence failures appear in a full-width alert. The sidebar collapse preference is transient UI state.
-
-Main screens use flat content rather than metric cards or decorative panels. Dark, light, and moss themes retain their saved
-identifiers. Theme previews reflect the sidebar/workspace contrast. Styling uses CSS, bundled item icons, and small SVGs;
-there are no remote fonts, automatic network requests, new dependencies, or decorative animations.
+The shared visual rules are defined in the [design language](design-language.md). A left sidebar provides Grind desk,
+History, Capture setup, and Settings, plus the current session and save state. It can collapse on desktop and becomes a
+labeled-for-assistive-technology icon rail below 1000px. A thin workspace bar keeps session status visible at compact sizes;
+persistence failures appear in a full-width alert. The sidebar collapse preference is transient UI state.
 
 The desk groups spot, region, and an explicit market-price disclosure above a single earnings/timer overview. The spot
 selector explains its lock after time or entries are recorded. Net silver/hour shows a dash until elapsed time is available.
