@@ -254,3 +254,15 @@
 .MarketDetails .Error {
     color: var(--danger);
 }
+
+.MarketHeading {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 12px;
+}
+.MarketHeading h3 {
+    min-width: 0;
+    overflow-wrap: anywhere;
+}
