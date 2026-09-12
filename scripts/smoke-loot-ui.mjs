@@ -107,7 +107,14 @@ await send("Page.addScriptToEvaluateOnNewDocument", {
             }
             if (command === "load_overlay_opacity") return 100;
             if (command === "save_overlay_opacity") return;
-            if (command === "load_market_prices") return [];
+            if (command === "load_market_prices") return window.__marketPrices?.[args.region] ?? [];
+            if (command === "fetch_market_prices") {
+                await new Promise(resolve => setTimeout(resolve, 250));
+                if (window.__failPrices) throw Error("Synthetic price failure");
+                const prices = args.itemIds.map(itemId => ({itemId, region:args.region, basePrice:12345, fetchedAt:Date.now()}));
+                (window.__marketPrices ??= {})[args.region] = prices;
+                return prices;
+            }
             if (command === "list_finished_sessions") return [{ session: {id:"fixture-finished",status:"finished",region:"eu",grindSpotId:"sycraia-lower-revamp",startedAt:null,elapsedMs:3600000,entries:[{id:"fixture-loot",name:"Ancient Spirit Dust",quantity:12,unitPrice:3000000,valuation:"vendor",saleMultiplier:1,source:"manual",createdAt:1788520000000}]},finishedAt:1788523600000,garmothUploadStatus:null }];
             if (command === "native_capture_capabilities") return { backend: ${JSON.stringify(backend)}, available: true, reason: null, debugRoiSamples: true };
             if (command === "load_loot_capture_settings") return null;
@@ -174,7 +181,14 @@ try {
     await send("Emulation.setDeviceMetricsOverride", { width: 1280, height: 820, deviceScaleFactor: 1, mobile: false });
     await send("Page.navigate", { url: appUrl });
     await until("document.querySelector('button.primary-button')?.disabled === false");
-    if (process.env.UI_SCREENSHOT_ONLY !== "1") assert(await evaluate("!document.querySelector('details').open"));
+    if (process.env.UI_SCREENSHOT_ONLY !== "1") {
+        assert(await evaluate("!document.querySelector('select[aria-label=Region]')"));
+        assert(
+            await evaluate(
+                "!document.body.textContent.includes('Ready to grind') && !document.body.textContent.includes('Saved on this device')",
+            ),
+        );
+    }
     await mkdir(output, { recursive: true });
     async function screenshot(name) {
         const { data } = await send("Page.captureScreenshot", { format: "png" });
@@ -701,8 +715,28 @@ try {
             await evaluate("document.activeElement.textContent.includes('Add loot or expense')"),
             "Dismissal must restore the opener",
         );
-        await setField('[aria-label="Session setup"] select[aria-label="Region"]', "na");
+        await click("Settings");
+        await until("document.querySelector('#market').textContent.includes('No EU prices saved')");
+        await click("Fetch EU prices");
+        await until("document.querySelector('#market').textContent.includes('EU prices from')");
+        await setField('#market select[aria-label="Region"]', "na");
         await until("window.__session.region === 'na'");
+        await until("document.querySelector('#market').textContent.includes('Using EU prices from')");
+        await click("Fetch NA prices");
+        await until("document.querySelector('#market').textContent.includes('NA prices from')");
+        const savedPrices = await evaluate("JSON.stringify(window.__marketPrices.na)");
+        await evaluate("window.__failPrices = true");
+        await click("Refresh prices");
+        await until(
+            "document.querySelector('#market').textContent.includes('Refresh failed; saved prices are unchanged.')",
+        );
+        assert.equal(await evaluate("JSON.stringify(window.__marketPrices.na)"), savedPrices);
+        await evaluate("window.__failPrices = false");
+        await click("Refresh prices");
+        await until(
+            "!document.querySelector('#market select').disabled && !document.querySelector('#market').textContent.includes('Synthetic price failure')",
+        );
+        await click("Grind desk");
         await click("Add loot or expense");
         assert.equal(
             await evaluate("document.querySelector('dialog[open] input[placeholder=Required]').value"),
@@ -889,6 +923,9 @@ try {
             "Finishing must not add dismissed or unresolved drops",
         );
         assert.equal(await evaluate(`${reviewEntries}.length`), 0);
+        await click("Settings");
+        assert(await evaluate("document.querySelector('#market select').disabled"));
+        assert(await evaluate("document.querySelector('#region-locked').textContent.includes('Start a new session')"));
         await evaluate("window.dispatchEvent(new Event('shakatu-stop-capture'))");
         assert.equal(errors.length, 0, JSON.stringify(errors));
         console.log(

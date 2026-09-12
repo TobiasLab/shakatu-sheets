@@ -1,4 +1,5 @@
 .SectionNavigation {
+    flex-wrap: wrap;
     display: flex;
     gap: 20px;
     margin-bottom: 8px;
@@ -233,4 +234,23 @@
     .SettingsForm {
         max-width: none;
     }
+}
+
+.MarketDetails {
+    display: grid;
+    gap: 14px;
+}
+.MarketDetails strong {
+    font-size: 12px;
+    font-weight: 500;
+}
+.MarketDetails span {
+    display: block;
+    color: var(--muted);
+    font-size: 12px;
+    margin-top: 6px;
+    line-height: 1.6;
+}
+.MarketDetails .Error {
+    color: var(--danger);
 }

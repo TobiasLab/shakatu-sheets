@@ -86,11 +86,15 @@ try {
     await evaluate(
         "Array.from(document.querySelectorAll('button[type=submit]')).find(b => b.textContent.includes('Add to ledger')).click(); return true;",
     );
-    await waitFor("return document.body.textContent.includes('Saved on this device')");
-    const saved = await request(`/session/${session}/execute/async`, {
-        script: "const done = arguments[arguments.length - 1]; window.__TAURI_INTERNALS__.invoke('load_active_session').then(done, error => done({ error: String(error) }));",
-        args: [],
-    });
+    let saved;
+    for (let attempt = 0; attempt < 100; attempt += 1) {
+        saved = await request(`/session/${session}/execute/async`, {
+            script: "const done = arguments[arguments.length - 1]; window.__TAURI_INTERNALS__.invoke('load_active_session').then(done, error => done({ error: String(error) }));",
+            args: [],
+        });
+        if (saved?.entries?.length === 1) break;
+        await delay(100);
+    }
     assert.equal(saved?.entries?.length, 1, "The manual ledger entry must reach real SQLite");
     await request(`/session/${session}/refresh`, {});
     await waitFor(`return Boolean(${button("Choose capture source")} && !${button("Choose capture source")}.disabled)`);

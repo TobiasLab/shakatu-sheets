@@ -84,6 +84,7 @@ export function App() {
                     />
                 ) : view === "settings" ? (
                     <SettingsView
+                        marketController={liveSession}
                         theme={theme}
                         onThemeChange={setTheme}
                         onOpenCapture={openCaptureSetup}
