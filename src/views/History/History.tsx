@@ -437,6 +437,36 @@ export function HistoryView({
                 </div>
             </dialog>
 
+            {history && !error && historyTotals.sessionCount > 0 && (
+                <section className={styles.Overview} aria-label="Filtered history summary">
+                    <div>
+                        <span>
+                            Recorded net · {historyTotals.sessionCount}{" "}
+                            {historyTotals.sessionCount === 1 ? "session" : "sessions"}
+                        </span>
+                        <strong>
+                            {formatSilver(historyTotals.net, true)}
+                            <small> silver</small>
+                        </strong>
+                    </div>
+                    <div>
+                        <span>Time tracked</span>
+                        <strong>{formatDuration(trackedMs)}</strong>
+                    </div>
+                    <div>
+                        <span>Net / hour</span>
+                        <strong>
+                            {historyRate === null ? "—" : formatSilver(historyRate, true)}
+                            <small> silver</small>
+                        </strong>
+                        {historyTotals.zeroDurationCount > 0 && (
+                            <span className={styles.TimedCount}>
+                                {historyTotals.sessionCount - historyTotals.zeroDurationCount} timed sessions
+                            </span>
+                        )}
+                    </div>
+                </section>
+            )}
             {history && !error && comparisonSpots.length > 0 && (
                 <section className={styles.Comparisons} aria-label="Grind spot comparisons">
                     <h2>Grind spot comparisons</h2>
@@ -482,36 +512,6 @@ export function HistoryView({
                             </tbody>
                         </table>
                     </section>
-                </section>
-            )}
-            {history && !error && historyTotals.sessionCount > 0 && (
-                <section className={styles.Overview} aria-label="Filtered history summary">
-                    <div>
-                        <span>
-                            Recorded net · {historyTotals.sessionCount}{" "}
-                            {historyTotals.sessionCount === 1 ? "session" : "sessions"}
-                        </span>
-                        <strong>
-                            {formatSilver(historyTotals.net, true)}
-                            <small> silver</small>
-                        </strong>
-                    </div>
-                    <div>
-                        <span>Time tracked</span>
-                        <strong>{formatDuration(trackedMs)}</strong>
-                    </div>
-                    <div>
-                        <span>Net / hour</span>
-                        <strong>
-                            {historyRate === null ? "—" : formatSilver(historyRate, true)}
-                            <small> silver</small>
-                        </strong>
-                        {historyTotals.zeroDurationCount > 0 && (
-                            <span className={styles.TimedCount}>
-                                {historyTotals.sessionCount - historyTotals.zeroDurationCount} timed sessions
-                            </span>
-                        )}
-                    </div>
                 </section>
             )}
             {deleteMessage && (
