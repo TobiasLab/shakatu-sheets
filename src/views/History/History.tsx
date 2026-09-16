@@ -8,7 +8,7 @@ import {
     loadGarmothSettings,
     uploadGarmothSession,
 } from "../../api/tauri";
-import { grindSpots } from "../../data/grindSpots";
+import { getDropIcon, grindSpots } from "../../data/grindSpots";
 import { historyDateBoundary, netPerHour, rankSpots, summarizeHistory } from "../../domain/history";
 import { calculateTotals } from "../../domain/session";
 import { formatDuration, formatSilver, formatTimestamp } from "../../format";
@@ -687,24 +687,37 @@ export function HistoryView({
                                 </div>
                             ) : (
                                 <div className={styles.HistoryEntries}>
-                                    {selected.session.entries.map((entry) => (
-                                        <div className={styles.HistoryEntry} key={entry.id}>
-                                            <div className={`item-swatch ${entry.valuation}`}>
-                                                {entry.valuation === "expense" ? "-" : "+"}
+                                    {selected.session.entries.map((entry) => {
+                                        const icon = getDropIcon(selected.session.grindSpotId, entry.name);
+                                        return (
+                                            <div className={styles.HistoryEntry} key={entry.id}>
+                                                {icon ? (
+                                                    <img
+                                                        className={styles.ItemIcon}
+                                                        src={icon}
+                                                        alt=""
+                                                        width={30}
+                                                        height={30}
+                                                    />
+                                                ) : (
+                                                    <div className={`item-swatch ${entry.valuation}`}>
+                                                        {entry.valuation === "expense" ? "−" : "+"}
+                                                    </div>
+                                                )}
+                                                <span>
+                                                    <strong>{entry.name}</strong>
+                                                    <small>
+                                                        x{formatSilver(entry.quantity)} ·{" "}
+                                                        {formatSilver(entry.unitPrice)} each
+                                                    </small>
+                                                </span>
+                                                <strong className={entry.valuation === "expense" ? "negative" : ""}>
+                                                    {entry.valuation === "expense" ? "-" : ""}
+                                                    {formatSilver(entry.quantity * entry.unitPrice, true)}
+                                                </strong>
                                             </div>
-                                            <span>
-                                                <strong>{entry.name}</strong>
-                                                <small>
-                                                    x{formatSilver(entry.quantity)} · {formatSilver(entry.unitPrice)}{" "}
-                                                    each
-                                                </small>
-                                            </span>
-                                            <strong className={entry.valuation === "expense" ? "negative" : ""}>
-                                                {entry.valuation === "expense" ? "-" : ""}
-                                                {formatSilver(entry.quantity * entry.unitPrice, true)}
-                                            </strong>
-                                        </div>
-                                    ))}
+                                        );
+                                    })}
                                 </div>
                             )}
                             <div className={styles.GarmothUpload}>

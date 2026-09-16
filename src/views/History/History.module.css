@@ -210,6 +210,9 @@
     font-size: 12px;
     font-variant-numeric: tabular-nums;
 }
+.ItemIcon {
+    object-fit: contain;
+}
 .HistoryEntry:last-child {
     border: 0;
 }
