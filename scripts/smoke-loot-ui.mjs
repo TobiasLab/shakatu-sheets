@@ -120,7 +120,41 @@ await send("Page.addScriptToEvaluateOnNewDocument", {
                 (window.__marketPrices ??= {})[args.region] = prices;
                 return prices;
             }
-            if (command === "list_finished_sessions") return [{ session: {id:"fixture-finished",status:"finished",region:"eu",grindSpotId:"sycraia-lower-revamp",startedAt:null,elapsedMs:3600000,entries:[{id:"fixture-loot",name:"Ancient Spirit Dust",quantity:12,unitPrice:3000000,valuation:"vendor",saleMultiplier:1,source:"manual",createdAt:1788520000000}]},finishedAt:1788523600000,garmothUploadStatus:null }];
+            if (command === "list_finished_sessions") {
+                if (window.__failHistory) throw Error("Synthetic history read failure");
+                const fixture = { session: {id:"fixture-finished",status:"finished",region:"eu",grindSpotId:"sycraia-lower-revamp",startedAt:null,elapsedMs:3600000,entries:[{id:"fixture-loot",name:"Ancient Spirit Dust",quantity:12,unitPrice:3000000,valuation:"vendor",saleMultiplier:1,source:"manual",createdAt:1788520000000}]},finishedAt:1788523600000,garmothUploadStatus:null };
+                const source = window.__historyRecords ?? [fixture];
+                const q = args.query;
+                const scope = source.filter(r => r.session.status === "finished" && r.session.region === q.region && (q.finishedFromMs === null || r.finishedAt >= q.finishedFromMs) && (q.finishedBeforeMs === null || r.finishedAt < q.finishedBeforeMs));
+                const groups = new Map();
+                for (const r of scope) {
+                    const key = r.session.grindSpotId;
+                    const group = groups.get(key) ?? { grindSpotId:key, sessionCount:0, elapsedMs:0, net:0, timedNet:0, zeroDurationCount:0 };
+                    const net = r.session.entries.reduce((sum,e) => sum + e.quantity*e.unitPrice*(e.valuation === "expense" ? -1 : e.saleMultiplier),0);
+                    group.sessionCount++; group.elapsedMs += r.session.elapsedMs; group.net += net;
+                    if (r.session.elapsedMs > 0) group.timedNet += net; else group.zeroDurationCount++;
+                    groups.set(key,group);
+                }
+                const filtered = scope.filter(r => q.grindSpotId === null || r.session.grindSpotId === q.grindSpotId).sort((a,b) => b.finishedAt-a.finishedAt || a.session.id.localeCompare(b.session.id));
+                const offset = Math.min(q.offset,Math.floor(Math.max(0,filtered.length-1)/q.limit)*q.limit);
+                const result = {records:filtered.slice(offset,offset+q.limit), totalCount:filtered.length, offset, spotSummaries:[...groups.values()]};
+                if (window.__holdHistory) {
+                    window.__holdHistory = false;
+                    await new Promise(resolve => { window.__releaseHistory = resolve; });
+                }
+                return result;
+            }
+            if (command === "delete_finished_session") {
+                window.__historyRecords = window.__historyRecords.filter(r => r.session.id !== args.id);
+                if (window.__failHistoryAfterDelete) window.__failHistory = true;
+                return;
+            }
+            if (command === "reopen_session") {
+                const record = window.__historyRecords.find(r => r.session.id === args.id);
+                if (record.garmothUploadStatus !== null) throw Error("sessions sent to Garmoth cannot be reopened");
+                record.session.status = "paused";
+                return record.session;
+            }
             if (command === "native_capture_capabilities") return { backend: ${JSON.stringify(backend)}, available: true, reason: null, debugRoiSamples: true };
             if (command === "load_loot_capture_settings") return null;
             if (command === "load_garmoth_settings") return { apiKeyConfigured: false, characterIds: [], characters: [], selectedCharacterId: null };
@@ -650,14 +684,108 @@ try {
             `window.__calls.filter(c => c.command === 'acknowledge_native_display_frame').length > ${ackCount}`,
         );
         await screenshot("history");
-        await setField("main > header select", "stars-end-revamp");
-        await until('document.body.textContent.includes("No Star\'s End sessions")');
+        await setField('select[aria-label="Grind spot"]', "stars-end-revamp");
+        await until('document.body.textContent.includes("No sessions match these filters")');
         assert.equal(
             await evaluate("document.querySelector('[aria-label=\"Filtered history summary\"]') === null"),
             true,
             "Empty filters must not show totals from another profile",
         );
-        await setField("main > header select", "all");
+        await setField('select[aria-label="Grind spot"]', "all");
+        await evaluate(`window.__historyRecords = Array.from({length:41}, (_,i) => ({
+            session:{id:'history-'+String(i).padStart(2,'0'),status:'finished',region:'eu',grindSpotId:i === 0 ? 'stars-end-revamp' : 'sycraia-lower-revamp',startedAt:null,elapsedMs:i === 1 ? 0 : 3600000,
+                entries:[{id:'entry-'+i,name:'Ancient Spirit Dust',quantity:1,unitPrice:100000000,valuation:'vendor',saleMultiplier:1,source:'manual',createdAt:Date.UTC(2026,8,1)}]},
+            finishedAt:Date.UTC(2026,8,1)+i*86400000,garmothUploadStatus:null
+        })); window.confirm = () => true;`);
+        await click("Reload");
+        await until('document.body.innerText.includes("1–20 of 41 sessions")');
+        await setField('select[aria-label="Grind spot"]', "stars-end-revamp");
+        await until('document.body.innerText.includes("1–1 of 1 sessions")');
+        await setField('select[aria-label="Grind spot"]', "all");
+        await until('document.body.innerText.includes("1–20 of 41 sessions")');
+        const fullSummary = await evaluate(
+            "document.querySelector('[aria-label=\"Filtered history summary\"]').innerText",
+        );
+        await click("Next");
+        await until('document.body.innerText.includes("21–40 of 41 sessions")');
+        await until('document.activeElement?.textContent === "Next"');
+        assert.equal(
+            await evaluate("document.querySelector('[aria-label=\"Filtered history summary\"]').innerText"),
+            fullSummary,
+            "Pagination must not change full-history totals",
+        );
+        await click("Next");
+        await until('document.body.innerText.includes("41–41 of 41 sessions")');
+        await click("Delete");
+        await until('document.body.innerText.includes("21–40 of 40 sessions")');
+        await until('document.activeElement?.getAttribute("aria-pressed") === "true"');
+        await click("Previous");
+        await until('document.body.innerText.includes("1–20 of 40 sessions")');
+        await setField('select[aria-label="Grind spot"]', "stars-end-revamp");
+        await until('document.body.innerText.includes("No sessions match these filters")');
+        assert.equal(
+            await evaluate("document.querySelector('[aria-label=\"Grind spot comparisons\"]') !== null"),
+            true,
+            "Spot filter must not remove comparisons for other spots",
+        );
+        await setField('select[aria-label="Recorded region"]', "na");
+        await until(
+            'document.body.innerText.includes("No sessions match these filters") && document.querySelector(\'[aria-label="Grind spot comparisons"]\') === null',
+        );
+        await click("Clear filters");
+        await until('document.body.innerText.includes("1–20 of 40 sessions")');
+        await evaluate("window.__holdHistory = true");
+        await click("Reload");
+        await until('typeof window.__releaseHistory === "function"');
+        await setField('select[aria-label="Recorded region"]', "na");
+        await until('document.body.innerText.includes("No sessions match these filters")');
+        await evaluate("window.__releaseHistory()");
+        await delay(100);
+        assert.equal(
+            await evaluate("document.querySelector('[aria-label=\"Grind spot comparisons\"]') === null"),
+            true,
+            "Late responses must not restore another region's results",
+        );
+        await click("Clear filters");
+        await until('document.body.innerText.includes("1–20 of 40 sessions")');
+        await setField('input[type="date"]', "2026-10-01");
+        await until('document.body.innerText.includes("1–11 of 11 sessions")');
+        await evaluate(
+            `(() => { const input = [...document.querySelectorAll('input[type="date"]')][1]; Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value').set.call(input,'2026-09-01'); input.dispatchEvent(new Event('input',{bubbles:true})); input.dispatchEvent(new Event('change',{bubbles:true})); })()`,
+        );
+        await until('document.body.innerText.includes("The From date must be on or before the To date")');
+        await click("Clear filters");
+        await until('document.body.innerText.includes("1–20 of 40 sessions")');
+        await evaluate("window.__failHistoryAfterDelete = true");
+        await click("Delete");
+        await until('document.body.innerText.includes("Session was deleted, but history could not be refreshed")');
+        assert.equal(
+            await evaluate("document.querySelector('[aria-label=\"Grind spot comparisons\"]') === null"),
+            true,
+            "Failed refresh must not show stale rankings",
+        );
+        await evaluate("window.__failHistory = false; window.__failHistoryAfterDelete = false");
+        await click("Reload");
+        await until('document.body.innerText.includes("1–20 of 39 sessions")');
+        await screenshot("history-comparisons");
+        await send("Emulation.setDeviceMetricsOverride", {
+            width: 640,
+            height: 900,
+            deviceScaleFactor: 1,
+            mobile: false,
+        });
+        await screenshot("history-comparisons-compact");
+        assert.equal(
+            await evaluate("document.documentElement.scrollWidth <= innerWidth"),
+            true,
+            "History must not overflow the viewport",
+        );
+        await send("Emulation.setDeviceMetricsOverride", {
+            width: 1280,
+            height: 820,
+            deviceScaleFactor: 1,
+            mobile: false,
+        });
         await click("Settings");
         await until("document.querySelector('#loot-font')?.disabled === false");
         assert.equal(await evaluate("document.querySelector('#loot-font').value"), "korean");

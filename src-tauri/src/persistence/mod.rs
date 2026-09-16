@@ -20,7 +20,7 @@ pub(crate) use market_prices::{save_market_price_records, MarketPriceSnapshot, R
 pub(crate) use sessions::{load_session_for_upload, SessionEntry, SessionStatus, Valuation};
 pub(crate) use settings::{load_setting, save_settings, save_settings_if_unchanged};
 
-const DATABASE_VERSION: i64 = 2;
+const DATABASE_VERSION: i64 = 3;
 
 pub struct DatabasePath(pub PathBuf);
 
@@ -203,6 +203,23 @@ fn migrate(connection: &mut Connection) -> Result<(), String> {
             .map_err(|error| error.to_string())?;
         transaction.commit().map_err(|error| error.to_string())?;
         current_version = 2;
+    }
+
+    if current_version < 3 {
+        let transaction = connection
+            .transaction()
+            .map_err(|error| error.to_string())?;
+        transaction
+            .execute_batch(
+                "CREATE INDEX sessions_finished_region_time_idx
+                ON sessions(region, COALESCE(finished_at, updated_at) DESC, id ASC)
+                WHERE status = 'finished';
+             INSERT INTO schema_migrations (version, applied_at)
+                VALUES (3, unixepoch('subsec') * 1000);",
+            )
+            .map_err(|error| error.to_string())?;
+        transaction.commit().map_err(|error| error.to_string())?;
+        current_version = 3;
     }
 
     if current_version != DATABASE_VERSION {

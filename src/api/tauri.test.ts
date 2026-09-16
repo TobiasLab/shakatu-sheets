@@ -18,6 +18,7 @@ vi.mock("@tauri-apps/api/core", () => ({
 import {
     debugRoiSampleCollectionStatus,
     type LootCaptureSettings,
+    listFinishedSessions,
     type NativeCaptureSelection,
     parseNativeCaptureMessage,
     setNativeDisplayCapturePreviewEnabled,
@@ -272,5 +273,22 @@ describe("native capture capability routing", () => {
         tauri.invoke.mockResolvedValueOnce(capabilities);
         expect(await nativeCaptureCapabilities()).toEqual(capabilities);
         expect(tauri.invoke).toHaveBeenLastCalledWith("native_capture_capabilities");
+    });
+});
+
+describe("history query boundary", () => {
+    it("sends region, spot, dates, and pagination to SQLite", async () => {
+        const query = {
+            region: "na" as const,
+            grindSpotId: "older",
+            finishedFromMs: 1000,
+            finishedBeforeMs: 2000,
+            offset: 20,
+            limit: 20,
+        };
+        const result = { records: [], totalCount: 0, offset: 0, spotSummaries: [] };
+        tauri.invoke.mockResolvedValueOnce(result);
+        expect(await listFinishedSessions(query)).toEqual(result);
+        expect(tauri.invoke).toHaveBeenLastCalledWith("list_finished_sessions", { query });
     });
 });

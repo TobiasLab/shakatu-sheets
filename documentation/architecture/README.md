@@ -15,8 +15,12 @@ belongs to one session and resets when that session changes. Confirming a valid 
 transition; normal snapshot persistence then stores the imported entries. No screenshot bytes or OCR draft data cross
 the Tauri command boundary.
 
-The history view requests the 20 newest finished sessions from SQLite, filters them by the selected grind-spot profile,
-and calculates display totals with the same pure frontend function as the live view. Normal saves cannot change finished
+The history view requests pages of 20 finished sessions, with region, grind-spot, and completion-date filters applied in
+SQLite before pagination. A single read transaction returns the page and aggregates across all completed sessions in the
+selected region/date range. Entry values are aggregated per session before spot grouping so counts and duration are not
+multiplied by the number of entries. SQL mirrors the existing entry valuation calculation; pure TypeScript history
+functions derive duration-weighted rates and ranking from the compact aggregate facts. Individual session details still
+use the same pure frontend calculation as the live view. Normal saves cannot change finished
 sessions. Reopening is a separate backend command that atomically returns one finished session to a paused state without
 replacing an active session that contains progress. Deletion is also a separate backend command, requires the row to still
 be finished, and relies on SQLite foreign-key cascades for session-owned records.
@@ -59,7 +63,7 @@ the current structure.
 The grind desk stays mounted when History or Settings is selected. Its `useLiveLootCapture` hook owns capture,
 recognition, and pending insertion retries; the component renders setup and review controls. `SessionTools` owns native
 entry/import dialogs and keeps their contents mounted when closed. Ledger search, filters, draft edits, and submission feedback
-are transient presentation state. History aggregates only the fetched, filtered records using the existing session calculations. Finishing a session or
+are transient presentation state. History totals cover every matching completed session, independently of the visible page. Finishing a session or
 explicitly stopping capture or replacing the session tears the pipeline down. Navigation and minimization do not stop recognition. Preview
 requests are serialized and follow setup visibility, page visibility, and window minimization. One metadata preview
 still announces a new capture source or changed dimensions; an unconfigured hidden stream does not send repeated

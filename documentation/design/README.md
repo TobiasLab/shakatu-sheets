@@ -36,7 +36,7 @@ network access only occurs after the user presses the Arsha fetch button. Saved 
 remain manually editable when adding an entry. If the selected region has no saved prices, the interface clearly labels
 and uses the other region's saved snapshot as a local fallback.
 
-History can show all completed sessions or filter them by grind spot. Reopening a session returns it to the live view in
+History browses all completed sessions in pages of 20, filtered by recorded region, completion dates, and grind spot. Reopening a session returns it to the live view in
 a paused state; an active session with progress is never replaced. Finished sessions can be permanently deleted after an
 explicit confirmation.
 
@@ -90,8 +90,33 @@ continues across navigation and minimization. Needs attention shows unaccepted r
 recognized loot awaiting insertion, and explains Retry add, manual correction, and Clear. Clearing review does not remove loot.
 Advanced diagnostics, diagnostic JSONL, and optional paired ROI collection retain their existing behavior and bounds.
 
-History shows totals for the current filter over the latest 20 finished sessions, including aggregate net, elapsed time, and
+History shows totals for all completed sessions matching the current filter, including aggregate net, elapsed time, and
 net per hour weighted by elapsed time. Session selection shows its time, earnings, and recorded entries before Garmoth upload
 controls. Explicit reopen and confirmed deletion remain available. The finished desk offers a direct View history action.
 Settings uses divided label/form rows with section links, visual radio choices for themes, capture guidance, and sequential
 Garmoth connection/character setup. Disabled character controls explain that the API connection comes first. Network requests remain explicit.
+
+## History comparisons
+
+History defaults to the current session region and all dates. Completion-date inputs use local calendar days, including
+both selected dates; Clear filters restores the initial region, all dates, and all spots. Filters remain usable for empty
+results. Previous/Next controls browse 20 records at a time with a matching-session count.
+
+The comparison table covers all spots in the selected region/date range, independently of the spot selector and page.
+Selecting a comparison row filters the session list. Rates sort descending with undefined rates last; equal rates sort
+by spot ID. Each row shows completed-session count, total tracked time, and recorded net alongside the rate. Distinct
+spot IDs remain distinct, including location variants. Unknown catalog IDs display their stored ID.
+
+Net is stored revenue quantity × unit price × sale multiplier minus recorded expenses. Duration-weighted net/hour is
+positive-duration session net × 3,600,000 ÷ total elapsed milliseconds. Zero-duration sessions remain visible and count
+in recorded net and session count, but their earnings are excluded from the rate. Their excluded count and eligible
+session count are shown; a sample with no tracked time displays an em dash. Negative earnings remain valid.
+
+Counts and time provide sample-size context without an arbitrary confidence threshold. Short samples and rare drops
+can skew the ranking. Prices are recorded valuations, not confirmed sales, and are never refreshed for completed
+sessions. EU and NA are compared separately using recorded session region; historical price-source provenance is not
+available, so fallback or manually entered prices may differ from that region's market.
+
+Deletion refreshes the page and aggregates, including clamping an emptied final page. Failed refreshes hide stale
+comparisons and expose a retry. Reopened sessions leave completed history until finished again, at which point their
+new completion timestamp determines date membership. Existing active-session and Garmoth reopen restrictions apply.

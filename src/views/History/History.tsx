@@ -3,29 +3,43 @@ import {
     deleteFinishedSession,
     type FinishedSessionRecord,
     type GarmothSettings,
+    type HistoryResult,
     listFinishedSessions,
     loadGarmothSettings,
     uploadGarmothSession,
 } from "../../api/tauri";
-import { getGrindSpot, grindSpots } from "../../data/grindSpots";
+import { grindSpots } from "../../data/grindSpots";
+import { historyDateBoundary, netPerHour, rankSpots, summarizeHistory } from "../../domain/history";
 import { calculateTotals } from "../../domain/session";
 import { formatDuration, formatSilver, formatTimestamp } from "../../format";
 import { buildGarmothUpload, type GarmothUploadPreview } from "../../garmoth";
 import type { DatabaseStatus } from "../../hooks/usePersistedSession";
 import styles from "./History.module.css";
 
+function spotName(id: string) {
+    return grindSpots.find((spot) => spot.id === id)?.name ?? id;
+}
+
 export function HistoryView({
+    initialRegion,
     databaseLoaded,
     databaseStatus,
     onReopen,
     onOpenSettings,
 }: {
+    initialRegion: "eu" | "na";
     databaseLoaded: boolean;
     databaseStatus: DatabaseStatus;
     onReopen: (id: string) => Promise<void>;
     onOpenSettings: () => void;
 }) {
     const [records, setRecords] = useState<FinishedSessionRecord[] | null>(null);
+    const [history, setHistory] = useState<HistoryResult | null>(null);
+    const [region, setRegion] = useState(initialRegion);
+    const [fromDate, setFromDate] = useState("");
+    const [toDate, setToDate] = useState("");
+    const [offset, setOffset] = useState(0);
+    const [loading, setLoading] = useState(false);
     const [selectedId, setSelectedId] = useState<string | null>(null);
     const [error, setError] = useState("");
     const [reopenError, setReopenError] = useState("");
@@ -48,19 +62,38 @@ export function HistoryView({
     const historySelectButtons = useRef(new Map<string, HTMLButtonElement>());
     const historyDeleteButtons = useRef(new Map<string, HTMLButtonElement>());
     const historyRequestId = useRef(0);
+    const previousButton = useRef<HTMLButtonElement>(null);
+    const nextButton = useRef<HTMLButtonElement>(null);
+    const pageFocus = useRef<"previous" | "next" | null>(null);
 
     async function loadHistory(showLoading = true) {
         const requestId = ++historyRequestId.current;
+        setLoading(true);
         if (showLoading) {
             setRecords(null);
+            setHistory(null);
             setDeleteError("");
             setDeleteMessage("");
         }
         setError("");
         try {
-            const finished = await listFinishedSessions();
+            const finishedFromMs = historyDateBoundary(fromDate);
+            const finishedBeforeMs = historyDateBoundary(toDate, true);
+            if (finishedFromMs !== null && finishedBeforeMs !== null && finishedFromMs >= finishedBeforeMs) {
+                throw new Error("The From date must be on or before the To date.");
+            }
+            const result = await listFinishedSessions({
+                region,
+                grindSpotId: grindSpotFilter === "all" ? null : grindSpotFilter,
+                finishedFromMs,
+                finishedBeforeMs,
+                offset,
+                limit: 20,
+            });
+            const finished = result.records;
             if (requestId !== historyRequestId.current) return "";
             setRecords(finished);
+            setHistory(result);
             setSelectedId((current) =>
                 finished.some((record) => record.session.id === current) ? current : (finished[0]?.session.id ?? null),
             );
@@ -68,17 +101,21 @@ export function HistoryView({
         } catch (loadError) {
             if (requestId !== historyRequestId.current) return "";
             const detail = String(loadError);
-            if (showLoading) {
-                setRecords([]);
-                setError(detail);
-            }
+            if (showLoading) setRecords([]);
+            setHistory(null);
+            setError(detail);
             return detail;
+        } finally {
+            if (requestId === historyRequestId.current) setLoading(false);
         }
     }
 
     useEffect(() => {
-        if (databaseLoaded && databaseStatus !== "saving") loadHistory();
-    }, [databaseLoaded, databaseStatus]);
+        if (databaseLoaded && databaseStatus !== "saving") void loadHistory();
+        return () => {
+            historyRequestId.current += 1;
+        };
+    }, [databaseLoaded, databaseStatus, region, fromDate, toDate, grindSpotFilter, offset]);
 
     useEffect(() => {
         if (databaseLoaded) {
@@ -96,13 +133,14 @@ export function HistoryView({
         }
     }, [databaseLoaded]);
 
-    const filteredRecords =
-        records?.filter((record) => grindSpotFilter === "all" || record.session.grindSpotId === grindSpotFilter) ?? [];
-    const trackedMs = filteredRecords.reduce((total, record) => total + record.session.elapsedMs, 0);
-    const historyTotals = calculateTotals(
-        filteredRecords.flatMap((record) => record.session.entries),
-        trackedMs,
+    const filteredRecords = records ?? [];
+    const historyTotals = summarizeHistory(
+        history?.spotSummaries ?? [],
+        grindSpotFilter === "all" ? null : grindSpotFilter,
     );
+    const trackedMs = historyTotals.elapsedMs;
+    const historyRate = netPerHour(historyTotals);
+    const comparisonSpots = rankSpots(history?.spotSummaries ?? []);
     const selected = filteredRecords.find((record) => record.session.id === selectedId) ?? filteredRecords[0];
     const selectedTotals = selected ? calculateTotals(selected.session.entries, selected.session.elapsedMs) : null;
     let uploadPreview: GarmothUploadPreview | null = null;
@@ -119,13 +157,47 @@ export function HistoryView({
     );
     const actionBusy = uploading || reopening || deletingId !== null;
 
+    function resetPage() {
+        setOffset(0);
+        setSelectedId(null);
+        setReopenError("");
+        setDeleteError("");
+        setUploadMessage("");
+        setUploadError("");
+    }
+
+    function selectSpot(id: string) {
+        resetPage();
+        setGrindSpotFilter(id);
+    }
+
+    function changePage(nextOffset: number) {
+        pageFocus.current = nextOffset < (history?.offset ?? 0) ? "previous" : "next";
+        setOffset(nextOffset);
+        setSelectedId(null);
+        setReopenError("");
+        setUploadMessage("");
+        setUploadError("");
+    }
+
+    useEffect(() => {
+        if (!pageFocus.current || loading || records === null) return;
+        const button = pageFocus.current === "previous" ? previousButton.current : nextButton.current;
+        const target =
+            button && !button.disabled
+                ? button
+                : (historySelectButtons.current.get(records[0]?.session.id) ?? reloadButton.current);
+        target?.focus();
+        pageFocus.current = null;
+    }, [loading, records]);
+
     useEffect(() => {
         if (!restoreFocus || deletingId !== null) return;
         const target = restoreFocus.sessionId
             ? ((restoreFocus.target === "select" ? historySelectButtons : historyDeleteButtons).current.get(
                   restoreFocus.sessionId,
               ) ?? reloadButton.current)
-            : reloadButton.current;
+            : (historySelectButtons.current.get(filteredRecords[0]?.session.id) ?? reloadButton.current);
         if (!target) return;
         target.focus();
         setRestoreFocus(null);
@@ -172,9 +244,9 @@ export function HistoryView({
 
     async function deleteRecord(record: FinishedSessionRecord) {
         if (deletingId !== null) return;
-        const spotName = getGrindSpot(record.session.grindSpotId).name;
+        const name = spotName(record.session.grindSpotId);
         const confirmed = window.confirm(
-            `Delete the ${spotName} session from ${formatTimestamp(record.finishedAt)}? This permanently removes the session and all of its entries.`,
+            `Delete the ${name} session from ${formatTimestamp(record.finishedAt)}? This permanently removes the session and all of its entries.`,
         );
         if (!confirmed) return;
 
@@ -196,8 +268,7 @@ export function HistoryView({
                 setUploadError("");
             }
             setRestoreFocus({ sessionId: nextFocusId, target: deletingSelected ? "select" : "delete" });
-            setDeleteMessage(`Deleted the ${spotName} session from ${formatTimestamp(record.finishedAt)}.`);
-            setDeletingId((current) => (current === record.session.id ? null : current));
+            setDeleteMessage(`Deleted the ${name} session from ${formatTimestamp(record.finishedAt)}.`);
             const refreshError = await loadHistory(false);
             if (refreshError) {
                 setDeleteError(`Session was deleted, but history could not be refreshed: ${refreshError}`);
@@ -216,49 +287,175 @@ export function HistoryView({
             <header className="topbar">
                 <div>
                     <h1>Session history</h1>
-                    <p className="page-description">Your latest 20 completed sessions.</p>
-                </div>
-                <div className={styles.HistoryActions}>
-                    <label>
-                        Grind spot
-                        <select
-                            value={grindSpotFilter}
-                            disabled={!databaseLoaded || records === null || records.length === 0 || actionBusy}
-                            onChange={(event) => {
-                                setGrindSpotFilter(event.target.value);
-                                setSelectedId(null);
-                                setReopenError("");
-                                setDeleteError("");
-                                setUploadMessage("");
-                                setUploadError("");
-                            }}
-                        >
-                            <option value="all">All grind spots</option>
-                            {grindSpots.map((spot) => (
-                                <option key={spot.id} value={spot.id}>
-                                    {spot.name}
-                                </option>
-                            ))}
-                        </select>
-                    </label>
-                    <button
-                        ref={reloadButton}
-                        className="button subtle"
-                        type="button"
-                        disabled={!databaseLoaded || actionBusy}
-                        onClick={() => void loadHistory()}
-                    >
-                        Reload
-                    </button>
+                    <p className="page-description">Browse completed sessions and compare your recorded earnings.</p>
                 </div>
             </header>
+            <div className={styles.HistoryActions}>
+                <label>
+                    Recorded region
+                    <select
+                        aria-label="Recorded region"
+                        value={region}
+                        disabled={!databaseLoaded || actionBusy}
+                        onChange={(event) => {
+                            resetPage();
+                            setRegion(event.target.value as "eu" | "na");
+                        }}
+                    >
+                        <option value="eu">EU</option>
+                        <option value="na">NA</option>
+                    </select>
+                </label>
+                <label>
+                    Completed from
+                    <input
+                        type="date"
+                        min="1970-01-01"
+                        value={fromDate}
+                        disabled={!databaseLoaded || actionBusy}
+                        onChange={(event) => {
+                            resetPage();
+                            setFromDate(event.target.value);
+                        }}
+                    />
+                </label>
+                <label>
+                    Completed through
+                    <input
+                        type="date"
+                        min="1970-01-01"
+                        value={toDate}
+                        disabled={!databaseLoaded || actionBusy}
+                        onChange={(event) => {
+                            resetPage();
+                            setToDate(event.target.value);
+                        }}
+                    />
+                </label>
+                <label>
+                    Grind spot
+                    <select
+                        aria-label="Grind spot"
+                        value={grindSpotFilter}
+                        disabled={!databaseLoaded || actionBusy}
+                        onChange={(event) => selectSpot(event.target.value)}
+                    >
+                        <option value="all">All grind spots</option>
+                        {grindSpotFilter !== "all" && !grindSpots.some((spot) => spot.id === grindSpotFilter) && (
+                            <option value={grindSpotFilter}>{grindSpotFilter}</option>
+                        )}
+                        {history?.spotSummaries
+                            .filter(
+                                (spot) =>
+                                    spot.grindSpotId !== grindSpotFilter &&
+                                    !grindSpots.some((known) => known.id === spot.grindSpotId),
+                            )
+                            .map((spot) => (
+                                <option key={spot.grindSpotId} value={spot.grindSpotId}>
+                                    {spot.grindSpotId}
+                                </option>
+                            ))}
+                        {grindSpots.map((spot) => (
+                            <option key={spot.id} value={spot.id}>
+                                {spot.name}
+                            </option>
+                        ))}
+                    </select>
+                </label>
+                <button
+                    className="button subtle"
+                    type="button"
+                    disabled={!databaseLoaded || actionBusy}
+                    onClick={() => {
+                        resetPage();
+                        setRegion(initialRegion);
+                        setFromDate("");
+                        setToDate("");
+                        setGrindSpotFilter("all");
+                    }}
+                >
+                    Clear filters
+                </button>
+                <button
+                    ref={reloadButton}
+                    className="button subtle"
+                    type="button"
+                    disabled={!databaseLoaded || actionBusy}
+                    onClick={() => void loadHistory()}
+                >
+                    Reload
+                </button>
+            </div>
 
-            {records !== null && !error && filteredRecords.length > 0 && (
+            {history && !error && comparisonSpots.length > 0 && (
+                <section className={styles.Comparisons} aria-label="Grind spot comparisons">
+                    <h2>Grind spot comparisons</h2>
+                    <p>
+                        All spots in {region.toUpperCase()} for the selected completion dates, highest recorded net/hour
+                        first.
+                    </p>
+                    {/* biome-ignore lint/a11y/noNoninteractiveTabindex: Scrollable tables need keyboard access. */}
+                    <section className={styles.ComparisonScroll} aria-label="Spot earnings table" tabIndex={0}>
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th scope="col">Grind spot</th>
+                                    <th scope="col">Net / hour</th>
+                                    <th scope="col">Sessions</th>
+                                    <th scope="col">Time tracked</th>
+                                    <th scope="col">Recorded net</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {comparisonSpots.map((spot) => {
+                                    const rate = netPerHour(spot);
+                                    return (
+                                        <tr key={spot.grindSpotId}>
+                                            <th scope="row">
+                                                <button
+                                                    type="button"
+                                                    className="button subtle"
+                                                    disabled={actionBusy || loading}
+                                                    onClick={() => selectSpot(spot.grindSpotId)}
+                                                >
+                                                    {spotName(spot.grindSpotId)}
+                                                </button>
+                                            </th>
+                                            <td>{rate === null ? "—" : `${formatSilver(rate, true)}/h`}</td>
+                                            <td>
+                                                {spot.sessionCount}
+                                                {spot.zeroDurationCount > 0 && (
+                                                    <small>
+                                                        {spot.sessionCount - spot.zeroDurationCount} timed;{" "}
+                                                        {spot.zeroDurationCount} excluded from rate
+                                                    </small>
+                                                )}
+                                            </td>
+                                            <td>{formatDuration(spot.elapsedMs)}</td>
+                                            <td>{formatSilver(spot.net, true)}</td>
+                                        </tr>
+                                    );
+                                })}
+                            </tbody>
+                        </table>
+                    </section>
+                    <p>
+                        Rates weight sessions by tracked time and exclude zero-duration sessions. Counts and time show
+                        the sample size; short samples and rare drops can skew results.
+                    </p>
+                    <p>
+                        Values use stored entry prices, sale multipliers, and recorded expenses, not confirmed sales.
+                        Recorded region may include fallback prices from the other region or manual prices. Completion
+                        dates use your local time.
+                    </p>
+                </section>
+            )}
+            {history && !error && historyTotals.sessionCount > 0 && (
                 <section className={styles.Overview} aria-label="Filtered history summary">
                     <div>
                         <span>
-                            Recorded net · {filteredRecords.length}{" "}
-                            {filteredRecords.length === 1 ? "session" : "sessions"}
+                            Recorded net · {historyTotals.sessionCount}{" "}
+                            {historyTotals.sessionCount === 1 ? "session" : "sessions"}
                         </span>
                         <strong>
                             {formatSilver(historyTotals.net, true)}
@@ -270,11 +467,17 @@ export function HistoryView({
                         <strong>{formatDuration(trackedMs)}</strong>
                     </div>
                     <div>
-                        <span>Average net / hour</span>
+                        <span>Duration-weighted net / hour</span>
                         <strong>
-                            {formatSilver(historyTotals.netPerHour, true)}
+                            {historyRate === null ? "—" : formatSilver(historyRate, true)}
                             <small> silver</small>
                         </strong>
+                        {historyTotals.zeroDurationCount > 0 && (
+                            <p>
+                                {historyTotals.sessionCount - historyTotals.zeroDurationCount} timed sessions;{" "}
+                                {historyTotals.zeroDurationCount} zero-duration sessions excluded from rate.
+                            </p>
+                        )}
                     </div>
                 </section>
             )}
@@ -291,35 +494,52 @@ export function HistoryView({
 
             {!databaseLoaded || records === null ? (
                 <section className={`panel ${styles.HistoryMessage}`}>
-                    <strong>Reading completed sessions...</strong>
+                    <strong role="status">Reading completed sessions...</strong>
                 </section>
             ) : error ? (
                 <section className={`panel ${styles.HistoryMessage} ${styles.ErrorMessage}`}>
                     <strong>Could not load session history</strong>
-                    <p>{error}</p>
+                    <p role="alert">{error}</p>
                 </section>
             ) : records.length === 0 ? (
                 <section className={`panel empty-state ${styles.HistoryMessage}`}>
                     <div className="empty-glyph">0</div>
-                    <strong>No completed sessions yet</strong>
-                    <p>Finish a live session and it will appear here.</p>
-                </section>
-            ) : filteredRecords.length === 0 ? (
-                <section className={`panel empty-state ${styles.HistoryMessage}`}>
-                    <div className="empty-glyph">0</div>
-                    <strong>No {getGrindSpot(grindSpotFilter).name} sessions</strong>
-                    <p>Choose another grind spot or finish a new session.</p>
+                    <strong>No sessions match these filters</strong>
+                    <p>Clear the filters or finish a session in this region.</p>
                 </section>
             ) : (
                 <div className={styles.HistoryGrid}>
                     <section className="panel">
                         <div className="panel-heading">
                             <div>
-                                <h2>
-                                    {filteredRecords.length} session{filteredRecords.length === 1 ? "" : "s"}
+                                <h2 aria-live="polite">
+                                    {(history?.offset ?? 0) + 1}–{(history?.offset ?? 0) + filteredRecords.length} of{" "}
+                                    {history?.totalCount ?? filteredRecords.length} sessions
                                 </h2>
                             </div>
                         </div>
+                        <nav className={styles.Pagination} aria-label="History pages">
+                            <button
+                                className="button subtle"
+                                type="button"
+                                ref={previousButton}
+                                disabled={actionBusy || loading || !history || history.offset === 0}
+                                onClick={() => changePage(Math.max(0, (history?.offset ?? 0) - 20))}
+                            >
+                                Previous
+                            </button>
+                            <button
+                                className="button subtle"
+                                type="button"
+                                disabled={
+                                    actionBusy || loading || !history || history.offset + 20 >= history.totalCount
+                                }
+                                ref={nextButton}
+                                onClick={() => changePage((history?.offset ?? 0) + 20)}
+                            >
+                                Next
+                            </button>
+                        </nav>
                         <div className={styles.HistoryList}>
                             {filteredRecords.map((record) => {
                                 const totals = calculateTotals(record.session.entries, record.session.elapsedMs);
@@ -345,7 +565,7 @@ export function HistoryView({
                                             }}
                                         >
                                             <span>
-                                                <strong>{getGrindSpot(record.session.grindSpotId).name}</strong>
+                                                <strong>{spotName(record.session.grindSpotId)}</strong>
                                                 <small>
                                                     {formatTimestamp(record.finishedAt)} ·{" "}
                                                     {record.session.region.toUpperCase()} ·{" "}
@@ -353,7 +573,11 @@ export function HistoryView({
                                                 </small>
                                             </span>
                                             <span className={styles.HistoryValue}>
-                                                <strong>{formatSilver(totals.netPerHour, true)}/h</strong>
+                                                <strong>
+                                                    {record.session.elapsedMs > 0
+                                                        ? `${formatSilver(totals.netPerHour, true)}/h`
+                                                        : "—"}
+                                                </strong>
                                                 <small>{formatSilver(totals.net, true)} net</small>
                                             </span>
                                         </button>
@@ -361,7 +585,7 @@ export function HistoryView({
                                             className={styles.DeleteButton}
                                             type="button"
                                             disabled={actionBusy}
-                                            aria-label={`Delete ${getGrindSpot(record.session.grindSpotId).name} session from ${formatTimestamp(record.finishedAt)}`}
+                                            aria-label={`Delete ${spotName(record.session.grindSpotId)} session from ${formatTimestamp(record.finishedAt)}`}
                                             ref={(element) => {
                                                 if (element)
                                                     historyDeleteButtons.current.set(record.session.id, element);
@@ -382,7 +606,7 @@ export function HistoryView({
                             <div className="panel-heading">
                                 <div>
                                     <p className="eyebrow">{formatTimestamp(selected.finishedAt)} · Completed</p>
-                                    <h2>{getGrindSpot(selected.session.grindSpotId).name}</h2>
+                                    <h2>{spotName(selected.session.grindSpotId)}</h2>
                                 </div>
                                 <div className={styles.DetailActions}>
                                     <span>{selected.session.region.toUpperCase()}</span>
@@ -417,7 +641,11 @@ export function HistoryView({
                                 </div>
                                 <div>
                                     <span>Net / hour</span>
-                                    <strong>{formatSilver(selectedTotals.netPerHour, true)}</strong>
+                                    <strong>
+                                        {selected.session.elapsedMs > 0
+                                            ? formatSilver(selectedTotals.netPerHour, true)
+                                            : "—"}
+                                    </strong>
                                 </div>
                             </div>
                             {selected.session.entries.length === 0 ? (
