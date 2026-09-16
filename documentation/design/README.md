@@ -98,6 +98,9 @@ Garmoth connection/character setup. Disabled character controls explain that the
 
 ## History comparisons
 
+Place the recorded-net, tracked-time, and net/hour overview directly below the page header, followed by grind-spot
+comparisons and then the session list and detail.
+
 History defaults to the current session region and all dates. Completion-date inputs use local calendar days, including
 both selected dates. A Filters button opens a native dialog using the same styling as the entry dialog. Region, dates,
 and spot apply immediately; Clear filters restores the initial region, all dates, and all spots. The button shows the
