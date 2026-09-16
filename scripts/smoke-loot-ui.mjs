@@ -114,7 +114,12 @@ await send("Page.addScriptToEvaluateOnNewDocument", {
         async invoke(command, args = {}) {
             calls.push({ command, args });
             if (command === "plugin:window|get_all_windows") return [];
-            if (command === "load_active_session") return null;
+            if (command === "load_active_session") {
+                if (new URLSearchParams(location.search).has("history-startup")) {
+                    return new Promise(resolve => { window.__restoreHistorySession = resolve; });
+                }
+                return null;
+            }
             if (command === "load_loot_font") return window.__savedLootFont ?? "korean";
             if (command === "save_loot_font") {
                 if (window.__failLootFont) throw Error("Synthetic font save failure");
@@ -1213,6 +1218,26 @@ try {
         assert(await evaluate("document.querySelector('#market [aria-label=\"Grind spot\"] button').disabled"));
         assert(await evaluate("document.querySelector('#region-locked').textContent.includes('Start a new session')"));
         await evaluate("window.dispatchEvent(new Event('shakatu-stop-capture'))");
+        assert.equal(errors.length, 0, JSON.stringify(errors));
+        await send("Page.navigate", { url: `${appUrl}?history-startup=1` });
+        await until('typeof window.__restoreHistorySession === "function"');
+        await click("History");
+        await until("document.querySelector('[aria-label=\"Filters\"]')?.disabled === true");
+        await evaluate(
+            `window.__restoreHistorySession({id:'restored-na',status:'paused',region:'na',grindSpotId:'sycraia-lower-revamp',startedAt:null,elapsedMs:1000,entries:[]})`,
+        );
+        await until(
+            'window.__calls.filter(c => c.command === "list_finished_sessions").at(-1)?.args.query.region === "na"',
+        );
+        await until("document.querySelector('[aria-label=\"Filters\"]')?.textContent.includes('NA')");
+        await setHistoryFilter('select[aria-label="Recorded region"]', "eu");
+        await until(
+            'window.__calls.filter(c => c.command === "list_finished_sessions").at(-1)?.args.query.region === "eu"',
+        );
+        await clearHistoryFilters();
+        await until(
+            'window.__calls.filter(c => c.command === "list_finished_sessions").at(-1)?.args.query.region === "na"',
+        );
         assert.equal(errors.length, 0, JSON.stringify(errors));
         console.log(
             `UI smoke passed: timer, navigation, capture lifecycle, preview suppression, diagnostics, screenshot state, dialog focus, expense price isolation, new-session reset, ledger editing/filtering, history filters, themes, compact screens. Screenshots: ${output}`,

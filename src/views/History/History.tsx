@@ -36,7 +36,8 @@ export function HistoryView({
 }) {
     const [records, setRecords] = useState<FinishedSessionRecord[] | null>(null);
     const [history, setHistory] = useState<HistoryResult | null>(null);
-    const [region, setRegion] = useState(initialRegion);
+    const [selectedRegion, setRegion] = useState<"eu" | "na" | null>(null);
+    const region = selectedRegion ?? initialRegion;
     const [fromDate, setFromDate] = useState("");
     const [toDate, setToDate] = useState("");
     const [offset, setOffset] = useState(0);
@@ -137,7 +138,7 @@ export function HistoryView({
         }
     }, [databaseLoaded]);
 
-    const filteredRecords = records ?? [];
+    const pageRecords = records ?? [];
     const historyTotals = summarizeHistory(
         history?.spotSummaries ?? [],
         grindSpotFilter === "all" ? null : grindSpotFilter,
@@ -145,7 +146,7 @@ export function HistoryView({
     const trackedMs = historyTotals.elapsedMs;
     const historyRate = netPerHour(historyTotals);
     const comparisonSpots = rankSpots(history?.spotSummaries ?? []);
-    const selected = filteredRecords.find((record) => record.session.id === selectedId) ?? filteredRecords[0];
+    const selected = pageRecords.find((record) => record.session.id === selectedId) ?? pageRecords[0];
     const selectedTotals = selected ? calculateTotals(selected.session.entries, selected.session.elapsedMs) : null;
     let uploadPreview: GarmothUploadPreview | null = null;
     let uploadPreviewError = "";
@@ -206,11 +207,11 @@ export function HistoryView({
             ? ((restoreFocus.target === "select" ? historySelectButtons : historyDeleteButtons).current.get(
                   restoreFocus.sessionId,
               ) ?? reloadButton.current)
-            : (historySelectButtons.current.get(filteredRecords[0]?.session.id) ?? reloadButton.current);
+            : (historySelectButtons.current.get(pageRecords[0]?.session.id) ?? reloadButton.current);
         if (!target) return;
         target.focus();
         setRestoreFocus(null);
-    }, [deletingId, restoreFocus, filteredRecords]);
+    }, [deletingId, restoreFocus, pageRecords]);
 
     async function reopenSelected() {
         if (!selected) return;
@@ -260,9 +261,9 @@ export function HistoryView({
         if (!confirmed) return;
 
         historyRequestId.current += 1;
-        const deletedIndex = filteredRecords.findIndex((candidate) => candidate.session.id === record.session.id);
+        const deletedIndex = pageRecords.findIndex((candidate) => candidate.session.id === record.session.id);
         const nextFocusId =
-            filteredRecords[deletedIndex + 1]?.session.id ?? filteredRecords[deletedIndex - 1]?.session.id ?? null;
+            pageRecords[deletedIndex + 1]?.session.id ?? pageRecords[deletedIndex - 1]?.session.id ?? null;
         const deletingSelected = selected?.session.id === record.session.id;
         setDeletingId(record.session.id);
         setDeleteError("");
@@ -426,7 +427,7 @@ export function HistoryView({
                         disabled={!databaseLoaded || actionBusy}
                         onClick={() => {
                             resetPage();
-                            setRegion(initialRegion);
+                            setRegion(null);
                             setFromDate("");
                             setToDate("");
                             setGrindSpotFilter("all");
@@ -546,8 +547,8 @@ export function HistoryView({
                         <div className="panel-heading">
                             <div>
                                 <h2 aria-live="polite">
-                                    {(history?.offset ?? 0) + 1}–{(history?.offset ?? 0) + filteredRecords.length} of{" "}
-                                    {history?.totalCount ?? filteredRecords.length} sessions
+                                    {(history?.offset ?? 0) + 1}–{(history?.offset ?? 0) + pageRecords.length} of{" "}
+                                    {history?.totalCount ?? pageRecords.length} sessions
                                 </h2>
                             </div>
                         </div>
@@ -574,7 +575,7 @@ export function HistoryView({
                             </button>
                         </nav>
                         <div className={styles.HistoryList}>
-                            {filteredRecords.map((record) => {
+                            {pageRecords.map((record) => {
                                 const totals = calculateTotals(record.session.entries, record.session.elapsedMs);
                                 const selectedRecord = record.session.id === selected?.session.id;
                                 return (
