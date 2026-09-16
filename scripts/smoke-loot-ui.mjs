@@ -75,6 +75,17 @@ async function setField(selector, value) {
         field.dispatchEvent(new Event('change', {bubbles:true}));
     })()`);
 }
+async function setHistoryFilter(selector, value) {
+    await click("Filters");
+    await setField(selector, value);
+    await click("Close filters");
+    await until('document.activeElement?.getAttribute("aria-label") === "Filters"');
+}
+async function clearHistoryFilters() {
+    await click("Filters");
+    await click("Clear filters");
+    await click("Close filters");
+}
 async function press(key, code, windowsVirtualKeyCode) {
     await send("Input.dispatchKeyEvent", { type: "keyDown", key, code, windowsVirtualKeyCode });
     await send("Input.dispatchKeyEvent", { type: "keyUp", key, code, windowsVirtualKeyCode });
@@ -684,14 +695,43 @@ try {
             `window.__calls.filter(c => c.command === 'acknowledge_native_display_frame').length > ${ackCount}`,
         );
         await screenshot("history");
-        await setField('select[aria-label="Grind spot"]', "stars-end-revamp");
+        assert.equal(
+            await evaluate("document.querySelector('select[aria-label=\"Recorded region\"]').getClientRects().length"),
+            0,
+            "Filters stay hidden until requested",
+        );
+        assert.equal(
+            await evaluate(
+                "document.querySelector('[aria-label=\"Grind spot comparisons\"]')?.textContent.includes('Rates weight sessions')",
+            ),
+            false,
+            "History omits methodological prose",
+        );
+        await click("Filters");
+        await until('document.activeElement?.getAttribute("aria-label") === "Recorded region"');
+        await press("Tab", "Tab", 9);
+        assert.equal(
+            await evaluate('document.querySelector("dialog[open]").contains(document.activeElement)'),
+            true,
+            "Tab stays inside filters",
+        );
+        for (const theme of ["dark", "light", "moss"]) {
+            await evaluate(`document.documentElement.dataset.theme = ${JSON.stringify(theme)}`);
+            await screenshot(`history-filters-${theme}`);
+        }
+        await evaluate("document.documentElement.dataset.theme = 'dark'");
+        await press("Escape", "Escape", 27);
+        await until(
+            'document.querySelector("dialog[open]") === null && document.activeElement?.getAttribute("aria-label") === "Filters"',
+        );
+        await setHistoryFilter('select[aria-label="Grind spot"]', "stars-end-revamp");
         await until('document.body.textContent.includes("No sessions match these filters")');
         assert.equal(
             await evaluate("document.querySelector('[aria-label=\"Filtered history summary\"]') === null"),
             true,
             "Empty filters must not show totals from another profile",
         );
-        await setField('select[aria-label="Grind spot"]', "all");
+        await setHistoryFilter('select[aria-label="Grind spot"]', "all");
         await evaluate(`window.__historyRecords = Array.from({length:41}, (_,i) => ({
             session:{id:'history-'+String(i).padStart(2,'0'),status:'finished',region:'eu',grindSpotId:i === 0 ? 'stars-end-revamp' : 'sycraia-lower-revamp',startedAt:null,elapsedMs:i === 1 ? 0 : 3600000,
                 entries:[{id:'entry-'+i,name:'Ancient Spirit Dust',quantity:1,unitPrice:100000000,valuation:'vendor',saleMultiplier:1,source:'manual',createdAt:Date.UTC(2026,8,1)}]},
@@ -699,9 +739,9 @@ try {
         })); window.confirm = () => true;`);
         await click("Reload");
         await until('document.body.innerText.includes("1–20 of 41 sessions")');
-        await setField('select[aria-label="Grind spot"]', "stars-end-revamp");
+        await setHistoryFilter('select[aria-label="Grind spot"]', "stars-end-revamp");
         await until('document.body.innerText.includes("1–1 of 1 sessions")');
-        await setField('select[aria-label="Grind spot"]', "all");
+        await setHistoryFilter('select[aria-label="Grind spot"]', "all");
         await until('document.body.innerText.includes("1–20 of 41 sessions")');
         const fullSummary = await evaluate(
             "document.querySelector('[aria-label=\"Filtered history summary\"]').innerText",
@@ -721,23 +761,23 @@ try {
         await until('document.activeElement?.getAttribute("aria-pressed") === "true"');
         await click("Previous");
         await until('document.body.innerText.includes("1–20 of 40 sessions")');
-        await setField('select[aria-label="Grind spot"]', "stars-end-revamp");
+        await setHistoryFilter('select[aria-label="Grind spot"]', "stars-end-revamp");
         await until('document.body.innerText.includes("No sessions match these filters")');
         assert.equal(
             await evaluate("document.querySelector('[aria-label=\"Grind spot comparisons\"]') !== null"),
             true,
             "Spot filter must not remove comparisons for other spots",
         );
-        await setField('select[aria-label="Recorded region"]', "na");
+        await setHistoryFilter('select[aria-label="Recorded region"]', "na");
         await until(
             'document.body.innerText.includes("No sessions match these filters") && document.querySelector(\'[aria-label="Grind spot comparisons"]\') === null',
         );
-        await click("Clear filters");
+        await clearHistoryFilters();
         await until('document.body.innerText.includes("1–20 of 40 sessions")');
         await evaluate("window.__holdHistory = true");
         await click("Reload");
         await until('typeof window.__releaseHistory === "function"');
-        await setField('select[aria-label="Recorded region"]', "na");
+        await setHistoryFilter('select[aria-label="Recorded region"]', "na");
         await until('document.body.innerText.includes("No sessions match these filters")');
         await evaluate("window.__releaseHistory()");
         await delay(100);
@@ -746,15 +786,13 @@ try {
             true,
             "Late responses must not restore another region's results",
         );
-        await click("Clear filters");
+        await clearHistoryFilters();
         await until('document.body.innerText.includes("1–20 of 40 sessions")');
-        await setField('input[type="date"]', "2026-10-01");
+        await setHistoryFilter('input[type="date"]', "2026-10-01");
         await until('document.body.innerText.includes("1–11 of 11 sessions")');
-        await evaluate(
-            `(() => { const input = [...document.querySelectorAll('input[type="date"]')][1]; Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value').set.call(input,'2026-09-01'); input.dispatchEvent(new Event('input',{bubbles:true})); input.dispatchEvent(new Event('change',{bubbles:true})); })()`,
-        );
+        await setHistoryFilter("#history-completed-through", "2026-09-01");
         await until('document.body.innerText.includes("The From date must be on or before the To date")');
-        await click("Clear filters");
+        await clearHistoryFilters();
         await until('document.body.innerText.includes("1–20 of 40 sessions")');
         await evaluate("window.__failHistoryAfterDelete = true");
         await click("Delete");
@@ -775,6 +813,16 @@ try {
             mobile: false,
         });
         await screenshot("history-comparisons-compact");
+        await click("Filters");
+        await screenshot("history-filters-compact");
+        assert.equal(
+            await evaluate(
+                '(() => { const r = document.querySelector("dialog[open]").getBoundingClientRect(); return r.left >= 0 && r.right <= innerWidth && r.top >= 0 && r.bottom <= innerHeight; })()',
+            ),
+            true,
+            "Filter dialog fits the viewport",
+        );
+        await click("Close filters");
         assert.equal(
             await evaluate("document.documentElement.scrollWidth <= innerWidth"),
             true,
