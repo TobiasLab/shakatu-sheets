@@ -34,10 +34,27 @@ migration with its own literal version number.
 Migration 2 creates `garmoth_uploads`. Each row records a finished session as `unknown` or `success`; its primary key is
 the session ID so a session cannot be uploaded concurrently or retried silently after an ambiguous response.
 
+## Migration 3
+
+Migration 3 adds `sessions_finished_region_time_idx`, a partial index on recorded region, effective completion time
+(`COALESCE(finished_at, updated_at) DESC`), and ascending ID for finished sessions. The history page query uses this
+ordering; an `EXPLAIN QUERY PLAN` check on a 10,000-row fixture showed that the index removes its temporary sort.
+There are no new columns, stored aggregates, or data backfills. Migrations 1 and 2 remain unchanged.
+
 ## Persistence
 
 - The latest unfinished session is loaded at startup.
-- The history view loads the 20 most recently finished sessions and their entries.
+- History loads pages of 20 finished sessions and their entries, filtered in SQLite by recorded region, optional spot,
+  and completion date. Sorting is effective completion time descending, then ID ascending. Older rows without
+  `finished_at` use `updated_at` for both sorting and date filtering.
+- Date bounds are inclusive start/exclusive end timestamps derived from local calendar dates. Query validation rejects
+  invalid ranges and negative offsets; page limits must be 1–100. Offsets beyond the final page are clamped.
+- Page records and full-range spot aggregates are read in one transaction. Comparisons use region/date filters across
+  all spots; the selected spot additionally narrows the history list and its overview. No aggregate results are stored.
+- Recorded net includes all finished sessions. Hourly comparisons exclude both earnings and duration for zero-duration
+  sessions, reporting their count separately; positive-duration sessions with no entries still contribute tracked time.
+- Stored entry prices and sale multipliers determine historical value. Region is the recorded session region; the
+  historical entries do not identify whether a price originated from the other region's fallback or manual input.
 - A running session is restored as paused, including elapsed time since its last start.
 - Session entries are replaced inside the same transaction as the session update.
 - Normal saves cannot change finished sessions; the explicit reopen command can return one to a paused state.

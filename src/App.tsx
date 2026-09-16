@@ -77,6 +77,7 @@ export function App() {
                 </div>
                 {view === "history" ? (
                     <HistoryView
+                        initialRegion={persistedSession.session.region}
                         databaseLoaded={persistedSession.databaseLoaded}
                         databaseStatus={persistedSession.databaseStatus}
                         onReopen={reopenFinishedSession}

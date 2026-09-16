@@ -285,10 +285,11 @@
         width: 100%;
     }
     .HistoryActions label {
-        min-width: 0;
-        flex: 1;
+        min-width: 140px;
+        flex: 1 1 160px;
     }
-    .HistoryActions select {
+    .HistoryActions select,
+    .HistoryActions input {
         width: 100%;
         max-width: none;
     }
@@ -309,4 +310,60 @@
     .UploadHeading {
         flex-wrap: wrap;
     }
+}
+
+.HistoryActions {
+    flex-wrap: wrap;
+    margin-bottom: 24px;
+}
+.HistoryActions input {
+    display: block;
+    margin-top: 5px;
+    padding: 8px 10px;
+    font-size: 12px;
+    max-width: 100%;
+}
+.Comparisons {
+    margin-bottom: 24px;
+    min-width: 0;
+}
+.Comparisons h2 {
+    font-size: 15px;
+    font-weight: 550;
+}
+.Comparisons p,
+.Overview p {
+    color: var(--muted);
+    font-size: 12px;
+}
+.ComparisonScroll {
+    overflow-x: auto;
+}
+.ComparisonScroll table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 12px;
+    font-variant-numeric: tabular-nums;
+}
+.ComparisonScroll th,
+.ComparisonScroll td {
+    padding: 8px;
+    text-align: right;
+    border-bottom: 1px solid var(--line);
+}
+.ComparisonScroll th {
+    font-weight: 500;
+}
+.ComparisonScroll th:first-child {
+    text-align: left;
+    min-width: 180px;
+}
+.ComparisonScroll small {
+    display: block;
+    color: var(--muted);
+}
+.Pagination {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 12px;
 }

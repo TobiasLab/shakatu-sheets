@@ -1,4 +1,5 @@
 import { Channel, invoke, isTauri } from "@tauri-apps/api/core";
+import type { HistoryQuery, SpotSummary } from "../domain/history";
 import type { SessionState } from "../domain/session";
 import {
     isSupportedLootSource,
@@ -69,8 +70,15 @@ export function fetchMarketPrices(region: SessionState["region"], itemIds: numbe
     return invoke<MarketPriceSnapshot[]>("fetch_market_prices", { region, itemIds });
 }
 
-export function listFinishedSessions() {
-    return invoke<FinishedSessionRecord[]>("list_finished_sessions");
+export type HistoryResult = {
+    records: FinishedSessionRecord[];
+    totalCount: number;
+    offset: number;
+    spotSummaries: SpotSummary[];
+};
+
+export function listFinishedSessions(query: HistoryQuery) {
+    return invoke<HistoryResult>("list_finished_sessions", { query });
 }
 
 export function deleteFinishedSession(id: string) {

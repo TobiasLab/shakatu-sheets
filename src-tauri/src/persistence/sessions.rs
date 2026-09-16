@@ -333,39 +333,159 @@ pub(super) fn load_active_session_record(
     id.map_or(Ok(None), |id| load_session_by_id(connection, &id))
 }
 
+#[derive(Clone, Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct HistoryQuery {
+    pub region: Region,
+    pub grind_spot_id: Option<String>,
+    pub finished_from_ms: Option<i64>,
+    pub finished_before_ms: Option<i64>,
+    pub offset: i64,
+    pub limit: i64,
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SpotSummary {
+    pub grind_spot_id: String,
+    pub session_count: i64,
+    pub elapsed_ms: i64,
+    pub net: f64,
+    pub timed_net: f64,
+    pub zero_duration_count: i64,
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct HistoryResult {
+    pub records: Vec<FinishedSessionRecord>,
+    pub total_count: i64,
+    pub offset: i64,
+    pub spot_summaries: Vec<SpotSummary>,
+}
+
 pub(super) fn list_finished_session_records(
     connection: &Connection,
-) -> Result<Vec<FinishedSessionRecord>, String> {
-    let mut statement = connection
+    query: &HistoryQuery,
+) -> Result<HistoryResult, String> {
+    if !(1..=100).contains(&query.limit) || query.offset < 0 {
+        return Err("history limit must be 1–100 and offset must be nonnegative".into());
+    }
+    if query
+        .grind_spot_id
+        .as_ref()
+        .is_some_and(|id| id.trim().is_empty())
+    {
+        return Err("grind spot ID cannot be empty".into());
+    }
+    if [query.finished_from_ms, query.finished_before_ms]
+        .into_iter()
+        .flatten()
+        .any(|time| !(0..=8_640_000_000_000_000).contains(&time))
+        || matches!((query.finished_from_ms, query.finished_before_ms), (Some(from), Some(before)) if from >= before)
+    {
+        return Err("invalid history date range".into());
+    }
+    let transaction = connection
+        .unchecked_transaction()
+        .map_err(|error| error.to_string())?;
+    let region = region_to_str(&query.region);
+    // Aggregate entries per session first: entry joins must not multiply tracked time.
+    let mut statement = transaction
         .prepare(
-            "SELECT id, COALESCE(finished_at, updated_at)
-             FROM sessions
-             WHERE status = 'finished'
-             ORDER BY COALESCE(finished_at, updated_at) DESC, id
-             LIMIT 20",
+            "WITH session_values AS (
+            SELECT s.id, s.grind_spot_id, s.elapsed_ms,
+                COALESCE(SUM(CASE WHEN e.valuation = 'expense'
+                    THEN -e.quantity * e.unit_price
+                    ELSE e.quantity * e.unit_price * e.sale_multiplier END), 0.0) AS net
+            FROM sessions s LEFT JOIN session_entries e ON e.session_id = s.id
+            WHERE s.status = 'finished' AND s.region = ?1
+                AND (?2 IS NULL OR COALESCE(s.finished_at, s.updated_at) >= ?2)
+                AND (?3 IS NULL OR COALESCE(s.finished_at, s.updated_at) < ?3)
+            GROUP BY s.id
+        )
+        SELECT grind_spot_id, COUNT(*), SUM(elapsed_ms), SUM(net),
+            SUM(CASE WHEN elapsed_ms > 0 THEN net ELSE 0.0 END),
+            SUM(CASE WHEN elapsed_ms = 0 THEN 1 ELSE 0 END)
+        FROM session_values GROUP BY grind_spot_id ORDER BY grind_spot_id",
         )
         .map_err(|error| error.to_string())?;
-    let rows = statement
-        .query_map([], |row| {
-            Ok((row.get::<_, String>(0)?, row.get::<_, i64>(1)?))
-        })
-        .map_err(|error| error.to_string())?;
-    let sessions = rows
+    let spot_summaries = statement
+        .query_map(
+            params![region, query.finished_from_ms, query.finished_before_ms],
+            |row| {
+                Ok(SpotSummary {
+                    grind_spot_id: row.get(0)?,
+                    session_count: row.get(1)?,
+                    elapsed_ms: row.get(2)?,
+                    net: row.get(3)?,
+                    timed_net: row.get(4)?,
+                    zero_duration_count: row.get(5)?,
+                })
+            },
+        )
+        .map_err(|error| error.to_string())?
         .collect::<Result<Vec<_>, _>>()
         .map_err(|error| error.to_string())?;
-
-    sessions
+    drop(statement);
+    let total_count = spot_summaries
+        .iter()
+        .filter(|spot| {
+            query
+                .grind_spot_id
+                .as_ref()
+                .is_none_or(|id| *id == spot.grind_spot_id)
+        })
+        .map(|spot| spot.session_count)
+        .sum::<i64>();
+    let offset = query
+        .offset
+        .min(((total_count - 1).max(0) / query.limit) * query.limit);
+    let mut statement = transaction
+        .prepare(
+            "SELECT id, COALESCE(finished_at, updated_at) FROM sessions
+         WHERE status = 'finished' AND region = ?1
+            AND (?2 IS NULL OR COALESCE(finished_at, updated_at) >= ?2)
+            AND (?3 IS NULL OR COALESCE(finished_at, updated_at) < ?3)
+            AND (?4 IS NULL OR grind_spot_id = ?4)
+         ORDER BY COALESCE(finished_at, updated_at) DESC, id ASC LIMIT ?5 OFFSET ?6",
+        )
+        .map_err(|error| error.to_string())?;
+    let ids = statement
+        .query_map(
+            params![
+                region,
+                query.finished_from_ms,
+                query.finished_before_ms,
+                query.grind_spot_id,
+                query.limit,
+                offset
+            ],
+            |row| Ok((row.get::<_, String>(0)?, row.get::<_, i64>(1)?)),
+        )
+        .map_err(|error| error.to_string())?
+        .collect::<Result<Vec<_>, _>>()
+        .map_err(|error| error.to_string())?;
+    drop(statement);
+    let records = ids
         .into_iter()
         .map(|(id, finished_at)| {
-            let session = load_session_by_id(connection, &id)?
+            let session = load_session_by_id(&transaction, &id)?
                 .ok_or_else(|| format!("finished session {id} disappeared"))?;
             Ok(FinishedSessionRecord {
                 session,
                 finished_at,
-                garmoth_upload_status: load_garmoth_upload_status(connection, &id)?,
+                garmoth_upload_status: load_garmoth_upload_status(&transaction, &id)?,
             })
         })
-        .collect()
+        .collect::<Result<Vec<_>, String>>()?;
+    transaction.commit().map_err(|error| error.to_string())?;
+    Ok(HistoryResult {
+        records,
+        total_count,
+        offset,
+        spot_summaries,
+    })
 }
 
 pub(super) fn delete_finished_session_record(
@@ -461,10 +581,11 @@ pub fn save_session(session: SessionRecord, state: State<'_, DatabasePath>) -> R
 
 #[tauri::command]
 pub fn list_finished_sessions(
+    query: HistoryQuery,
     state: State<'_, DatabasePath>,
-) -> Result<Vec<FinishedSessionRecord>, String> {
+) -> Result<HistoryResult, String> {
     let connection = open_database(&state.0)?;
-    list_finished_session_records(&connection)
+    list_finished_session_records(&connection, &query)
 }
 
 #[tauri::command]

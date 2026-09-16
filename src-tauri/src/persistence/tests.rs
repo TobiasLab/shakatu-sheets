@@ -19,8 +19,8 @@ use super::{
     sessions::{
         delete_finished_session_at_path, delete_finished_session_record,
         list_finished_session_records, load_active_session_record, load_session_by_id,
-        reopen_session_record, save_session_record, EntrySource, SessionEntry, SessionRecord,
-        SessionStatus, Valuation,
+        reopen_session_record, save_session_record, EntrySource, HistoryQuery, SessionEntry,
+        SessionRecord, SessionStatus, Valuation,
     },
     settings::{load_setting, save_settings, save_settings_if_unchanged},
 };
@@ -129,8 +129,9 @@ fn reopens_a_finished_session_and_replaces_an_empty_placeholder() {
         load_session_by_id(&connection, &placeholder.id).unwrap(),
         None
     );
-    assert!(list_finished_session_records(&connection)
+    assert!(list_finished_session_records(&connection, &history_query())
         .unwrap()
+        .records
         .is_empty());
 }
 
@@ -153,7 +154,10 @@ fn refuses_to_replace_an_active_session_with_progress() {
         Some(active)
     );
     assert_eq!(
-        list_finished_session_records(&connection).unwrap()[0].session,
+        list_finished_session_records(&connection, &history_query())
+            .unwrap()
+            .records[0]
+            .session,
         finished
     );
 }
@@ -204,7 +208,9 @@ fn lists_finished_sessions_with_their_timestamps() {
     let finished = session(SessionStatus::Finished);
     save_session_record(&mut connection, &finished).unwrap();
 
-    let records = list_finished_session_records(&connection).unwrap();
+    let records = list_finished_session_records(&connection, &history_query())
+        .unwrap()
+        .records;
 
     assert_eq!(records.len(), 1);
     assert_eq!(records[0].session, finished);
@@ -343,7 +349,10 @@ fn refuses_to_reopen_a_session_reserved_for_garmoth() {
         "sessions sent to Garmoth cannot be reopened"
     );
     assert_eq!(
-        list_finished_session_records(&connection).unwrap()[0].garmoth_upload_status,
+        list_finished_session_records(&connection, &history_query())
+            .unwrap()
+            .records[0]
+            .garmoth_upload_status,
         Some(GarmothUploadStatus::Unknown)
     );
 }
@@ -392,7 +401,10 @@ fn upgrades_a_populated_version_one_database() {
         .execute("DROP TABLE garmoth_uploads", [])
         .unwrap();
     connection
-        .execute("DELETE FROM schema_migrations WHERE version = 2", [])
+        .execute("DROP INDEX sessions_finished_region_time_idx", [])
+        .unwrap();
+    connection
+        .execute("DELETE FROM schema_migrations WHERE version >= 2", [])
         .unwrap();
 
     migrate(&mut connection).unwrap();
@@ -417,7 +429,7 @@ fn upgrades_a_populated_version_one_database() {
                 row.get::<_, i64>(0)
             })
             .unwrap(),
-        2
+        3
     );
 }
 
@@ -500,4 +512,266 @@ fn loot_font_defaults_persists_and_rejects_unknown_values() {
     save_settings(&path, &[("loot_font", Some("unknown"))]).unwrap();
     assert!(load_loot_font_at_path(&path).is_err());
     remove_temporary_database(&path);
+}
+
+fn history_query() -> HistoryQuery {
+    HistoryQuery {
+        region: Region::Eu,
+        grind_spot_id: None,
+        finished_from_ms: None,
+        finished_before_ms: None,
+        offset: 0,
+        limit: 20,
+    }
+}
+
+fn history_fixture(connection: &mut Connection, id: &str, spot: &str, time: i64, elapsed: i64) {
+    let mut record = session(SessionStatus::Finished);
+    record.id = id.into();
+    record.grind_spot_id = spot.into();
+    record.elapsed_ms = elapsed;
+    record.entries[0].id = format!("{id}-entry");
+    save_session_record(connection, &record).unwrap();
+    connection
+        .execute(
+            "UPDATE sessions SET finished_at = ?1, updated_at = ?1 WHERE id = ?2",
+            rusqlite::params![time, id],
+        )
+        .unwrap();
+}
+
+#[test]
+fn history_pages_all_sessions_and_filters_before_paging() {
+    let mut connection = database();
+    for index in 0..45 {
+        history_fixture(
+            &mut connection,
+            &format!("s-{index:02}"),
+            if index < 4 { "older" } else { "newer" },
+            1000 + index / 2,
+            1000,
+        );
+    }
+    history_fixture(&mut connection, "na", "other", 5000, 1000);
+    connection
+        .execute("UPDATE sessions SET region = 'na' WHERE id = 'na'", [])
+        .unwrap();
+    let mut query = history_query();
+    let first = list_finished_session_records(&connection, &query).unwrap();
+    assert_eq!(first.total_count, 45);
+    assert_eq!(first.records.len(), 20);
+    assert_eq!(
+        first
+            .spot_summaries
+            .iter()
+            .map(|s| s.session_count)
+            .sum::<i64>(),
+        45
+    );
+    let expected_summaries = serde_json::to_value(&first.spot_summaries).unwrap();
+    let mut ids = Vec::new();
+    for offset in [0, 20, 40] {
+        query.offset = offset;
+        let page = list_finished_session_records(&connection, &query).unwrap();
+        assert_eq!(
+            serde_json::to_value(&page.spot_summaries).unwrap(),
+            expected_summaries
+        );
+        ids.extend(page.records.into_iter().map(|record| record.session.id));
+    }
+    assert_eq!(ids.len(), 45);
+    assert_eq!(ids[0], "s-44");
+    assert_eq!(ids[1], "s-42");
+    assert_eq!(ids[2], "s-43");
+    ids.sort();
+    ids.dedup();
+    assert_eq!(ids.len(), 45);
+    query.grind_spot_id = Some("older".into());
+    let older = list_finished_session_records(&connection, &query).unwrap();
+    assert_eq!(older.offset, 0);
+    assert_eq!(older.total_count, 4);
+    assert_eq!(older.records.len(), 4);
+    assert_eq!(older.spot_summaries.len(), 2);
+    query.finished_from_ms = Some(1001);
+    query.finished_before_ms = Some(1002);
+    let dated = list_finished_session_records(&connection, &query).unwrap();
+    assert_eq!(
+        dated
+            .records
+            .iter()
+            .map(|r| r.session.id.as_str())
+            .collect::<Vec<_>>(),
+        ["s-02", "s-03"]
+    );
+    connection
+        .execute(
+            "UPDATE sessions SET finished_at = NULL WHERE id = 's-02'",
+            [],
+        )
+        .unwrap();
+    assert_eq!(
+        list_finished_session_records(&connection, &query)
+            .unwrap()
+            .total_count,
+        2
+    );
+    query = history_query();
+    query.region = Region::Na;
+    assert_eq!(
+        list_finished_session_records(&connection, &query)
+            .unwrap()
+            .total_count,
+        1
+    );
+    query.grind_spot_id = Some("missing".into());
+    let empty = list_finished_session_records(&connection, &query).unwrap();
+    assert_eq!(empty.total_count, 0);
+    assert!(empty.records.is_empty());
+}
+
+#[test]
+fn history_aggregates_stored_values_without_multiplying_duration() {
+    let mut connection = database();
+    let mut record = session(SessionStatus::Finished);
+    record.elapsed_ms = 1_800_000;
+    record.entries[0].quantity = 2.0;
+    record.entries[0].unit_price = 101;
+    record.entries[0].valuation = Valuation::Market;
+    record.entries[0].sale_multiplier = 0.845;
+    let mut vendor = record.entries[0].clone();
+    vendor.id = "vendor".into();
+    vendor.quantity = 3.0;
+    vendor.unit_price = 10;
+    vendor.valuation = Valuation::Vendor;
+    vendor.sale_multiplier = 1.0;
+    let mut expense = vendor.clone();
+    expense.id = "expense".into();
+    expense.quantity = 1.0;
+    expense.unit_price = 250;
+    expense.valuation = Valuation::Expense;
+    expense.sale_multiplier = 0.0;
+    record.entries.extend([vendor, expense]);
+    save_session_record(&mut connection, &record).unwrap();
+    history_fixture(&mut connection, "zero", &record.grind_spot_id, 1000, 0);
+    history_fixture(
+        &mut connection,
+        "empty",
+        &record.grind_spot_id,
+        1000,
+        5_400_000,
+    );
+    connection
+        .execute("DELETE FROM session_entries WHERE session_id = 'empty'", [])
+        .unwrap();
+    let query = history_query();
+    let before = list_finished_session_records(&connection, &query).unwrap();
+    let spot = &before.spot_summaries[0];
+    assert_eq!(spot.session_count, 3);
+    assert_eq!(spot.zero_duration_count, 1);
+    assert_eq!(spot.elapsed_ms, 7_200_000);
+    assert!((spot.timed_net - -49.31).abs() < 1e-8);
+    assert!((spot.net - (1_079_000.0 - 49.31)).abs() < 1e-8);
+    connection.execute("INSERT INTO price_snapshots (region, item_id, sub_id, base_price, fetched_at) VALUES ('eu', 16001, 0, 999999, 9000)", []).unwrap();
+    let after = list_finished_session_records(&connection, &query).unwrap();
+    assert_eq!(
+        serde_json::to_value(before).unwrap(),
+        serde_json::to_value(after).unwrap()
+    );
+    let mut active = session(SessionStatus::Paused);
+    active.id = "active".into();
+    active.entries.clear();
+    save_session_record(&mut connection, &active).unwrap();
+    assert_eq!(
+        list_finished_session_records(&connection, &query)
+            .unwrap()
+            .total_count,
+        3
+    );
+}
+
+#[test]
+fn history_refreshes_after_reopen_refinish_and_last_page_deletion() {
+    let mut connection = database();
+    for index in 0..21 {
+        history_fixture(
+            &mut connection,
+            &format!("s-{index:02}"),
+            "spot",
+            1000 + index,
+            1000,
+        );
+    }
+    let mut query = history_query();
+    query.offset = 20;
+    delete_finished_session_record(&connection, "s-00").unwrap();
+    let page = list_finished_session_records(&connection, &query).unwrap();
+    assert_eq!(page.total_count, 20);
+    assert_eq!(page.offset, 0);
+    assert_eq!(page.records.len(), 20);
+    let mut reopened = reopen_session_record(&mut connection, "s-01").unwrap();
+    assert_eq!(
+        list_finished_session_records(&connection, &query)
+            .unwrap()
+            .total_count,
+        19
+    );
+    reopened.status = SessionStatus::Finished;
+    save_session_record(&mut connection, &reopened).unwrap();
+    let page = list_finished_session_records(&connection, &query).unwrap();
+    assert_eq!(page.total_count, 20);
+    assert_eq!(page.records[0].session.id, "s-01");
+    assert!(page.records[0].finished_at > 1020);
+    assert_eq!(page.spot_summaries[0].session_count, 20);
+}
+
+#[test]
+fn history_rejects_invalid_queries() {
+    let connection = database();
+    for limit in [0, 101, -1] {
+        let mut query = history_query();
+        query.limit = limit;
+        assert!(list_finished_session_records(&connection, &query).is_err());
+    }
+    let mut query = history_query();
+    query.offset = -1;
+    assert!(list_finished_session_records(&connection, &query).is_err());
+    query = history_query();
+    query.finished_from_ms = Some(2000);
+    query.finished_before_ms = Some(2000);
+    assert!(list_finished_session_records(&connection, &query).is_err());
+    query = history_query();
+    query.finished_from_ms = Some(-1);
+    assert!(list_finished_session_records(&connection, &query).is_err());
+    query = history_query();
+    query.grind_spot_id = Some(" ".into());
+    assert!(list_finished_session_records(&connection, &query).is_err());
+}
+
+#[test]
+fn history_index_migration_preserves_populated_version_two_database() {
+    let mut connection = database();
+    history_fixture(&mut connection, "existing", "spot", 1000, 1000);
+    connection.execute_batch("DROP INDEX sessions_finished_region_time_idx; DELETE FROM schema_migrations WHERE version = 3;").unwrap();
+    migrate(&mut connection).unwrap();
+    migrate(&mut connection).unwrap();
+    assert_eq!(
+        list_finished_session_records(&connection, &history_query())
+            .unwrap()
+            .records[0]
+            .session
+            .id,
+        "existing"
+    );
+    let plan: String = connection.query_row("EXPLAIN QUERY PLAN SELECT id FROM sessions WHERE status='finished' AND region='eu' ORDER BY COALESCE(finished_at, updated_at) DESC, id ASC LIMIT 20", [], |row| row.get(3)).unwrap();
+    assert!(plan.contains("sessions_finished_region_time_idx"), "{plan}");
+    assert_eq!(
+        connection
+            .query_row(
+                "SELECT COUNT(*) FROM schema_migrations WHERE version=3",
+                [],
+                |row| row.get::<_, i64>(0)
+            )
+            .unwrap(),
+        1
+    );
 }
