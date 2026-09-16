@@ -107,7 +107,8 @@ Use native `<dialog>` with `showModal()`. The reference header and close control
 [SessionTools](../../src/views/LiveSession/SessionTools.tsx), with styling in
 [LiveSession.module.css](../../src/views/LiveSession/LiveSession.module.css). The
 [spot browser](../../src/components/GrindSpotPicker/GrindSpotPicker.module.css) demonstrates a bounded catalog with internal
-scrolling. These are reference implementations; there is currently no shared dialog component.
+scrolling. These are reference implementations; there is currently no shared dialog component. History filters reuse the
+SessionTools dialog and header styles.
 
 ### Size and composition
 
@@ -117,7 +118,7 @@ scrolling. These are reference implementations; there is currently no shared dia
 - For longer forms, the viewport ceiling is `calc(100dvh - 48px)`. Below 760px, use 12px viewport margins and a ceiling of
   `calc(100dvh - 24px)`; retain the 620px cap for compact pickers.
 - Use `--canvas`, a one-pixel `--line-strong` border, 16px corners, `0 20px 70px #0004` shadow, and a `#0007` backdrop.
-- The header uses 22px/24px padding, a bottom divider, an 18px title, and optional 12px muted help text. Compact headers use
+- The header uses 22px/24px padding, a bottom divider, and an 18px title. Omit subtitles by default. Compact headers use
   18px padding. Keep the header and dismissal available while long content scrolls.
 - Short confirmations should be narrower and sized to their message; the existing finish dialog uses a 520px maximum.
 
@@ -141,8 +142,19 @@ opening or dismissing a dialog must not itself submit a draft or start a session
 
 ## Feedback and language
 
-Use short, concrete labels: Choose grind spot, Add loot or expense, Start timer, Clear search. Supporting text should explain
-what to do or why an action is unavailable. Keep implementation details in diagnostics unless they help the user decide.
+Use short, concrete labels: Choose grind spot, Add loot or expense, Start timer, Clear search.
+
+The product owner's preference is a compact interface without routine subtitles or explanatory paragraphs. Do not add
+page descriptions that repeat the title, instructions for obvious controls, or prose explaining table scope, sorting,
+calculation formulas, sample-size caveats, or price provenance. Make the interaction understandable through labels,
+layout, selected states, and the data itself. If an interface needs a paragraph to make sense, simplify its design.
+Keep calculation rules and methodological limitations in design documentation. Show concise help only when it resolves
+a specific actionable problem, such as an error or an unavailable action; do not replace removed prose with generic
+help disclosures or tooltips.
+
+Keep secondary filter controls behind a Filters button using the established native dialog pattern, rather than a
+permanent section above the content. A compact region value or active-filter count can appear on the button. Preserve
+accessible labels, keyboard focus, Escape dismissal, and useful error feedback.
 
 An empty state explains what is missing and the next useful action. Distinguish no data from no search results. Unknown
 values use an explanatory label or a dash; do not present a made-up zero as a known value. Errors identify the failed action

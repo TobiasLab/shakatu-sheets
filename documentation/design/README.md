@@ -99,8 +99,11 @@ Garmoth connection/character setup. Disabled character controls explain that the
 ## History comparisons
 
 History defaults to the current session region and all dates. Completion-date inputs use local calendar days, including
-both selected dates; Clear filters restores the initial region, all dates, and all spots. Filters remain usable for empty
-results. Previous/Next controls browse 20 records at a time with a matching-session count.
+both selected dates. A Filters button opens a native dialog using the same styling as the entry dialog. Region, dates,
+and spot apply immediately; Clear filters restores the initial region, all dates, and all spots. The button shows the
+region and additional active-filter count. Escape and Close return focus to the button. Filters remain usable for empty
+results. Previous/Next controls browse 20 records at a time with a matching-session count. Page descriptions and
+methodological explanations stay out of the interface; the calculation rules are documented below.
 
 The comparison table covers all spots in the selected region/date range, independently of the spot selector and page.
 Selecting a comparison row filters the session list. Rates sort descending with undefined rates last; equal rates sort
@@ -109,8 +112,8 @@ spot IDs remain distinct, including location variants. Unknown catalog IDs displ
 
 Net is stored revenue quantity × unit price × sale multiplier minus recorded expenses. Duration-weighted net/hour is
 positive-duration session net × 3,600,000 ÷ total elapsed milliseconds. Zero-duration sessions remain visible and count
-in recorded net and session count, but their earnings are excluded from the rate. Their excluded count and eligible
-session count are shown; a sample with no tracked time displays an em dash. Negative earnings remain valid.
+in recorded net and session count, but their earnings are excluded from the rate. A compact timed-session count is
+shown when it differs from the total; a sample with no tracked time displays an em dash. Negative earnings remain valid.
 
 Counts and time provide sample-size context without an arbitrary confidence threshold. Short samples and rare drops
 can skew the ranking. Prices are recorded valuations, not confirmed sales, and are never refreshed for completed

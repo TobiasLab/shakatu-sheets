@@ -1,18 +1,43 @@
 .HistoryActions {
     display: flex;
-    align-items: end;
+    align-items: center;
+    flex-wrap: wrap;
     gap: 8px;
 }
-.HistoryActions label {
-    color: var(--muted);
-    font-size: 11px;
+.FilterDialog {
+    max-width: 560px;
 }
-.HistoryActions select {
-    display: block;
-    margin-top: 5px;
-    max-width: 260px;
+.FilterFields {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 20px 16px;
+    padding: 24px;
+}
+.FilterFields label {
+    display: grid;
+    gap: 8px;
+    color: var(--muted);
+    font-size: 12px;
+}
+.FilterFields select,
+.FilterFields input {
+    width: 100%;
+    min-width: 0;
     padding: 8px 10px;
     font-size: 12px;
+}
+.FilterFooter {
+    display: flex;
+    justify-content: flex-end;
+    padding: 0 24px 24px;
+}
+.FilterError {
+    margin: 0 24px 16px;
+    color: var(--danger);
+    font-size: 12px;
+}
+.TimedCount {
+    margin-top: 8px;
 }
 .Overview {
     display: grid;
@@ -281,18 +306,6 @@
     .HistoryList {
         max-height: 220px;
     }
-    .HistoryActions {
-        width: 100%;
-    }
-    .HistoryActions label {
-        min-width: 140px;
-        flex: 1 1 160px;
-    }
-    .HistoryActions select,
-    .HistoryActions input {
-        width: 100%;
-        max-width: none;
-    }
     .Overview {
         gap: 12px;
     }
@@ -312,17 +325,6 @@
     }
 }
 
-.HistoryActions {
-    flex-wrap: wrap;
-    margin-bottom: 24px;
-}
-.HistoryActions input {
-    display: block;
-    margin-top: 5px;
-    padding: 8px 10px;
-    font-size: 12px;
-    max-width: 100%;
-}
 .Comparisons {
     margin-bottom: 24px;
     min-width: 0;
@@ -330,11 +332,6 @@
 .Comparisons h2 {
     font-size: 15px;
     font-weight: 550;
-}
-.Comparisons p,
-.Overview p {
-    color: var(--muted);
-    font-size: 12px;
 }
 .ComparisonScroll {
     overflow-x: auto;
@@ -366,4 +363,14 @@
     display: flex;
     gap: 8px;
     margin-bottom: 12px;
+}
+
+@media (max-width: 480px) {
+    .FilterFields {
+        grid-template-columns: 1fr;
+        padding: 18px;
+    }
+    .FilterFooter {
+        padding: 0 18px 18px;
+    }
 }

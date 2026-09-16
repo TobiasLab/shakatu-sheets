@@ -14,6 +14,7 @@ import { calculateTotals } from "../../domain/session";
 import { formatDuration, formatSilver, formatTimestamp } from "../../format";
 import { buildGarmothUpload, type GarmothUploadPreview } from "../../garmoth";
 import type { DatabaseStatus } from "../../hooks/usePersistedSession";
+import dialogStyles from "../LiveSession/LiveSession.module.css";
 import styles from "./History.module.css";
 
 function spotName(id: string) {
@@ -59,6 +60,9 @@ export function HistoryView({
     const [settingsError, setSettingsError] = useState("");
     const [garmothSettingsLoaded, setGarmothSettingsLoaded] = useState(false);
     const reloadButton = useRef<HTMLButtonElement>(null);
+    const filterDialog = useRef<HTMLDialogElement>(null);
+    const filterButton = useRef<HTMLButtonElement>(null);
+    const regionInput = useRef<HTMLSelectElement>(null);
     const historySelectButtons = useRef(new Map<string, HTMLButtonElement>());
     const historyDeleteButtons = useRef(new Map<string, HTMLButtonElement>());
     const historyRequestId = useRef(0);
@@ -156,6 +160,11 @@ export function HistoryView({
         (character) => character.id === garmothSettings.selectedCharacterId,
     );
     const actionBusy = uploading || reopening || deletingId !== null;
+    const activeFilterCount = Number(Boolean(fromDate || toDate)) + Number(grindSpotFilter !== "all");
+
+    useEffect(() => {
+        if (!databaseLoaded || actionBusy) filterDialog.current?.close();
+    }, [databaseLoaded, actionBusy]);
 
     function resetPage() {
         setOffset(0);
@@ -285,115 +294,152 @@ export function HistoryView({
     return (
         <>
             <header className="topbar">
-                <div>
-                    <h1>Session history</h1>
-                    <p className="page-description">Browse completed sessions and compare your recorded earnings.</p>
+                <h1>Session history</h1>
+                <div className={styles.HistoryActions}>
+                    <button
+                        ref={filterButton}
+                        className="button"
+                        type="button"
+                        aria-label="Filters"
+                        aria-haspopup="dialog"
+                        disabled={!databaseLoaded || actionBusy}
+                        onClick={() => {
+                            filterDialog.current?.showModal();
+                            regionInput.current?.focus();
+                        }}
+                    >
+                        Filters · {region.toUpperCase()}
+                        {activeFilterCount > 0 ? ` (${activeFilterCount})` : ""}
+                    </button>
+                    <button
+                        ref={reloadButton}
+                        className="button subtle"
+                        type="button"
+                        disabled={!databaseLoaded || actionBusy}
+                        onClick={() => void loadHistory()}
+                    >
+                        Reload
+                    </button>
                 </div>
             </header>
-            <div className={styles.HistoryActions}>
-                <label>
-                    Recorded region
-                    <select
-                        aria-label="Recorded region"
-                        value={region}
-                        disabled={!databaseLoaded || actionBusy}
-                        onChange={(event) => {
-                            resetPage();
-                            setRegion(event.target.value as "eu" | "na");
-                        }}
+            <dialog
+                ref={filterDialog}
+                className={`${dialogStyles.ToolDialog} ${styles.FilterDialog}`}
+                aria-labelledby="history-filters-title"
+                onClose={() => filterButton.current?.focus()}
+            >
+                <header className={dialogStyles.DialogHeading}>
+                    <h2 id="history-filters-title">Filters</h2>
+                    <button
+                        className="button subtle"
+                        type="button"
+                        aria-label="Close filters"
+                        onClick={() => filterDialog.current?.close()}
                     >
-                        <option value="eu">EU</option>
-                        <option value="na">NA</option>
-                    </select>
-                </label>
-                <label>
-                    Completed from
-                    <input
-                        type="date"
-                        min="1970-01-01"
-                        value={fromDate}
-                        disabled={!databaseLoaded || actionBusy}
-                        onChange={(event) => {
-                            resetPage();
-                            setFromDate(event.target.value);
-                        }}
-                    />
-                </label>
-                <label>
-                    Completed through
-                    <input
-                        type="date"
-                        min="1970-01-01"
-                        value={toDate}
-                        disabled={!databaseLoaded || actionBusy}
-                        onChange={(event) => {
-                            resetPage();
-                            setToDate(event.target.value);
-                        }}
-                    />
-                </label>
-                <label>
-                    Grind spot
-                    <select
-                        aria-label="Grind spot"
-                        value={grindSpotFilter}
-                        disabled={!databaseLoaded || actionBusy}
-                        onChange={(event) => selectSpot(event.target.value)}
-                    >
-                        <option value="all">All grind spots</option>
-                        {grindSpotFilter !== "all" && !grindSpots.some((spot) => spot.id === grindSpotFilter) && (
-                            <option value={grindSpotFilter}>{grindSpotFilter}</option>
-                        )}
-                        {history?.spotSummaries
-                            .filter(
-                                (spot) =>
-                                    spot.grindSpotId !== grindSpotFilter &&
-                                    !grindSpots.some((known) => known.id === spot.grindSpotId),
-                            )
-                            .map((spot) => (
-                                <option key={spot.grindSpotId} value={spot.grindSpotId}>
-                                    {spot.grindSpotId}
+                        Close <kbd>Esc</kbd>
+                    </button>
+                </header>
+                <div className={styles.FilterFields}>
+                    <label>
+                        Region
+                        <select
+                            ref={regionInput}
+                            aria-label="Recorded region"
+                            value={region}
+                            disabled={!databaseLoaded || actionBusy}
+                            onChange={(event) => {
+                                resetPage();
+                                setRegion(event.target.value as "eu" | "na");
+                            }}
+                        >
+                            <option value="eu">EU</option>
+                            <option value="na">NA</option>
+                        </select>
+                    </label>
+                    <label>
+                        Grind spot
+                        <select
+                            aria-label="Grind spot"
+                            value={grindSpotFilter}
+                            disabled={!databaseLoaded || actionBusy}
+                            onChange={(event) => selectSpot(event.target.value)}
+                        >
+                            <option value="all">All grind spots</option>
+                            {grindSpotFilter !== "all" && !grindSpots.some((spot) => spot.id === grindSpotFilter) && (
+                                <option value={grindSpotFilter}>{grindSpotFilter}</option>
+                            )}
+                            {history?.spotSummaries
+                                .filter(
+                                    (spot) =>
+                                        spot.grindSpotId !== grindSpotFilter &&
+                                        !grindSpots.some((known) => known.id === spot.grindSpotId),
+                                )
+                                .map((spot) => (
+                                    <option key={spot.grindSpotId} value={spot.grindSpotId}>
+                                        {spot.grindSpotId}
+                                    </option>
+                                ))}
+                            {grindSpots.map((spot) => (
+                                <option key={spot.id} value={spot.id}>
+                                    {spot.name}
                                 </option>
                             ))}
-                        {grindSpots.map((spot) => (
-                            <option key={spot.id} value={spot.id}>
-                                {spot.name}
-                            </option>
-                        ))}
-                    </select>
-                </label>
-                <button
-                    className="button subtle"
-                    type="button"
-                    disabled={!databaseLoaded || actionBusy}
-                    onClick={() => {
-                        resetPage();
-                        setRegion(initialRegion);
-                        setFromDate("");
-                        setToDate("");
-                        setGrindSpotFilter("all");
-                    }}
-                >
-                    Clear filters
-                </button>
-                <button
-                    ref={reloadButton}
-                    className="button subtle"
-                    type="button"
-                    disabled={!databaseLoaded || actionBusy}
-                    onClick={() => void loadHistory()}
-                >
-                    Reload
-                </button>
-            </div>
+                        </select>
+                    </label>
+                    <label>
+                        Completed from
+                        <input
+                            type="date"
+                            min="1970-01-01"
+                            value={fromDate}
+                            disabled={!databaseLoaded || actionBusy}
+                            onChange={(event) => {
+                                resetPage();
+                                setFromDate(event.target.value);
+                            }}
+                        />
+                    </label>
+                    <label>
+                        Completed through
+                        <input
+                            type="date"
+                            min="1970-01-01"
+                            id="history-completed-through"
+                            value={toDate}
+                            disabled={!databaseLoaded || actionBusy}
+                            onChange={(event) => {
+                                resetPage();
+                                setToDate(event.target.value);
+                            }}
+                        />
+                    </label>
+                </div>
+                {error && (
+                    <p className={styles.FilterError} role="alert">
+                        {error}
+                    </p>
+                )}
+                <div className={styles.FilterFooter}>
+                    <button
+                        className="button subtle"
+                        type="button"
+                        disabled={!databaseLoaded || actionBusy}
+                        onClick={() => {
+                            resetPage();
+                            setRegion(initialRegion);
+                            setFromDate("");
+                            setToDate("");
+                            setGrindSpotFilter("all");
+                        }}
+                    >
+                        Clear filters
+                    </button>
+                </div>
+            </dialog>
 
             {history && !error && comparisonSpots.length > 0 && (
                 <section className={styles.Comparisons} aria-label="Grind spot comparisons">
                     <h2>Grind spot comparisons</h2>
-                    <p>
-                        All spots in {region.toUpperCase()} for the selected completion dates, highest recorded net/hour
-                        first.
-                    </p>
                     {/* biome-ignore lint/a11y/noNoninteractiveTabindex: Scrollable tables need keyboard access. */}
                     <section className={styles.ComparisonScroll} aria-label="Spot earnings table" tabIndex={0}>
                         <table>
@@ -425,10 +471,7 @@ export function HistoryView({
                                             <td>
                                                 {spot.sessionCount}
                                                 {spot.zeroDurationCount > 0 && (
-                                                    <small>
-                                                        {spot.sessionCount - spot.zeroDurationCount} timed;{" "}
-                                                        {spot.zeroDurationCount} excluded from rate
-                                                    </small>
+                                                    <small>{spot.sessionCount - spot.zeroDurationCount} timed</small>
                                                 )}
                                             </td>
                                             <td>{formatDuration(spot.elapsedMs)}</td>
@@ -439,15 +482,6 @@ export function HistoryView({
                             </tbody>
                         </table>
                     </section>
-                    <p>
-                        Rates weight sessions by tracked time and exclude zero-duration sessions. Counts and time show
-                        the sample size; short samples and rare drops can skew results.
-                    </p>
-                    <p>
-                        Values use stored entry prices, sale multipliers, and recorded expenses, not confirmed sales.
-                        Recorded region may include fallback prices from the other region or manual prices. Completion
-                        dates use your local time.
-                    </p>
                 </section>
             )}
             {history && !error && historyTotals.sessionCount > 0 && (
@@ -467,16 +501,15 @@ export function HistoryView({
                         <strong>{formatDuration(trackedMs)}</strong>
                     </div>
                     <div>
-                        <span>Duration-weighted net / hour</span>
+                        <span>Net / hour</span>
                         <strong>
                             {historyRate === null ? "—" : formatSilver(historyRate, true)}
                             <small> silver</small>
                         </strong>
                         {historyTotals.zeroDurationCount > 0 && (
-                            <p>
-                                {historyTotals.sessionCount - historyTotals.zeroDurationCount} timed sessions;{" "}
-                                {historyTotals.zeroDurationCount} zero-duration sessions excluded from rate.
-                            </p>
+                            <span className={styles.TimedCount}>
+                                {historyTotals.sessionCount - historyTotals.zeroDurationCount} timed sessions
+                            </span>
                         )}
                     </div>
                 </section>
