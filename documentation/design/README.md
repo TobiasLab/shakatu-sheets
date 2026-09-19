@@ -140,6 +140,11 @@ preset opens the shared selection content inside the same modal; import and libr
 Selecting a preset updates draft expenses and net/hour totals only. Cancel discards the draft; the final upload action
 saves the expenses and submits the session. Users can also upload without selecting a preset.
 
+The upload modal follows the desk's visual hierarchy: selected spot, the shared flat earnings/time overview, then the
+existing ledger with preset actions alongside its heading. Garmoth options form one compact wrapping row beneath the
+ledger. Use the standard 900px dialog width and Close Esc header; the body scrolls while the header and upload footer
+remain visible. Do not wrap upload options in an additional card or repeat totals below the ledger.
+
 The modal includes Contribute to global data (off by default), Used Agris with an optional amount (blank means unknown),
 and optional Drop rate %. Options persist across failed attempts in the open modal and reset when it is reopened.
 Labels stay concise; no explanatory subtitles are added. Native focus trapping and Escape cancellation apply, while

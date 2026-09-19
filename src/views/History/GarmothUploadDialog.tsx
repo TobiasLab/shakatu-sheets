@@ -56,6 +56,7 @@ export function GarmothUploadDialog({
     useEffect(() => {
         const element = dialog.current;
         element?.showModal();
+        element?.querySelector<HTMLInputElement>('input[type="search"]')?.focus();
         return () => element?.close();
     }, []);
 
@@ -95,6 +96,7 @@ export function GarmothUploadDialog({
         }
     }
 
+    const spot = grindSpots.find((candidate) => candidate.id === draft.grindSpotId);
     return (
         <dialog
             ref={dialog}
@@ -106,92 +108,112 @@ export function GarmothUploadDialog({
             }}
         >
             <header className={dialogStyles.DialogHeading}>
-                <h2 id={titleId}>Review Garmoth upload</h2>
-                <button type="button" className="button subtle" disabled={busy} onClick={onClose}>
-                    Cancel <kbd>Esc</kbd>
+                <h2 id={titleId}>Upload to Garmoth</h2>
+                <button
+                    type="button"
+                    className="button subtle"
+                    aria-label="Close Garmoth upload"
+                    disabled={busy}
+                    onClick={onClose}
+                >
+                    Close <kbd>Esc</kbd>
                 </button>
             </header>
             <div className={styles.Body}>
-                <div className={styles.Summary}>
-                    <strong>
-                        {grindSpots.find((spot) => spot.id === draft.grindSpotId)?.name ?? draft.grindSpotId}
-                    </strong>
-                    <span>{formatTimestamp(record.finishedAt)}</span>
-                    <span>
-                        {draft.region.toUpperCase()} · {formatDuration(draft.elapsedMs)} · {characterName}
-                    </span>
+                <div className={styles.Location}>
+                    {spot?.trash.icon && <img src={spot.trash.icon} alt="" width={40} height={40} />}
+                    <div>
+                        <h3>{spot?.name ?? draft.grindSpotId}</h3>
+                        <div className={styles.Context}>
+                            <span>{formatTimestamp(record.finishedAt)}</span>
+                            <span>{draft.region.toUpperCase()}</span>
+                            <span>{characterName}</span>
+                        </div>
+                    </div>
                 </div>
+                <section className={`${dialogStyles.MetricsGrid} ${styles.Metrics}`} aria-label="Session summary">
+                    <div className={dialogStyles.Metric}>
+                        <span>Net silver / hour</span>
+                        <strong>{formatSilver(totals.netPerHour, true)}</strong>
+                    </div>
+                    <div className={dialogStyles.Metric}>
+                        <span>Session net</span>
+                        <strong>{formatSilver(totals.net, true)}</strong>
+                        <small>Expenses {formatSilver(totals.expenses)}</small>
+                    </div>
+                    <div className={dialogStyles.Metric}>
+                        <span>Session time</span>
+                        <strong>{formatDuration(draft.elapsedMs)}</strong>
+                    </div>
+                </section>
                 <LootLedger
                     entries={draft.entries}
                     grindSpotId={draft.grindSpotId}
                     editingDisabled
                     onRemove={() => {}}
                     onUpdate={() => {}}
-                    tools={null}
+                    tools={
+                        <div className={dialogStyles.EntryTools}>
+                            {preview?.consumableCount === 0 && (
+                                <span className={styles.PresetStatus}>No preset applied</span>
+                            )}
+                            {canSelect && (
+                                <button
+                                    className="button"
+                                    type="button"
+                                    disabled={busy || blocked}
+                                    aria-expanded={selecting}
+                                    onClick={() => setSelecting(!selecting)}
+                                >
+                                    {selecting ? "Close preset selection" : "Select preset"}
+                                </button>
+                            )}
+                            {consumables && (
+                                <button
+                                    className="button subtle"
+                                    type="button"
+                                    disabled={busy || blocked}
+                                    onClick={() => setConsumables(null)}
+                                >
+                                    Undo preset selection
+                                </button>
+                            )}
+                        </div>
+                    }
+                    beforeEntries={
+                        selecting && (
+                            <div className={styles.PresetSelection}>
+                                <ConsumablePresetSelection
+                                    session={draft}
+                                    disabled={busy || blocked}
+                                    onApply={(entries) => {
+                                        setConsumables(entries);
+                                        setSelecting(false);
+                                        return true;
+                                    }}
+                                />
+                            </div>
+                        )
+                    }
                 />
-                <section aria-label="Consumables" className={styles.Presets}>
-                    {preview?.consumableCount === 0 && <p>No consumable preset applied.</p>}
-                    {canSelect && (
-                        <button
-                            className="button"
-                            type="button"
-                            disabled={busy || blocked}
-                            onClick={() => setSelecting(!selecting)}
-                        >
-                            {selecting ? "Close preset selection" : "Select preset"}
-                        </button>
-                    )}
-                    {consumables && (
-                        <button
-                            className="button subtle"
-                            type="button"
-                            disabled={busy || blocked}
-                            onClick={() => setConsumables(null)}
-                        >
-                            Undo preset selection
-                        </button>
-                    )}
-                    {selecting && (
-                        <ConsumablePresetSelection
-                            session={draft}
-                            disabled={busy || blocked}
-                            onApply={(entries) => {
-                                setConsumables(entries);
-                                setSelecting(false);
-                                return true;
-                            }}
-                        />
-                    )}
-                </section>
-                <div className={styles.Totals}>
-                    <span>
-                        Expenses <strong>{formatSilver(totals.expenses)}</strong>
-                    </span>
-                    <span>
-                        Net silver <strong>{formatSilver(totals.net, true)}</strong>
-                    </span>
-                    <span>
-                        Silver/h <strong>{formatSilver(totals.netPerHour, true)}</strong>
-                    </span>
-                </div>
                 <fieldset className={styles.Options} disabled={busy || blocked}>
-                    <legend>Upload options</legend>
+                    <legend className="sr-only">Upload options</legend>
                     <label className={styles.Checkbox}>
                         <input type="checkbox" checked={global} onChange={(event) => setGlobal(event.target.checked)} />
                         Contribute to global data
                     </label>
-                    <label className={styles.Checkbox}>
-                        <input
-                            type="checkbox"
-                            checked={usedAgris}
-                            onChange={(event) => setUsedAgris(event.target.checked)}
-                        />
-                        Used Agris
-                    </label>
-                    {usedAgris && (
-                        <label>
-                            Agris amount
+                    <div className={styles.Agris}>
+                        <label className={styles.Checkbox}>
                             <input
+                                type="checkbox"
+                                checked={usedAgris}
+                                onChange={(event) => setUsedAgris(event.target.checked)}
+                            />
+                            Used Agris
+                        </label>
+                        {usedAgris && (
+                            <input
+                                aria-label="Agris amount"
                                 type="number"
                                 min="1"
                                 step="1"
@@ -199,35 +221,36 @@ export function GarmothUploadDialog({
                                 value={agrisAmount}
                                 onChange={(event) => setAgrisAmount(event.target.value)}
                             />
-                        </label>
-                    )}
-                    <label>
+                        )}
+                    </div>
+                    <label className={styles.Rate}>
                         Drop rate %
                         <input
                             type="number"
                             min="0"
                             step="0.01"
-                            placeholder="Not specified"
+                            placeholder="—"
                             value={dropRate}
                             onChange={(event) => setDropRate(event.target.value)}
                         />
                     </label>
                 </fieldset>
-                {(error || previewError) && <p role="alert">{error || previewError}</p>}
-                <footer className={styles.Actions}>
-                    <button type="button" className="button" disabled={busy} onClick={onClose}>
-                        Cancel
-                    </button>
-                    <button
-                        type="button"
-                        className="button primary-button"
-                        disabled={busy || blocked || !!previewError}
-                        onClick={() => void upload()}
-                    >
-                        {busy ? "Uploading…" : repeat ? "Upload again" : "Upload to Garmoth"}
-                    </button>
-                </footer>
+                {(error || previewError) && (
+                    <p className={styles.Error} role="alert">
+                        {error || previewError}
+                    </p>
+                )}
             </div>
+            <footer className={styles.Actions}>
+                <button
+                    type="button"
+                    className="button primary-button"
+                    disabled={busy || blocked || !!previewError}
+                    onClick={() => void upload()}
+                >
+                    {busy ? "Uploading…" : repeat ? "Upload again" : "Upload to Garmoth"}
+                </button>
+            </footer>
         </dialog>
     );
 }

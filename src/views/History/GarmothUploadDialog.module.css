@@ -1,60 +1,134 @@
-.Dialog {
-    width: min(1100px, calc(100vw - 48px));
+.Dialog[open] {
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+.Dialog > header {
+    flex-shrink: 0;
+}
+.Dialog > header button {
+    flex-shrink: 0;
+    white-space: nowrap;
 }
 .Body {
+    min-height: 0;
+    overflow: auto;
     padding: 20px 24px;
     display: grid;
     gap: 20px;
 }
-.Summary,
-.Totals,
-.Actions {
+.Location {
     display: flex;
-    flex-wrap: wrap;
     align-items: center;
-    gap: 16px;
-}
-.Summary strong {
-    width: 100%;
-}
-.Totals span {
-    display: grid;
-    gap: 4px;
-}
-.Presets {
-    display: flex;
-    flex-wrap: wrap;
     gap: 12px;
-    align-items: center;
+    min-width: 0;
 }
-.Presets > div {
-    width: 100%;
+.Location img {
+    flex-shrink: 0;
+    border: 1px solid var(--line-strong);
+    border-radius: 7px;
+    background: var(--input-background);
+}
+.Location h3 {
+    margin: 0;
+    font-size: 22px;
+    font-weight: 550;
+    line-height: 1.35;
+    overflow-wrap: anywhere;
+}
+.Context {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px 12px;
+    margin-top: 4px;
+    color: var(--muted);
+    font-size: 12px;
+}
+.Metrics {
+    margin: 0;
+    padding: 16px 0 0;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+.PresetStatus {
+    color: var(--muted);
+    font-size: 11px;
+}
+.PresetSelection > div {
+    padding: 12px 0 20px;
 }
 .Options {
-    border: 1px solid var(--line);
-    border-radius: 8px;
-    padding: 16px;
-    display: grid;
-    gap: 12px;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 12px 24px;
+    min-width: 0;
+    border: 0;
+    padding: 0;
+    margin: 0;
+    color: var(--text-soft);
+    font-size: 12px;
 }
-.Options label {
-    display: grid;
-    gap: 6px;
-}
-.Options .Checkbox {
+.Checkbox,
+.Agris,
+.Rate {
     display: flex;
     align-items: center;
     gap: 8px;
 }
-.Options input[type="number"] {
-    max-width: 240px;
-    padding: 8px;
-}
-.Actions {
-    justify-content: flex-end;
-}
-
 .Options input[type="checkbox"] {
     width: auto;
     flex: 0 0 auto;
+    margin: 0;
+}
+.Options input[type="number"] {
+    width: 124px;
+    min-height: 34px;
+    padding: 7px 10px;
+    font-size: 12px;
+    font-variant-numeric: tabular-nums;
+}
+.Rate {
+    margin-left: auto;
+}
+.Rate input[type="number"] {
+    width: 88px;
+}
+.Error {
+    margin: 0;
+    color: var(--danger);
+    font-size: 12px;
+}
+.Actions {
+    display: flex;
+    flex-shrink: 0;
+    justify-content: flex-end;
+    padding: 16px 24px;
+    border-top: 1px solid var(--line);
+    background: var(--canvas);
+}
+@media (max-width: 760px) {
+    .Body {
+        padding: 18px;
+        gap: 16px;
+    }
+    .Actions {
+        padding: 16px 18px;
+    }
+    .Metrics {
+        gap: 12px;
+    }
+    .Metrics strong {
+        font-size: 27px;
+    }
+    .Rate {
+        margin-left: 0;
+    }
+}
+@media (max-width: 460px) {
+    .Metrics {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+    .Location h3 {
+        font-size: 18px;
+    }
 }
