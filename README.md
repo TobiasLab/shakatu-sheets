@@ -18,6 +18,9 @@ Shakatu Sheets is a local-first, open-source silver-per-hour tracker for Black D
 
 ## Development
 
+Use `main` plus focused feature branches, with pull requests targeting `main` directly. See the
+[branch workflow](documentation/development/README.md#branch-workflow).
+
 ```sh
 npm ci
 npm run tauri dev
