@@ -145,5 +145,9 @@ using the names supplied by the user verbatim:
 The previous numeric item-ID experiment did not work in the user's test. Acceptance of names and cost handling
 remain unverified. This is a hardcoded experiment, not a session preset feature, and must be removed or validated
 before merging into main. No extra cost is calculated locally, no prices are fetched, and the existing net totals
-and upload reservation rules remain unchanged. Existing uploaded or ambiguous sessions are not made retryable.
+and upload reservation rules remain unchanged. On this experimental branch, confirmed uploads expose “Upload again (test)” with a duplicate-session confirmation.
+An explicit IPC flag allows Rust to atomically reserve a previously successful upload again. Unknown outcomes remain
+blocked. A pre-transmission connect failure restores the previous success marker; a potentially transmitted failure
+leaves it unknown. Finished-session immutability and reopen restrictions remain intact. This repeat-upload escape hatch
+must be removed before merging into main.
 No live upload was performed during implementation.

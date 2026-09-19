@@ -226,13 +226,20 @@ export function HistoryView({
     }
 
     async function uploadSelected() {
-        if (!selected || !uploadPreview || uploadPreview.unmatchedEntries.length > 0) return;
+        if (!selected || !uploadPreview || uploadPreview.unmatchedEntries.length > 0 || actionBusy) return;
+        if (selected.garmothUploadStatus === "unknown") return;
+        const repeatForTesting = selected.garmothUploadStatus === "success";
+        if (
+            repeatForTesting &&
+            !window.confirm("Upload this session again for testing? This creates another session on Garmoth.")
+        )
+            return;
         historyRequestId.current += 1;
         setUploading(true);
         setUploadMessage("");
         setUploadError("");
         try {
-            const result = await uploadGarmothSession(uploadPreview.input);
+            const result = await uploadGarmothSession({ ...uploadPreview.input, repeatForTesting });
             setRecords(
                 (current) =>
                     current?.map((record) =>
@@ -737,7 +744,7 @@ export function HistoryView({
                                                       : "Ready for review"}
                                         </strong>
                                     </div>
-                                    {selected.garmothUploadStatus !== null ? null : !garmothSettingsLoaded ? (
+                                    {selected.garmothUploadStatus === "unknown" ? null : !garmothSettingsLoaded ? (
                                         <button className="button" type="button" disabled>
                                             Loading settings...
                                         </button>
@@ -756,13 +763,16 @@ export function HistoryView({
                                             type="button"
                                             disabled={
                                                 actionBusy ||
-                                                selected.garmothUploadStatus !== null ||
                                                 !uploadPreview ||
                                                 uploadPreview.unmatchedEntries.length > 0
                                             }
                                             onClick={uploadSelected}
                                         >
-                                            {uploading ? "Uploading..." : "Upload to Garmoth"}
+                                            {uploading
+                                                ? "Uploading..."
+                                                : selected.garmothUploadStatus === "success"
+                                                  ? "Upload again (test)"
+                                                  : "Upload to Garmoth"}
                                         </button>
                                     )}
                                 </div>
