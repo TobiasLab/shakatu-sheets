@@ -130,7 +130,7 @@ new completion timestamp determines date membership. Existing active-session and
 
 ## Consumable presets
 
-Settings → Consumables owns Garmoth export import and local preset editing/deletion. Users review item names and enter
+Settings → Integrations → Consumable presets owns Garmoth export import and local preset editing/deletion. Users review item names and enter
 session quantities and unit prices; zero prices must be explicit. Presets are region-specific and editable independently
 of whether the active session is finished. Saving a preset never changes session expenses.
 

@@ -118,7 +118,10 @@ export function ConsumablePresetPicker({
                 <div className={`${styles.Root} ${styles.Editor}`}>
                     {loading && <p role="status">Loading presets…</p>}
                     {!loading && !error && presets.length === 0 && (
-                        <p>No {target?.region.toUpperCase()} presets. Add one in Settings → Consumables.</p>
+                        <p>
+                            No {target?.region.toUpperCase()} presets. Add one in Settings → Integrations → Consumable
+                            presets.
+                        </p>
                     )}
                     <div className={styles.PresetList}>
                         {presets.map((preset) => (

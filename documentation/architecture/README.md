@@ -127,7 +127,7 @@ that Garmoth lacks presets. No preset import or consumable upload schema is esta
 
 ### Consumable presets
 
-Settings → Consumables accepts pasted Garmoth Consumable Planner exports with a `name` and comma-separated
+Settings → Integrations → Consumable presets accepts pasted Garmoth Consumable Planner exports with a `name` and comma-separated
 `export` IDs. Pure TypeScript validates the export before a review table is shown. Exports contain no quantities,
 prices, or reliable display-name catalog. Known item names are suggested; other identifiers retain a visible numeric
 label that the user can rename. Unknown positive IDs are preserved, never treated as market item IDs automatically.
