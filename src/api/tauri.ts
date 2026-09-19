@@ -349,6 +349,6 @@ export function readNormalLootLayout(xml: string): Promise<{ x: number; y: numbe
     return invoke("read_normal_loot_layout", { xml });
 }
 
-export function inspectGarmothConsumables(characterId: string) {
-    return invoke<string>("inspect_garmoth_consumables", { characterId });
+export function inspectGarmothConsumables(characterId: string, includeFieldNames = false) {
+    return invoke<string>("inspect_garmoth_consumables", { characterId, includeFieldNames });
 }

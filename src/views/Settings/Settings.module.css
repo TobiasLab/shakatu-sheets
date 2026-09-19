@@ -280,3 +280,13 @@
     font-family: monospace;
     font-size: 12px;
 }
+
+.SettingsForm > .DiagnosticOption {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+.DiagnosticOption input {
+    width: auto;
+    margin: 0;
+}

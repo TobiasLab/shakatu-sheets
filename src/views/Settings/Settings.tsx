@@ -58,6 +58,7 @@ export function SettingsView({
     const [characterIds, setCharacterIds] = useState("");
     const [selectedCharacterId, setSelectedCharacterId] = useState("");
     const [busy, setBusy] = useState<"key" | "characters" | "selection" | "inspection" | null>(null);
+    const [includeFieldNames, setIncludeFieldNames] = useState(false);
     const [consumableReport, setConsumableReport] = useState("");
     const [message, setMessage] = useState("");
     const [error, setError] = useState("");
@@ -114,7 +115,7 @@ export function SettingsView({
         setMessage("");
         setConsumableReport("");
         try {
-            setConsumableReport(await inspectGarmothConsumables(selectedCharacterId));
+            setConsumableReport(await inspectGarmothConsumables(selectedCharacterId, includeFieldNames));
             setMessage("Consumable report ready.");
         } catch (failure) {
             setError(String(failure));
@@ -465,6 +466,19 @@ export function SettingsView({
                         >
                             {busy === "selection" ? "Saving..." : "Save upload character"}
                         </button>
+                        <label className={styles.DiagnosticOption}>
+                            <input
+                                type="checkbox"
+                                checked={includeFieldNames}
+                                disabled={busy !== null}
+                                onChange={(event) => {
+                                    setIncludeFieldNames(event.target.checked);
+                                    setConsumableReport("");
+                                }}
+                            />
+                            Include response field names
+                        </label>
+                        {includeFieldNames && <p>Field names may contain custom names. Review before sharing.</p>}
                         <button
                             className="button"
                             type="button"

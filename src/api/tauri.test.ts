@@ -17,6 +17,7 @@ vi.mock("@tauri-apps/api/core", () => ({
 
 import {
     debugRoiSampleCollectionStatus,
+    inspectGarmothConsumables,
     type LootCaptureSettings,
     listFinishedSessions,
     type NativeCaptureSelection,
@@ -290,5 +291,22 @@ describe("history query boundary", () => {
         tauri.invoke.mockResolvedValueOnce(result);
         expect(await listFinishedSessions(query)).toEqual(result);
         expect(tauri.invoke).toHaveBeenLastCalledWith("list_finished_sessions", { query });
+    });
+});
+
+describe("consumable diagnostic privacy option", () => {
+    it("defaults to redacted field names and sends opt-in explicitly", async () => {
+        tauri.invoke.mockReset();
+        tauri.invoke.mockResolvedValue("report");
+        await inspectGarmothConsumables("character");
+        expect(tauri.invoke).toHaveBeenLastCalledWith("inspect_garmoth_consumables", {
+            characterId: "character",
+            includeFieldNames: false,
+        });
+        await inspectGarmothConsumables("character", true);
+        expect(tauri.invoke).toHaveBeenLastCalledWith("inspect_garmoth_consumables", {
+            characterId: "character",
+            includeFieldNames: true,
+        });
     });
 });
