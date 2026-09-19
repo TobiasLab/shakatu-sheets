@@ -127,18 +127,23 @@ that Garmoth lacks presets. No preset import or consumable upload schema is esta
 
 ### Branch-only consumable upload experiment
 
-On `feat/consumable-preset-expenses`, every explicit session upload includes
-`"consumables": [761894, 9692, 1411, 1407, 761879, 767969]`. These are game item IDs;
-Garmoth's acceptance of this array and its cost handling remain unverified. This is a hardcoded experiment,
-not a session preset feature, and must be removed or validated before merging into main.
-No extra cost is calculated locally, no prices are fetched, and the existing net totals and upload reservation
-rules remain unchanged. Wind's Roar (the Krogdalo Wind gear effect) is omitted because no consumable ID was verified.
-Do not substitute the equipment or skill ID. No live upload was performed during implementation.
+On `feat/consumable-preset-expenses`, every explicit session upload includes the following experimental array,
+using the names supplied by the user verbatim:
 
-Item identities:
-- [Scroll: Body Enhancement, 60 minutes — 761894](https://bdocodex.com/us/item/761894/)
-- [Simple Cron Meal — 9692](https://garmoth.com/market/item/9692/0)
-- [Perfume of Envy — 1411](https://garmoth.com/market/item/1411/0)
-- [Party Harmony Draught - Edania — 1407](https://garmoth.com/market/item/1407/0)
-- [Blessing: Adventure's Boon, 60 minutes — 761879](https://bdocodex.com/gl/item/761879/)
-- [Blessing of Mystic Beasts - All AP — 767969](https://bdocodex.com/us/item/767969/)
+```json
+"consumables": [
+    "Body enhancement (60 min)",
+    "Simple cron meal",
+    "Perfume of envy",
+    "[Party] Harmony draught Edania",
+    "Adventure's boon (60 min)",
+    "Blessing of mystic beasts - all ap",
+    "Wind howling"
+]
+```
+
+The previous numeric item-ID experiment did not work in the user's test. Acceptance of names and cost handling
+remain unverified. This is a hardcoded experiment, not a session preset feature, and must be removed or validated
+before merging into main. No extra cost is calculated locally, no prices are fetched, and the existing net totals
+and upload reservation rules remain unchanged. Existing uploaded or ambiguous sessions are not made retryable.
+No live upload was performed during implementation.

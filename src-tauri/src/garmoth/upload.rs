@@ -32,15 +32,15 @@ pub(crate) struct GarmothUploadInput {
     global: bool,
 }
 
-// Branch-only experiment: these are game item IDs, not verified Garmoth consumable IDs.
-// Wind's Roar is omitted because its consumable identifier is unknown.
-const EXPERIMENTAL_CONSUMABLES: [i64; 6] = [
-    761894, // [Scroll] Body Enhancement (60 min)
-    9692,   // Simple Cron Meal
-    1411,   // Perfume of Envy
-    1407,   // [Party] Harmony Draught - Edania
-    761879, // [Blessing] Adventure's Boon (60 min)
-    767969, // Blessing of Mystic Beasts - All AP
+// Branch-only experiment: Garmoth's consumables element schema remains unverified.
+const EXPERIMENTAL_CONSUMABLES: [&str; 7] = [
+    "Body enhancement (60 min)",
+    "Simple cron meal",
+    "Perfume of envy",
+    "[Party] Harmony draught Edania",
+    "Adventure's boon (60 min)",
+    "Blessing of mystic beasts - all ap",
+    "Wind howling",
 ];
 
 #[derive(Serialize)]
@@ -54,7 +54,7 @@ struct CreateSessionPayload<'a> {
     class_id: i64,
     #[serde(skip_serializing_if = "Option::is_none")]
     spec: Option<&'a str>,
-    consumables: &'a [i64],
+    consumables: &'a [&'a str],
 }
 
 #[derive(Clone, Copy, Serialize)]
@@ -286,7 +286,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn serializes_upload_with_experimental_consumable_item_ids() {
+    fn serializes_upload_with_experimental_consumable_names() {
         let drops = BTreeMap::from([("16001_0".into(), 12)]);
         let payload = CreateSessionPayload {
             grindspot_id: 200,
@@ -311,7 +311,15 @@ mod tests {
                 "global": false,
                 "class_id": 8,
                 "spec": "awak",
-                "consumables": [761894, 9692, 1411, 1407, 761879, 767969]
+                "consumables": [
+                    "Body enhancement (60 min)",
+                    "Simple cron meal",
+                    "Perfume of envy",
+                    "[Party] Harmony draught Edania",
+                    "Adventure's boon (60 min)",
+                    "Blessing of mystic beasts - all ap",
+                    "Wind howling"
+                ]
             })
         );
     }
