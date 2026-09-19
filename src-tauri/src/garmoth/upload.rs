@@ -25,7 +25,7 @@ struct GrindSpotMapping {
 pub(crate) struct GarmothUploadInput {
     session_id: String,
     #[serde(default)]
-    repeat_for_testing: bool,
+    repeat_upload: bool,
     grindspot_id: i64,
     minutes: i64,
     hourly: i64,
@@ -258,7 +258,7 @@ pub(crate) async fn upload_garmoth_session(
         .build()
         .map_err(|error| format!("could not prepare the Garmoth upload: {error}"))?;
 
-    let was_uploaded = claim_garmoth_upload(&state.0, &input.session_id, input.repeat_for_testing)?;
+    let was_uploaded = claim_garmoth_upload(&state.0, &input.session_id, input.repeat_upload)?;
     let response = client.execute(request).await;
 
     let response = match response {

@@ -238,11 +238,11 @@ export function HistoryView({
     async function applyConsumables(snapshot: SessionState, entries: SessionEntry[]) {
         if (actionBusy) throw new Error("Wait for the current session action to finish.");
         const record = pageRecords.find((candidate) => candidate.session.id === snapshot.id);
-        if (!record || record.garmothUploadStatus !== null) throw new Error("This session cannot be changed.");
+        if (!record || record.garmothUploadStatus === "unknown") throw new Error("This session cannot be changed.");
         const total = entries.reduce((sum, entry) => sum + entry.quantity * entry.unitPrice, 0);
         if (
             !window.confirm(
-                `Apply ${formatSilver(total)} silver in consumable expenses to ${spotName(snapshot.grindSpotId)} from ${formatTimestamp(record.finishedAt)}? Existing consumable expenses will be replaced.`,
+                `Apply ${formatSilver(total)} silver in consumable expenses to ${spotName(snapshot.grindSpotId)} from ${formatTimestamp(record.finishedAt)}? ${record.garmothUploadStatus === "success" ? "The previous Garmoth session will not change." : "Existing consumable expenses will be replaced."}`,
             )
         )
             return false;
@@ -273,18 +273,15 @@ export function HistoryView({
     async function uploadSelected() {
         if (!selected || !uploadPreview || uploadPreview.unmatchedEntries.length > 0 || actionBusy) return;
         if (selected.garmothUploadStatus === "unknown") return;
-        const repeatForTesting = selected.garmothUploadStatus === "success";
-        if (
-            repeatForTesting &&
-            !window.confirm("Upload this session again for testing? This creates another session on Garmoth.")
-        )
+        const repeatUpload = selected.garmothUploadStatus === "success";
+        if (repeatUpload && !window.confirm("Upload this session again? This creates another session on Garmoth."))
             return;
         historyRequestId.current += 1;
         setUploading(true);
         setUploadMessage("");
         setUploadError("");
         try {
-            const result = await uploadGarmothSession({ ...uploadPreview.input, repeatForTesting });
+            const result = await uploadGarmothSession({ ...uploadPreview.input, repeatUpload });
             setRecords(
                 (current) =>
                     current?.map((record) =>
@@ -803,8 +800,7 @@ export function HistoryView({
                                         >
                                             Open Settings
                                         </button>
-                                    ) : selected.garmothUploadStatus === null &&
-                                      uploadPreview?.consumableCount === 0 ? (
+                                    ) : uploadPreview?.consumableCount === 0 ? (
                                         <ConsumablePresetPicker
                                             key={selected.session.id}
                                             session={selected.session}
@@ -815,7 +811,10 @@ export function HistoryView({
                                                 uploadPreview.unmatchedEntries.length > 0
                                             }
                                             onApply={applyConsumables}
-                                            beforeUpload={{ onSkip: () => void uploadSelected() }}
+                                            beforeUpload={{
+                                                repeat: selected.garmothUploadStatus === "success",
+                                                onSkip: () => void uploadSelected(),
+                                            }}
                                         />
                                     ) : (
                                         <button
@@ -831,7 +830,7 @@ export function HistoryView({
                                             {uploading
                                                 ? "Uploading..."
                                                 : selected.garmothUploadStatus === "success"
-                                                  ? "Upload again (test)"
+                                                  ? "Upload again"
                                                   : "Upload to Garmoth"}
                                         </button>
                                     )}
