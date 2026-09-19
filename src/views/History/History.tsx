@@ -810,7 +810,7 @@ export function HistoryView({
                     onBusy={setUploading}
                     onClose={() => {
                         setUploadReview(null);
-                        uploadButton.current?.focus();
+                        requestAnimationFrame(() => (uploadButton.current ?? reloadButton.current)?.focus());
                     }}
                     onResult={(result) => {
                         setRecords(

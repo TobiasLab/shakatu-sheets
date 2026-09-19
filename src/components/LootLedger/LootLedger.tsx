@@ -145,6 +145,7 @@ function LedgerEntryRow({
 
 export function LootLedger({
     tools,
+    beforeEntries,
     entries,
     grindSpotId,
     editingDisabled,
@@ -152,6 +153,7 @@ export function LootLedger({
     onUpdate,
 }: {
     tools: ReactNode;
+    beforeEntries?: ReactNode;
     entries: SessionEntry[];
     grindSpotId: string;
     editingDisabled: boolean;
@@ -176,6 +178,7 @@ export function LootLedger({
                 </div>
                 {tools}
             </div>
+            {beforeEntries}
             {entries.length === 0 ? (
                 <div className={styles.EmptyLedger}>
                     <strong>No loot yet</strong>
