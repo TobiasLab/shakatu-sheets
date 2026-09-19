@@ -11,10 +11,12 @@ export function ConsumablePresetPicker({
     session,
     disabled,
     onApply,
+    beforeUpload,
 }: {
     session: SessionState;
     disabled: boolean;
     onApply: (snapshot: SessionState, entries: SessionEntry[]) => boolean | Promise<boolean>;
+    beforeUpload?: { onSkip: () => void };
 }) {
     const dialog = useRef<HTMLDialogElement>(null);
     const opener = useRef<HTMLButtonElement>(null);
@@ -84,7 +86,7 @@ export function ConsumablePresetPicker({
     return (
         <>
             <button
-                className="button"
+                className={beforeUpload ? "button primary-button" : "button"}
                 type="button"
                 ref={opener}
                 disabled={disabled || busy}
@@ -94,7 +96,7 @@ export function ConsumablePresetPicker({
                     void load(session);
                 }}
             >
-                Apply preset
+                {beforeUpload ? "Upload to Garmoth" : "Apply preset"}
             </button>
             <dialog
                 ref={dialog}
@@ -116,6 +118,7 @@ export function ConsumablePresetPicker({
                     </button>
                 </header>
                 <div className={`${styles.Root} ${styles.Editor}`}>
+                    {beforeUpload && <p>No consumable preset is applied to this session.</p>}
                     {loading && <p role="status">Loading presets…</p>}
                     {!loading && !error && presets.length === 0 && (
                         <p>
@@ -168,6 +171,19 @@ export function ConsumablePresetPicker({
                                 {busy ? "Applying…" : replacing ? "Replace session consumables" : "Add to session"}
                             </button>
                         </>
+                    )}
+                    {beforeUpload && (
+                        <button
+                            type="button"
+                            className="button subtle"
+                            disabled={busy || disabled}
+                            onClick={() => {
+                                dialog.current?.close();
+                                beforeUpload.onSkip();
+                            }}
+                        >
+                            Upload without preset
+                        </button>
                     )}
                     {error && <p role="alert">{error}</p>}
                     {error && presets.length === 0 && target && (

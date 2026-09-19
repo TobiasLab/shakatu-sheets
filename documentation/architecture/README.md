@@ -147,7 +147,11 @@ and optional Garmoth consumable ID. Later preset edits/deletion do not affect ex
 allows quantity/price edits and removal while a session is unfinished. General finished-session edits retain the
 existing explicit reopen rules. Presets are selected by recorded region; there is no cross-region price fallback for this workflow.
 
-History also exposes an explicit consumable-only correction. After a confirmation naming the session and expense
+History opens the shared preset picker from Upload to Garmoth when an unuploaded session has no tagged consumables,
+with a missing-preset notice and an explicit Upload without preset option. Applying returns to the updated upload
+preview; it does not upload automatically. There is no separate History Apply preset button. Already-uploaded test
+retries retain their existing behavior and cannot change saved expenses.
+This uses an explicit consumable-only correction. After a confirmation naming the session and expense
 amount, Rust compares the reviewed session snapshot to the stored record and replaces only tagged consumable rows
 inside one transaction. Ordinary loot/expenses and all session metadata, including completion/fallback timestamps,
 remain unchanged. Stale previews, unfinished sessions, and any existing Garmoth upload marker are rejected. Corrections
