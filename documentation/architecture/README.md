@@ -127,12 +127,11 @@ that Garmoth lacks presets. No preset import or consumable upload schema is esta
 
 ### Branch-only consumable upload experiment
 
-On `feat/consumable-preset-expenses`, every explicit session upload includes these experimental fields,
+On `feat/consumable-preset-expenses`, every explicit session upload includes the experimental consumable pairs
 copied from the user-provided website session-saving request for `Cheapo123`:
 
 ```json
 {
-    "consumable_build": 848759,
     "consumables": [
         [99999900, 1], [9692, 1], [1411, 3], [1407, 3],
         [761879, 1], [767969, 1], [100001510, 1]
@@ -140,9 +139,10 @@ copied from the user-provided website session-saving request for `Cheapo123`:
 }
 ```
 
-The flat exported-ID array created a session without consumables in the user's test. The website request
-establishes a nested pair structure and a separate build reference. Support for these fields through the external
-API, the meaning of each pair's second value, and cost handling remain unverified. The values are copied exactly
+The flat exported-ID array created a session without consumables in the user's test. The user confirmed that the nested pairs
+together with `consumable_build: 848759` successfully uploaded consumables through the external API. This experiment
+omits `consumable_build` entirely while preserving those pairs, to test whether the build reference is optional.
+The result of this omission, the meaning of each pair's second value, and cost handling remain unverified. The values are copied exactly
 from the one-hour website request, without duration scaling. This is a hardcoded experiment for the user's preset,
 not a session preset feature, and must be removed or validated
 before merging into main. No extra cost is calculated locally, no prices are fetched, and the existing net totals

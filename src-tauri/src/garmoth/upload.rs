@@ -34,8 +34,7 @@ pub(crate) struct GarmothUploadInput {
     global: bool,
 }
 
-// Branch-only experiment: matches a website request; external API support remains unverified.
-const EXPERIMENTAL_CONSUMABLE_BUILD: i64 = 848759;
+// Branch-only experiment: test the working website pairs without a preset build reference.
 const EXPERIMENTAL_CONSUMABLES: [[i64; 2]; 7] = [
     [99999900, 1],
     [9692, 1],
@@ -57,7 +56,6 @@ struct CreateSessionPayload<'a> {
     class_id: i64,
     #[serde(skip_serializing_if = "Option::is_none")]
     spec: Option<&'a str>,
-    consumable_build: i64,
     consumables: &'a [[i64; 2]],
 }
 
@@ -224,7 +222,6 @@ pub(crate) async fn upload_garmoth_session(
         global: input.global,
         class_id: character.class_id,
         spec: character.spec.as_deref(),
-        consumable_build: EXPERIMENTAL_CONSUMABLE_BUILD,
         consumables: &EXPERIMENTAL_CONSUMABLES,
     };
     let body = serde_json::to_vec(&payload)
@@ -296,7 +293,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn serializes_upload_with_website_consumable_pairs_and_build() {
+    fn serializes_upload_with_consumable_pairs_without_build_reference() {
         let drops = BTreeMap::from([("16001_0".into(), 12)]);
         let payload = CreateSessionPayload {
             grindspot_id: 200,
@@ -307,7 +304,6 @@ mod tests {
             global: false,
             class_id: 8,
             spec: Some("awak"),
-            consumable_build: EXPERIMENTAL_CONSUMABLE_BUILD,
             consumables: &EXPERIMENTAL_CONSUMABLES,
         };
 
@@ -322,7 +318,6 @@ mod tests {
                 "global": false,
                 "class_id": 8,
                 "spec": "awak",
-                "consumable_build": 848759,
                 "consumables": [
                     [99999900, 1], [9692, 1], [1411, 3], [1407, 3],
                     [761879, 1], [767969, 1], [100001510, 1]
