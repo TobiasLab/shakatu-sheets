@@ -69,11 +69,13 @@ to session rows. Preset saving is an explicit operation, separate from the order
 - A running session is restored as paused, including elapsed time since its last start.
 - Session entries are replaced inside the same transaction as the session update.
 - Normal saves cannot change finished sessions; the explicit reopen command can return one to a paused state.
-- The explicit History consumable-correction command replaces only tagged expense rows in one transaction after
+- The History upload command can save a reviewed consumable draft, replacing only tagged expense rows in one transaction after
   comparing the reviewed session snapshot with the database. It preserves all session timestamps, ordinary loot and
   expenses, and their price snapshots. Unknown upload outcomes block correction. A success marker allows adding missing consumables only and remains
-  unchanged; existing consumables on uploaded sessions cannot be replaced. The Garmoth mutex serializes this command
-  with uploads and deletion. This narrow correction needs no additional migration or index.
+  unchanged; existing consumables on uploaded sessions cannot be replaced. The Garmoth mutex covers this correction,
+  upload reservation, and HTTP, and serializes them with deletion. Saved expense changes survive failed requests;
+  the result returns the saved snapshot for retry and UI refresh. Global/Agris/drop-rate options are transient upload
+  metadata. This workflow needs no additional migration or index.
 - The explicit delete command removes only finished sessions. Their entries, session-linked price snapshots, and Garmoth
   upload marker are deleted through foreign-key cascades; unfinished sessions cannot be deleted through this path.
 - Money is stored as integer silver values and time as integer milliseconds.

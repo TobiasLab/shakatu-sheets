@@ -1,0 +1,60 @@
+.Dialog {
+    width: min(1100px, calc(100vw - 48px));
+}
+.Body {
+    padding: 20px 24px;
+    display: grid;
+    gap: 20px;
+}
+.Summary,
+.Totals,
+.Actions {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 16px;
+}
+.Summary strong {
+    width: 100%;
+}
+.Totals span {
+    display: grid;
+    gap: 4px;
+}
+.Presets {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    align-items: center;
+}
+.Presets > div {
+    width: 100%;
+}
+.Options {
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 16px;
+    display: grid;
+    gap: 12px;
+}
+.Options label {
+    display: grid;
+    gap: 6px;
+}
+.Options .Checkbox {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+.Options input[type="number"] {
+    max-width: 240px;
+    padding: 8px;
+}
+.Actions {
+    justify-content: flex-end;
+}
+
+.Options input[type="checkbox"] {
+    width: auto;
+    flex: 0 0 auto;
+}

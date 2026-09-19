@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import mappings from "./data/garmothMappings.json";
 import { getGrindSpotDrops, grindSpots } from "./data/grindSpots";
 import type { SessionState } from "./domain/session";
-import { buildGarmothUpload } from "./garmoth";
+import { buildGarmothUpload, parseGarmothOptions } from "./garmoth";
 
 function finishedSession(): SessionState {
     return {
@@ -132,4 +132,20 @@ it("previews saved consumable expenses without treating them as loot", () => {
     expect(preview.input.drops).toEqual(before.input.drops);
     expect(preview.input.total).toBe(before.input.total - 300);
     expect(preview.unmatchedEntries).toEqual(before.unmatchedEntries);
+});
+
+describe("upload options", () => {
+    it("omits unspecified Agris and drop rate without enabling global contribution", () => {
+        expect(JSON.parse(JSON.stringify(parseGarmothOptions(false, false, "900", "")))).toEqual({ global: false });
+    });
+    it("maps unknown and known Agris and sends percentages directly", () => {
+        expect(parseGarmothOptions(true, true, "", "250.25")).toEqual({ global: true, agris: -1, rate: 250.25 });
+        expect(parseGarmothOptions(false, true, "20000", "0")).toEqual({ global: false, agris: 20000, rate: 0 });
+    });
+    it.each(["0", "-1", "1.5", "1e3", "Infinity", "9007199254740992"])("rejects invalid Agris amount %s", (value) => {
+        expect(() => parseGarmothOptions(false, true, value, "")).toThrow();
+    });
+    it.each(["-1", "1.001", "Infinity", "NaN", "1e3", "9007199254740992"])("rejects invalid drop rate %s", (value) => {
+        expect(() => parseGarmothOptions(false, false, "", value)).toThrow();
+    });
 });

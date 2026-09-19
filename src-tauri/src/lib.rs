@@ -52,7 +52,6 @@ pub fn run() {
 
     #[cfg(all(debug_assertions, any(target_os = "linux", target_os = "windows")))]
     let builder = builder.invoke_handler(tauri::generate_handler![
-        persistence::sessions::apply_finished_session_consumables,
         persistence::sessions::delete_finished_session,
         persistence::sessions::list_finished_sessions,
         persistence::sessions::load_active_session,
@@ -89,7 +88,6 @@ pub fn run() {
 
     #[cfg(not(all(debug_assertions, any(target_os = "linux", target_os = "windows"))))]
     let builder = builder.invoke_handler(tauri::generate_handler![
-        persistence::sessions::apply_finished_session_consumables,
         persistence::sessions::delete_finished_session,
         persistence::sessions::list_finished_sessions,
         persistence::sessions::load_active_session,

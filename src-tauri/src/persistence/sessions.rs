@@ -669,26 +669,13 @@ pub(super) fn apply_finished_session_consumables_record(
     load_session_by_id(connection, &session.id)?.ok_or("The session no longer exists.".into())
 }
 
-pub(super) async fn apply_finished_session_consumables_at_path(
+pub(crate) fn save_upload_consumables(
     path: &PathBuf,
     expected_session: &SessionRecord,
     entries: &[SessionEntry],
-    operations: &GarmothOperations,
 ) -> Result<SessionRecord, String> {
-    let _guard = operations.lock().await;
     let mut connection = open_database(path)?;
     apply_finished_session_consumables_record(&mut connection, expected_session, entries)
-}
-
-#[tauri::command]
-pub async fn apply_finished_session_consumables(
-    expected_session: SessionRecord,
-    entries: Vec<SessionEntry>,
-    state: State<'_, DatabasePath>,
-    operations: State<'_, GarmothOperations>,
-) -> Result<SessionRecord, String> {
-    apply_finished_session_consumables_at_path(&state.0, &expected_session, &entries, &operations)
-        .await
 }
 
 #[tauri::command]

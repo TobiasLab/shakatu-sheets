@@ -134,15 +134,18 @@ Settings → Integrations → Consumable presets owns Garmoth export import and 
 session quantities and unit prices; zero prices must be explicit. Presets are region-specific and editable independently
 of whether the active session is finished. Saving a preset never changes session expenses.
 
-The grind desk exposes Apply preset. In History, Upload to Garmoth opens the same native selection modal when an
-session has no tagged consumable expenses, including Upload again for confirmed uploads. It states that no preset is applied and offers an explicit
-Upload without preset choice. Applying a preset returns to the updated totals for review before uploading; it does
-not start an upload. Sessions with consumables keep the normal upload flow. The modal shows preset names, quantities,
-and costs; no import or library-edit controls appear there. Replace session consumables changes
-only tagged expenses, preserving ordinary expenses and loot. Quantities are session totals, not per-hour rates, and are
-never silently scaled when duration changes. Unknown IDs remain visible in Settings and editable by name.
+The grind desk exposes Apply preset. In History, Upload to Garmoth and Upload again always open one native review
+modal containing the selected session's read-only ledger, stored expenses, date, duration, region, and totals. Select
+preset opens the shared selection content inside the same modal; import and library editing remain in Settings.
+Selecting a preset updates draft expenses and net/hour totals only. Cancel discards the draft; the final upload action
+saves the expenses and submits the session. Users can also upload without selecting a preset.
 
-Applying from History asks for confirmation naming the target session and total expense. It keeps the session finished,
-preserves its completion date, and refreshes session totals and spot comparisons. Confirmed uploads may add missing consumables while retaining their upload marker; existing consumables cannot be
-replaced and the previous Garmoth session stays unchanged. Unknown upload outcomes disable the action. A stale preview is rejected and must be reloaded. General historical editing still
-requires reopening; the active session is not replaced by this expense correction.
+The modal includes Contribute to global data (off by default), Used Agris with an optional amount (blank means unknown),
+and optional Drop rate %. Options persist across failed attempts in the open modal and reset when it is reopened.
+Labels stay concise; no explanatory subtitles are added. Native focus trapping and Escape cancellation apply, while
+closing and duplicate submissions are disabled during the upload. An unknown outcome disables retries.
+
+Preset quantities are session totals and never scale silently with duration. Applying replaces only tagged consumables,
+leaving ordinary expenses and loot unchanged. Confirmed uploads can add missing consumables but cannot replace existing
+ones; a repeat upload creates another remote session after confirmation. General historical editing requires reopening.
+Saved expenses are retained if HTTP fails, with an explicit error message and updated local/history totals.
