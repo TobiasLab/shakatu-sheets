@@ -1,4 +1,4 @@
-import { type KeyboardEvent, type ReactNode, useEffect, useState } from "react";
+import { type KeyboardEvent, type ReactNode, useEffect, useId, useState } from "react";
 import { getDropIcon } from "../../data/grindSpots";
 import type { SessionEntry } from "../../domain/session";
 import { formatSilver } from "../../format";
@@ -158,6 +158,7 @@ export function LootLedger({
     onRemove: (id: string) => void;
     onUpdate: (id: string, quantity: number, unitPrice: number) => void;
 }) {
+    const headingId = useId();
     const [query, setQuery] = useState("");
     const [filter, setFilter] = useState("all");
     const normalizedQuery = query.trim().toLocaleLowerCase();
@@ -168,10 +169,10 @@ export function LootLedger({
                 (filter === "expense" ? entry.valuation === "expense" : entry.valuation !== "expense")),
     );
     return (
-        <section className={`panel ${styles.LedgerPanel}`} aria-labelledby="ledger-heading">
+        <section className={`panel ${styles.LedgerPanel}`} aria-labelledby={headingId}>
             <div className="panel-heading">
                 <div>
-                    <h2 id="ledger-heading">Loot ledger</h2>
+                    <h2 id={headingId}>Loot ledger</h2>
                 </div>
                 {tools}
             </div>
@@ -195,7 +196,7 @@ export function LootLedger({
                         <label>
                             <span className="sr-only">Filter ledger</span>
                             <select
-                                id="ledger-filter"
+                                id={`ledger-filter-${headingId}`}
                                 value={filter}
                                 onChange={(event) => setFilter(event.target.value)}
                             >
@@ -224,7 +225,9 @@ export function LootLedger({
                         <section className={styles.LedgerList} tabIndex={0} aria-label="Recorded loot and expenses">
                             <table>
                                 <caption className="sr-only">
-                                    Session entries. Quantity and unit price can be edited; Enter saves, Escape cancels.
+                                    {editingDisabled
+                                        ? "Recorded loot and expenses, read only."
+                                        : "Session entries. Quantity and unit price can be edited; Enter saves, Escape cancels."}
                                 </caption>
                                 <thead>
                                     <tr>

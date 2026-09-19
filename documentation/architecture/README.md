@@ -137,8 +137,8 @@ free buffs). The second element of a Garmoth consumable pair is treated as quant
 one-hour website request and the user's explanation of three 20-minute perfumes. No duration scaling or market-price
 fetch occurs. Saved presets remember the reviewed quantities and prices per region; users must review them for each
 session. A preset is not an hourly schedule. Settings manages the library independently of the active session.
-The grind desk and History use the same native Apply preset selection dialog with a cost/quantity preview; neither
-contains import or library-edit controls. Saving a preset does not apply it to a session. Desktop presets are validated by Rust and stored in SQLite settings, with at most 20 presets
+The grind desk's Apply preset dialog and History's upload-review dialog share the same preset-selection component
+with a cost/quantity preview. Neither contains import or library-edit controls. Saving a preset does not apply it to a session. Desktop presets are validated by Rust and stored in SQLite settings, with at most 20 presets
 and 100 unique consumables each. Preset names are local labels, not Garmoth account links.
 
 Applying a preset atomically replaces the session's tagged consumable expenses, preserving ordinary manual expenses
@@ -147,18 +147,31 @@ and optional Garmoth consumable ID. Later preset edits/deletion do not affect ex
 allows quantity/price edits and removal while a session is unfinished. General finished-session edits retain the
 existing explicit reopen rules. Presets are selected by recorded region; there is no cross-region price fallback for this workflow.
 
-History opens the shared preset picker from Upload to Garmoth when a session has no tagged consumables,
-with a missing-preset notice and an explicit Upload without preset option. Applying returns to the updated upload
-preview; it does not upload automatically. There is no separate History Apply preset button. Upload again uses the
-same prompt. A previously successful upload may add missing consumables, but may not replace existing consumables.
-The success marker is retained, and the previous remote session is not changed.
-This uses an explicit consumable-only correction. After a confirmation naming the session and expense
-amount, Rust compares the reviewed session snapshot to the stored record and replaces only tagged consumable rows
-inside one transaction. Ordinary loot/expenses and all session metadata, including completion/fallback timestamps,
-remain unchanged. Stale previews, unfinished sessions, and unknown Garmoth upload outcomes are rejected. Corrections
-share the Garmoth operations lock with uploads and deletion, so they cannot race an in-flight upload. Normal session
-saves still reject changes to finished records. History reloads its query/aggregates after correction; if the same
-finished session is still open in the app, its in-memory snapshot is refreshed to avoid a stale later save.
+History opens a native upload-review dialog for both Upload to Garmoth and Upload again. It displays the selected
+session's read-only ledger and stored prices, date, region, duration, expense total, net silver, and silver per hour.
+Preset selection stays inside this dialog and only changes an in-memory draft. Cancel discards the draft. The final
+Upload action approves saving the draft expenses and sending the session; repeat uploads additionally require the
+existing duplicate-session confirmation. Successfully uploaded sessions may add missing consumables but cannot
+replace existing consumables. The previous remote session is not changed.
+
+Upload options are transient: global contribution defaults off, unchecked Agris is omitted, checked Agris with a blank
+amount sends `-1`, and a specified amount must be a positive safe integer. Blank drop rate is omitted; explicit rates
+are non-negative percentages with at most two decimals. The user confirmed that 250% sends `rate: 250`, without a
+ratio conversion. The optional-field contract permits omission of Agris; no undocumented zero/null sentinel is added.
+These options do not affect local silver calculations, are preserved while retrying within the modal, and reset on
+reopening. They are not stored in SQLite, so no migration is required.
+
+Rust validates options and preview totals and then rechecks the complete reviewed session snapshot under the Garmoth
+operations lock. The lock covers the consumable correction, upload reservation, and HTTP operation. Corrections
+replace only tagged expense rows in a transaction, preserving ordinary loot/expenses, historical prices, and all
+session timestamps. Stale reviews, unfinished sessions, and unknown upload outcomes are rejected. Normal saves still
+reject changes to finished sessions; there is no separate frontend correction command.
+
+Local persistence and HTTP are not atomic. Once expenses have been saved, they are retained even if the request fails.
+The upload result includes the saved session snapshot and a `failed`, `success`, or `unknown` outcome. The dialog uses
+that snapshot for retries without reapplying the preset, and History refreshes its aggregates and any current finished
+session. Known pre-transmission failures allow an explicit retry; ambiguous outcomes remain blocked. A stale-review
+error before saving requires closing the dialog and reloading History.
 
 Rust derives upload `consumables` pairs from the saved finished-session expense rows and sums quantities for repeated
 IDs across price snapshots. Plain manual expenses affect net totals but are not serialized as consumables. Sessions

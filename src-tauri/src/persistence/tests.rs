@@ -17,11 +17,10 @@ use super::{
     market_prices::{load_market_price_records, MarketPriceSnapshot, Region},
     migrate, open_database,
     sessions::{
-        apply_finished_session_consumables_at_path, apply_finished_session_consumables_record,
-        delete_finished_session_at_path, delete_finished_session_record,
-        list_finished_session_records, load_active_session_record, load_session_by_id,
-        reopen_session_record, save_session_record, EntrySource, HistoryQuery, SessionEntry,
-        SessionRecord, SessionStatus, Valuation,
+        apply_finished_session_consumables_record, delete_finished_session_at_path,
+        delete_finished_session_record, list_finished_session_records, load_active_session_record,
+        load_session_by_id, reopen_session_record, save_session_record, EntrySource, HistoryQuery,
+        SessionEntry, SessionRecord, SessionStatus, Valuation,
     },
     settings::{load_setting, save_settings, save_settings_if_unchanged},
 };
@@ -1078,32 +1077,117 @@ fn history_consumable_correction_rolls_back_failed_insertions() {
 }
 
 #[test]
-fn history_consumable_correction_waits_for_garmoth_and_rechecks_upload_status() {
+fn reviewed_upload_keeps_saved_expenses_on_connect_failure_and_can_retry() {
     tokio::runtime::Builder::new_current_thread()
-        .enable_time()
+        .enable_all()
         .build()
         .unwrap()
         .block_on(async {
+            use crate::garmoth::upload::{save_and_send_upload, GarmothUploadInput};
             let (path, mut connection) = temporary_database();
-            let finished = session(SessionStatus::Finished);
+            let mut finished = session(SessionStatus::Finished);
+            finished.grind_spot_id = "stars-end-revamp".into();
+            finished.elapsed_ms = 3_600_000;
+            finished.entries[0].name = "Corrupted Sanguine Crystal".into();
+            finished.entries[0].quantity = 10.0;
+            finished.entries[0].unit_price = 100;
             save_session_record(&mut connection, &finished).unwrap();
-            let entries = vec![consumable_expense("new")];
+            let mut drops = serde_json::from_str::<serde_json::Value>(include_str!(
+                "../../../src/data/garmothMappings.json"
+            ))
+            .unwrap()["stars-end-revamp"]["drops"]
+                .as_object()
+                .unwrap()
+                .values()
+                .map(|key| (key.as_str().unwrap().to_string(), 0_i64))
+                .collect::<std::collections::BTreeMap<_, _>>();
+            drops.insert("56339_0".into(), 10);
+            let expense = consumable_expense("review-expense");
+            let net = 1000 - expense.quantity as i64 * expense.unit_price;
+            let mut json = serde_json::json!({"sessionId":finished.id,"expectedSession":finished,
+            "grindspotId":200,"minutes":60,"hourly":net,"total":net,"drops":drops,"global":true,
+            "agris":-1,"rate":250.25,"consumableEntries":[expense]});
+            let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+            let address = listener.local_addr().unwrap();
+            drop(listener);
+            let client = reqwest::Client::builder()
+                .no_proxy()
+                .timeout(Duration::from_millis(100))
+                .build()
+                .unwrap();
+            let make_request = || client.post(format!("http://{address}")).build().unwrap();
+            let state = super::DatabasePath(path.clone());
             let operations = GarmothOperations::default();
-            let guard = operations.lock().await;
-            let correction =
-                apply_finished_session_consumables_at_path(&path, &finished, &entries, &operations);
-            tokio::pin!(correction);
+            let input: GarmothUploadInput = serde_json::from_value(json.clone()).unwrap();
+            // A stale draft must fail before changing any local entries or upload marker.
+            json["expectedSession"]["elapsedMs"] = serde_json::json!(1);
+            let stale = serde_json::from_value(json.clone()).unwrap();
             assert!(
-                tokio::time::timeout(Duration::from_millis(10), &mut correction)
+                save_and_send_upload(&stale, &state, client.clone(), make_request())
+                    .await
+                    .is_err()
+            );
+            assert_eq!(
+                load_session_by_id(&connection, &finished.id).unwrap(),
+                Some(finished.clone())
+            );
+            let guard = operations.lock().await;
+            let pending = async {
+                let _guard = operations.lock().await;
+                save_and_send_upload(&input, &state, client.clone(), make_request()).await
+            };
+            tokio::pin!(pending);
+            assert!(
+                tokio::time::timeout(Duration::from_millis(10), &mut pending)
                     .await
                     .is_err()
             );
             claim_garmoth_upload(&path, &finished.id, false).unwrap();
             drop(guard);
-            assert!(correction.await.is_err());
+            assert!(pending.await.is_err());
             assert_eq!(
                 load_session_by_id(&connection, &finished.id).unwrap(),
                 Some(finished.clone())
+            );
+            release_garmoth_upload(&path, &finished.id).unwrap();
+            let result = serde_json::to_value(
+                save_and_send_upload(&input, &state, client.clone(), make_request())
+                    .await
+                    .unwrap(),
+            )
+            .unwrap();
+            assert_eq!(result["status"], "failed");
+            assert!(result["message"]
+                .as_str()
+                .unwrap()
+                .contains("Consumables saved"));
+            assert_eq!(
+                result["savedSession"]["entries"].as_array().unwrap().len(),
+                2
+            );
+            assert_eq!(
+                load_garmoth_upload_status(&connection, &finished.id).unwrap(),
+                None
+            );
+            // Retry uses the returned snapshot; it does not duplicate the saved expenses.
+            json["expectedSession"] = result["savedSession"].clone();
+            json.as_object_mut().unwrap().remove("consumableEntries");
+            let input = serde_json::from_value(json).unwrap();
+            let result = serde_json::to_value(
+                save_and_send_upload(&input, &state, client.clone(), make_request())
+                    .await
+                    .unwrap(),
+            )
+            .unwrap();
+            assert_eq!(result["status"], "failed");
+            assert!(result["savedSession"].is_null());
+            assert_eq!(
+                load_session_by_id(&connection, &finished.id)
+                    .unwrap()
+                    .unwrap()
+                    .entries
+                    .len(),
+                2
             );
             drop(connection);
             remove_temporary_database(&path);

@@ -1,22 +1,20 @@
 import { useEffect, useRef, useState } from "react";
 import {
-    applyFinishedSessionConsumables,
     deleteFinishedSession,
     type FinishedSessionRecord,
     type GarmothSettings,
     type HistoryResult,
     listFinishedSessions,
     loadGarmothSettings,
-    uploadGarmothSession,
 } from "../../api/tauri";
-import { ConsumablePresetPicker } from "../../components/ConsumablePresets/ConsumablePresetPicker";
 import { getDropIcon, grindSpots } from "../../data/grindSpots";
 import { historyDateBoundary, netPerHour, rankSpots, summarizeHistory } from "../../domain/history";
-import { calculateTotals, type SessionEntry, type SessionState } from "../../domain/session";
+import { calculateTotals, type SessionState } from "../../domain/session";
 import { formatDuration, formatSilver, formatTimestamp } from "../../format";
 import { buildGarmothUpload, type GarmothUploadPreview } from "../../garmoth";
 import type { DatabaseStatus } from "../../hooks/usePersistedSession";
 import dialogStyles from "../LiveSession/LiveSession.module.css";
+import { GarmothUploadDialog } from "./GarmothUploadDialog";
 import styles from "./History.module.css";
 
 function spotName(id: string) {
@@ -59,8 +57,8 @@ export function HistoryView({
     } | null>(null);
     const [grindSpotFilter, setGrindSpotFilter] = useState("all");
     const [garmothSettings, setGarmothSettings] = useState<GarmothSettings | null>(null);
-    const [applyingConsumables, setApplyingConsumables] = useState(false);
-    const [consumableMessage, setConsumableMessage] = useState("");
+    const [uploadReview, setUploadReview] = useState<FinishedSessionRecord | null>(null);
+    const uploadButton = useRef<HTMLButtonElement>(null);
     const [uploading, setUploading] = useState(false);
     const [uploadMessage, setUploadMessage] = useState("");
     const [uploadError, setUploadError] = useState("");
@@ -166,7 +164,7 @@ export function HistoryView({
     const uploadCharacter = garmothSettings?.characters.find(
         (character) => character.id === garmothSettings.selectedCharacterId,
     );
-    const actionBusy = uploading || reopening || deletingId !== null || applyingConsumables;
+    const actionBusy = uploading || reopening || deletingId !== null;
     const activeFilterCount = Number(Boolean(fromDate || toDate)) + Number(grindSpotFilter !== "all");
 
     useEffect(() => {
@@ -219,10 +217,6 @@ export function HistoryView({
         setRestoreFocus(null);
     }, [deletingId, restoreFocus, pageRecords]);
 
-    useEffect(() => {
-        setConsumableMessage("");
-    }, [selected?.session.id]);
-
     async function reopenSelected() {
         if (!selected) return;
         setReopening(true);
@@ -232,72 +226,6 @@ export function HistoryView({
         } catch (reopenFailure) {
             setReopenError(String(reopenFailure));
             setReopening(false);
-        }
-    }
-
-    async function applyConsumables(snapshot: SessionState, entries: SessionEntry[]) {
-        if (actionBusy) throw new Error("Wait for the current session action to finish.");
-        const record = pageRecords.find((candidate) => candidate.session.id === snapshot.id);
-        if (!record || record.garmothUploadStatus === "unknown") throw new Error("This session cannot be changed.");
-        const total = entries.reduce((sum, entry) => sum + entry.quantity * entry.unitPrice, 0);
-        if (
-            !window.confirm(
-                `Apply ${formatSilver(total)} silver in consumable expenses to ${spotName(snapshot.grindSpotId)} from ${formatTimestamp(record.finishedAt)}? ${record.garmothUploadStatus === "success" ? "The previous Garmoth session will not change." : "Existing consumable expenses will be replaced."}`,
-            )
-        )
-            return false;
-        historyRequestId.current += 1;
-        setApplyingConsumables(true);
-        setConsumableMessage("");
-        try {
-            const updated = await applyFinishedSessionConsumables(snapshot, entries);
-            onSessionCorrected(updated);
-            setRecords(
-                (current) =>
-                    current?.map((candidate) =>
-                        candidate.session.id === updated.id ? { ...candidate, session: updated } : candidate,
-                    ) ?? null,
-            );
-            const refreshError = await loadHistory(false);
-            setConsumableMessage(
-                refreshError
-                    ? "Consumables saved. Reload History to refresh totals."
-                    : "Consumables applied. Review the totals, then upload.",
-            );
-            return true;
-        } finally {
-            setApplyingConsumables(false);
-        }
-    }
-
-    async function uploadSelected() {
-        if (!selected || !uploadPreview || uploadPreview.unmatchedEntries.length > 0 || actionBusy) return;
-        if (selected.garmothUploadStatus === "unknown") return;
-        const repeatUpload = selected.garmothUploadStatus === "success";
-        if (repeatUpload && !window.confirm("Upload this session again? This creates another session on Garmoth."))
-            return;
-        historyRequestId.current += 1;
-        setUploading(true);
-        setUploadMessage("");
-        setUploadError("");
-        try {
-            const result = await uploadGarmothSession({ ...uploadPreview.input, repeatUpload });
-            setRecords(
-                (current) =>
-                    current?.map((record) =>
-                        record.session.id === selected.session.id
-                            ? { ...record, garmothUploadStatus: result.status }
-                            : record,
-                    ) ?? null,
-            );
-            if (result.status === "success") setUploadMessage(result.message);
-            else setUploadError(result.message);
-            void loadHistory(false);
-        } catch (uploadFailure) {
-            setUploadError(String(uploadFailure));
-            await loadHistory();
-        } finally {
-            setUploading(false);
         }
     }
 
@@ -708,7 +636,6 @@ export function HistoryView({
                                     </button>
                                 </div>
                             </div>
-                            {consumableMessage && <p role="status">{consumableMessage}</p>}
                             {reopenError && (
                                 <p className={styles.ActionError} role="alert">
                                     {reopenError}
@@ -800,22 +727,6 @@ export function HistoryView({
                                         >
                                             Open Settings
                                         </button>
-                                    ) : uploadPreview?.consumableCount === 0 ? (
-                                        <ConsumablePresetPicker
-                                            key={selected.session.id}
-                                            session={selected.session}
-                                            disabled={
-                                                !databaseLoaded ||
-                                                databaseStatus === "saving" ||
-                                                actionBusy ||
-                                                uploadPreview.unmatchedEntries.length > 0
-                                            }
-                                            onApply={applyConsumables}
-                                            beforeUpload={{
-                                                repeat: selected.garmothUploadStatus === "success",
-                                                onSkip: () => void uploadSelected(),
-                                            }}
-                                        />
                                     ) : (
                                         <button
                                             className="button primary-button"
@@ -825,7 +736,12 @@ export function HistoryView({
                                                 !uploadPreview ||
                                                 uploadPreview.unmatchedEntries.length > 0
                                             }
-                                            onClick={uploadSelected}
+                                            ref={uploadButton}
+                                            onClick={() => {
+                                                setUploadError("");
+                                                setUploadMessage("");
+                                                setUploadReview(selected);
+                                            }}
                                         >
                                             {uploading
                                                 ? "Uploading..."
@@ -886,6 +802,38 @@ export function HistoryView({
                         </section>
                     )}
                 </div>
+            )}
+            {uploadReview && uploadCharacter && (
+                <GarmothUploadDialog
+                    record={uploadReview}
+                    characterName={uploadCharacter.name}
+                    onBusy={setUploading}
+                    onClose={() => {
+                        setUploadReview(null);
+                        uploadButton.current?.focus();
+                    }}
+                    onResult={(result) => {
+                        setRecords(
+                            (current) =>
+                                current?.map((record) =>
+                                    record.session.id === uploadReview.session.id
+                                        ? {
+                                              ...record,
+                                              session: result.savedSession ?? record.session,
+                                              garmothUploadStatus:
+                                                  result.status === "failed"
+                                                      ? record.garmothUploadStatus
+                                                      : result.status,
+                                          }
+                                        : record,
+                                ) ?? null,
+                        );
+                        if (result.savedSession) onSessionCorrected(result.savedSession);
+                        if (result.status === "success") setUploadMessage(result.message);
+                        else setUploadError(result.message);
+                        void loadHistory(false);
+                    }}
+                />
             )}
         </>
     );

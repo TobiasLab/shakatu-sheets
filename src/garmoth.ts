@@ -44,6 +44,7 @@ export function buildGarmothUpload(session: SessionState): GarmothUploadPreview 
             total,
             drops,
             global: false,
+            expectedSession: session,
         },
         mappedDropCount: Object.values(drops).filter((quantity) => quantity > 0).length,
         consumableCount: new Set(
@@ -53,4 +54,24 @@ export function buildGarmothUpload(session: SessionState): GarmothUploadPreview 
         ).size,
         unmatchedEntries: [...new Set(unmatchedEntries)],
     };
+}
+
+export function parseGarmothOptions(global: boolean, usedAgris: boolean, agrisAmount: string, dropRate: string) {
+    let agris: number | undefined;
+    if (usedAgris) {
+        agris = agrisAmount.trim() ? Number(agrisAmount) : -1;
+        if (agrisAmount.trim() && (!/^[0-9]+$/.test(agrisAmount.trim()) || !Number.isSafeInteger(agris) || agris <= 0))
+            throw new Error("Enter a positive whole Agris amount, or leave it blank for unknown.");
+    }
+    let rate: number | undefined;
+    if (dropRate.trim()) {
+        rate = Number(dropRate);
+        if (
+            !/^[0-9]+(?:\.[0-9]{1,2})?$/.test(dropRate.trim()) ||
+            !Number.isFinite(rate) ||
+            rate * 100 > Number.MAX_SAFE_INTEGER
+        )
+            throw new Error("Enter a drop rate of 0 or more with at most two decimal places.");
+    }
+    return { global, agris, rate };
 }

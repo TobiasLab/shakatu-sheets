@@ -48,12 +48,17 @@ export type GarmothUploadInput = {
     hourly: number;
     total: number;
     drops: Record<string, number>;
-    global: false;
+    global: boolean;
+    agris?: number;
+    rate?: number;
+    expectedSession: SessionState;
+    consumableEntries?: SessionEntry[];
 };
 
 export type GarmothUploadResult = {
-    status: "success" | "unknown";
+    status: "success" | "unknown" | "failed";
     message: string;
+    savedSession: SessionState | null;
 };
 
 export function loadActiveSession() {
@@ -361,8 +366,4 @@ export function loadConsumablePresets() {
 
 export function saveConsumablePresets(presets: ConsumablePreset[]) {
     return invoke<void>("save_consumable_presets", { presets });
-}
-
-export function applyFinishedSessionConsumables(expectedSession: SessionState, entries: SessionEntry[]) {
-    return invoke<SessionState>("apply_finished_session_consumables", { expectedSession, entries });
 }

@@ -1028,14 +1028,14 @@ try {
         await setField('input[placeholder="Search recorded items…"]', "missing");
         await until("document.body.textContent.includes('No matching entries')");
         await click("Clear filters");
-        await setField("#ledger-filter", "expense");
+        await setField("[id^=ledger-filter-]", "expense");
         assert.equal(await evaluate('document.querySelector("tbody").rows.length'), 1);
         assert.equal(
             await evaluate("JSON.stringify(window.__session.entries)"),
             entriesBeforeFilter,
             "Filtering must not mutate accounting",
         );
-        await setField("#ledger-filter", "all");
+        await setField("[id^=ledger-filter-]", "all");
         await click("Enter hours");
         await setField('input[name="completedHours"]', "1.5");
         await click("Save hours");
@@ -1092,7 +1092,7 @@ try {
             }
             await click("Grind desk");
         }
-        await setField("#ledger-filter", "expense");
+        await setField("[id^=ledger-filter-]", "expense");
         await setField('input[placeholder="Search recorded items…"]', "elixir");
         await click("Finish");
         await click("New session");
@@ -1111,7 +1111,7 @@ try {
         await evaluate("document.querySelector('dialog[open] form').requestSubmit()");
         await until("window.__session.entries.length === 1");
         await click("Close manual entry");
-        assert.equal(await evaluate("document.querySelector('#ledger-filter').value"), "all");
+        assert.equal(await evaluate("document.querySelector('[id^=ledger-filter-]').value"), "all");
         assert.equal(
             await evaluate("document.querySelector('input[placeholder=\"Search recorded items…\"]').value"),
             "",

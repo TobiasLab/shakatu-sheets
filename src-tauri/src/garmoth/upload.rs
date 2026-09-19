@@ -1,5 +1,6 @@
 use std::collections::BTreeMap;
 
+use crate::persistence::sessions::{save_upload_consumables, SessionRecord};
 use serde::{Deserialize, Serialize};
 use tauri::State;
 
@@ -32,6 +33,10 @@ pub(crate) struct GarmothUploadInput {
     total: i64,
     drops: BTreeMap<String, i64>,
     global: bool,
+    agris: Option<i64>,
+    rate: Option<f64>,
+    expected_session: SessionRecord,
+    consumable_entries: Option<Vec<SessionEntry>>,
 }
 
 #[derive(Serialize)]
@@ -46,6 +51,10 @@ struct CreateSessionPayload<'a> {
     #[serde(skip_serializing_if = "Option::is_none")]
     spec: Option<&'a str>,
     consumables: &'a [[i64; 2]],
+    #[serde(skip_serializing_if = "Option::is_none")]
+    agris: Option<i64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    rate: Option<f64>,
 }
 
 #[derive(Clone, Copy, Serialize)]
@@ -53,13 +62,22 @@ struct CreateSessionPayload<'a> {
 pub(crate) enum GarmothUploadResultStatus {
     Success,
     Unknown,
+    Failed,
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct GarmothUploadOutcome {
+    status: GarmothUploadResultStatus,
+    message: String,
 }
 
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
 pub(crate) struct GarmothUploadResult {
-    status: GarmothUploadResultStatus,
-    message: String,
+    #[serde(flatten)]
+    outcome: GarmothUploadOutcome,
+    saved_session: Option<SessionRecord>,
 }
 
 #[derive(Debug, PartialEq)]
@@ -84,9 +102,22 @@ fn validate_upload(input: &GarmothUploadInput) -> Result<(), String> {
         || input.total < 0
         || input.drops.is_empty()
         || input.drops.len() > 200
-        || input.global
     {
         return Err("the Garmoth upload payload is invalid".into());
+    }
+    if input
+        .agris
+        .is_some_and(|value| value != -1 && !(1..=9_007_199_254_740_991).contains(&value))
+    {
+        return Err("Agris must be -1 for unknown usage or a positive whole amount.".into());
+    }
+    if input.rate.is_some_and(|value| {
+        !value.is_finite()
+            || value < 0.0
+            || value * 100.0 > 9_007_199_254_740_991.0
+            || (value * 100.0 - (value * 100.0).round()).abs() > 0.000001
+    }) {
+        return Err("Drop rate must be non-negative with at most two decimal places.".into());
     }
     for (key, quantity) in &input.drops {
         let Some((main, sub)) = key.split_once('_') else {
@@ -171,9 +202,8 @@ fn session_consumables(entries: &[SessionEntry]) -> Result<Vec<[i64; 2]>, String
 
 fn verify_session_values(
     input: &GarmothUploadInput,
-    state: &DatabasePath,
+    session: &SessionRecord,
 ) -> Result<Vec<[i64; 2]>, String> {
-    let session = load_session_for_upload(&state.0, &input.session_id)?;
     if session.status != SessionStatus::Finished {
         return Err("only finished sessions can be uploaded".into());
     }
@@ -218,6 +248,23 @@ fn verify_session_values(
     session_consumables(&session.entries)
 }
 
+fn reviewed_consumables(
+    input: &GarmothUploadInput,
+    session: &SessionRecord,
+) -> Result<Vec<[i64; 2]>, String> {
+    if *session != input.expected_session {
+        return Err("The session changed. Close the review and reload History.".into());
+    }
+    let mut proposed = session.clone();
+    if let Some(entries) = &input.consumable_entries {
+        proposed
+            .entries
+            .retain(|entry| entry.garmoth_consumable_id.is_none());
+        proposed.entries.extend_from_slice(entries);
+    }
+    verify_session_values(input, &proposed)
+}
+
 #[tauri::command]
 pub(crate) async fn upload_garmoth_session(
     input: GarmothUploadInput,
@@ -226,7 +273,8 @@ pub(crate) async fn upload_garmoth_session(
 ) -> Result<GarmothUploadResult, String> {
     let _guard = operations.lock().await;
     validate_upload(&input)?;
-    let consumables = verify_session_values(&input, &state)?;
+    let session = load_session_for_upload(&state.0, &input.session_id)?;
+    let consumables = reviewed_consumables(&input, &session)?;
     let api_key = stored_api_key(&state.0)?;
     let characters = parse_stored_characters(load_setting(&state.0, CHARACTERS_SETTING)?)?;
     let selected_id =
@@ -246,6 +294,8 @@ pub(crate) async fn upload_garmoth_session(
         class_id: character.class_id,
         spec: character.spec.as_deref(),
         consumables: &consumables,
+        agris: input.agris,
+        rate: input.rate,
     };
     let body = serde_json::to_vec(&payload)
         .map_err(|error| format!("could not prepare the Garmoth upload: {error}"))?;
@@ -258,6 +308,47 @@ pub(crate) async fn upload_garmoth_session(
         .build()
         .map_err(|error| format!("could not prepare the Garmoth upload: {error}"))?;
 
+    save_and_send_upload(&input, &state, client, request).await
+}
+
+pub(crate) async fn save_and_send_upload(
+    input: &GarmothUploadInput,
+    state: &DatabasePath,
+    client: reqwest::Client,
+    request: reqwest::Request,
+) -> Result<GarmothUploadResult, String> {
+    // The upload command holds GarmothOperations while building the request and calling this helper.
+    validate_upload(input)?;
+    let session = load_session_for_upload(&state.0, &input.session_id)?;
+    reviewed_consumables(input, &session)?;
+    let saved_session = input
+        .consumable_entries
+        .as_ref()
+        .map(|entries| save_upload_consumables(&state.0, &session, entries))
+        .transpose()?;
+    let outcome = match send_upload(input, state, client, request).await {
+        Ok(outcome) => outcome,
+        Err(error) => GarmothUploadOutcome {
+            status: GarmothUploadResultStatus::Failed,
+            message: if saved_session.is_some() {
+                format!("Consumables saved. Upload failed: {error}")
+            } else {
+                error
+            },
+        },
+    };
+    Ok(GarmothUploadResult {
+        outcome,
+        saved_session,
+    })
+}
+
+async fn send_upload(
+    input: &GarmothUploadInput,
+    state: &DatabasePath,
+    client: reqwest::Client,
+    request: reqwest::Request,
+) -> Result<GarmothUploadOutcome, String> {
     let was_uploaded = claim_garmoth_upload(&state.0, &input.session_id, input.repeat_upload)?;
     let response = client.execute(request).await;
 
@@ -274,13 +365,13 @@ pub(crate) async fn upload_garmoth_session(
                     "could not connect to Garmoth; check your connection and try again".into(),
                 );
             }
-            return Ok(GarmothUploadResult {
+            return Ok(GarmothUploadOutcome {
                 status: GarmothUploadResultStatus::Unknown,
                 message: "The Garmoth request was not sent, but the local upload reservation could not be cleared. This session will not be retried automatically.".into(),
             });
         }
         Err(_) => {
-            return Ok(GarmothUploadResult {
+            return Ok(GarmothUploadOutcome {
                 status: GarmothUploadResultStatus::Unknown,
                 message: "Garmoth did not confirm the upload. Check your Garmoth grind tracker; this session will not be retried automatically.".into(),
             });
@@ -289,17 +380,17 @@ pub(crate) async fn upload_garmoth_session(
     let status = response.status();
     if status.is_success() {
         if finish_garmoth_upload(&state.0, &input.session_id).is_err() {
-            return Ok(GarmothUploadResult {
+            return Ok(GarmothUploadOutcome {
                 status: GarmothUploadResultStatus::Unknown,
                 message: "Garmoth confirmed the upload, but Shakatu Sheets could not save that confirmation. Check your Garmoth grind tracker; this session will not be retried automatically.".into(),
             });
         }
-        return Ok(GarmothUploadResult {
+        return Ok(GarmothUploadOutcome {
             status: GarmothUploadResultStatus::Success,
             message: "Session uploaded to Garmoth.".into(),
         });
     }
-    Ok(GarmothUploadResult {
+    Ok(GarmothUploadOutcome {
         status: GarmothUploadResultStatus::Unknown,
         message: format!(
             "Garmoth returned {status} without confirming the upload. Check your Garmoth grind tracker; this session will not be retried automatically."
@@ -337,6 +428,8 @@ mod tests {
             class_id: 8,
             spec: Some("awak"),
             consumables: &consumables,
+            agris: None,
+            rate: None,
         };
 
         assert_eq!(
@@ -356,6 +449,81 @@ mod tests {
                 ]
             })
         );
+    }
+
+    fn sample_input() -> GarmothUploadInput {
+        serde_json::from_value(serde_json::json!({
+            "sessionId":"review", "grindspotId":200, "minutes":60,
+            "total":100, "hourly":100, "drops":{"56339_0":1}, "global":true,
+            "expectedSession": { "id":"review", "region":"eu", "grindSpotId":"stars-end-revamp",
+                "status":"finished", "startedAt":null, "elapsedMs":3600000, "entries":[] }
+        }))
+        .unwrap()
+    }
+
+    #[test]
+    fn validates_agris_and_percentage_options() {
+        let mut input = sample_input();
+        assert!(validate_upload(&input).is_ok());
+        for value in [-1, 1, 20000] {
+            input.agris = Some(value);
+            assert!(validate_upload(&input).is_ok());
+        }
+        for value in [-2, 0, 9_007_199_254_740_992] {
+            input.agris = Some(value);
+            assert!(validate_upload(&input).is_err());
+        }
+        input.agris = None;
+        for value in [0.0, 250.0, 250.25, 0.29] {
+            input.rate = Some(value);
+            assert!(validate_upload(&input).is_ok());
+        }
+        for value in [-1.0, 250.001, f64::INFINITY, f64::NAN] {
+            input.rate = Some(value);
+            assert!(validate_upload(&input).is_err());
+        }
+    }
+
+    #[test]
+    fn serializes_global_agris_and_rate_without_percentage_conversion() {
+        let drops = BTreeMap::new();
+        let payload = CreateSessionPayload {
+            grindspot_id: 200,
+            minutes: 60,
+            hourly: 100,
+            total: 100,
+            drops: &drops,
+            global: true,
+            class_id: 6,
+            spec: None,
+            consumables: &[],
+            agris: Some(-1),
+            rate: Some(250.25),
+        };
+        let json = serde_json::to_value(payload).unwrap();
+        assert_eq!(json["global"], true);
+        assert_eq!(json["agris"], -1);
+        assert_eq!(json["rate"], 250.25);
+    }
+
+    #[test]
+    fn rejects_stale_review_even_when_income_matches() {
+        let input = sample_input();
+        let mut changed = input.expected_session.clone();
+        changed.entries.push(SessionEntry {
+            id: "free-buff".into(),
+            name: "Buff".into(),
+            quantity: 1.0,
+            unit_price: 0,
+            valuation: Valuation::Expense,
+            sale_multiplier: 1.0,
+            source: crate::persistence::sessions::EntrySource::Manual,
+            created_at: 0,
+            garmoth_consumable_id: Some(1411),
+        });
+        assert!(reviewed_consumables(&input, &changed)
+            .unwrap_err()
+            .contains("changed"));
     }
 
     #[test]
