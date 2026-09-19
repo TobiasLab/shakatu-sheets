@@ -35,15 +35,7 @@ pub(crate) struct GarmothUploadInput {
 }
 
 // Branch-only experiment: Garmoth's consumables element schema remains unverified.
-const EXPERIMENTAL_CONSUMABLES: [&str; 7] = [
-    "Body enhancement (60 min)",
-    "Simple cron meal",
-    "Perfume of envy",
-    "[Party] Harmony draught Edania",
-    "Adventure's boon (60 min)",
-    "Blessing of mystic beasts - all ap",
-    "Wind howling",
-];
+const EXPERIMENTAL_CONSUMABLES: [&str; 1] = ["Cheapo123"];
 
 #[derive(Serialize)]
 struct CreateSessionPayload<'a> {
@@ -293,7 +285,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn serializes_upload_with_experimental_consumable_names() {
+    fn serializes_upload_with_experimental_consumable_preset_name() {
         let drops = BTreeMap::from([("16001_0".into(), 12)]);
         let payload = CreateSessionPayload {
             grindspot_id: 200,
@@ -318,15 +310,7 @@ mod tests {
                 "global": false,
                 "class_id": 8,
                 "spec": "awak",
-                "consumables": [
-                    "Body enhancement (60 min)",
-                    "Simple cron meal",
-                    "Perfume of envy",
-                    "[Party] Harmony draught Edania",
-                    "Adventure's boon (60 min)",
-                    "Blessing of mystic beasts - all ap",
-                    "Wind howling"
-                ]
+                "consumables": ["Cheapo123"]
             })
         );
     }
