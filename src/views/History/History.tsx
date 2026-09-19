@@ -260,7 +260,9 @@ export function HistoryView({
             );
             const refreshError = await loadHistory(false);
             setConsumableMessage(
-                refreshError ? "Consumables saved. Reload History to refresh totals." : "Consumables applied.",
+                refreshError
+                    ? "Consumables saved. Reload History to refresh totals."
+                    : "Consumables applied. Review the totals, then upload.",
             );
             return true;
         } finally {
@@ -694,17 +696,6 @@ export function HistoryView({
                                 </div>
                                 <div className={styles.DetailActions}>
                                     <span>{selected.session.region.toUpperCase()}</span>
-                                    <ConsumablePresetPicker
-                                        key={selected.session.id}
-                                        session={selected.session}
-                                        disabled={
-                                            !databaseLoaded ||
-                                            databaseStatus === "saving" ||
-                                            actionBusy ||
-                                            selected.garmothUploadStatus !== null
-                                        }
-                                        onApply={applyConsumables}
-                                    />
                                     <button
                                         className="button"
                                         type="button"
@@ -812,6 +803,20 @@ export function HistoryView({
                                         >
                                             Open Settings
                                         </button>
+                                    ) : selected.garmothUploadStatus === null &&
+                                      uploadPreview?.consumableCount === 0 ? (
+                                        <ConsumablePresetPicker
+                                            key={selected.session.id}
+                                            session={selected.session}
+                                            disabled={
+                                                !databaseLoaded ||
+                                                databaseStatus === "saving" ||
+                                                actionBusy ||
+                                                uploadPreview.unmatchedEntries.length > 0
+                                            }
+                                            onApply={applyConsumables}
+                                            beforeUpload={{ onSkip: () => void uploadSelected() }}
+                                        />
                                     ) : (
                                         <button
                                             className="button primary-button"

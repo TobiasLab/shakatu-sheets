@@ -134,8 +134,11 @@ Settings → Integrations → Consumable presets owns Garmoth export import and 
 session quantities and unit prices; zero prices must be explicit. Presets are region-specific and editable independently
 of whether the active session is finished. Saving a preset never changes session expenses.
 
-The grind desk and each selected History session expose Apply preset. Both open the same native selection modal with
-preset names, quantities, and costs; no import or library-edit controls appear there. Replace session consumables changes
+The grind desk exposes Apply preset. In History, Upload to Garmoth opens the same native selection modal when an
+unuploaded session has no tagged consumable expenses. It states that no preset is applied and offers an explicit
+Upload without preset choice. Applying a preset returns to the updated totals for review before uploading; it does
+not start an upload. Sessions with consumables keep the normal upload flow. The modal shows preset names, quantities,
+and costs; no import or library-edit controls appear there. Replace session consumables changes
 only tagged expenses, preserving ordinary expenses and loot. Quantities are session totals, not per-hour rates, and are
 never silently scaled when duration changes. Unknown IDs remain visible in Settings and editable by name.
 
