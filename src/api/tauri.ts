@@ -348,3 +348,7 @@ export function logRoiOcrIssue(issue: RoiOcrIssue) {
 export function readNormalLootLayout(xml: string): Promise<{ x: number; y: number; uiScalePercent: LootUiScale }> {
     return invoke("read_normal_loot_layout", { xml });
 }
+
+export function inspectGarmothConsumables(characterId: string) {
+    return invoke<string>("inspect_garmoth_consumables", { characterId });
+}
