@@ -5,6 +5,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::persistence::load_setting;
 
+pub(crate) mod diagnostics;
 pub(crate) mod settings;
 pub(crate) mod upload;
 

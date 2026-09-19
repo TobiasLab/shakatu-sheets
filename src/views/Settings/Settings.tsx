@@ -2,6 +2,7 @@ import { type FormEvent, useEffect, useState } from "react";
 import {
     fetchGarmothCharacters,
     type GarmothSettings,
+    inspectGarmothConsumables,
     loadGarmothSettings,
     saveGarmothApiKey,
     selectGarmothCharacter,
@@ -56,12 +57,14 @@ export function SettingsView({
     const [settings, setSettings] = useState<GarmothSettings | null>(null);
     const [characterIds, setCharacterIds] = useState("");
     const [selectedCharacterId, setSelectedCharacterId] = useState("");
-    const [busy, setBusy] = useState<"key" | "characters" | "selection" | null>(null);
+    const [busy, setBusy] = useState<"key" | "characters" | "selection" | "inspection" | null>(null);
+    const [consumableReport, setConsumableReport] = useState("");
     const [message, setMessage] = useState("");
     const [error, setError] = useState("");
 
     async function reloadSettings() {
         const loaded = await loadGarmothSettings();
+        setConsumableReport("");
         setSettings(loaded);
         setCharacterIds(loaded.characterIds.join(", "));
         setSelectedCharacterId(loaded.selectedCharacterId?.toString() ?? "");
@@ -102,6 +105,32 @@ export function SettingsView({
             setError(String(failure));
         } finally {
             setBusy(null);
+        }
+    }
+
+    async function inspectConsumables() {
+        setBusy("inspection");
+        setError("");
+        setMessage("");
+        setConsumableReport("");
+        try {
+            setConsumableReport(await inspectGarmothConsumables(selectedCharacterId));
+            setMessage("Consumable report ready.");
+        } catch (failure) {
+            setError(String(failure));
+        } finally {
+            setBusy(null);
+        }
+    }
+
+    async function copyConsumableReport() {
+        setError("");
+        setMessage("");
+        try {
+            await navigator.clipboard.writeText(consumableReport);
+            setMessage("Report copied.");
+        } catch {
+            setError("Could not copy. Select the report and copy it manually.");
         }
     }
 
@@ -414,7 +443,10 @@ export function SettingsView({
                             <select
                                 value={selectedCharacterId}
                                 disabled={!settings?.characters.length || busy !== null}
-                                onChange={(event) => setSelectedCharacterId(event.target.value)}
+                                onChange={(event) => {
+                                    setSelectedCharacterId(event.target.value);
+                                    setConsumableReport("");
+                                }}
                             >
                                 <option value="">Select a character</option>
                                 {settings?.characters.map((character) => (
@@ -433,6 +465,30 @@ export function SettingsView({
                         >
                             {busy === "selection" ? "Saving..." : "Save upload character"}
                         </button>
+                        <button
+                            className="button"
+                            type="button"
+                            disabled={!settings?.apiKeyConfigured || !selectedCharacterId || busy !== null}
+                            onClick={inspectConsumables}
+                        >
+                            {busy === "inspection" ? "Inspecting..." : "Inspect consumable data"}
+                        </button>
+                        {consumableReport && (
+                            <>
+                                <label>
+                                    Sanitized consumable report
+                                    <textarea
+                                        className={styles.DiagnosticReport}
+                                        readOnly
+                                        rows={12}
+                                        value={consumableReport}
+                                    />
+                                </label>
+                                <button className="button" type="button" onClick={copyConsumableReport}>
+                                    Copy report
+                                </button>
+                            </>
+                        )}
                     </div>
                 </section>
             </div>

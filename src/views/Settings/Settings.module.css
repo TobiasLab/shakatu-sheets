@@ -266,3 +266,17 @@
     min-width: 0;
     overflow-wrap: anywhere;
 }
+
+.DiagnosticReport {
+    width: 100%;
+    min-width: 0;
+    box-sizing: border-box;
+    resize: vertical;
+    padding: 10px;
+    color: var(--text);
+    background: var(--input-background);
+    border: 1px solid var(--line-strong);
+    border-radius: 7px;
+    font-family: monospace;
+    font-size: 12px;
+}
