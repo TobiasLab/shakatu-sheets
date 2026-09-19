@@ -173,7 +173,17 @@ await send("Page.addScriptToEvaluateOnNewDocument", {
             }
             if (command === "native_capture_capabilities") return { backend: ${JSON.stringify(backend)}, available: true, reason: null, debugRoiSamples: true };
             if (command === "load_loot_capture_settings") return null;
-            if (command === "load_garmoth_settings") return { apiKeyConfigured: false, characterIds: [], characters: [], selectedCharacterId: null };
+            if (command === "load_garmoth_settings") {
+                if (window.__failSettings) throw Error("Synthetic settings read failure");
+                return { apiKeyConfigured: window.__keyConfigured ?? false, characterIds: [], characters: [], selectedCharacterId: null };
+            }
+            if (command === "save_garmoth_api_key") { window.__keyConfigured = true; return; }
+            if (command === "load_consumable_presets") {
+                if (window.__holdPresets) await new Promise(resolve => { window.__releasePresets = resolve; });
+                if (window.__failPresets) throw Error("Synthetic preset read failure");
+                return window.__presets ?? [];
+            }
+            if (command === "save_consumable_presets") { window.__presets = args.presets; return; }
             if (command === "save_session") { window.__session = args.session; return; }
             if (command === "start_native_display_capture") {
                 window.__capture = args.frames;
@@ -343,6 +353,65 @@ try {
     if (process.env.UI_SCREENSHOT_ONLY === "1") {
         console.log(`Screenshot saved: ${output}/desk-idle.png`);
     } else {
+        // Shared controls retain native labels and recover from loading and failed tasks.
+        await evaluate("window.__failSettings = true");
+        await click("Settings");
+        await until("document.body.textContent.includes('Synthetic settings read failure')");
+        assert(
+            await evaluate(
+                "document.querySelector('input[name=apiKey]').closest('form').querySelector('[role=alert]') !== null",
+            ),
+        );
+        await evaluate("window.__failSettings = false");
+        await click("Retry settings");
+        await until("!document.querySelector('input[name=apiKey]').disabled");
+        await setField('input[name="apiKey"]', "synthetic-ui-test-key");
+        await click("Validate and save key");
+        await until(
+            "document.querySelector('input[name=apiKey]').closest('form').textContent.includes('API key validated')",
+        );
+        assert.equal(await evaluate("document.querySelector('input[name=apiKey]').value"), "");
+        assert(
+            await evaluate("document.querySelector('input[name=apiKey]').labels[0].textContent.includes('API key')"),
+        );
+        await screenshot("settings-key-feedback");
+        await evaluate("window.__keyConfigured = false");
+        await click("Grind desk");
+        await evaluate("window.__holdPresets = true; window.__failPresets = true");
+        await click("Apply preset");
+        await until("document.querySelector('dialog[open]').textContent.includes('Loading presets')");
+        assert(!(await evaluate("document.querySelector('dialog[open]').textContent.includes('No EU presets')")));
+        await evaluate("window.__holdPresets = false; window.__releasePresets()");
+        await until("document.querySelector('dialog[open]').textContent.includes('Synthetic preset read failure')");
+        await screenshot("preset-load-error");
+        await evaluate("window.__failPresets = false");
+        await click("Retry");
+        await until("document.querySelector('dialog[open]').textContent.includes('No EU presets')");
+        await click("Close consumable presets");
+        await click("History");
+        await evaluate("window.__historyRecords = []");
+        await click("Reload");
+        await until("document.body.textContent.includes('No completed sessions yet')");
+        await screenshot("history-empty");
+        await click("Filters");
+        await setField('dialog[open] input[type="date"]', "2026-10-01");
+        await setField("#history-completed-through", "2026-09-01");
+        await until("document.querySelectorAll('dialog[open] [aria-invalid=true]').length === 2");
+        assert(
+            await evaluate(
+                "document.querySelector('dialog[open] [aria-invalid=true]').getAttribute('aria-describedby') === 'history-date-error'",
+            ),
+        );
+        await screenshot("history-date-error");
+        await click("Clear filters");
+        await click("Close filters");
+        await evaluate("window.__failHistory = true");
+        await click("Reload");
+        await until("document.body.textContent.includes('Synthetic history read failure')");
+        await evaluate("window.__failHistory = false; delete window.__historyRecords");
+        await click("Retry history");
+        await until("document.body.textContent.includes('1–1 of 1 sessions')");
+        await click("Grind desk");
         await send("Emulation.setEmulatedMedia", {
             features: [{ name: "prefers-reduced-motion", value: "reduce" }],
         });
@@ -945,6 +1014,15 @@ try {
         );
         await until("window.__session.entries.length === 1");
         assert.equal(await evaluate("window.__session.entries[0].quantity"), 1);
+        await until("document.querySelector('dialog[open] form [role=status]')?.textContent.includes('Added')");
+        await setField('dialog[open] input[min="1"]', "2");
+        assert(
+            !(await evaluate("document.querySelector('dialog[open] form [role=status]')")),
+            "Editing the draft must clear the previous success message",
+        );
+        await setField('dialog[open] input[type="search"]', "no matching loot");
+        await click("Clear search");
+        assert.equal(await evaluate("document.activeElement.type"), "search");
         await evaluate("document.querySelector('[aria-label=\"Close manual entry\"]').click()");
         const quantitySelector = 'input[aria-label^="Quantity for"]';
         const priceSelector = 'input[aria-label^="Unit price for"]';

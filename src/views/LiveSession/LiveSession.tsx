@@ -226,6 +226,7 @@ export function LiveSessionView({
                     <LootLedger
                         key={session.id}
                         tools={<SessionTools controller={controller} visible={visible} />}
+                        loading={!databaseLoaded}
                         entries={session.entries}
                         grindSpotId={session.grindSpotId}
                         editingDisabled={editingDisabled}

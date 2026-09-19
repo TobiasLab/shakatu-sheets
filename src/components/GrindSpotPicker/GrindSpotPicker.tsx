@@ -2,6 +2,7 @@ import { useEffect, useId, useRef, useState } from "react";
 import { type GrindSpotProfile, getGrindSpot } from "../../data/grindSpots";
 import { DialogHeader } from "../Dialog/DialogHeader";
 import { Icon } from "../Icon/Icon";
+import { SelectionButton } from "../SelectionButton/SelectionButton";
 import styles from "./GrindSpotPicker.module.css";
 import {
     filterSpots,
@@ -104,18 +105,17 @@ export function GrindSpotPicker({
                     {quickSpotIds(preferences).map((id) => {
                         const quickSpot = getGrindSpot(id);
                         return (
-                            <button
+                            <SelectionButton
                                 key={id}
-                                type="button"
                                 disabled={disabled}
-                                aria-pressed={id === spot.id}
+                                selected={id === spot.id}
                                 className={styles.Shortcut}
                                 onClick={() => select(id)}
                             >
                                 <img src={quickSpot.trash.icon} alt="" width={22} height={22} />
                                 <span>{quickSpot.name}</span>
                                 {preferences.favorites.includes(id) && <Icon name="star" size={14} />}
-                            </button>
+                            </SelectionButton>
                         );
                     })}
                 </section>
@@ -159,14 +159,9 @@ export function GrindSpotPicker({
                 </div>
                 <section className={styles.Filters} aria-label="Spot filters">
                     {(["All", "Favorites", "Recent"] as const).map((value) => (
-                        <button
-                            type="button"
-                            key={value}
-                            aria-pressed={filter === value}
-                            onClick={() => setFilter(value)}
-                        >
+                        <SelectionButton key={value} selected={filter === value} onClick={() => setFilter(value)}>
                             {value}
-                        </button>
+                        </SelectionButton>
                     ))}
                     <span role="status">
                         {results.length} {results.length === 1 ? "spot" : "spots"}
@@ -185,11 +180,10 @@ export function GrindSpotPicker({
                         <ul className={styles.Grid}>
                             {results.map((candidate) => (
                                 <li key={candidate.id} className={styles.Tile} data-selected={candidate.id === spot.id}>
-                                    <button
+                                    <SelectionButton
                                         className={styles.Choose}
-                                        type="button"
                                         disabled={disabled}
-                                        aria-pressed={candidate.id === spot.id}
+                                        selected={candidate.id === spot.id}
                                         onClick={() => select(candidate.id)}
                                     >
                                         <img src={candidate.trash.icon} alt="" width={36} height={36} loading="lazy" />
@@ -197,7 +191,7 @@ export function GrindSpotPicker({
                                             {candidate.name}
                                             {candidate.id === spot.id && <small>Selected</small>}
                                         </span>
-                                    </button>
+                                    </SelectionButton>
                                     <button
                                         className={styles.Star}
                                         type="button"

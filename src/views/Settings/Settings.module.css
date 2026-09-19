@@ -1,8 +1,8 @@
 .SectionNavigation {
     flex-wrap: wrap;
     display: flex;
-    gap: 20px;
-    margin-bottom: 8px;
+    gap: var(--space-5);
+    margin-bottom: var(--space-2);
     padding-bottom: 16px;
     border-bottom: 1px solid var(--line);
 }
@@ -42,21 +42,10 @@
 }
 .SettingsForm {
     display: grid;
-    gap: 16px;
+    gap: var(--space-4);
     padding: 0;
     width: 100%;
     max-width: 500px;
-}
-.SettingsForm > label {
-    display: grid;
-    gap: 7px;
-    color: var(--text-soft);
-    font-size: 12px;
-}
-.SettingsForm input,
-.SettingsForm select {
-    padding: 9px 10px;
-    font-size: 13px;
 }
 .SettingsForm p {
     margin: 0;
@@ -73,7 +62,7 @@
 .OpacitySlider {
     display: flex;
     align-items: center;
-    gap: 16px;
+    gap: var(--space-4);
 }
 .OpacitySlider input {
     flex: 1;
@@ -86,15 +75,6 @@
     text-align: right;
     font-size: 12px;
     font-variant-numeric: tabular-nums;
-}
-.Feedback {
-    padding: 14px 16px;
-    margin: 20px 0 0;
-    background: var(--surface-raised);
-    border: 1px solid var(--line);
-    border-radius: 8px;
-    color: var(--success);
-    font-size: 13px;
 }
 .Error {
     color: var(--danger);
@@ -120,22 +100,22 @@
 .ThemePicker {
     display: grid;
     grid-template-columns: repeat(3, minmax(0, 1fr));
-    gap: 12px;
+    gap: var(--space-3);
     margin: 0;
     padding: 0;
     border: 0;
 }
 .ThemePicker legend {
-    margin-bottom: 12px;
+    margin-bottom: var(--space-3);
     color: var(--muted);
     font-size: 12px;
 }
 .ThemeOption {
     position: relative;
     display: grid;
-    gap: 8px;
+    gap: var(--space-2);
     min-width: 0;
-    padding: 8px;
+    padding: var(--space-2);
     border: 1px solid var(--line);
     border-radius: 9px;
     cursor: pointer;
@@ -221,14 +201,14 @@
 .SettingsForm .SetupHint {
     color: var(--muted);
     padding: 10px 12px;
-    border-radius: 7px;
+    border-radius: var(--control-radius);
     background: var(--surface-raised);
 }
 @media (max-width: 760px) {
     .Preferences > section,
     .SettingsGrid > section {
         grid-template-columns: 1fr;
-        gap: 16px;
+        gap: var(--space-4);
         padding-block: 24px;
     }
     .SettingsForm {
@@ -260,7 +240,7 @@
     align-items: center;
     justify-content: space-between;
     flex-wrap: wrap;
-    gap: 12px;
+    gap: var(--space-3);
 }
 .MarketHeading h3 {
     min-width: 0;
@@ -276,7 +256,7 @@
     color: var(--text);
     background: var(--input-background);
     border: 1px solid var(--line-strong);
-    border-radius: 7px;
+    border-radius: var(--control-radius);
     font-family: monospace;
     font-size: 12px;
 }
@@ -284,9 +264,14 @@
 .SettingsForm > .DiagnosticOption {
     display: flex;
     align-items: center;
-    gap: 8px;
+    gap: var(--space-2);
 }
 .DiagnosticOption input {
     width: auto;
     margin: 0;
+}
+
+.SettingsForm > label[for] {
+    font-size: var(--text-control);
+    color: var(--text-soft);
 }

@@ -2,29 +2,16 @@
     display: flex;
     align-items: center;
     flex-wrap: wrap;
-    gap: 8px;
+    gap: var(--space-2);
 }
-.FilterDialog {
+.FilterDialog[open] {
     max-width: 560px;
 }
 .FilterFields {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 20px 16px;
-    padding: 24px;
-}
-.FilterFields label {
-    display: grid;
-    gap: 8px;
-    color: var(--muted);
-    font-size: 12px;
-}
-.FilterFields select,
-.FilterFields input {
-    width: 100%;
-    min-width: 0;
-    padding: 8px 10px;
-    font-size: 12px;
+    padding: var(--space-6);
 }
 .FilterFooter {
     display: flex;
@@ -42,9 +29,9 @@
 .Overview {
     display: grid;
     grid-template-columns: repeat(3, minmax(0, 1fr));
-    gap: 24px;
+    gap: var(--space-6);
     padding: 0 0 24px;
-    margin-bottom: 16px;
+    margin-bottom: var(--space-4);
     border-bottom: 1px solid var(--line);
 }
 .Overview span {
@@ -102,7 +89,7 @@
     flex-direction: column;
     gap: 10px;
     width: 100%;
-    padding: 12px;
+    padding: var(--space-3);
     border: 0;
     border-radius: 8px;
     background: transparent;
@@ -160,25 +147,16 @@
 .DetailActions {
     display: flex;
     align-items: center;
-    gap: 8px;
+    gap: var(--space-2);
 }
 .DetailActions > span {
     color: var(--muted);
     font-size: 11px;
 }
-.ActionError,
-.DeleteError {
-    color: var(--danger);
-    font-size: 12px;
-}
-.DeleteStatus {
-    color: var(--success);
-    font-size: 12px;
-}
 .HistorySummary {
     display: grid;
     grid-template-columns: repeat(3, minmax(0, 1fr));
-    gap: 12px;
+    gap: var(--space-3);
     padding: 18px 0;
     border-bottom: 1px solid var(--line);
 }
@@ -243,7 +221,7 @@
     display: flex;
     justify-content: space-between;
     align-items: center;
-    gap: 12px;
+    gap: var(--space-3);
 }
 .UploadHeading span,
 .UploadHeading strong {
@@ -278,27 +256,13 @@
 .GarmothUpload p.UploadSuccess {
     color: var(--success);
 }
-.HistoryMessage {
-    min-height: 280px;
-    display: grid;
-    place-content: center;
-    padding: 24px;
-    color: var(--muted);
-    text-align: center;
-}
-.HistoryMessage p {
-    font-size: 12px;
-}
-.ErrorMessage strong {
-    color: var(--danger);
-}
 .HistoryEntriesEmpty {
     min-height: 180px;
 }
 @media (max-width: 760px) {
     .HistoryGrid {
         grid-template-columns: 1fr;
-        gap: 20px;
+        gap: var(--space-5);
     }
     .HistoryGrid > section:first-child {
         border-right: 0;
@@ -310,7 +274,7 @@
         max-height: 220px;
     }
     .Overview {
-        gap: 12px;
+        gap: var(--space-3);
     }
     .Overview strong {
         font-size: 22px;
@@ -329,7 +293,7 @@
 }
 
 .Comparisons {
-    margin-bottom: 24px;
+    margin-bottom: var(--space-6);
     min-width: 0;
 }
 .Comparisons h2 {
@@ -347,7 +311,7 @@
 }
 .ComparisonScroll th,
 .ComparisonScroll td {
-    padding: 8px;
+    padding: var(--space-2);
     text-align: right;
     border-bottom: 1px solid var(--line);
 }
@@ -364,8 +328,8 @@
 }
 .Pagination {
     display: flex;
-    gap: 8px;
-    margin-bottom: 12px;
+    gap: var(--space-2);
+    margin-bottom: var(--space-3);
 }
 
 @media (max-width: 480px) {

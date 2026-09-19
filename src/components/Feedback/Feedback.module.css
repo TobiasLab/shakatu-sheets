@@ -1,0 +1,51 @@
+.Feedback {
+    display: grid;
+    gap: var(--space-3);
+    padding: var(--space-3) var(--space-4);
+    border-left: 2px solid var(--line-strong);
+    background: var(--surface-raised);
+    min-width: 0;
+    overflow-wrap: anywhere;
+}
+.Feedback > p {
+    margin: 0;
+    font-size: var(--text-control);
+    line-height: 1.5;
+    color: var(--text-soft);
+}
+.Feedback[data-tone="error"] {
+    border-color: var(--danger);
+}
+.Feedback[data-tone="error"] > p {
+    color: var(--danger);
+}
+.Feedback[data-tone="success"] {
+    border-color: var(--success);
+}
+.Feedback[data-tone="success"] > p {
+    color: var(--success);
+}
+.Feedback > button {
+    justify-self: start;
+}
+.Empty {
+    display: grid;
+    justify-items: center;
+    align-content: center;
+    gap: var(--space-3);
+    min-height: 160px;
+    padding: var(--space-6);
+    text-align: center;
+}
+.Empty strong {
+    color: var(--text-soft);
+    font-size: 14px;
+    font-weight: 500;
+}
+.Empty p {
+    max-width: 360px;
+    margin: 0;
+    color: var(--muted);
+    font-size: var(--text-control);
+    line-height: 1.5;
+}

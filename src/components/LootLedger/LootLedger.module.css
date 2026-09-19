@@ -169,25 +169,6 @@
     font-size: 11px;
     color: var(--danger);
 }
-.EmptyLedger {
-    display: grid;
-    justify-items: center;
-    align-content: center;
-    min-height: 160px;
-    padding: 35px 24px;
-    text-align: center;
-}
-.EmptyLedger strong {
-    font-size: 16px;
-    font-weight: 550;
-}
-.EmptyLedger p {
-    max-width: 330px;
-    margin: 9px 0 0;
-    color: var(--muted);
-    font-size: 12px;
-    line-height: 1.7;
-}
 .LedgerNote {
     display: flex;
     flex-wrap: wrap;

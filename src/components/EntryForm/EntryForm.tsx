@@ -3,6 +3,9 @@ import type { DropTemplate } from "../../data/grindSpots";
 import type { Valuation } from "../../domain/session";
 import { formatSilver } from "../../format";
 import type { LiveSessionController } from "../../hooks/useLiveSession";
+import { Feedback } from "../Feedback/Feedback";
+import { FormField } from "../FormField/FormField";
+import { SelectionButton } from "../SelectionButton/SelectionButton";
 import styles from "./EntryForm.module.css";
 
 type EntryFormProps = Pick<
@@ -41,6 +44,7 @@ export function EntryForm({
 }: EntryFormProps) {
     const [query, setQuery] = useState("");
     const [feedback, setFeedback] = useState<{ text: string; error: boolean } | null>(null);
+    const searchInput = useRef<HTMLInputElement>(null);
     const nameInput = useRef<HTMLInputElement>(null);
     const quantityInput = useRef<HTMLInputElement>(null);
     const normalizedQuery = query.trim().toLocaleLowerCase();
@@ -54,6 +58,7 @@ export function EntryForm({
     }
 
     function incrementQuantity(amount: number) {
+        setFeedback(null);
         const currentQuantity = Number(quantity);
         const baseQuantity = Number.isSafeInteger(currentQuantity) && currentQuantity >= 0 ? currentQuantity : 0;
         setQuantity(String(baseQuantity + amount));
@@ -100,6 +105,7 @@ export function EntryForm({
                     <label className={styles.SearchField}>
                         Find an item
                         <input
+                            ref={searchInput}
                             type="search"
                             value={query}
                             disabled={editingDisabled}
@@ -109,14 +115,13 @@ export function EntryForm({
                     </label>
                     <div className={styles.ItemList}>
                         {visibleDrops.map((drop) => (
-                            <button
+                            <SelectionButton
                                 key={drop.name}
                                 className={
                                     valuation !== "expense" && selectedDrop.name === drop.name ? styles.Selected : ""
                                 }
-                                type="button"
                                 disabled={editingDisabled}
-                                aria-pressed={valuation !== "expense" && selectedDrop.name === drop.name}
+                                selected={valuation !== "expense" && selectedDrop.name === drop.name}
                                 onClick={() => selectDrop(drop)}
                             >
                                 <span className={styles.ItemIcon}>
@@ -132,17 +137,26 @@ export function EntryForm({
                                 <span className={styles.SelectItem} aria-hidden="true">
                                     {valuation !== "expense" && selectedDrop.name === drop.name ? "Selected" : "Select"}
                                 </span>
-                            </button>
+                            </SelectionButton>
                         ))}
                         {visibleDrops.length === 0 && (
                             <div className={styles.NoResults}>
                                 <strong>No matching loot</strong>
-                                <span>Use the entry name field to add a custom item or expense.</span>
+                                <button
+                                    className="button subtle"
+                                    type="button"
+                                    onClick={() => {
+                                        setQuery("");
+                                        searchInput.current?.focus();
+                                    }}
+                                >
+                                    Clear search
+                                </button>
                             </div>
                         )}
                     </div>
                 </section>
-                <form className={styles.Form} onSubmit={submitEntry}>
+                <form className={styles.Form} onSubmit={submitEntry} onChange={() => setFeedback(null)}>
                     <div className={styles.SelectedDrop}>
                         {valuation !== "expense" && (
                             <span className={styles.SelectedIcon}>
@@ -154,8 +168,7 @@ export function EntryForm({
                             <strong>{valuation === "expense" ? "Record a cost" : selectedDrop.name}</strong>
                         </div>
                     </div>
-                    <label>
-                        Entry name
+                    <FormField label="Entry name">
                         <input
                             ref={nameInput}
                             value={customName}
@@ -164,11 +177,10 @@ export function EntryForm({
                             placeholder={valuation === "expense" ? "e.g. Elixir rotation" : selectedDrop.name}
                             onChange={(event) => setCustomName(event.target.value)}
                         />
-                    </label>
+                    </FormField>
                     <div className={styles.FormRow}>
                         <div className={styles.QuantityControl}>
-                            <label>
-                                Quantity
+                            <FormField label="Quantity">
                                 <input
                                     ref={quantityInput}
                                     type="number"
@@ -180,7 +192,7 @@ export function EntryForm({
                                     onFocus={(event) => event.currentTarget.select()}
                                     onChange={(event) => setQuantity(event.target.value)}
                                 />
-                            </label>
+                            </FormField>
                             <fieldset className={styles.QuantitySteps}>
                                 <legend>Quick quantity increments</legend>
                                 {[1, 10, 100, 1_000].map((amount) => (
@@ -196,8 +208,7 @@ export function EntryForm({
                                 ))}
                             </fieldset>
                         </div>
-                        <label>
-                            Unit price
+                        <FormField label="Unit price">
                             <input
                                 type="number"
                                 min="0"
@@ -208,10 +219,9 @@ export function EntryForm({
                                 placeholder="Required"
                                 onChange={(event) => setUnitPrice(event.target.value)}
                             />
-                        </label>
+                        </FormField>
                     </div>
-                    <label>
-                        Valuation
+                    <FormField label="Valuation">
                         <select
                             value={valuation}
                             disabled={editingDisabled}
@@ -221,7 +231,7 @@ export function EntryForm({
                             <option value="vendor">Vendor (100%)</option>
                             <option value="expense">Expense</option>
                         </select>
-                    </label>
+                    </FormField>
                     <button
                         className={`button primary-button ${styles.AddButton}`}
                         type="submit"
@@ -230,14 +240,7 @@ export function EntryForm({
                         <span>Add to ledger</span>
                         <kbd>Enter</kbd>
                     </button>
-                    {feedback && (
-                        <p
-                            className={`${styles.Feedback} ${feedback.error ? styles.Error : ""}`}
-                            role={feedback.error ? "alert" : "status"}
-                        >
-                            {feedback.text}
-                        </p>
-                    )}
+                    {feedback && <Feedback tone={feedback.error ? "error" : "success"}>{feedback.text}</Feedback>}
                     <p className={styles.DataNote}>
                         Matching items at the same price combine automatically. Edit totals directly in the ledger.
                     </p>

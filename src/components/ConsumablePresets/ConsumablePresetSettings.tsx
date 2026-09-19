@@ -9,6 +9,8 @@ import {
 } from "../../domain/consumablePreset";
 import type { SessionState } from "../../domain/session";
 import { formatSilver } from "../../format";
+import { Feedback } from "../Feedback/Feedback";
+import { FormField } from "../FormField/FormField";
 import styles from "./ConsumablePresets.module.css";
 
 type DraftItem = { itemId: number; name: string; quantity: string; unitPrice: string };
@@ -172,16 +174,19 @@ export function ConsumablePresetSettings({
     return (
         <div className={styles.Editor}>
             {loadError && (
-                <div role="alert">
-                    {loadError}{" "}
-                    <button type="button" className="button" onClick={() => setReload((value) => value + 1)}>
-                        Retry
-                    </button>
-                </div>
+                <Feedback
+                    tone="error"
+                    action={
+                        <button type="button" className="button" onClick={() => setReload((value) => value + 1)}>
+                            Retry
+                        </button>
+                    }
+                >
+                    {loadError}
+                </Feedback>
             )}
-            {!loaded && !loadError && <p role="status">Loading presets…</p>}
-            <label>
-                Preset region
+            {!loaded && !loadError && <Feedback>Loading presets…</Feedback>}
+            <FormField label="Preset region">
                 <select
                     value={region}
                     disabled={disabled}
@@ -197,9 +202,8 @@ export function ConsumablePresetSettings({
                     <option value="eu">EU</option>
                     <option value="na">NA</option>
                 </select>
-            </label>
-            <label>
-                Saved preset · {region.toUpperCase()}
+            </FormField>
+            <FormField label={`Saved preset · ${region.toUpperCase()}`}>
                 <select
                     value={selectedId}
                     disabled={disabled}
@@ -222,12 +226,11 @@ export function ConsumablePresetSettings({
                         </option>
                     ))}
                 </select>
-            </label>
+            </FormField>
             <details open={items.length === 0}>
                 <summary>Import Garmoth export</summary>
                 <form onSubmit={importPreset} className={styles.Editor}>
-                    <label>
-                        Preset JSON
+                    <FormField label="Preset JSON">
                         <textarea
                             rows={4}
                             value={text}
@@ -237,7 +240,7 @@ export function ConsumablePresetSettings({
                             onChange={(event) => setText(event.target.value)}
                             placeholder={'{"name":"My preset","export":"9692,1411"}'}
                         />
-                    </label>
+                    </FormField>
                     <button type="submit" className="button" disabled={disabled}>
                         Read export
                     </button>
@@ -251,15 +254,17 @@ export function ConsumablePresetSettings({
                     }}
                     className={styles.Editor}
                 >
-                    <label>
-                        Preset name
+                    <FormField label="Preset name">
                         <input
                             value={name}
                             maxLength={100}
                             disabled={disabled}
-                            onChange={(event) => setName(event.target.value)}
+                            onChange={(event) => {
+                                setName(event.target.value);
+                                setMessage("");
+                            }}
                         />
-                    </label>
+                    </FormField>
                     {/* biome-ignore lint/a11y/noNoninteractiveTabindex: Allow keyboard scrolling of the overflowing table. */}
                     <section className={styles.TableScroll} aria-label="Consumable quantities and prices" tabIndex={0}>
                         <table>
@@ -363,8 +368,8 @@ export function ConsumablePresetSettings({
                     </div>
                 </form>
             )}
-            {error && <p role="alert">{error}</p>}
-            {message && <p role="status">{message}</p>}
+            {error && <Feedback tone="error">{error}</Feedback>}
+            {message && <Feedback tone="success">{message}</Feedback>}
         </div>
     );
 }
