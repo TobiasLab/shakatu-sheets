@@ -112,3 +112,24 @@ describe("buildGarmothUpload", () => {
         expect(buildGarmothUpload(session).unmatchedEntries).toEqual(["Custom loot"]);
     });
 });
+
+it("previews saved consumable expenses without treating them as loot", () => {
+    const session = finishedSession();
+    const before = buildGarmothUpload(session);
+    session.entries.push({
+        id: "consumable",
+        name: "Perfume of Envy",
+        quantity: 3,
+        unitPrice: 100,
+        valuation: "expense",
+        saleMultiplier: 1,
+        source: "manual",
+        createdAt: 0,
+        garmothConsumableId: 1411,
+    });
+    const preview = buildGarmothUpload(session);
+    expect(preview.consumableCount).toBe(1);
+    expect(preview.input.drops).toEqual(before.input.drops);
+    expect(preview.input.total).toBe(before.input.total - 300);
+    expect(preview.unmatchedEntries).toEqual(before.unmatchedEntries);
+});

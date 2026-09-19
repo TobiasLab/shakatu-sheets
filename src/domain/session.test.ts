@@ -166,3 +166,70 @@ describe("session entries", () => {
         expect(rejected).toBe(updated);
     });
 });
+
+describe("consumable preset application", () => {
+    const consumable = (id = "consumable", quantity = 3) =>
+        entry({
+            id,
+            name: "Perfume of Envy",
+            valuation: "expense",
+            garmothConsumableId: 1411,
+            quantity,
+            unitPrice: 100,
+        });
+
+    it("replaces consumables atomically without duplicating them or removing manual expenses", () => {
+        const manual = entry({ id: "manual", name: "Perfume of Envy", valuation: "expense" });
+        const initial = { ...createSession(), entries: [entry({}), manual, consumable()] };
+        const next = reduceSession(initial, { type: "apply-consumables", entries: [consumable("new", 6)] });
+        const repeated = reduceSession(next, { type: "apply-consumables", entries: [consumable("newer", 6)] });
+        expect(repeated.entries).toEqual([entry({}), manual, consumable("newer", 6)]);
+        expect(calculateTotals(repeated.entries, 3_600_000)).toMatchObject({ gross: 100, expenses: 700, net: -600 });
+        expect(initial.entries[2].quantity).toBe(3);
+    });
+
+    it("does not merge manually entered rows with tagged consumables at the same price", () => {
+        const initial = { ...createSession(), entries: [consumable()] };
+        const next = reduceSession(initial, {
+            type: "add-entry",
+            entry: entry({ id: "manual", name: "Perfume of Envy", valuation: "expense" }),
+        });
+        expect(next.entries).toHaveLength(2);
+        expect(next.entries[0].quantity).toBe(3);
+    });
+
+    it("preserves consumable identity when editing quantity or price and leaves finished sessions immutable", () => {
+        const initial = { ...createSession(), entries: [consumable()] };
+        const changed = reduceSession(initial, { type: "update-entry", id: "consumable", quantity: 2, unitPrice: 50 });
+        expect(changed.entries[0]).toMatchObject({ quantity: 2, unitPrice: 50, garmothConsumableId: 1411 });
+        const finished = { ...changed, status: "finished" as const };
+        expect(reduceSession(finished, { type: "apply-consumables", entries: [consumable()] })).toBe(finished);
+    });
+
+    it("rejects consumable edits whose total exceeds safe integer precision", () => {
+        const initial = { ...createSession(), entries: [consumable()] };
+        expect(
+            reduceSession(initial, {
+                type: "update-entry",
+                id: "consumable",
+                quantity: 3,
+                unitPrice: Number.MAX_SAFE_INTEGER,
+            }),
+        ).toBe(initial);
+    });
+
+    it("rejects invalid batches without applying part of the preset", () => {
+        const initial = createSession();
+        for (const entries of [
+            [],
+            [consumable(), consumable("duplicate")],
+            [{ ...consumable(), quantity: 0 }],
+            [{ ...consumable(), unitPrice: -1 }],
+            [{ ...consumable(), unitPrice: Number.MAX_SAFE_INTEGER }],
+            [{ ...consumable(), valuation: "vendor" as const }],
+            [{ ...consumable(), garmothConsumableId: undefined }],
+        ]) {
+            expect(reduceSession(initial, { type: "apply-consumables", entries })).toBe(initial);
+        }
+    });
+});

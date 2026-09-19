@@ -5,6 +5,7 @@ import { calculateTotals, type SessionState } from "./domain/session";
 export type GarmothUploadPreview = {
     input: GarmothUploadInput;
     mappedDropCount: number;
+    consumableCount: number;
     unmatchedEntries: string[];
 };
 
@@ -45,6 +46,11 @@ export function buildGarmothUpload(session: SessionState): GarmothUploadPreview 
             global: false,
         },
         mappedDropCount: Object.values(drops).filter((quantity) => quantity > 0).length,
+        consumableCount: new Set(
+            session.entries.flatMap((entry) =>
+                entry.garmothConsumableId === undefined ? [] : [entry.garmothConsumableId],
+            ),
+        ).size,
         unmatchedEntries: [...new Set(unmatchedEntries)],
     };
 }

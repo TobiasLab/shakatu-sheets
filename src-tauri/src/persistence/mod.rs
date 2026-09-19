@@ -6,6 +6,7 @@ use std::{
 use rusqlite::Connection;
 use tauri::{AppHandle, Manager};
 
+pub(crate) mod consumable_presets;
 mod garmoth_uploads;
 pub(crate) mod loot_font;
 pub(crate) mod market_prices;
@@ -20,7 +21,7 @@ pub(crate) use market_prices::{save_market_price_records, MarketPriceSnapshot, R
 pub(crate) use sessions::{load_session_for_upload, SessionEntry, SessionStatus, Valuation};
 pub(crate) use settings::{load_setting, save_settings, save_settings_if_unchanged};
 
-const DATABASE_VERSION: i64 = 3;
+const DATABASE_VERSION: i64 = 4;
 
 pub struct DatabasePath(pub PathBuf);
 
@@ -220,6 +221,21 @@ fn migrate(connection: &mut Connection) -> Result<(), String> {
             .map_err(|error| error.to_string())?;
         transaction.commit().map_err(|error| error.to_string())?;
         current_version = 3;
+    }
+
+    if current_version < 4 {
+        let transaction = connection
+            .transaction()
+            .map_err(|error| error.to_string())?;
+        transaction.execute_batch(
+            "ALTER TABLE session_entries ADD COLUMN garmoth_consumable_id INTEGER
+                CHECK (garmoth_consumable_id IS NULL OR
+                    (garmoth_consumable_id > 0 AND garmoth_consumable_id <= 9007199254740991 AND valuation = 'expense'));
+             INSERT INTO schema_migrations (version, applied_at)
+                VALUES (4, unixepoch('subsec') * 1000);"
+        ).map_err(|error| error.to_string())?;
+        transaction.commit().map_err(|error| error.to_string())?;
+        current_version = 4;
     }
 
     if current_version != DATABASE_VERSION {

@@ -1,4 +1,5 @@
 import { useEffect, useRef } from "react";
+import { ConsumablePresetPicker } from "../../components/ConsumablePresets/ConsumablePresetPicker";
 import { EntryForm } from "../../components/EntryForm/EntryForm";
 import { Icon } from "../../components/Icon/Icon";
 import { MarniImport } from "../../components/MarniImport/MarniImport";
@@ -18,6 +19,14 @@ export function SessionTools({ controller, visible }: { controller: LiveSessionC
     return (
         <>
             <div className={styles.EntryTools}>
+                <ConsumablePresetPicker
+                    session={controller.session}
+                    disabled={controller.editingDisabled || !visible}
+                    onApply={(_session, entries) => {
+                        controller.dispatch({ type: "apply-consumables", entries });
+                        return true;
+                    }}
+                />
                 <button
                     className="button"
                     type="button"
@@ -40,6 +49,7 @@ export function SessionTools({ controller, visible }: { controller: LiveSessionC
                     Import a screenshot
                 </button>
             </div>
+
             <dialog className={styles.ToolDialog} ref={entryDialog} aria-labelledby="entry-dialog-title">
                 <header className={styles.DialogHeading}>
                     <div>

@@ -1,0 +1,93 @@
+.Root {
+    padding: 20px 24px;
+}
+.Editor input,
+.Editor select,
+.Editor textarea {
+    min-height: 34px;
+    padding: 8px;
+}
+.Editor {
+    display: grid;
+    gap: 16px;
+}
+.Editor label {
+    display: grid;
+    gap: 8px;
+}
+.Editor textarea {
+    width: 100%;
+    resize: vertical;
+}
+.Editor summary {
+    cursor: pointer;
+    margin-bottom: 12px;
+}
+.TableScroll {
+    overflow-x: auto;
+}
+.TableScroll table {
+    width: 100%;
+    border-collapse: collapse;
+}
+.TableScroll th,
+.TableScroll td {
+    padding: 8px;
+    text-align: left;
+    border-bottom: 1px solid var(--row-line);
+}
+.TableScroll td:first-child {
+    min-width: 260px;
+    width: 46%;
+}
+.TableScroll input {
+    width: 100%;
+    min-width: 85px;
+}
+.TableScroll small {
+    display: block;
+    color: var(--muted);
+}
+.Actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+.Actions strong {
+    margin-right: auto;
+}
+.Hidden {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+}
+.PresetList {
+    display: grid;
+    gap: 8px;
+}
+.PresetList button {
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+    flex-wrap: wrap;
+    text-align: left;
+}
+.PresetList button[aria-pressed="true"] {
+    background: var(--selected);
+    border-color: var(--focus-border);
+}
+.PresetItems {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+.PresetItems li {
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 8px 0;
+    border-bottom: 1px solid var(--row-line);
+}

@@ -125,30 +125,54 @@ remain redacted. Scalar values remain redacted in both modes before crossing IPC
 writes occur. The report distinguishes missing, null, and empty fields, but an absent recognized field does not prove
 that Garmoth lacks presets. No preset import or consumable upload schema is established by this diagnostic.
 
-### Branch-only consumable upload experiment
+### Consumable presets
 
-On `feat/consumable-preset-expenses`, every explicit session upload includes the experimental consumable pairs
-copied from the user-provided website session-saving request for `Cheapo123`:
+Settings → Consumables accepts pasted Garmoth Consumable Planner exports with a `name` and comma-separated
+`export` IDs. Pure TypeScript validates the export before a review table is shown. Exports contain no quantities,
+prices, or reliable display-name catalog. Known item names are suggested; other identifiers retain a visible numeric
+label that the user can rename. Unknown positive IDs are preserved, never treated as market item IDs automatically.
+
+Users enter explicit total quantities for the session and integer silver unit prices (including an explicit zero for
+free buffs). The second element of a Garmoth consumable pair is treated as quantity, consistent with the captured
+one-hour website request and the user's explanation of three 20-minute perfumes. No duration scaling or market-price
+fetch occurs. Saved presets remember the reviewed quantities and prices per region; users must review them for each
+session. A preset is not an hourly schedule. Settings manages the library independently of the active session.
+The grind desk and History use the same native Apply preset selection dialog with a cost/quantity preview; neither
+contains import or library-edit controls. Saving a preset does not apply it to a session. Desktop presets are validated by Rust and stored in SQLite settings, with at most 20 presets
+and 100 unique consumables each. Preset names are local labels, not Garmoth account links.
+
+Applying a preset atomically replaces the session's tagged consumable expenses, preserving ordinary manual expenses
+and loot. Applying it again replaces rather than duplicates those rows. Each expense snapshots its price, quantity,
+and optional Garmoth consumable ID. Later preset edits/deletion do not affect existing session entries. The ledger
+allows quantity/price edits and removal while a session is unfinished. General finished-session edits retain the
+existing explicit reopen rules. Presets are selected by recorded region; there is no cross-region price fallback for this workflow.
+
+History also exposes an explicit consumable-only correction. After a confirmation naming the session and expense
+amount, Rust compares the reviewed session snapshot to the stored record and replaces only tagged consumable rows
+inside one transaction. Ordinary loot/expenses and all session metadata, including completion/fallback timestamps,
+remain unchanged. Stale previews, unfinished sessions, and any existing Garmoth upload marker are rejected. Corrections
+share the Garmoth operations lock with uploads and deletion, so they cannot race an in-flight upload. Normal session
+saves still reject changes to finished records. History reloads its query/aggregates after correction; if the same
+finished session is still open in the app, its in-memory snapshot is refreshed to avoid a stale later save.
+
+Rust derives upload `consumables` pairs from the saved finished-session expense rows and sums quantities for repeated
+IDs across price snapshots. Plain manual expenses affect net totals but are not serialized as consumables. Sessions
+without tagged expenses send an empty array. The upload preview shows the number of distinct consumables. Net totals
+continue to use stored expense prices; the remote treatment of costs may differ and must be checked in Garmoth.
+
+The user confirmed that the external API accepts the nested pairs below without `consumable_build`:
 
 ```json
-{
-    "consumables": [
-        [99999900, 1], [9692, 1], [1411, 3], [1407, 3],
-        [761879, 1], [767969, 1], [100001510, 1]
-    ]
-}
+{"consumables": [[99999900, 1], [9692, 1], [1411, 3], [1407, 3], [761879, 1], [767969, 1], [100001510, 1]]}
 ```
 
-The flat exported-ID array created a session without consumables in the user's test. The user confirmed that the nested pairs
-together with `consumable_build: 848759` successfully uploaded consumables through the external API. This experiment
-omits `consumable_build` entirely while preserving those pairs, to test whether the build reference is optional.
-The result of this omission, the meaning of each pair's second value, and cost handling remain unverified. The values are copied exactly
-from the one-hour website request, without duration scaling. This is a hardcoded experiment for the user's preset,
-not a session preset feature, and must be removed or validated
-before merging into main. No extra cost is calculated locally, no prices are fetched, and the existing net totals
-and upload reservation rules remain unchanged. On this experimental branch, confirmed uploads expose “Upload again (test)” with a duplicate-session confirmation.
+These are evidence fixtures only; the application no longer hardcodes this preset into every upload. Automatic
+account-preset fetching remains unverified. No authenticated research or live upload was performed during implementation.
+
+### Branch-only repeat-upload control
+
+On this experimental branch, confirmed uploads expose “Upload again (test)” with a duplicate-session confirmation.
 An explicit IPC flag allows Rust to atomically reserve a previously successful upload again. Unknown outcomes remain
 blocked. A pre-transmission connect failure restores the previous success marker; a potentially transmitted failure
 leaves it unknown. Finished-session immutability and reopen restrictions remain intact. This repeat-upload escape hatch
 must be removed before merging into main.
-No live upload was performed during implementation.

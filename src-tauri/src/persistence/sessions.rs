@@ -47,6 +47,8 @@ pub struct SessionEntry {
     pub sale_multiplier: f64,
     pub source: EntrySource,
     pub created_at: i64,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub garmoth_consumable_id: Option<i64>,
 }
 
 #[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
@@ -153,6 +155,19 @@ fn validate_session(session: &SessionRecord) -> Result<(), String> {
         if !entry.quantity.is_finite() || entry.quantity <= 0.0 || entry.quantity.fract() != 0.0 {
             return Err(format!("invalid quantity for entry {}", entry.id));
         }
+        if let Some(id) = entry.garmoth_consumable_id {
+            if id <= 0
+                || id > 9_007_199_254_740_991
+                || entry.valuation != Valuation::Expense
+                || entry.source != EntrySource::Manual
+                || entry.sale_multiplier != 1.0
+                || entry.quantity > 9_007_199_254_740_991.0
+                || entry.unit_price > 9_007_199_254_740_991
+                || entry.quantity * entry.unit_price as f64 > 9_007_199_254_740_991.0
+            {
+                return Err("invalid consumable expense".into());
+            }
+        }
         if entry.unit_price < 0
             || !entry.sale_multiplier.is_finite()
             || !(0.0..=1.0).contains(&entry.sale_multiplier)
@@ -221,8 +236,8 @@ pub(super) fn save_session_record(
         let mut statement = transaction
             .prepare(
                 "INSERT INTO session_entries (
-                    id, session_id, name, quantity, unit_price, valuation, sale_multiplier, source, created_at
-                 ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)",
+                    id, session_id, name, quantity, unit_price, valuation, sale_multiplier, source, created_at, garmoth_consumable_id
+                 ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10)",
             )
             .map_err(|error| error.to_string())?;
         for entry in &session.entries {
@@ -237,6 +252,7 @@ pub(super) fn save_session_record(
                     entry.sale_multiplier,
                     source_to_str(&entry.source),
                     entry.created_at,
+                    entry.garmoth_consumable_id,
                 ])
                 .map_err(|error| error.to_string())?;
         }
@@ -274,7 +290,7 @@ pub(super) fn load_session_by_id(
 
     let mut statement = connection
         .prepare(
-            "SELECT id, name, quantity, unit_price, valuation, sale_multiplier, source, created_at
+            "SELECT id, name, quantity, unit_price, valuation, sale_multiplier, source, created_at, garmoth_consumable_id
              FROM session_entries WHERE session_id = ?1 ORDER BY created_at, rowid",
         )
         .map_err(|error| error.to_string())?;
@@ -289,13 +305,23 @@ pub(super) fn load_session_by_id(
                 row.get::<_, f64>(5)?,
                 row.get::<_, String>(6)?,
                 row.get::<_, i64>(7)?,
+                row.get::<_, Option<i64>>(8)?,
             ))
         })
         .map_err(|error| error.to_string())?;
     let mut entries = Vec::new();
     for row in rows {
-        let (id, name, quantity, unit_price, valuation, sale_multiplier, source, created_at) =
-            row.map_err(|error| error.to_string())?;
+        let (
+            id,
+            name,
+            quantity,
+            unit_price,
+            valuation,
+            sale_multiplier,
+            source,
+            created_at,
+            garmoth_consumable_id,
+        ) = row.map_err(|error| error.to_string())?;
         entries.push(SessionEntry {
             id,
             name,
@@ -305,6 +331,7 @@ pub(super) fn load_session_by_id(
             sale_multiplier,
             source: parse_source(&source)?,
             created_at,
+            garmoth_consumable_id,
         });
     }
 
@@ -563,6 +590,93 @@ pub(super) fn reopen_session_record(
     transaction.commit().map_err(|error| error.to_string())?;
 
     load_session_by_id(connection, id)?.ok_or_else(|| format!("session {id} disappeared"))
+}
+
+pub(super) fn apply_finished_session_consumables_record(
+    connection: &mut Connection,
+    expected_session: &SessionRecord,
+    entries: &[SessionEntry],
+) -> Result<SessionRecord, String> {
+    let transaction = connection
+        .transaction()
+        .map_err(|error| error.to_string())?;
+    let mut session = load_session_by_id(&transaction, &expected_session.id)?
+        .ok_or("The session no longer exists.")?;
+    if session.status != SessionStatus::Finished {
+        return Err("Only finished sessions can be corrected from History.".into());
+    }
+    if load_garmoth_upload_status(&transaction, &session.id)?.is_some() {
+        return Err(
+            "Consumables cannot be changed after a Garmoth upload or an unknown upload outcome."
+                .into(),
+        );
+    }
+    if session != *expected_session {
+        return Err("The session changed. Reload History before applying a preset.".into());
+    }
+    if entries.is_empty() || entries.len() > 100 {
+        return Err("Choose 1–100 consumables.".into());
+    }
+    let mut item_ids = std::collections::HashSet::new();
+    let mut entry_ids = std::collections::HashSet::new();
+    for entry in entries {
+        let Some(item_id) = entry.garmoth_consumable_id else {
+            return Err("Only consumable expense rows can be applied from History.".into());
+        };
+        if !item_ids.insert(item_id) || !entry_ids.insert(&entry.id) {
+            return Err("Consumable entries must be unique.".into());
+        }
+    }
+    session
+        .entries
+        .retain(|entry| entry.garmoth_consumable_id.is_none());
+    session.entries.extend_from_slice(entries);
+    validate_session(&session)?;
+    let mut total = 0_i64;
+    for entry in entries {
+        total = (entry.quantity as i64)
+            .checked_mul(entry.unit_price)
+            .and_then(|cost| total.checked_add(cost))
+            .filter(|cost| *cost <= 9_007_199_254_740_991)
+            .ok_or("Consumable cost is too large.")?;
+    }
+    transaction.execute(
+        "DELETE FROM session_entries WHERE session_id = ?1 AND garmoth_consumable_id IS NOT NULL",
+        [&session.id],
+    ).map_err(|error| error.to_string())?;
+    for entry in entries {
+        transaction.execute(
+            "INSERT INTO session_entries
+                (id, session_id, name, quantity, unit_price, valuation, sale_multiplier, source, created_at, garmoth_consumable_id)
+             VALUES (?1, ?2, ?3, ?4, ?5, 'expense', 1, 'manual', ?6, ?7)",
+            params![entry.id, session.id, entry.name, entry.quantity, entry.unit_price, entry.created_at, entry.garmoth_consumable_id],
+        ).map_err(|error| error.to_string())?;
+    }
+    // Keep completion and fallback timestamps unchanged so correction does not move history rows.
+    transaction.commit().map_err(|error| error.to_string())?;
+    load_session_by_id(connection, &session.id)?.ok_or("The session no longer exists.".into())
+}
+
+pub(super) async fn apply_finished_session_consumables_at_path(
+    path: &PathBuf,
+    expected_session: &SessionRecord,
+    entries: &[SessionEntry],
+    operations: &GarmothOperations,
+) -> Result<SessionRecord, String> {
+    let _guard = operations.lock().await;
+    let mut connection = open_database(path)?;
+    apply_finished_session_consumables_record(&mut connection, expected_session, entries)
+}
+
+#[tauri::command]
+pub async fn apply_finished_session_consumables(
+    expected_session: SessionRecord,
+    entries: Vec<SessionEntry>,
+    state: State<'_, DatabasePath>,
+    operations: State<'_, GarmothOperations>,
+) -> Result<SessionRecord, String> {
+    apply_finished_session_consumables_at_path(&state.0, &expected_session, &entries, &operations)
+        .await
 }
 
 #[tauri::command]

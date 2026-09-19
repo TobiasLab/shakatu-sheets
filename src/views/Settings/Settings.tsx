@@ -7,6 +7,7 @@ import {
     saveGarmothApiKey,
     selectGarmothCharacter,
 } from "../../api/tauri";
+import { ConsumablePresetSettings } from "../../components/ConsumablePresets/ConsumablePresetSettings";
 import { GrindSpotPicker } from "../../components/GrindSpotPicker/GrindSpotPicker";
 import type { SessionState } from "../../domain/session";
 import { formatTimestamp } from "../../format";
@@ -159,12 +160,19 @@ export function SettingsView({
             </header>
 
             <nav className={styles.SectionNavigation} aria-label="Settings sections">
+                <a href="#consumables">Consumables</a>
                 <a href="#market">Market</a>
                 <a href="#appearance">Appearance</a>
                 <a href="#capture-preferences">Capture</a>
                 <a href="#integrations">Integrations</a>
             </nav>
             <div className={styles.Preferences}>
+                <section id="consumables" className="panel" aria-labelledby="consumables-settings-title">
+                    <div className="panel-heading">
+                        <h2 id="consumables-settings-title">Consumable presets</h2>
+                    </div>
+                    <ConsumablePresetSettings initialRegion={session.region} disabled={!databaseLoaded} />
+                </section>
                 <section id="market" className="panel" aria-labelledby="market-title">
                     <div className="panel-heading">
                         <h2 id="market-title">Market</h2>
