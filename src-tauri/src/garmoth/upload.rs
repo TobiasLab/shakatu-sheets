@@ -35,7 +35,7 @@ pub(crate) struct GarmothUploadInput {
 }
 
 // Branch-only experiment: Garmoth's consumables element schema remains unverified.
-const EXPERIMENTAL_CONSUMABLES: [&str; 1] = ["Cheapo123"];
+const EXPERIMENTAL_CONSUMABLES: [i64; 7] = [99999900, 9692, 1411, 1407, 761879, 767969, 100001510];
 
 #[derive(Serialize)]
 struct CreateSessionPayload<'a> {
@@ -48,7 +48,7 @@ struct CreateSessionPayload<'a> {
     class_id: i64,
     #[serde(skip_serializing_if = "Option::is_none")]
     spec: Option<&'a str>,
-    consumables: &'a [&'a str],
+    consumables: &'a [i64],
 }
 
 #[derive(Clone, Copy, Serialize)]
@@ -285,7 +285,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn serializes_upload_with_experimental_consumable_preset_name() {
+    fn serializes_upload_with_exported_consumable_identifiers() {
         let drops = BTreeMap::from([("16001_0".into(), 12)]);
         let payload = CreateSessionPayload {
             grindspot_id: 200,
@@ -310,7 +310,7 @@ mod tests {
                 "global": false,
                 "class_id": 8,
                 "spec": "awak",
-                "consumables": ["Cheapo123"]
+                "consumables": [99999900, 9692, 1411, 1407, 761879, 767969, 100001510]
             })
         );
     }
