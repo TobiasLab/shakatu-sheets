@@ -34,8 +34,17 @@ pub(crate) struct GarmothUploadInput {
     global: bool,
 }
 
-// Branch-only experiment: Garmoth's consumables element schema remains unverified.
-const EXPERIMENTAL_CONSUMABLES: [i64; 7] = [99999900, 9692, 1411, 1407, 761879, 767969, 100001510];
+// Branch-only experiment: matches a website request; external API support remains unverified.
+const EXPERIMENTAL_CONSUMABLE_BUILD: i64 = 848759;
+const EXPERIMENTAL_CONSUMABLES: [[i64; 2]; 7] = [
+    [99999900, 1],
+    [9692, 1],
+    [1411, 3],
+    [1407, 3],
+    [761879, 1],
+    [767969, 1],
+    [100001510, 1],
+];
 
 #[derive(Serialize)]
 struct CreateSessionPayload<'a> {
@@ -48,7 +57,8 @@ struct CreateSessionPayload<'a> {
     class_id: i64,
     #[serde(skip_serializing_if = "Option::is_none")]
     spec: Option<&'a str>,
-    consumables: &'a [i64],
+    consumable_build: i64,
+    consumables: &'a [[i64; 2]],
 }
 
 #[derive(Clone, Copy, Serialize)]
@@ -214,6 +224,7 @@ pub(crate) async fn upload_garmoth_session(
         global: input.global,
         class_id: character.class_id,
         spec: character.spec.as_deref(),
+        consumable_build: EXPERIMENTAL_CONSUMABLE_BUILD,
         consumables: &EXPERIMENTAL_CONSUMABLES,
     };
     let body = serde_json::to_vec(&payload)
@@ -285,7 +296,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn serializes_upload_with_exported_consumable_identifiers() {
+    fn serializes_upload_with_website_consumable_pairs_and_build() {
         let drops = BTreeMap::from([("16001_0".into(), 12)]);
         let payload = CreateSessionPayload {
             grindspot_id: 200,
@@ -296,6 +307,7 @@ mod tests {
             global: false,
             class_id: 8,
             spec: Some("awak"),
+            consumable_build: EXPERIMENTAL_CONSUMABLE_BUILD,
             consumables: &EXPERIMENTAL_CONSUMABLES,
         };
 
@@ -310,7 +322,11 @@ mod tests {
                 "global": false,
                 "class_id": 8,
                 "spec": "awak",
-                "consumables": [99999900, 9692, 1411, 1407, 761879, 767969, 100001510]
+                "consumable_build": 848759,
+                "consumables": [
+                    [99999900, 1], [9692, 1], [1411, 3], [1407, 3],
+                    [761879, 1], [767969, 1], [100001510, 1]
+                ]
             })
         );
     }
