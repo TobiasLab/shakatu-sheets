@@ -1,5 +1,6 @@
 import { useEffect, useRef } from "react";
 import { ConsumablePresetPicker } from "../../components/ConsumablePresets/ConsumablePresetPicker";
+import { DialogHeader } from "../../components/Dialog/DialogHeader";
 import { EntryForm } from "../../components/EntryForm/EntryForm";
 import { Icon } from "../../components/Icon/Icon";
 import { MarniImport } from "../../components/MarniImport/MarniImport";
@@ -51,37 +52,21 @@ export function SessionTools({ controller, visible }: { controller: LiveSessionC
             </div>
 
             <dialog className={styles.ToolDialog} ref={entryDialog} aria-labelledby="entry-dialog-title">
-                <header className={styles.DialogHeading}>
-                    <div>
-                        <h2 id="entry-dialog-title">Add loot or expense</h2>
-                        <p>Choose an item, enter its quantity, and add it to your session.</p>
-                    </div>
-                    <button
-                        className="button subtle"
-                        type="button"
-                        onClick={() => entryDialog.current?.close()}
-                        aria-label="Close manual entry"
-                    >
-                        Close <kbd>Esc</kbd>
-                    </button>
-                </header>
+                <DialogHeader
+                    titleId="entry-dialog-title"
+                    title="Add loot or expense"
+                    closeLabel="Close manual entry"
+                    onClose={() => entryDialog.current?.close()}
+                />
                 <EntryForm key={controller.session.id} {...controller} />
             </dialog>
             <dialog className={styles.ToolDialog} ref={importDialog} aria-labelledby="import-dialog-title">
-                <header className={styles.DialogHeading}>
-                    <div>
-                        <h2 id="import-dialog-title">Import a screenshot</h2>
-                        <p>Read a cropped Marni tracker screenshot, then review before importing.</p>
-                    </div>
-                    <button
-                        className="button subtle"
-                        type="button"
-                        onClick={() => importDialog.current?.close()}
-                        aria-label="Close screenshot import"
-                    >
-                        Close <kbd>Esc</kbd>
-                    </button>
-                </header>
+                <DialogHeader
+                    titleId="import-dialog-title"
+                    title="Import a screenshot"
+                    closeLabel="Close screenshot import"
+                    onClose={() => importDialog.current?.close()}
+                />
                 <MarniImport key={controller.session.id} controller={controller} />
             </dialog>
         </>

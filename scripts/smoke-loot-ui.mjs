@@ -246,6 +246,8 @@ try {
     }
     await mkdir(output, { recursive: true });
     async function screenshot(name) {
+        // Let theme transitions and dialog entry settle before recording pixels.
+        await delay(180);
         const { data } = await send("Page.captureScreenshot", { format: "png" });
         await writeFile(`${output}/${name}.png`, Buffer.from(data, "base64"));
     }
@@ -341,7 +343,17 @@ try {
     if (process.env.UI_SCREENSHOT_ONLY === "1") {
         console.log(`Screenshot saved: ${output}/desk-idle.png`);
     } else {
+        await send("Emulation.setEmulatedMedia", {
+            features: [{ name: "prefers-reduced-motion", value: "reduce" }],
+        });
         await click("Import a screenshot");
+        assert(
+            await evaluate(`document.querySelector('dialog[open]').getAnimations().length === 0 &&
+                getComputedStyle(document.querySelector('[aria-label="Close screenshot import"]'))
+                    .transitionDuration.split(',').every(duration => parseFloat(duration) === 0)`),
+            "Reduced motion must suppress dialog animation and control transitions",
+        );
+        await send("Emulation.setEmulatedMedia", { features: [] });
         await evaluate(`(() => {
             const input = document.querySelector('input[type=file]');
             const files = new DataTransfer();
@@ -1080,6 +1092,16 @@ try {
                 ),
                 "Entry dialog must fit compact windows",
             );
+            await evaluate("document.querySelector('dialog[open]').scrollTop = 10000");
+            assert(
+                await evaluate(`(() => {
+                    const dialog = document.querySelector('dialog[open]').getBoundingClientRect();
+                    const close = document.querySelector('[aria-label="Close manual entry"]').getBoundingClientRect();
+                    return close.top >= dialog.top && close.bottom <= dialog.bottom;
+                })()`),
+                "Entry dialog dismissal must remain visible after scrolling in short windows",
+            );
+            await evaluate("document.querySelector('dialog[open]').scrollTop = 0");
             if (width === 640) await screenshot("manual-entry-compact");
             await evaluate("document.querySelector('[aria-label=\"Close manual entry\"]').click()");
             for (const view of ["History", "Settings"]) {

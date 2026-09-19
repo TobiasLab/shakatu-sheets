@@ -1,5 +1,6 @@
 import { useEffect, useId, useRef, useState } from "react";
 import { type GrindSpotProfile, getGrindSpot } from "../../data/grindSpots";
+import { DialogHeader } from "../Dialog/DialogHeader";
 import { Icon } from "../Icon/Icon";
 import styles from "./GrindSpotPicker.module.css";
 import {
@@ -125,20 +126,12 @@ export function GrindSpotPicker({
                 aria-labelledby={titleId}
                 onClose={() => opener.current?.focus()}
             >
-                <div className={styles.DialogHeader}>
-                    <div>
-                        <h2 id={titleId}>Choose grind spot</h2>
-                        <p>Star your favorites for quick access on the desk.</p>
-                    </div>
-                    <button
-                        className="button subtle"
-                        type="button"
-                        aria-label="Close spot browser"
-                        onClick={() => dialog.current?.close()}
-                    >
-                        Close <kbd>Esc</kbd>
-                    </button>
-                </div>
+                <DialogHeader
+                    titleId={titleId}
+                    title="Choose grind spot"
+                    closeLabel="Close spot browser"
+                    onClose={() => dialog.current?.close()}
+                />
                 <div className={styles.Search}>
                     <label className="sr-only" htmlFor={searchId}>
                         Search grind spots

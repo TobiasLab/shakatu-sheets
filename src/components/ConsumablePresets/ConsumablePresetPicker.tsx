@@ -1,6 +1,7 @@
 import { useEffect, useId, useRef, useState } from "react";
 import type { SessionEntry, SessionState } from "../../domain/session";
 import dialogStyles from "../../views/LiveSession/LiveSession.module.css";
+import { DialogHeader } from "../Dialog/DialogHeader";
 import { ConsumablePresetSelection } from "./ConsumablePresetSelection";
 
 export function ConsumablePresetPicker({
@@ -37,12 +38,12 @@ export function ConsumablePresetPicker({
                 aria-labelledby={titleId}
                 onClose={() => setTarget(null)}
             >
-                <header className={dialogStyles.DialogHeading}>
-                    <h2 id={titleId}>Select consumable preset</h2>
-                    <button type="button" className="button subtle" onClick={() => dialog.current?.close()}>
-                        Close <kbd>Esc</kbd>
-                    </button>
-                </header>
+                <DialogHeader
+                    titleId={titleId}
+                    title="Select consumable preset"
+                    closeLabel="Close consumable presets"
+                    onClose={() => dialog.current?.close()}
+                />
                 {target && (
                     <ConsumablePresetSelection
                         session={target}

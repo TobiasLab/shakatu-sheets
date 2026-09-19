@@ -78,10 +78,7 @@ export function EntryForm({
     return (
         <aside className={`panel ${styles.EntryPanel}`}>
             <div className="panel-heading">
-                <div>
-                    <p className="eyebrow">Loot catalog</p>
-                    <h2>Add to session</h2>
-                </div>
+                <h3>Loot catalog</h3>
                 <button
                     className="button subtle"
                     type="button"

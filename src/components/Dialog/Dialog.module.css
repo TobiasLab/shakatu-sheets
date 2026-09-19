@@ -1,0 +1,63 @@
+.Surface {
+    width: min(900px, calc(100vw - 40px));
+    max-width: none;
+    max-height: calc(100dvh - 48px);
+    padding: 0;
+    border: 1px solid var(--line-strong);
+    border-radius: var(--dialog-radius);
+    background: var(--canvas);
+    color: var(--text);
+    box-shadow: var(--dialog-shadow);
+    overscroll-behavior: contain;
+}
+.Surface::backdrop {
+    background: #0007;
+}
+.Surface[open] {
+    animation: appear var(--motion-dialog) var(--ease-out);
+}
+.Header {
+    display: flex;
+    position: sticky;
+    top: 0;
+    z-index: 4;
+    flex-shrink: 0;
+    justify-content: space-between;
+    align-items: center;
+    gap: var(--space-5);
+    padding: var(--space-5) var(--space-6);
+    border-bottom: 1px solid var(--line);
+    background: var(--canvas);
+}
+.Header h2 {
+    min-width: 0;
+    overflow-wrap: anywhere;
+    font-size: var(--text-dialog-title);
+    font-weight: 550;
+}
+.Header > button {
+    flex-shrink: 0;
+    white-space: nowrap;
+}
+.Header kbd {
+    font-size: 10px;
+    color: var(--muted);
+    font-family: inherit;
+}
+@keyframes appear {
+    from {
+        opacity: 0;
+    }
+    to {
+        opacity: 1;
+    }
+}
+@media (max-width: 760px) {
+    .Surface {
+        width: calc(100vw - 24px);
+        max-height: calc(100dvh - 24px);
+    }
+    .Header {
+        padding: var(--space-4);
+    }
+}

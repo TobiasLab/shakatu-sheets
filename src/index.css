@@ -5,6 +5,22 @@
     color-scheme: dark;
     font-synthesis: none;
     text-rendering: optimizeLegibility;
+    --space-1: 4px;
+    --space-2: 8px;
+    --space-3: 12px;
+    --space-4: 16px;
+    --space-5: 20px;
+    --space-6: 24px;
+    --control-height: 34px;
+    --control-radius: 7px;
+    --dialog-radius: 16px;
+    --text-label: 11px;
+    --text-control: 12px;
+    --text-dialog-title: 18px;
+    --motion-fast: 120ms;
+    --motion-dialog: 160ms;
+    --ease-out: cubic-bezier(0.2, 0, 0, 1);
+    --dialog-shadow: 0 20px 70px #0004;
     --canvas: #202020;
     --sidebar: #181818;
     --surface: #242424;
@@ -121,6 +137,24 @@ select {
 button {
     color: inherit;
 }
+button,
+input,
+select {
+    transition:
+        background-color var(--motion-fast) var(--ease-out),
+        border-color var(--motion-fast) var(--ease-out),
+        color var(--motion-fast) var(--ease-out),
+        box-shadow var(--motion-fast) var(--ease-out);
+}
+button:enabled:active {
+    box-shadow: inset 0 0 0 999px #00000012;
+}
+@media (prefers-reduced-motion: reduce) {
+    :root {
+        --motion-fast: 0ms;
+        --motion-dialog: 0ms;
+    }
+}
 button svg {
     flex-shrink: 0;
 }
@@ -128,7 +162,7 @@ select,
 input {
     width: 100%;
     border: 1px solid var(--line-strong);
-    border-radius: 7px;
+    border-radius: var(--control-radius);
     background: var(--input-background);
     color: var(--text-strong);
 }
@@ -206,13 +240,13 @@ h3 {
     align-items: center;
     justify-content: center;
     gap: 7px;
-    min-height: 34px;
+    min-height: var(--control-height);
     border: 1px solid var(--button-border);
-    border-radius: 7px;
+    border-radius: var(--control-radius);
     background: var(--button-background);
     padding: 7px 12px;
     cursor: pointer;
-    font-size: 12px;
+    font-size: var(--text-control);
     font-weight: 500;
     line-height: 1.4;
 }
