@@ -36,7 +36,11 @@ pub(super) fn load_garmoth_upload_status(
         .transpose()
 }
 
-pub(crate) fn claim_garmoth_upload(path: &PathBuf, session_id: &str) -> Result<(), String> {
+pub(crate) fn claim_garmoth_upload(
+    path: &PathBuf,
+    session_id: &str,
+    repeat_for_testing: bool,
+) -> Result<bool, String> {
     let mut connection = open_database(path)?;
     let transaction = connection
         .transaction()
@@ -53,7 +57,16 @@ pub(crate) fn claim_garmoth_upload(path: &PathBuf, session_id: &str) -> Result<(
     if status != "finished" {
         return Err("only finished sessions can be uploaded".into());
     }
-    if let Some(status) = load_garmoth_upload_status(&transaction, session_id)? {
+    let previous = load_garmoth_upload_status(&transaction, session_id)?;
+    if repeat_for_testing && previous == Some(GarmothUploadStatus::Success) {
+        transaction.execute(
+            "UPDATE garmoth_uploads SET status = 'unknown', updated_at = ?1 WHERE session_id = ?2",
+            params![timestamp_ms(), session_id],
+        ).map_err(|error| error.to_string())?;
+        transaction.commit().map_err(|error| error.to_string())?;
+        return Ok(true);
+    }
+    if let Some(status) = previous {
         return Err(match status {
             GarmothUploadStatus::Success => "this session was already uploaded to Garmoth",
             GarmothUploadStatus::Unknown => {
@@ -68,7 +81,8 @@ pub(crate) fn claim_garmoth_upload(path: &PathBuf, session_id: &str) -> Result<(
             params![session_id, timestamp_ms()],
         )
         .map_err(|error| error.to_string())?;
-    transaction.commit().map_err(|error| error.to_string())
+    transaction.commit().map_err(|error| error.to_string())?;
+    Ok(false)
 }
 
 pub(crate) fn finish_garmoth_upload(path: &PathBuf, session_id: &str) -> Result<(), String> {

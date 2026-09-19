@@ -364,13 +364,13 @@ fn transitions_garmoth_upload_reservations_without_duplicates() {
     save_session_record(&mut connection, &finished).unwrap();
     drop(connection);
 
-    claim_garmoth_upload(&path, &finished.id).unwrap();
+    claim_garmoth_upload(&path, &finished.id, false).unwrap();
     assert_eq!(
-        claim_garmoth_upload(&path, &finished.id).unwrap_err(),
+        claim_garmoth_upload(&path, &finished.id, false).unwrap_err(),
         "this session may already exist on Garmoth; check Garmoth before taking further action"
     );
     release_garmoth_upload(&path, &finished.id).unwrap();
-    claim_garmoth_upload(&path, &finished.id).unwrap();
+    claim_garmoth_upload(&path, &finished.id, false).unwrap();
     finish_garmoth_upload(&path, &finished.id).unwrap();
 
     let connection = open_database(&path).unwrap();
@@ -380,7 +380,7 @@ fn transitions_garmoth_upload_reservations_without_duplicates() {
     );
     drop(connection);
     assert_eq!(
-        claim_garmoth_upload(&path, &finished.id).unwrap_err(),
+        claim_garmoth_upload(&path, &finished.id, false).unwrap_err(),
         "this session was already uploaded to Garmoth"
     );
     remove_temporary_database(&path);
@@ -774,4 +774,29 @@ fn history_index_migration_preserves_populated_version_two_database() {
             .unwrap(),
         1
     );
+}
+
+#[test]
+fn explicit_test_reupload_keeps_unknown_blocked_and_restores_prior_success() {
+    let (path, mut connection) = temporary_database();
+    let finished = session(SessionStatus::Finished);
+    save_session_record(&mut connection, &finished).unwrap();
+    assert!(!claim_garmoth_upload(&path, &finished.id, false).unwrap());
+    finish_garmoth_upload(&path, &finished.id).unwrap();
+    assert!(claim_garmoth_upload(&path, &finished.id, false).is_err());
+    assert!(claim_garmoth_upload(&path, &finished.id, true).unwrap());
+    assert_eq!(
+        load_garmoth_upload_status(&connection, &finished.id).unwrap(),
+        Some(GarmothUploadStatus::Unknown)
+    );
+    assert!(claim_garmoth_upload(&path, &finished.id, true).is_err());
+    // A connect failure on a repeat restores success instead of removing the old marker.
+    finish_garmoth_upload(&path, &finished.id).unwrap();
+    assert_eq!(
+        load_garmoth_upload_status(&connection, &finished.id).unwrap(),
+        Some(GarmothUploadStatus::Success)
+    );
+    assert!(reopen_session_record(&mut connection, &finished.id).is_err());
+    drop(connection);
+    remove_temporary_database(&path);
 }
