@@ -127,16 +127,24 @@ that Garmoth lacks presets. No preset import or consumable upload schema is esta
 
 ### Branch-only consumable upload experiment
 
-On `feat/consumable-preset-expenses`, every explicit session upload includes the following experimental array,
-using the identifiers from the user-provided `Cheapo123` Consumable Planner export as JSON numbers:
+On `feat/consumable-preset-expenses`, every explicit session upload includes these experimental fields,
+copied from the user-provided website session-saving request for `Cheapo123`:
 
 ```json
-"consumables": [99999900, 9692, 1411, 1407, 761879, 767969, 100001510]
+{
+    "consumable_build": 848759,
+    "consumables": [
+        [99999900, 1], [9692, 1], [1411, 3], [1407, 3],
+        [761879, 1], [767969, 1], [100001510, 1]
+    ]
+}
 ```
 
-The previous numeric item-ID and individual item-name experiments did not work in the user's tests.
-The export confirms these preset identifiers, but does not establish the upload element schema or cost handling;
-both remain unverified. This is a hardcoded experiment, not a session preset feature, and must be removed or validated
+The flat exported-ID array created a session without consumables in the user's test. The website request
+establishes a nested pair structure and a separate build reference. Support for these fields through the external
+API, the meaning of each pair's second value, and cost handling remain unverified. The values are copied exactly
+from the one-hour website request, without duration scaling. This is a hardcoded experiment for the user's preset,
+not a session preset feature, and must be removed or validated
 before merging into main. No extra cost is calculated locally, no prices are fetched, and the existing net totals
 and upload reservation rules remain unchanged. On this experimental branch, confirmed uploads expose “Upload again (test)” with a duplicate-session confirmation.
 An explicit IPC flag allows Rust to atomically reserve a previously successful upload again. Unknown outcomes remain
