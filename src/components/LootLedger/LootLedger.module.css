@@ -37,7 +37,7 @@
     top: 0;
     z-index: 1;
     padding: 10px 8px;
-    font-size: 10px;
+    font-size: var(--text-label);
     font-weight: 500;
     color: var(--muted);
     background: var(--canvas);
@@ -68,7 +68,8 @@
 .LedgerRow td:first-child {
     padding-left: 0;
 }
-.LedgerRow:hover {
+.LedgerRow:hover,
+.LedgerRow:focus-within {
     background: var(--surface-raised);
 }
 .ItemCell {
@@ -108,7 +109,7 @@
 .ItemName span {
     display: block;
     margin-top: 4px;
-    font-size: 10px;
+    font-size: var(--text-label);
     color: var(--muted);
 }
 .LedgerRow input {
@@ -194,7 +195,7 @@
     gap: 8px;
     padding: 10px 0;
     color: var(--muted);
-    font-size: 10px;
+    font-size: var(--text-label);
     border-top: 1px solid var(--line);
 }
 .NoResults {

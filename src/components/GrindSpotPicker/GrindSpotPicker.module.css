@@ -2,13 +2,13 @@
     min-width: 0;
 }
 .Picker {
-    margin-bottom: 18px;
+    margin-bottom: var(--space-6);
     min-width: 0;
 }
 .Selected {
     display: flex;
     align-items: center;
-    gap: 14px;
+    gap: var(--space-4);
     flex-wrap: wrap;
 }
 .Selected > img {
@@ -60,49 +60,12 @@
     color: var(--text);
 }
 .Dialog {
-    width: min(900px, calc(100vw - 40px));
-    max-width: none;
+    composes: Surface from "../Dialog/Dialog.module.css";
     max-height: min(620px, calc(100dvh - 48px));
-    padding: 0;
-    border: 1px solid var(--line-strong);
-    border-radius: 16px;
-    background: var(--canvas);
-    color: var(--text);
-    box-shadow: 0 20px 70px #0004;
 }
 .Dialog[open] {
     display: flex;
     flex-direction: column;
-}
-.Dialog::backdrop {
-    background: #0007;
-}
-.DialogHeader {
-    display: flex;
-    align-items: flex-start;
-    justify-content: space-between;
-    gap: 20px;
-    padding: 22px 24px;
-    border-bottom: 1px solid var(--line);
-    flex-shrink: 0;
-}
-.DialogHeader h2 {
-    margin: 0;
-    font-size: 18px;
-    font-weight: 550;
-}
-.DialogHeader p {
-    margin: 7px 0 0;
-    font-size: 12px;
-    color: var(--muted);
-}
-.DialogHeader kbd {
-    font-size: 10px;
-    color: var(--muted);
-    font-family: inherit;
-}
-.DialogHeader > button {
-    flex-shrink: 0;
 }
 .Search {
     display: flex;
@@ -144,6 +107,8 @@
     color: var(--muted);
 }
 .Results {
+    overscroll-behavior: contain;
+    scrollbar-width: thin;
     overflow-y: auto;
     min-height: 0;
     padding: 16px 24px 24px;
@@ -226,9 +191,6 @@
         width: calc(100vw - 24px);
         max-height: min(620px, calc(100dvh - 24px));
     }
-    .DialogHeader {
-        padding: 18px;
-    }
 }
 @media (max-width: 600px) {
     .Grid {
@@ -244,4 +206,16 @@
     .Results {
         padding: 12px 16px 16px;
     }
+}
+
+.Shortcut,
+.Choose,
+.Star,
+.Filters button {
+    cursor: pointer;
+}
+.Shortcut:disabled,
+.Choose:disabled {
+    cursor: not-allowed;
+    opacity: 0.45;
 }

@@ -53,11 +53,11 @@ truncate away distinctions between location variants.
 
 ### Spacing, borders, and icons
 
-Use 4, 8, 12, 16, 20, and 24px as preferred spacing steps. Existing control-specific values such as 7px padding remain
+Use the `--space-1` through `--space-6` tokens for the 4, 8, 12, 16, 20, and 24px spacing steps. Existing control-specific values such as 7px padding remain
 valid. Start with 8px between related controls, 12–16px within a group, and 20–28px between sections. Favor consistent
 alignment over adding containers.
 
-Use 7px corners for standard controls, 6–8px for compact shortcuts and selectable tiles, and 16px for dialogs. Borders are
+Use `--control-height` (34px) and `--control-radius` (7px) for standard controls, 6–8px corners for compact shortcuts and selectable tiles, and `--dialog-radius` (16px) for dialogs. Shared control, label, and dialog-title sizes use `--text-control`, `--text-label`, and `--text-dialog-title`. Borders are
 normally one pixel. Use the shared [Icon component](../../src/components/Icon/Icon.tsx) for interface symbols: small,
 monochrome SVG strokes, typically 18px. Bundled item icons may retain their color; use roughly 22px in shortcuts and
 36–40px in spot tiles or selected-location displays. Decorative icons have empty alternative text or are hidden from
@@ -103,12 +103,13 @@ should not silently change the selected value.
 
 ## Dialogs
 
-Use native `<dialog>` with `showModal()`. The reference header and close control are in
-[SessionTools](../../src/views/LiveSession/SessionTools.tsx), with styling in
-[LiveSession.module.css](../../src/views/LiveSession/LiveSession.module.css). The
-[spot browser](../../src/components/GrindSpotPicker/GrindSpotPicker.module.css) demonstrates a bounded catalog with internal
-scrolling. These are reference implementations; there is currently no shared dialog component. History filters reuse the
-SessionTools dialog and header styles.
+Use native `<dialog>` with `showModal()`. Compose the shared `Surface` class from
+[Dialog.module.css](../../src/components/Dialog/Dialog.module.css) and use
+[DialogHeader](../../src/components/Dialog/DialogHeader.tsx) for the title and Close Esc control.
+The shared component owns presentation only; each caller retains its native dialog ref, initial focus, cancellation,
+and draft lifecycle. Entry, screenshot import, spot selection, and consumable preset selection use this header.
+Existing History headers compose the same styles through LiveSession's classes. The
+[spot browser](../../src/components/GrindSpotPicker/GrindSpotPicker.module.css) adds its own bounded catalog layout.
 
 ### Size and composition
 
@@ -118,8 +119,8 @@ SessionTools dialog and header styles.
 - For longer forms, the viewport ceiling is `calc(100dvh - 48px)`. Below 760px, use 12px viewport margins and a ceiling of
   `calc(100dvh - 24px)`; retain the 620px cap for compact pickers.
 - Use `--canvas`, a one-pixel `--line-strong` border, 16px corners, `0 20px 70px #0004` shadow, and a `#0007` backdrop.
-- The header uses 22px/24px padding, a bottom divider, and an 18px title. Omit subtitles by default. Compact headers use
-  18px padding. Keep the header and dismissal available while long content scrolls.
+- The header uses 20px/24px padding, a bottom divider, and an 18px title. Omit subtitles by default. Compact headers use
+  16px padding. Keep the header and dismissal available while long content scrolls.
 - Short confirmations should be narrower and sized to their message; the existing finish dialog uses a 520px maximum.
 
 ### Close control and keyboard behavior
@@ -162,7 +163,10 @@ and, where possible, a way to recover. Use alerts for actionable errors and poli
 counts or routine feedback. Avoid announcements for every timer tick.
 
 Network activity should follow an explicit user action, consistent with existing product behavior. Use bundled assets and
-CSS for presentation. Decorative animation, external fonts, and new UI dependencies are not part of the current language.
+CSS for presentation. Controls use 120ms color, border, and background transitions, with an inset pressed treatment that does not shift layout.
+Dialogs fade in over 160ms without sliding or scaling; closing remains immediate. The `--motion-fast` and
+`--motion-dialog` tokens become zero under `prefers-reduced-motion`. Avoid decorative or continuous animation.
+External fonts and new UI dependencies are not part of the current language.
 
 ## Reviewing a UI change
 
