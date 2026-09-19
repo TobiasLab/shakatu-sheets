@@ -51,6 +51,32 @@ The application disables WebKitGTK's DMA-BUF renderer on Linux Wayland to avoid 
 capture uses the XDG ScreenCast portal and PipeWire directly on Linux. Windows is not affected.
 
 
+## Branch workflow
+
+Use `main` as the only long-lived branch. The former `dev` integration branch is retired; all new feature and fix pull
+requests target `main` directly.
+
+Before starting work, fetch the latest `main` and create a focused branch:
+
+```sh
+git fetch origin
+git switch -c feat/short-description origin/main
+```
+
+Use `fix/short-description` for bug fixes. Keep each branch focused on one change and its documentation and tests.
+Run the relevant verification before opening a pull request into `main`. Agents commit and push only when requested,
+and rebase-merge after checks pass and the user authorizes the merge.
+
+After merging, preserve any unrelated local changes, return to `main`, and update it:
+
+```sh
+git switch main
+git pull --ff-only
+```
+
+The normal flow is `main` → feature branch → PR into `main`, with no intermediate integration or promotion branch.
+
+
 ## Performance and UI verification
 
 See [the performance report and game-impact protocol](../design/performance.md). Enable native aggregate capture
