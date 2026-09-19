@@ -52,9 +52,12 @@ pub fn run() {
 
     #[cfg(all(debug_assertions, any(target_os = "linux", target_os = "windows")))]
     let builder = builder.invoke_handler(tauri::generate_handler![
+        persistence::sessions::apply_finished_session_consumables,
         persistence::sessions::delete_finished_session,
         persistence::sessions::list_finished_sessions,
         persistence::sessions::load_active_session,
+        persistence::consumable_presets::load_consumable_presets,
+        persistence::consumable_presets::save_consumable_presets,
         persistence::loot_font::load_loot_font,
         persistence::loot_font::save_loot_font,
         persistence::overlay::load_overlay_opacity,
@@ -86,9 +89,12 @@ pub fn run() {
 
     #[cfg(not(all(debug_assertions, any(target_os = "linux", target_os = "windows"))))]
     let builder = builder.invoke_handler(tauri::generate_handler![
+        persistence::sessions::apply_finished_session_consumables,
         persistence::sessions::delete_finished_session,
         persistence::sessions::list_finished_sessions,
         persistence::sessions::load_active_session,
+        persistence::consumable_presets::load_consumable_presets,
+        persistence::consumable_presets::save_consumable_presets,
         persistence::loot_font::load_loot_font,
         persistence::loot_font::save_loot_font,
         persistence::overlay::load_overlay_opacity,

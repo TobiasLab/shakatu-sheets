@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import {
+    applyFinishedSessionConsumables,
     deleteFinishedSession,
     type FinishedSessionRecord,
     type GarmothSettings,
@@ -8,9 +9,10 @@ import {
     loadGarmothSettings,
     uploadGarmothSession,
 } from "../../api/tauri";
+import { ConsumablePresetPicker } from "../../components/ConsumablePresets/ConsumablePresetPicker";
 import { getDropIcon, grindSpots } from "../../data/grindSpots";
 import { historyDateBoundary, netPerHour, rankSpots, summarizeHistory } from "../../domain/history";
-import { calculateTotals } from "../../domain/session";
+import { calculateTotals, type SessionEntry, type SessionState } from "../../domain/session";
 import { formatDuration, formatSilver, formatTimestamp } from "../../format";
 import { buildGarmothUpload, type GarmothUploadPreview } from "../../garmoth";
 import type { DatabaseStatus } from "../../hooks/usePersistedSession";
@@ -27,12 +29,14 @@ export function HistoryView({
     databaseStatus,
     onReopen,
     onOpenSettings,
+    onSessionCorrected,
 }: {
     initialRegion: "eu" | "na";
     databaseLoaded: boolean;
     databaseStatus: DatabaseStatus;
     onReopen: (id: string) => Promise<void>;
     onOpenSettings: () => void;
+    onSessionCorrected: (session: SessionState) => void;
 }) {
     const [records, setRecords] = useState<FinishedSessionRecord[] | null>(null);
     const [history, setHistory] = useState<HistoryResult | null>(null);
@@ -55,6 +59,8 @@ export function HistoryView({
     } | null>(null);
     const [grindSpotFilter, setGrindSpotFilter] = useState("all");
     const [garmothSettings, setGarmothSettings] = useState<GarmothSettings | null>(null);
+    const [applyingConsumables, setApplyingConsumables] = useState(false);
+    const [consumableMessage, setConsumableMessage] = useState("");
     const [uploading, setUploading] = useState(false);
     const [uploadMessage, setUploadMessage] = useState("");
     const [uploadError, setUploadError] = useState("");
@@ -160,7 +166,7 @@ export function HistoryView({
     const uploadCharacter = garmothSettings?.characters.find(
         (character) => character.id === garmothSettings.selectedCharacterId,
     );
-    const actionBusy = uploading || reopening || deletingId !== null;
+    const actionBusy = uploading || reopening || deletingId !== null || applyingConsumables;
     const activeFilterCount = Number(Boolean(fromDate || toDate)) + Number(grindSpotFilter !== "all");
 
     useEffect(() => {
@@ -213,6 +219,10 @@ export function HistoryView({
         setRestoreFocus(null);
     }, [deletingId, restoreFocus, pageRecords]);
 
+    useEffect(() => {
+        setConsumableMessage("");
+    }, [selected?.session.id]);
+
     async function reopenSelected() {
         if (!selected) return;
         setReopening(true);
@@ -222,6 +232,39 @@ export function HistoryView({
         } catch (reopenFailure) {
             setReopenError(String(reopenFailure));
             setReopening(false);
+        }
+    }
+
+    async function applyConsumables(snapshot: SessionState, entries: SessionEntry[]) {
+        if (actionBusy) throw new Error("Wait for the current session action to finish.");
+        const record = pageRecords.find((candidate) => candidate.session.id === snapshot.id);
+        if (!record || record.garmothUploadStatus !== null) throw new Error("This session cannot be changed.");
+        const total = entries.reduce((sum, entry) => sum + entry.quantity * entry.unitPrice, 0);
+        if (
+            !window.confirm(
+                `Apply ${formatSilver(total)} silver in consumable expenses to ${spotName(snapshot.grindSpotId)} from ${formatTimestamp(record.finishedAt)}? Existing consumable expenses will be replaced.`,
+            )
+        )
+            return false;
+        historyRequestId.current += 1;
+        setApplyingConsumables(true);
+        setConsumableMessage("");
+        try {
+            const updated = await applyFinishedSessionConsumables(snapshot, entries);
+            onSessionCorrected(updated);
+            setRecords(
+                (current) =>
+                    current?.map((candidate) =>
+                        candidate.session.id === updated.id ? { ...candidate, session: updated } : candidate,
+                    ) ?? null,
+            );
+            const refreshError = await loadHistory(false);
+            setConsumableMessage(
+                refreshError ? "Consumables saved. Reload History to refresh totals." : "Consumables applied.",
+            );
+            return true;
+        } finally {
+            setApplyingConsumables(false);
         }
     }
 
@@ -651,6 +694,17 @@ export function HistoryView({
                                 </div>
                                 <div className={styles.DetailActions}>
                                     <span>{selected.session.region.toUpperCase()}</span>
+                                    <ConsumablePresetPicker
+                                        key={selected.session.id}
+                                        session={selected.session}
+                                        disabled={
+                                            !databaseLoaded ||
+                                            databaseStatus === "saving" ||
+                                            actionBusy ||
+                                            selected.garmothUploadStatus !== null
+                                        }
+                                        onApply={applyConsumables}
+                                    />
                                     <button
                                         className="button"
                                         type="button"
@@ -666,6 +720,7 @@ export function HistoryView({
                                     </button>
                                 </div>
                             </div>
+                            {consumableMessage && <p role="status">{consumableMessage}</p>}
                             {reopenError && (
                                 <p className={styles.ActionError} role="alert">
                                     {reopenError}
@@ -782,6 +837,7 @@ export function HistoryView({
                                         <span>{formatSilver(uploadPreview.input.total, true)} total</span>
                                         <span>{formatSilver(uploadPreview.input.hourly, true)}/h</span>
                                         <span>{uploadPreview.mappedDropCount} recorded drops</span>
+                                        <span>{uploadPreview.consumableCount} consumables</span>
                                         {uploadCharacter && <span>{uploadCharacter.name}</span>}
                                     </div>
                                 )}

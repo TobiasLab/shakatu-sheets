@@ -81,6 +81,14 @@ export function App() {
                         databaseLoaded={persistedSession.databaseLoaded}
                         databaseStatus={persistedSession.databaseStatus}
                         onReopen={reopenFinishedSession}
+                        onSessionCorrected={(session) => {
+                            if (
+                                persistedSession.session.id === session.id &&
+                                persistedSession.session.status === "finished"
+                            ) {
+                                persistedSession.dispatch({ type: "hydrate", session });
+                            }
+                        }}
                         onOpenSettings={() => setView("settings")}
                     />
                 ) : view === "settings" ? (

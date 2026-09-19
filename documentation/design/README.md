@@ -126,3 +126,20 @@ available, so fallback or manually entered prices may differ from that region's 
 Deletion refreshes the page and aggregates, including clamping an emptied final page. Failed refreshes hide stale
 comparisons and expose a retry. Reopened sessions leave completed history until finished again, at which point their
 new completion timestamp determines date membership. Existing active-session and Garmoth reopen restrictions apply.
+
+
+## Consumable presets
+
+Settings → Consumables owns Garmoth export import and local preset editing/deletion. Users review item names and enter
+session quantities and unit prices; zero prices must be explicit. Presets are region-specific and editable independently
+of whether the active session is finished. Saving a preset never changes session expenses.
+
+The grind desk and each selected History session expose Apply preset. Both open the same native selection modal with
+preset names, quantities, and costs; no import or library-edit controls appear there. Replace session consumables changes
+only tagged expenses, preserving ordinary expenses and loot. Quantities are session totals, not per-hour rates, and are
+never silently scaled when duration changes. Unknown IDs remain visible in Settings and editable by name.
+
+Applying from History asks for confirmation naming the target session and total expense. It keeps the session finished,
+preserves its completion date, and refreshes session totals and spot comparisons. Already-uploaded sessions and unknown
+upload outcomes disable the action. A stale preview is rejected and must be reloaded. General historical editing still
+requires reopening; the active session is not replaced by this expense correction.

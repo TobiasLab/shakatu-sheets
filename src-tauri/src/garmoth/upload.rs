@@ -34,17 +34,6 @@ pub(crate) struct GarmothUploadInput {
     global: bool,
 }
 
-// Branch-only experiment: test the working website pairs without a preset build reference.
-const EXPERIMENTAL_CONSUMABLES: [[i64; 2]; 7] = [
-    [99999900, 1],
-    [9692, 1],
-    [1411, 3],
-    [1407, 3],
-    [761879, 1],
-    [767969, 1],
-    [100001510, 1],
-];
-
 #[derive(Serialize)]
 struct CreateSessionPayload<'a> {
     grindspot_id: i64,
@@ -149,7 +138,41 @@ fn expected_drops(
     Ok(drops)
 }
 
-fn verify_session_values(input: &GarmothUploadInput, state: &DatabasePath) -> Result<(), String> {
+fn session_consumables(entries: &[SessionEntry]) -> Result<Vec<[i64; 2]>, String> {
+    let mut quantities = BTreeMap::<i64, i64>::new();
+    for entry in entries {
+        let Some(id) = entry.garmoth_consumable_id else {
+            continue;
+        };
+        if entry.valuation != Valuation::Expense
+            || id <= 0
+            || id > 9_007_199_254_740_991
+            || !entry.quantity.is_finite()
+            || entry.quantity <= 0.0
+            || entry.quantity.fract() != 0.0
+            || entry.quantity > 9_007_199_254_740_991.0
+        {
+            return Err("Invalid saved consumable quantity.".into());
+        }
+        let quantity = quantities.entry(id).or_default();
+        *quantity = quantity
+            .checked_add(entry.quantity as i64)
+            .filter(|value| *value <= 9_007_199_254_740_991)
+            .ok_or("Consumable quantity is too large.")?;
+    }
+    if quantities.len() > 100 {
+        return Err("Upload at most 100 consumables.".into());
+    }
+    Ok(quantities
+        .into_iter()
+        .map(|(id, quantity)| [id, quantity])
+        .collect())
+}
+
+fn verify_session_values(
+    input: &GarmothUploadInput,
+    state: &DatabasePath,
+) -> Result<Vec<[i64; 2]>, String> {
     let session = load_session_for_upload(&state.0, &input.session_id)?;
     if session.status != SessionStatus::Finished {
         return Err("only finished sessions can be uploaded".into());
@@ -192,7 +215,7 @@ fn verify_session_values(input: &GarmothUploadInput, state: &DatabasePath) -> Re
     {
         return Err("the upload no longer matches the saved session".into());
     }
-    Ok(())
+    session_consumables(&session.entries)
 }
 
 #[tauri::command]
@@ -203,7 +226,7 @@ pub(crate) async fn upload_garmoth_session(
 ) -> Result<GarmothUploadResult, String> {
     let _guard = operations.lock().await;
     validate_upload(&input)?;
-    verify_session_values(&input, &state)?;
+    let consumables = verify_session_values(&input, &state)?;
     let api_key = stored_api_key(&state.0)?;
     let characters = parse_stored_characters(load_setting(&state.0, CHARACTERS_SETTING)?)?;
     let selected_id =
@@ -222,7 +245,7 @@ pub(crate) async fn upload_garmoth_session(
         global: input.global,
         class_id: character.class_id,
         spec: character.spec.as_deref(),
-        consumables: &EXPERIMENTAL_CONSUMABLES,
+        consumables: &consumables,
     };
     let body = serde_json::to_vec(&payload)
         .map_err(|error| format!("could not prepare the Garmoth upload: {error}"))?;
@@ -294,6 +317,15 @@ mod tests {
 
     #[test]
     fn serializes_upload_with_consumable_pairs_without_build_reference() {
+        let consumables = [
+            [99999900, 1],
+            [9692, 1],
+            [1411, 3],
+            [1407, 3],
+            [761879, 1],
+            [767969, 1],
+            [100001510, 1],
+        ];
         let drops = BTreeMap::from([("16001_0".into(), 12)]);
         let payload = CreateSessionPayload {
             grindspot_id: 200,
@@ -304,7 +336,7 @@ mod tests {
             global: false,
             class_id: 8,
             spec: Some("awak"),
-            consumables: &EXPERIMENTAL_CONSUMABLES,
+            consumables: &consumables,
         };
 
         assert_eq!(
@@ -324,6 +356,52 @@ mod tests {
                 ]
             })
         );
+    }
+
+    #[test]
+    fn uploads_only_saved_consumables_and_sums_quantities_across_prices() {
+        let expense = SessionEntry {
+            id: "expense".into(),
+            name: "Perfume".into(),
+            quantity: 3.0,
+            unit_price: 100,
+            valuation: Valuation::Expense,
+            sale_multiplier: 1.0,
+            source: crate::persistence::sessions::EntrySource::Manual,
+            created_at: 0,
+            garmoth_consumable_id: Some(1411),
+        };
+        let mut different_price = expense.clone();
+        different_price.unit_price = 200;
+        different_price.quantity = 2.0;
+        let mut manual = expense.clone();
+        manual.garmoth_consumable_id = None;
+        let mut free_buff = expense.clone();
+        free_buff.garmoth_consumable_id = Some(100001510);
+        free_buff.unit_price = 0;
+        free_buff.quantity = 1.0;
+        assert_eq!(
+            session_consumables(&[expense.clone(), different_price, manual.clone(), free_buff])
+                .unwrap(),
+            vec![[1411, 5], [100001510, 1]]
+        );
+        assert!(session_consumables(&[manual]).unwrap().is_empty());
+        assert!(session_consumables(&[]).unwrap().is_empty());
+        for quantity in [
+            0.0,
+            -1.0,
+            0.5,
+            f64::NAN,
+            f64::INFINITY,
+            9_007_199_254_740_992.0,
+        ] {
+            let mut invalid = expense.clone();
+            invalid.quantity = quantity;
+            assert!(session_consumables(&[invalid]).is_err());
+        }
+        let mut overflowing = expense;
+        overflowing.quantity = 9_007_199_254_740_991.0;
+        assert!(session_consumables(&[overflowing.clone(), overflowing]).is_err());
     }
 
     #[test]

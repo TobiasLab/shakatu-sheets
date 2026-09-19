@@ -41,6 +41,17 @@ Migration 3 adds `sessions_finished_region_time_idx`, a partial index on recorde
 ordering; an `EXPLAIN QUERY PLAN` check on a 10,000-row fixture showed that the index removes its temporary sort.
 There are no new columns, stored aggregates, or data backfills. Migrations 1 and 2 remain unchanged.
 
+## Migration 4
+
+Migration 4 adds nullable `session_entries.garmoth_consumable_id`. A constraint permits only positive JavaScript-safe
+integer IDs on expense rows. Old rows retain NULL; no prices, quantities, or historical totals are backfilled.
+The ID is saved and loaded within the existing session transaction and follows session deletion/reopening rules.
+No new index is needed because uploads load entries by session through the existing index.
+
+Reusable consumable presets are stored as validated JSON under the `consumable_presets` settings key. Each preset has
+an ID, local name, region, and item names/IDs, session quantities, and integer unit prices. Library edits never cascade
+to session rows. Preset saving is an explicit operation, separate from the ordered session snapshot save queue.
+
 ## Persistence
 
 - The latest unfinished session is loaded at startup.
@@ -58,6 +69,10 @@ There are no new columns, stored aggregates, or data backfills. Migrations 1 and
 - A running session is restored as paused, including elapsed time since its last start.
 - Session entries are replaced inside the same transaction as the session update.
 - Normal saves cannot change finished sessions; the explicit reopen command can return one to a paused state.
+- The explicit History consumable-correction command replaces only tagged expense rows in one transaction after
+  comparing the reviewed session snapshot with the database. It preserves all session timestamps, ordinary loot and
+  expenses, and their price snapshots. Any upload marker blocks correction; the Garmoth mutex serializes this command
+  with uploads and deletion. This narrow correction needs no additional migration or index.
 - The explicit delete command removes only finished sessions. Their entries, session-linked price snapshots, and Garmoth
   upload marker are deleted through foreign-key cascades; unfinished sessions cannot be deleted through this path.
 - Money is stored as integer silver values and time as integer milliseconds.

@@ -1,6 +1,7 @@
 import { Channel, invoke, isTauri } from "@tauri-apps/api/core";
+import type { ConsumablePreset } from "../domain/consumablePreset";
 import type { HistoryQuery, SpotSummary } from "../domain/history";
-import type { SessionState } from "../domain/session";
+import type { SessionEntry, SessionState } from "../domain/session";
 import {
     isSupportedLootSource,
     LOOT_SEARCH_REGION_SIZE,
@@ -352,4 +353,16 @@ export function readNormalLootLayout(xml: string): Promise<{ x: number; y: numbe
 
 export function inspectGarmothConsumables(characterId: string, includeFieldNames = false) {
     return invoke<string>("inspect_garmoth_consumables", { characterId, includeFieldNames });
+}
+
+export function loadConsumablePresets() {
+    return invoke<ConsumablePreset[]>("load_consumable_presets");
+}
+
+export function saveConsumablePresets(presets: ConsumablePreset[]) {
+    return invoke<void>("save_consumable_presets", { presets });
+}
+
+export function applyFinishedSessionConsumables(expectedSession: SessionState, entries: SessionEntry[]) {
+    return invoke<SessionState>("apply_finished_session_consumables", { expectedSession, entries });
 }

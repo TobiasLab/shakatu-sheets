@@ -1,3 +1,5 @@
+import { validateConsumableItems } from "./consumablePreset";
+
 export type SessionStatus = "idle" | "running" | "paused" | "finished";
 export type Valuation = "market" | "vendor" | "expense";
 
@@ -10,6 +12,7 @@ export type SessionEntry = {
     saleMultiplier: number;
     source: "manual" | "recognition";
     createdAt: number;
+    garmothConsumableId?: number;
 };
 
 export type SessionState = {
@@ -33,6 +36,7 @@ export type SessionAction =
     | { type: "set-region"; region: SessionState["region"] }
     | { type: "set-grind-spot"; grindSpotId: string }
     | { type: "import-recognition"; grindSpotId: string; elapsedMs: number; entries: SessionEntry[] }
+    | { type: "apply-consumables"; entries: SessionEntry[] }
     | { type: "add-entry"; entry: SessionEntry }
     | { type: "update-entry"; id: string; quantity: number; unitPrice: number }
     | { type: "remove-entry"; id: string };
@@ -114,10 +118,40 @@ export function reduceSession(state: SessionState, action: SessionAction): Sessi
                 )
                 ? { ...state, grindSpotId: action.grindSpotId, elapsedMs: action.elapsedMs, entries: action.entries }
                 : state;
+        case "apply-consumables": {
+            if (state.status === "finished") return state;
+            try {
+                validateConsumableItems(
+                    action.entries.map((entry) => ({
+                        itemId: entry.garmothConsumableId ?? 0,
+                        name: entry.name,
+                        quantity: entry.quantity,
+                        unitPrice: entry.unitPrice,
+                    })),
+                );
+            } catch {
+                return state;
+            }
+            const retained = state.entries.filter((entry) => entry.garmothConsumableId === undefined);
+            const ids = new Set(retained.map((entry) => entry.id));
+            for (const entry of action.entries) {
+                if (
+                    !entry.id ||
+                    ids.has(entry.id) ||
+                    entry.valuation !== "expense" ||
+                    entry.source !== "manual" ||
+                    entry.saleMultiplier !== 1
+                )
+                    return state;
+                ids.add(entry.id);
+            }
+            return { ...state, entries: [...retained, ...action.entries] };
+        }
         case "add-entry": {
             if (state.status === "finished") return state;
             const matchingEntries = state.entries.filter(
                 (entry) =>
+                    entry.garmothConsumableId === action.entry.garmothConsumableId &&
                     entry.name === action.entry.name &&
                     entry.valuation === action.entry.valuation &&
                     entry.unitPrice === action.entry.unitPrice,
@@ -145,6 +179,11 @@ export function reduceSession(state: SessionState, action: SessionAction): Sessi
             )
                 return state;
             const existing = state.entries.find((entry) => entry.id === action.id);
+            if (
+                existing?.garmothConsumableId !== undefined &&
+                !Number.isSafeInteger(action.quantity * action.unitPrice)
+            )
+                return state;
             if (!existing || (existing.quantity === action.quantity && existing.unitPrice === action.unitPrice)) {
                 return state;
             }

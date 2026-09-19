@@ -44,6 +44,12 @@ function LedgerEntryRow({
             setError("Edit not saved. Use whole numbers: quantity above 0, price 0 or more.");
             return;
         }
+        if (entry.garmothConsumableId !== undefined && !Number.isSafeInteger(parsedQuantity * parsedUnitPrice)) {
+            setQuantity(String(entry.quantity));
+            setUnitPrice(String(entry.unitPrice));
+            setError("Edit not saved. The consumable cost is too large.");
+            return;
+        }
         setError("");
         if (parsedQuantity !== entry.quantity || parsedUnitPrice !== entry.unitPrice)
             onUpdate(entry.id, parsedQuantity, parsedUnitPrice);

@@ -17,6 +17,7 @@ use super::{
     market_prices::{load_market_price_records, MarketPriceSnapshot, Region},
     migrate, open_database,
     sessions::{
+        apply_finished_session_consumables_at_path, apply_finished_session_consumables_record,
         delete_finished_session_at_path, delete_finished_session_record,
         list_finished_session_records, load_active_session_record, load_session_by_id,
         reopen_session_record, save_session_record, EntrySource, HistoryQuery, SessionEntry,
@@ -62,6 +63,7 @@ fn session(status: SessionStatus) -> SessionRecord {
             sale_multiplier: 1.0,
             source: EntrySource::Manual,
             created_at: 2_000,
+            garmoth_consumable_id: None,
         }],
     }
 }
@@ -404,6 +406,12 @@ fn upgrades_a_populated_version_one_database() {
         .execute("DROP INDEX sessions_finished_region_time_idx", [])
         .unwrap();
     connection
+        .execute(
+            "ALTER TABLE session_entries DROP COLUMN garmoth_consumable_id",
+            [],
+        )
+        .unwrap();
+    connection
         .execute("DELETE FROM schema_migrations WHERE version >= 2", [])
         .unwrap();
 
@@ -429,7 +437,7 @@ fn upgrades_a_populated_version_one_database() {
                 row.get::<_, i64>(0)
             })
             .unwrap(),
-        3
+        4
     );
 }
 
@@ -751,7 +759,7 @@ fn history_rejects_invalid_queries() {
 fn history_index_migration_preserves_populated_version_two_database() {
     let mut connection = database();
     history_fixture(&mut connection, "existing", "spot", 1000, 1000);
-    connection.execute_batch("DROP INDEX sessions_finished_region_time_idx; DELETE FROM schema_migrations WHERE version = 3;").unwrap();
+    connection.execute_batch("DROP INDEX sessions_finished_region_time_idx; ALTER TABLE session_entries DROP COLUMN garmoth_consumable_id; DELETE FROM schema_migrations WHERE version >= 3;").unwrap();
     migrate(&mut connection).unwrap();
     migrate(&mut connection).unwrap();
     assert_eq!(
@@ -799,4 +807,265 @@ fn explicit_test_reupload_keeps_unknown_blocked_and_restores_prior_success() {
     assert!(reopen_session_record(&mut connection, &finished.id).is_err());
     drop(connection);
     remove_temporary_database(&path);
+}
+
+#[test]
+fn consumable_migration_preserves_old_rows_and_finished_price_snapshots() {
+    let mut connection = database();
+    let finished = session(SessionStatus::Finished);
+    save_session_record(&mut connection, &finished).unwrap();
+    connection.execute_batch("ALTER TABLE session_entries DROP COLUMN garmoth_consumable_id; DELETE FROM schema_migrations WHERE version = 4;").unwrap();
+    migrate(&mut connection).unwrap();
+    migrate(&mut connection).unwrap();
+    assert_eq!(
+        load_session_by_id(&connection, &finished.id).unwrap(),
+        Some(finished)
+    );
+
+    let mut record = session(SessionStatus::Idle);
+    record.id = "consumable-session".into();
+    record.entries[0].id = "consumable-entry".into();
+    record.entries[0].valuation = Valuation::Expense;
+    record.entries[0].garmoth_consumable_id = Some(1411);
+    record.entries[0].quantity = 3.0;
+    record.entries[0].unit_price = 50;
+    save_session_record(&mut connection, &record).unwrap();
+    assert_eq!(
+        load_session_by_id(&connection, &record.id).unwrap(),
+        Some(record.clone())
+    );
+    record.status = SessionStatus::Finished;
+    save_session_record(&mut connection, &record).unwrap();
+    record.entries[0].unit_price = 100;
+    assert!(save_session_record(&mut connection, &record).is_err());
+    let stored = load_session_by_id(&connection, &record.id)
+        .unwrap()
+        .unwrap();
+    assert_eq!(stored.entries[0].unit_price, 50);
+    assert_eq!(stored.entries[0].garmoth_consumable_id, Some(1411));
+}
+
+#[test]
+fn rejects_invalid_consumable_session_metadata() {
+    let mut connection = database();
+    let mut record = session(SessionStatus::Idle);
+    record.entries[0].garmoth_consumable_id = Some(1411);
+    assert!(save_session_record(&mut connection, &record).is_err());
+    record.entries[0].valuation = Valuation::Expense;
+    for id in [0, -1, 9_007_199_254_740_992] {
+        record.entries[0].garmoth_consumable_id = Some(id);
+        assert!(save_session_record(&mut connection, &record).is_err());
+    }
+    record.entries[0].garmoth_consumable_id = Some(1411);
+    record.entries[0].unit_price = 9_007_199_254_740_991;
+    assert!(save_session_record(&mut connection, &record).is_err());
+}
+
+#[test]
+fn consumable_presets_persist_and_invalid_saves_do_not_replace_them() {
+    use super::consumable_presets::{load_at_path, save_at_path, ConsumablePreset};
+    let (path, connection) = temporary_database();
+    drop(connection);
+    assert!(load_at_path(&path).unwrap().is_empty());
+    let value = serde_json::json!({"id":"preset", "name":"Cheapo123", "region":"eu", "items":[
+        {"itemId":1411,"name":"Perfume of Envy","quantity":3,"unitPrice":50},
+        {"itemId":100001510,"name":"Wind buff","quantity":1,"unitPrice":0}
+    ]});
+    let preset = serde_json::from_value::<ConsumablePreset>(value.clone()).unwrap();
+    save_at_path(&path, std::slice::from_ref(&preset)).unwrap();
+    assert_eq!(load_at_path(&path).unwrap(), vec![preset.clone()]);
+    for (field, invalid) in [
+        ("quantity", 0),
+        ("unitPrice", -1),
+        ("itemId", 0),
+        ("unitPrice", i64::MAX),
+    ] {
+        let mut changed = value.clone();
+        changed["items"][0][field] = serde_json::json!(invalid);
+        let invalid = serde_json::from_value::<ConsumablePreset>(changed).unwrap();
+        assert!(save_at_path(&path, &[invalid]).is_err());
+        assert_eq!(load_at_path(&path).unwrap(), vec![preset.clone()]);
+    }
+    assert!(save_at_path(&path, &[preset.clone(), preset.clone()]).is_err());
+    save_at_path(&path, &[]).unwrap();
+    assert!(load_at_path(&path).unwrap().is_empty());
+    remove_temporary_database(&path);
+}
+
+fn consumable_expense(id: &str) -> SessionEntry {
+    SessionEntry {
+        id: id.into(),
+        name: "Perfume of Envy".into(),
+        quantity: 3.0,
+        unit_price: 50,
+        valuation: Valuation::Expense,
+        sale_multiplier: 1.0,
+        source: EntrySource::Manual,
+        created_at: 5_000,
+        garmoth_consumable_id: Some(1411),
+    }
+}
+
+#[test]
+fn history_consumable_correction_preserves_session_and_unrelated_entries() {
+    let mut connection = database();
+    let mut finished = session(SessionStatus::Finished);
+    let mut manual = consumable_expense("manual-expense");
+    manual.garmoth_consumable_id = None;
+    finished.entries.push(manual);
+    save_session_record(&mut connection, &finished).unwrap();
+    connection
+        .execute(
+            "UPDATE sessions SET updated_at=12345, finished_at=NULL WHERE id=?1",
+            [&finished.id],
+        )
+        .unwrap();
+    let mut active = session(SessionStatus::Running);
+    active.id = "active".into();
+    active.entries[0].id = "active-loot".into();
+    save_session_record(&mut connection, &active).unwrap();
+    let before = list_finished_session_records(&connection, &history_query()).unwrap();
+    let updated = apply_finished_session_consumables_record(
+        &mut connection,
+        &finished,
+        &[consumable_expense("new")],
+    )
+    .unwrap();
+    assert_eq!(updated.status, SessionStatus::Finished);
+    assert_eq!(updated.elapsed_ms, finished.elapsed_ms);
+    assert_eq!(updated.region, finished.region);
+    assert_eq!(&updated.entries[..2], &finished.entries[..]);
+    assert_eq!(
+        load_active_session_record(&connection).unwrap(),
+        Some(active)
+    );
+    let after = list_finished_session_records(&connection, &history_query()).unwrap();
+    assert_eq!(after.records[0].finished_at, 12345);
+    assert_eq!(
+        after.spot_summaries[0].elapsed_ms,
+        before.spot_summaries[0].elapsed_ms
+    );
+    assert_eq!(
+        after.spot_summaries[0].net,
+        before.spot_summaries[0].net - 150.0
+    );
+    assert_eq!(
+        after.spot_summaries[0].timed_net,
+        before.spot_summaries[0].timed_net - 150.0
+    );
+    let reapplied = apply_finished_session_consumables_record(
+        &mut connection,
+        &updated,
+        &[consumable_expense("replacement")],
+    )
+    .unwrap();
+    assert_eq!(reapplied.entries.len(), 3);
+    assert!(save_session_record(&mut connection, &finished).is_err());
+    save_session_record(&mut connection, &reapplied).unwrap();
+    assert!(apply_finished_session_consumables_record(
+        &mut connection,
+        &updated,
+        &[consumable_expense("stale")]
+    )
+    .unwrap_err()
+    .contains("changed"));
+}
+
+#[test]
+fn history_consumable_correction_rejects_uploaded_unfinished_and_invalid_rows() {
+    let mut connection = database();
+    let active = session(SessionStatus::Idle);
+    save_session_record(&mut connection, &active).unwrap();
+    assert!(apply_finished_session_consumables_record(
+        &mut connection,
+        &active,
+        &[consumable_expense("new")]
+    )
+    .is_err());
+    let finished = session(SessionStatus::Finished);
+    save_session_record(&mut connection, &finished).unwrap();
+    for status in ["unknown", "success"] {
+        connection.execute("INSERT OR REPLACE INTO garmoth_uploads (session_id,status,updated_at) VALUES (?1,?2,0)", rusqlite::params![finished.id,status]).unwrap();
+        assert!(apply_finished_session_consumables_record(
+            &mut connection,
+            &finished,
+            &[consumable_expense("new")]
+        )
+        .is_err());
+    }
+    connection
+        .execute("DELETE FROM garmoth_uploads", [])
+        .unwrap();
+    for rows in [
+        vec![],
+        vec![finished.entries[0].clone()],
+        vec![consumable_expense("a"), consumable_expense("b")],
+    ] {
+        assert!(
+            apply_finished_session_consumables_record(&mut connection, &finished, &rows).is_err()
+        );
+    }
+    let mut negative = consumable_expense("negative");
+    negative.unit_price = -1;
+    assert!(
+        apply_finished_session_consumables_record(&mut connection, &finished, &[negative]).is_err()
+    );
+    assert_eq!(
+        load_session_by_id(&connection, &finished.id).unwrap(),
+        Some(finished)
+    );
+}
+
+#[test]
+fn history_consumable_correction_rolls_back_failed_insertions() {
+    let mut connection = database();
+    let mut finished = session(SessionStatus::Finished);
+    finished.entries.push(consumable_expense("old"));
+    save_session_record(&mut connection, &finished).unwrap();
+    let first = consumable_expense("new");
+    let mut colliding = consumable_expense("entry-1");
+    colliding.garmoth_consumable_id = Some(9692);
+    assert!(apply_finished_session_consumables_record(
+        &mut connection,
+        &finished,
+        &[first, colliding]
+    )
+    .is_err());
+    assert_eq!(
+        load_session_by_id(&connection, &finished.id).unwrap(),
+        Some(finished)
+    );
+}
+
+#[test]
+fn history_consumable_correction_waits_for_garmoth_and_rechecks_upload_status() {
+    tokio::runtime::Builder::new_current_thread()
+        .enable_time()
+        .build()
+        .unwrap()
+        .block_on(async {
+            let (path, mut connection) = temporary_database();
+            let finished = session(SessionStatus::Finished);
+            save_session_record(&mut connection, &finished).unwrap();
+            let entries = vec![consumable_expense("new")];
+            let operations = GarmothOperations::default();
+            let guard = operations.lock().await;
+            let correction =
+                apply_finished_session_consumables_at_path(&path, &finished, &entries, &operations);
+            tokio::pin!(correction);
+            assert!(
+                tokio::time::timeout(Duration::from_millis(10), &mut correction)
+                    .await
+                    .is_err()
+            );
+            claim_garmoth_upload(&path, &finished.id, false).unwrap();
+            drop(guard);
+            assert!(correction.await.is_err());
+            assert_eq!(
+                load_session_by_id(&connection, &finished.id).unwrap(),
+                Some(finished.clone())
+            );
+            drop(connection);
+            remove_temporary_database(&path);
+        });
 }
