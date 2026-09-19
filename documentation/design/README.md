@@ -137,6 +137,8 @@ of whether the active session is finished. Saving a preset never changes session
 The grind desk exposes Apply preset. In History, Upload to Garmoth and Upload again always open one native review
 modal containing the selected session's read-only ledger, stored expenses, date, duration, region, and totals. Select
 preset opens the shared selection content inside the same modal; import and library editing remain in Settings.
+Clicking a preset applies it immediately and highlights its row, without expanding item details or requiring another
+confirmation. The selection stays highlighted when the picker is reopened; Undo clears the draft selection.
 Selecting a preset updates draft expenses and net/hour totals only. Cancel discards the draft; the final upload action
 saves the expenses and submits the session. Users can also upload without selecting a preset.
 

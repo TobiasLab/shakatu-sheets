@@ -9,21 +9,20 @@ import styles from "./ConsumablePresets.module.css";
 export function ConsumablePresetSelection({
     session,
     disabled,
+    selectedId = "",
     onApply,
 }: {
     session: SessionState;
     disabled: boolean;
-    onApply: (entries: SessionEntry[]) => boolean | Promise<boolean>;
+    selectedId?: string;
+    onApply: (entries: SessionEntry[], presetId: string) => boolean | Promise<boolean>;
 }) {
     const [presets, setPresets] = useState<ConsumablePreset[]>([]);
-    const [selectedId, setSelectedId] = useState("");
     const [loading, setLoading] = useState(true);
     const [busy, setBusy] = useState(false);
     const [error, setError] = useState("");
     const [reload, setReload] = useState(0);
     const applying = useRef(false);
-    const selected = presets.find((preset) => preset.id === selectedId);
-    const replacing = session.entries.some((entry) => entry.garmothConsumableId !== undefined);
     useEffect(() => {
         let cancelled = false;
         setLoading(true);
@@ -43,18 +42,18 @@ export function ConsumablePresetSelection({
             cancelled = true;
         };
     }, [session.region, reload]);
-    async function apply() {
-        if (!selected || disabled || applying.current) return;
+    async function apply(preset: ConsumablePreset) {
+        if (preset.id === selectedId || disabled || applying.current) return;
         try {
-            validateConsumableItems(selected.items);
-            const entries = selected.items.map((item) => ({
+            validateConsumableItems(preset.items);
+            const entries = preset.items.map((item) => ({
                 ...createEntry(item.name, item.quantity, item.unitPrice, "expense"),
                 garmothConsumableId: item.itemId,
             }));
             applying.current = true;
             setBusy(true);
             setError("");
-            await onApply(entries);
+            await onApply(entries, preset.id);
         } catch (reason) {
             setError(String(reason instanceof Error ? reason.message : reason));
         } finally {
@@ -78,10 +77,7 @@ export function ConsumablePresetSelection({
                         className="button"
                         aria-pressed={selectedId === preset.id}
                         disabled={busy || disabled}
-                        onClick={() => {
-                            setSelectedId(preset.id);
-                            setError("");
-                        }}
+                        onClick={() => void apply(preset)}
                     >
                         <strong>{preset.name}</strong>
                         <span>
@@ -92,28 +88,6 @@ export function ConsumablePresetSelection({
                     </button>
                 ))}
             </div>
-            {selected && (
-                <>
-                    <ul className={styles.PresetItems}>
-                        {selected.items.map((item) => (
-                            <li key={item.itemId}>
-                                <span>
-                                    {item.name} × {item.quantity}
-                                </span>
-                                <span>{formatSilver(item.quantity * item.unitPrice)}</span>
-                            </li>
-                        ))}
-                    </ul>
-                    <button
-                        type="button"
-                        className="button primary-button"
-                        disabled={busy || disabled}
-                        onClick={() => void apply()}
-                    >
-                        {busy ? "Applying…" : replacing ? "Replace session consumables" : "Add to session"}
-                    </button>
-                </>
-            )}
             {error && <p role="alert">{error}</p>}
             {error && presets.length === 0 && (
                 <button

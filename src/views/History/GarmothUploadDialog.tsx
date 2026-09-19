@@ -28,6 +28,7 @@ export function GarmothUploadDialog({
     const [snapshot, setSnapshot] = useState(record.session);
     const [consumables, setConsumables] = useState<SessionEntry[] | null>(null);
     const [selecting, setSelecting] = useState(false);
+    const [selectedPresetId, setSelectedPresetId] = useState("");
     const [global, setGlobal] = useState(false);
     const [usedAgris, setUsedAgris] = useState(false);
     const [agrisAmount, setAgrisAmount] = useState("");
@@ -173,7 +174,10 @@ export function GarmothUploadDialog({
                                     className="button subtle"
                                     type="button"
                                     disabled={busy || blocked}
-                                    onClick={() => setConsumables(null)}
+                                    onClick={() => {
+                                        setConsumables(null);
+                                        setSelectedPresetId("");
+                                    }}
                                 >
                                     Undo preset selection
                                 </button>
@@ -181,14 +185,16 @@ export function GarmothUploadDialog({
                         </div>
                     }
                     beforeEntries={
-                        selecting && (
+                        selecting &&
+                        canSelect && (
                             <div className={styles.PresetSelection}>
                                 <ConsumablePresetSelection
                                     session={draft}
                                     disabled={busy || blocked}
-                                    onApply={(entries) => {
+                                    selectedId={selectedPresetId}
+                                    onApply={(entries, presetId) => {
                                         setConsumables(entries);
-                                        setSelecting(false);
+                                        setSelectedPresetId(presetId);
                                         return true;
                                     }}
                                 />
