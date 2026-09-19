@@ -1,0 +1,27 @@
+.Button {
+    min-height: var(--control-height);
+    padding: 7px var(--space-3);
+    border: 1px solid transparent;
+    border-radius: var(--control-radius);
+    background: transparent;
+    color: var(--text-soft);
+    font-size: var(--text-control);
+    text-align: left;
+    cursor: pointer;
+}
+.Button:enabled:hover {
+    background: var(--hover);
+}
+.Button[aria-pressed="true"] {
+    background: var(--selected);
+    border-color: var(--line-strong);
+    color: var(--text-strong);
+}
+.Button[aria-pressed="true"]:enabled:hover {
+    background: var(--selected);
+    border-color: var(--button-hover-border);
+}
+.Button:disabled {
+    cursor: not-allowed;
+    opacity: 0.45;
+}

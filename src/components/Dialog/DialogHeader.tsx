@@ -5,16 +5,24 @@ export function DialogHeader({
     title,
     closeLabel,
     onClose,
+    disabled = false,
 }: {
     titleId: string;
     title: string;
     closeLabel: string;
     onClose: () => void;
+    disabled?: boolean;
 }) {
     return (
         <header className={styles.Header}>
             <h2 id={titleId}>{title}</h2>
-            <button className="button subtle" type="button" aria-label={closeLabel} onClick={onClose}>
+            <button
+                className="button subtle"
+                type="button"
+                aria-label={closeLabel}
+                disabled={disabled}
+                onClick={onClose}
+            >
                 Close <kbd>Esc</kbd>
             </button>
         </header>

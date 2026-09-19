@@ -8,6 +8,8 @@ import {
     selectGarmothCharacter,
 } from "../../api/tauri";
 import { ConsumablePresetSettings } from "../../components/ConsumablePresets/ConsumablePresetSettings";
+import { Feedback } from "../../components/Feedback/Feedback";
+import { FormField } from "../../components/FormField/FormField";
 import { GrindSpotPicker } from "../../components/GrindSpotPicker/GrindSpotPicker";
 import type { SessionState } from "../../domain/session";
 import { formatTimestamp } from "../../format";
@@ -61,6 +63,8 @@ export function SettingsView({
     const [busy, setBusy] = useState<"key" | "characters" | "selection" | "inspection" | null>(null);
     const [includeFieldNames, setIncludeFieldNames] = useState(false);
     const [consumableReport, setConsumableReport] = useState("");
+    const [feedbackTarget, setFeedbackTarget] = useState<"key" | "character">("key");
+    const [settingsLoading, setSettingsLoading] = useState(true);
     const [message, setMessage] = useState("");
     const [error, setError] = useState("");
 
@@ -72,11 +76,24 @@ export function SettingsView({
         setSelectedCharacterId(loaded.selectedCharacterId?.toString() ?? "");
     }
 
+    async function readSettings() {
+        setSettingsLoading(true);
+        setError("");
+        setFeedbackTarget("key");
+        try {
+            await reloadSettings();
+        } catch (failure) {
+            setError(`Could not load Garmoth settings: ${String(failure)}`);
+        } finally {
+            setSettingsLoading(false);
+        }
+    }
     useEffect(() => {
-        reloadSettings().catch((failure) => setError(String(failure)));
+        void readSettings();
     }, []);
 
     async function saveApiKey(event: FormEvent<HTMLFormElement>) {
+        setFeedbackTarget("key");
         event.preventDefault();
         setBusy("key");
         setError("");
@@ -96,6 +113,7 @@ export function SettingsView({
     }
 
     async function fetchCharacters() {
+        setFeedbackTarget("character");
         setBusy("characters");
         setError("");
         setMessage("");
@@ -111,6 +129,7 @@ export function SettingsView({
     }
 
     async function inspectConsumables() {
+        setFeedbackTarget("character");
         setBusy("inspection");
         setError("");
         setMessage("");
@@ -126,6 +145,7 @@ export function SettingsView({
     }
 
     async function copyConsumableReport() {
+        setFeedbackTarget("character");
         setError("");
         setMessage("");
         try {
@@ -137,6 +157,7 @@ export function SettingsView({
     }
 
     async function saveCharacterSelection() {
+        setFeedbackTarget("character");
         setBusy("selection");
         setError("");
         setMessage("");
@@ -151,6 +172,7 @@ export function SettingsView({
         }
     }
 
+    const feedback = (message || error) && <Feedback tone={error ? "error" : "success"}>{error || message}</Feedback>;
     return (
         <>
             <header className="topbar">
@@ -171,8 +193,7 @@ export function SettingsView({
                         <h2 id="market-title">Market</h2>
                     </div>
                     <div className={styles.SettingsForm}>
-                        <label>
-                            Region
+                        <FormField label="Region">
                             <select
                                 aria-label="Region"
                                 value={session.region}
@@ -183,7 +204,7 @@ export function SettingsView({
                                 <option value="eu">EU</option>
                                 <option value="na">NA</option>
                             </select>
-                        </label>
+                        </FormField>
                         {session.status === "finished" && (
                             <p id="region-locked">Start a new session to change region.</p>
                         )}
@@ -232,7 +253,7 @@ export function SettingsView({
                                         </span>
                                     </>
                                 )}
-                                {market.marketError && <span className={styles.Error}>{market.marketError}</span>}
+                                {market.marketError && <Feedback tone="error">{market.marketError}</Feedback>}
                             </div>
                             <button
                                 className="button"
@@ -286,7 +307,6 @@ export function SettingsView({
                                 </label>
                             ))}
                         </fieldset>
-                        <p>Saved automatically. Your choice applies throughout the app.</p>
                         <label htmlFor="overlay-opacity">Overlay opacity</label>
                         <div className={styles.OpacitySlider}>
                             <input
@@ -331,19 +351,20 @@ export function SettingsView({
                             Tracking continues while you browse or minimize. Live previews run only when setup is open
                             and visible.
                         </p>
-                        <label htmlFor="loot-font">In-game font</label>
-                        <select
-                            id="loot-font"
-                            value={lootFont.font}
-                            disabled={!lootFont.loaded && !lootFont.error}
-                            aria-describedby="loot-font-description"
-                            onChange={(event) => {
-                                if (isLootFont(event.target.value)) void lootFont.updateFont(event.target.value);
-                            }}
-                        >
-                            <option value="korean">Korean Font</option>
-                            <option value="strong-sword">Strong Sword</option>
-                        </select>
+                        <FormField label="In-game font">
+                            <select
+                                id="loot-font"
+                                value={lootFont.font}
+                                disabled={!lootFont.loaded && !lootFont.error}
+                                aria-describedby="loot-font-description"
+                                onChange={(event) => {
+                                    if (isLootFont(event.target.value)) void lootFont.updateFont(event.target.value);
+                                }}
+                            >
+                                <option value="korean">Korean Font</option>
+                                <option value="strong-sword">Strong Sword</option>
+                            </select>
+                        </FormField>
                         <p id="loot-font-description">
                             Match the font selected in the game. Applies when capture next starts.
                             {lootFont.saving && " Saving…"}
@@ -385,11 +406,10 @@ export function SettingsView({
                         </span>
                     </div>
                     <form className={styles.SettingsForm} onSubmit={saveApiKey}>
-                        <label>
-                            API key
+                        <FormField label="API key">
                             <input
                                 name="apiKey"
-                                disabled={busy !== null}
+                                disabled={busy !== null || settingsLoading}
                                 type="password"
                                 required
                                 maxLength={512}
@@ -397,14 +417,29 @@ export function SettingsView({
                                 spellCheck={false}
                                 placeholder={settings?.apiKeyConfigured ? "Enter a replacement key" : "Garmoth API key"}
                             />
-                        </label>
+                        </FormField>
                         <p>
                             Your key stays on this device and is used only to connect to Garmoth. It is never displayed
                             again.
                         </p>
-                        <button className="button primary-button" type="submit" disabled={busy !== null}>
+                        <button
+                            className="button primary-button"
+                            type="submit"
+                            disabled={busy !== null || settingsLoading}
+                        >
                             {busy === "key" ? "Validating..." : "Validate and save key"}
                         </button>
+                        {feedbackTarget === "key" && feedback}
+                        {settings === null && error && (
+                            <button
+                                type="button"
+                                className="button"
+                                disabled={settingsLoading}
+                                onClick={() => void readSettings()}
+                            >
+                                Retry settings
+                            </button>
+                        )}
                     </form>
                 </section>
 
@@ -418,15 +453,14 @@ export function SettingsView({
                         {!settings?.apiKeyConfigured && (
                             <p className={styles.SetupHint}>Connect your API key first to enable character setup.</p>
                         )}
-                        <label>
-                            Gear Planner character IDs
+                        <FormField label="Gear Planner character IDs">
                             <input
                                 value={characterIds}
                                 disabled={!settings?.apiKeyConfigured || busy !== null}
                                 onChange={(event) => setCharacterIds(event.target.value)}
                                 placeholder="dNTbRAtHn1"
                             />
-                        </label>
+                        </FormField>
                         <p>
                             Enter the final part of each Garmoth character URL, such as <code>dNTbRAtHn1</code>. You can
                             provide up to 20 comma-separated IDs.
@@ -440,8 +474,7 @@ export function SettingsView({
                             {busy === "characters" ? "Fetching..." : "Fetch characters"}
                         </button>
 
-                        <label>
-                            Character used for uploads
+                        <FormField label="Character used for uploads">
                             <select
                                 value={selectedCharacterId}
                                 disabled={!settings?.characters.length || busy !== null}
@@ -458,7 +491,7 @@ export function SettingsView({
                                     </option>
                                 ))}
                             </select>
-                        </label>
+                        </FormField>
                         <button
                             className="button primary-button"
                             type="button"
@@ -471,7 +504,7 @@ export function SettingsView({
                             <input
                                 type="checkbox"
                                 checked={includeFieldNames}
-                                disabled={busy !== null}
+                                disabled={busy !== null || settingsLoading}
                                 onChange={(event) => {
                                     setIncludeFieldNames(event.target.checked);
                                     setConsumableReport("");
@@ -488,17 +521,17 @@ export function SettingsView({
                         >
                             {busy === "inspection" ? "Inspecting..." : "Inspect consumable data"}
                         </button>
+                        {feedbackTarget === "character" && feedback}
                         {consumableReport && (
                             <>
-                                <label>
-                                    Sanitized consumable report
+                                <FormField label="Sanitized consumable report">
                                     <textarea
                                         className={styles.DiagnosticReport}
                                         readOnly
                                         rows={12}
                                         value={consumableReport}
                                     />
-                                </label>
+                                </FormField>
                                 <button className="button" type="button" onClick={copyConsumableReport}>
                                     Copy report
                                 </button>
@@ -513,12 +546,6 @@ export function SettingsView({
                     <ConsumablePresetSettings initialRegion={session.region} disabled={!databaseLoaded} />
                 </section>
             </div>
-
-            {(message || error) && (
-                <p className={`${styles.Feedback} ${error ? styles.Error : ""}`} role={error ? "alert" : "status"}>
-                    {error || message}
-                </p>
-            )}
         </>
     );
 }

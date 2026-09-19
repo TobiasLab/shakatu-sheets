@@ -93,11 +93,6 @@
 .Rate input[type="number"] {
     width: 88px;
 }
-.Error {
-    margin: 0;
-    color: var(--danger);
-    font-size: 12px;
-}
 .Actions {
     display: flex;
     flex-shrink: 0;

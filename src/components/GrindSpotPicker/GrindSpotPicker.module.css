@@ -54,11 +54,6 @@
 .Shortcut svg {
     flex-shrink: 0;
 }
-.Shortcut[aria-pressed="true"] {
-    background: var(--selected);
-    border-color: var(--line-strong);
-    color: var(--text);
-}
 .Dialog {
     composes: Surface from "../Dialog/Dialog.module.css";
     max-height: min(620px, calc(100dvh - 48px));
@@ -95,11 +90,6 @@
     border-radius: 6px;
     padding: 7px 12px;
     font-size: 12px;
-}
-.Filters button[aria-pressed="true"] {
-    background: var(--selected);
-    border-color: var(--line-strong);
-    color: var(--text);
 }
 .Filters > span {
     margin-left: auto;
@@ -174,10 +164,10 @@
 .Star[aria-pressed="true"] svg {
     fill: currentColor;
 }
-.Shortcut:enabled:hover,
-.Choose:enabled:hover,
+.Shortcut:enabled:not([aria-pressed="true"]):hover,
+.Choose:enabled:not([aria-pressed="true"]):hover,
 .Star:hover,
-.Filters button:hover {
+.Filters button:not([aria-pressed="true"]):hover {
     background: var(--hover);
 }
 .Empty {

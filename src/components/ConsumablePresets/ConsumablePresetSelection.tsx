@@ -4,6 +4,8 @@ import { loadConsumablePresets } from "../../api/tauri";
 import { type ConsumablePreset, validateConsumableItems } from "../../domain/consumablePreset";
 import { createEntry, type SessionEntry, type SessionState } from "../../domain/session";
 import { formatSilver } from "../../format";
+import { EmptyState, Feedback } from "../Feedback/Feedback";
+import { SelectionButton } from "../SelectionButton/SelectionButton";
 import styles from "./ConsumablePresets.module.css";
 
 export function ConsumablePresetSelection({
@@ -26,6 +28,7 @@ export function ConsumablePresetSelection({
     useEffect(() => {
         let cancelled = false;
         setLoading(true);
+        setPresets([]);
         setError("");
         const load = isTauri() ? loadConsumablePresets() : Promise.resolve([]);
         void load
@@ -63,20 +66,19 @@ export function ConsumablePresetSelection({
     }
     return (
         <div className={`${styles.Root} ${styles.Editor}`}>
-            {loading && <p role="status">Loading presets…</p>}
+            {loading && <Feedback>Loading presets…</Feedback>}
             {!loading && !error && presets.length === 0 && (
-                <p>
-                    No {session.region.toUpperCase()} presets. Add one in Settings → Integrations → Consumable presets.
-                </p>
+                <EmptyState title={`No ${session.region.toUpperCase()} presets`}>
+                    Add one in Settings → Integrations → Consumable presets.
+                </EmptyState>
             )}
             <div className={styles.PresetList}>
                 {presets.map((preset) => (
-                    <button
+                    <SelectionButton
                         key={preset.id}
-                        type="button"
                         className="button"
-                        aria-pressed={selectedId === preset.id}
-                        disabled={busy || disabled}
+                        selected={selectedId === preset.id}
+                        disabled={loading || busy || disabled}
                         onClick={() => void apply(preset)}
                     >
                         <strong>{preset.name}</strong>
@@ -85,10 +87,10 @@ export function ConsumablePresetSelection({
                             {formatSilver(preset.items.reduce((sum, item) => sum + item.quantity * item.unitPrice, 0))}{" "}
                             silver
                         </span>
-                    </button>
+                    </SelectionButton>
                 ))}
             </div>
-            {error && <p role="alert">{error}</p>}
+            {error && <Feedback tone="error">{error}</Feedback>}
             {error && presets.length === 0 && (
                 <button
                     type="button"

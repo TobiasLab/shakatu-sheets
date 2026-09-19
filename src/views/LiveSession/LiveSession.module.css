@@ -159,9 +159,6 @@
 .ToolDialog {
     composes: Surface from "../../components/Dialog/Dialog.module.css";
 }
-.DialogHeading {
-    composes: Header from "../../components/Dialog/Dialog.module.css";
-}
 .ToolDialog :global(.panel) {
     border: 0;
     border-radius: 0;

@@ -7,6 +7,10 @@ import {
     listFinishedSessions,
     loadGarmothSettings,
 } from "../../api/tauri";
+import { DialogHeader } from "../../components/Dialog/DialogHeader";
+import { EmptyState, Feedback } from "../../components/Feedback/Feedback";
+import { FormField } from "../../components/FormField/FormField";
+import { SelectionButton } from "../../components/SelectionButton/SelectionButton";
 import { getDropIcon, grindSpots } from "../../data/grindSpots";
 import { historyDateBoundary, netPerHour, rankSpots, summarizeHistory } from "../../domain/history";
 import { calculateTotals, type SessionState } from "../../domain/session";
@@ -165,7 +169,16 @@ export function HistoryView({
         (character) => character.id === garmothSettings.selectedCharacterId,
     );
     const actionBusy = uploading || reopening || deletingId !== null;
+    const dateError = fromDate && toDate && fromDate > toDate ? "The From date must be on or before the To date." : "";
+    function clearFilters() {
+        resetPage();
+        setRegion(null);
+        setFromDate("");
+        setToDate("");
+        setGrindSpotFilter("all");
+    }
     const activeFilterCount = Number(Boolean(fromDate || toDate)) + Number(grindSpotFilter !== "all");
+    const hasFilters = activeFilterCount > 0 || region !== initialRegion;
 
     useEffect(() => {
         if (!databaseLoaded || actionBusy) filterDialog.current?.close();
@@ -306,20 +319,14 @@ export function HistoryView({
                 aria-labelledby="history-filters-title"
                 onClose={() => filterButton.current?.focus()}
             >
-                <header className={dialogStyles.DialogHeading}>
-                    <h2 id="history-filters-title">Filters</h2>
-                    <button
-                        className="button subtle"
-                        type="button"
-                        aria-label="Close filters"
-                        onClick={() => filterDialog.current?.close()}
-                    >
-                        Close <kbd>Esc</kbd>
-                    </button>
-                </header>
+                <DialogHeader
+                    titleId="history-filters-title"
+                    title="Filters"
+                    closeLabel="Close filters"
+                    onClose={() => filterDialog.current?.close()}
+                />
                 <div className={styles.FilterFields}>
-                    <label>
-                        Region
+                    <FormField label="Region">
                         <select
                             ref={regionInput}
                             aria-label="Recorded region"
@@ -333,9 +340,8 @@ export function HistoryView({
                             <option value="eu">EU</option>
                             <option value="na">NA</option>
                         </select>
-                    </label>
-                    <label>
-                        Grind spot
+                    </FormField>
+                    <FormField label="Grind spot">
                         <select
                             aria-label="Grind spot"
                             value={grindSpotFilter}
@@ -363,11 +369,12 @@ export function HistoryView({
                                 </option>
                             ))}
                         </select>
-                    </label>
-                    <label>
-                        Completed from
+                    </FormField>
+                    <FormField label="Completed from">
                         <input
                             type="date"
+                            aria-invalid={Boolean(dateError)}
+                            aria-describedby={dateError ? "history-date-error" : undefined}
                             min="1970-01-01"
                             value={fromDate}
                             disabled={!databaseLoaded || actionBusy}
@@ -376,11 +383,12 @@ export function HistoryView({
                                 setFromDate(event.target.value);
                             }}
                         />
-                    </label>
-                    <label>
-                        Completed through
+                    </FormField>
+                    <FormField label="Completed through">
                         <input
                             type="date"
+                            aria-invalid={Boolean(dateError)}
+                            aria-describedby={dateError ? "history-date-error" : undefined}
                             min="1970-01-01"
                             id="history-completed-through"
                             value={toDate}
@@ -390,25 +398,21 @@ export function HistoryView({
                                 setToDate(event.target.value);
                             }}
                         />
-                    </label>
+                    </FormField>
                 </div>
-                {error && (
-                    <p className={styles.FilterError} role="alert">
-                        {error}
-                    </p>
+                {(dateError || error) && (
+                    <div className={styles.FilterError}>
+                        <Feedback id="history-date-error" tone="error">
+                            {dateError || error}
+                        </Feedback>
+                    </div>
                 )}
                 <div className={styles.FilterFooter}>
                     <button
                         className="button subtle"
                         type="button"
                         disabled={!databaseLoaded || actionBusy}
-                        onClick={() => {
-                            resetPage();
-                            setRegion(null);
-                            setFromDate("");
-                            setToDate("");
-                            setGrindSpotFilter("all");
-                        }}
+                        onClick={clearFilters}
                     >
                         Clear filters
                     </button>
@@ -492,32 +496,40 @@ export function HistoryView({
                     </section>
                 </section>
             )}
-            {deleteMessage && (
-                <p className={styles.DeleteStatus} role="status">
-                    {deleteMessage}
-                </p>
-            )}
-            {deleteError && (
-                <p className={styles.DeleteError} role="alert">
-                    {deleteError}
-                </p>
-            )}
+            {deleteMessage && <Feedback tone="success">{deleteMessage}</Feedback>}
+            {deleteError && <Feedback tone="error">{deleteError}</Feedback>}
 
             {!databaseLoaded || records === null ? (
-                <section className={`panel ${styles.HistoryMessage}`}>
-                    <strong role="status">Reading completed sessions...</strong>
-                </section>
+                <Feedback>Reading completed sessions…</Feedback>
             ) : error ? (
-                <section className={`panel ${styles.HistoryMessage} ${styles.ErrorMessage}`}>
-                    <strong>Could not load session history</strong>
-                    <p role="alert">{error}</p>
-                </section>
+                <Feedback
+                    tone="error"
+                    action={
+                        <button
+                            className="button"
+                            type="button"
+                            disabled={loading || actionBusy}
+                            onClick={() => (dateError ? filterDialog.current?.showModal() : void loadHistory())}
+                        >
+                            {dateError ? "Edit filters" : "Retry history"}
+                        </button>
+                    }
+                >
+                    {dateError || `Could not load session history. ${error}`}
+                </Feedback>
             ) : records.length === 0 ? (
-                <section className={`panel empty-state ${styles.HistoryMessage}`}>
-                    <div className="empty-glyph">0</div>
-                    <strong>No sessions match these filters</strong>
-                    <p>Clear the filters or finish a session in this region.</p>
-                </section>
+                <EmptyState
+                    title={hasFilters ? "No sessions match these filters" : "No completed sessions yet"}
+                    action={
+                        hasFilters ? (
+                            <button className="button subtle" type="button" onClick={clearFilters}>
+                                Clear filters
+                            </button>
+                        ) : undefined
+                    }
+                >
+                    {hasFilters ? undefined : `Finish a session in ${region.toUpperCase()} to see it here.`}
+                </EmptyState>
             ) : (
                 <div className={styles.HistoryGrid}>
                     <section className="panel">
@@ -557,10 +569,9 @@ export function HistoryView({
                                 const selectedRecord = record.session.id === selected?.session.id;
                                 return (
                                     <div className={styles.HistoryRow} key={record.session.id}>
-                                        <button
+                                        <SelectionButton
                                             className={`${styles.HistorySelect} ${selectedRecord ? styles.Selected : ""}`}
-                                            type="button"
-                                            aria-pressed={selectedRecord}
+                                            selected={selectedRecord}
                                             disabled={actionBusy}
                                             ref={(element) => {
                                                 if (element)
@@ -591,7 +602,7 @@ export function HistoryView({
                                                 </strong>
                                                 <small>{formatSilver(totals.net, true)} net</small>
                                             </span>
-                                        </button>
+                                        </SelectionButton>
                                         <button
                                             className={styles.DeleteButton}
                                             type="button"
@@ -636,11 +647,7 @@ export function HistoryView({
                                     </button>
                                 </div>
                             </div>
-                            {reopenError && (
-                                <p className={styles.ActionError} role="alert">
-                                    {reopenError}
-                                </p>
-                            )}
+                            {reopenError && <Feedback tone="error">{reopenError}</Feedback>}
                             <div className={styles.HistorySummary}>
                                 <div>
                                     <span>Duration</span>
@@ -776,11 +783,7 @@ export function HistoryView({
                                         rename them before uploading.
                                     </p>
                                 ) : null}
-                                {uploadPreviewError && (
-                                    <p className={styles.UploadError} role="alert">
-                                        {uploadPreviewError}
-                                    </p>
-                                )}
+                                {uploadPreviewError && <Feedback tone="error">{uploadPreviewError}</Feedback>}
                                 {selected.garmothUploadStatus === "unknown" && !uploadError && (
                                     <p className={styles.UploadError} role="alert">
                                         The upload outcome is unknown. Check your Garmoth grind tracker; automatic and

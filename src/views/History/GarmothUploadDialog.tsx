@@ -1,6 +1,8 @@
 import { useEffect, useId, useRef, useState } from "react";
 import { type FinishedSessionRecord, type GarmothUploadResult, uploadGarmothSession } from "../../api/tauri";
 import { ConsumablePresetSelection } from "../../components/ConsumablePresets/ConsumablePresetSelection";
+import { DialogHeader } from "../../components/Dialog/DialogHeader";
+import { Feedback } from "../../components/Feedback/Feedback";
 import { LootLedger } from "../../components/LootLedger/LootLedger";
 import { grindSpots } from "../../data/grindSpots";
 import { calculateTotals, type SessionEntry } from "../../domain/session";
@@ -108,18 +110,13 @@ export function GarmothUploadDialog({
                 if (!sending.current) onClose();
             }}
         >
-            <header className={dialogStyles.DialogHeading}>
-                <h2 id={titleId}>Upload to Garmoth</h2>
-                <button
-                    type="button"
-                    className="button subtle"
-                    aria-label="Close Garmoth upload"
-                    disabled={busy}
-                    onClick={onClose}
-                >
-                    Close <kbd>Esc</kbd>
-                </button>
-            </header>
+            <DialogHeader
+                titleId={titleId}
+                title="Upload to Garmoth"
+                closeLabel="Close Garmoth upload"
+                onClose={onClose}
+                disabled={busy}
+            />
             <div className={styles.Body}>
                 <div className={styles.Location}>
                     {spot?.trash.icon && <img src={spot.trash.icon} alt="" width={40} height={40} />}
@@ -241,11 +238,7 @@ export function GarmothUploadDialog({
                         />
                     </label>
                 </fieldset>
-                {(error || previewError) && (
-                    <p className={styles.Error} role="alert">
-                        {error || previewError}
-                    </p>
-                )}
+                {(error || previewError) && <Feedback tone="error">{error || previewError}</Feedback>}
             </div>
             <footer className={styles.Actions}>
                 <button

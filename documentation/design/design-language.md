@@ -92,6 +92,16 @@ Reuse the global button classes instead of inventing a different treatment for e
 | Search | Prominent at the top of a catalog; around 42px high, with a way to clear a nonempty query |
 | Selection/filter | Persistent selected surface and border, with `aria-pressed` or the appropriate native state |
 
+Use [FormField](../../src/components/FormField/FormField.tsx) for a visible label wrapping one native input, select,
+or textarea. It owns label spacing, control dimensions, disabled styling, and invalid borders. Keep refs, input types,
+validation, and `aria-describedby` on the native control. Table cells, range controls, and checkboxes retain their compact
+layouts. Shared fields are used in entry, screenshot review, History filters, Settings, and preset editing.
+
+Use [SelectionButton](../../src/components/SelectionButton/SelectionButton.tsx) for immediately applied button choices,
+including spot filters/shortcuts, loot rows, preset choices, and History session rows. It owns `aria-pressed`, disabled
+behavior, and persistent selected/hover styling; callers own selection and content. Theme choices remain native radios
+with their existing arrow-key behavior. Keep table/list rows flat and allow catalog tiles their established corners.
+
 Use native buttons, inputs, and selects where they fit the interaction. A short list such as EU/NA can remain a select.
 A large catalog benefits from search and recognizable rows or tiles. A selection action and an auxiliary action such as
 starring must be separate buttons; never nest buttons. Selecting a spot applies immediately, while starring keeps the
@@ -108,7 +118,7 @@ Use native `<dialog>` with `showModal()`. Compose the shared `Surface` class fro
 [DialogHeader](../../src/components/Dialog/DialogHeader.tsx) for the title and Close Esc control.
 The shared component owns presentation only; each caller retains its native dialog ref, initial focus, cancellation,
 and draft lifecycle. Entry, screenshot import, spot selection, and consumable preset selection use this header.
-Existing History headers compose the same styles through LiveSession's classes. The
+History filters and upload review also use the shared header; upload review disables dismissal while sending. The
 [spot browser](../../src/components/GrindSpotPicker/GrindSpotPicker.module.css) adds its own bounded catalog layout.
 
 ### Size and composition
@@ -161,6 +171,16 @@ An empty state explains what is missing and the next useful action. Distinguish 
 values use an explanatory label or a dash; do not present a made-up zero as a known value. Errors identify the failed action
 and, where possible, a way to recover. Use alerts for actionable errors and polite status announcements for changing result
 counts or routine feedback. Avoid announcements for every timer tick.
+
+Use [Feedback and EmptyState](../../src/components/Feedback/Feedback.tsx) for common task messages. Feedback sits beside
+the triggering control, uses a polite status or error alert, and can include a recovery action. Do not show empty data
+while a load is pending. Failed preset reads hide stale choices and offer Retry. History distinguishes no completed
+sessions in the current region from no matches for active filters; filtered emptiness offers Clear filters, read failure
+offers Retry history, and invalid date ranges label both date fields and offer Edit filters. Garmoth key feedback stays
+with the key form, character feedback stays with character setup, and initial settings read errors offer Retry settings.
+Manual-entry success clears on draft edits. Screenshot import confirms the number of entries imported. Existing capture
+progress/review and upload outcomes retain their task-specific controls; avoid replacing actionable detail with generic
+success messages. Loading the session ledger shows a reading status instead of an empty-session prompt.
 
 Network activity should follow an explicit user action, consistent with existing product behavior. Use bundled assets and
 CSS for presentation. Controls use 120ms color, border, and background transitions, with an inset pressed treatment that does not shift layout.

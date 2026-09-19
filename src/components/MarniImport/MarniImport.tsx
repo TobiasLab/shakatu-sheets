@@ -3,6 +3,8 @@ import { getGrindSpotDrops, grindSpots } from "../../data/grindSpots";
 import { createEntry } from "../../domain/session";
 import type { LiveSessionController } from "../../hooks/useLiveSession";
 import { type MarniRecognition, recognizeMarniScreenshot } from "../../recognition/marni";
+import { Feedback } from "../Feedback/Feedback";
+import { FormField } from "../FormField/FormField";
 import styles from "./MarniImport.module.css";
 
 function formatDurationInput(elapsedMs: number | null): string {
@@ -27,6 +29,7 @@ export function MarniImport({ controller }: { controller: LiveSessionController 
     const [duration, setDuration] = useState("");
     const [status, setStatus] = useState("");
     const [progress, setProgress] = useState(0);
+    const [message, setMessage] = useState("");
     const [error, setError] = useState("");
     const processing = status !== "";
     const canImport =
@@ -44,6 +47,7 @@ export function MarniImport({ controller }: { controller: LiveSessionController 
     async function chooseScreenshot(file: File | undefined) {
         if (!file || !canImport) return;
         setDraft(null);
+        setMessage("");
         setError("");
         setProgress(0);
         try {
@@ -108,6 +112,7 @@ export function MarniImport({ controller }: { controller: LiveSessionController 
             };
         });
         dispatch({ type: "import-recognition", grindSpotId: draft.grindSpotId, elapsedMs, entries });
+        setMessage(`Imported ${entries.length} ${entries.length === 1 ? "entry" : "entries"} into the session.`);
         setDraft(null);
         setDuration("");
         setError("");
@@ -132,23 +137,21 @@ export function MarniImport({ controller }: { controller: LiveSessionController 
                     />
                 </label>
             </div>
-            {!canImport && !draft && <p className={styles.Note}>Start with an empty session to import a screenshot.</p>}
+            {!canImport && !draft && !message && (
+                <p className={styles.Note}>Start with an empty session to import a screenshot.</p>
+            )}
             {processing && (
                 <div className={styles.Progress} aria-live="polite">
                     <progress max="1" value={progress} />
                     <span>{status}</span>
                 </div>
             )}
-            {error && (
-                <p className={styles.Error} role="alert">
-                    {error}
-                </p>
-            )}
+            {error && <Feedback tone="error">{error}</Feedback>}
+            {message && <Feedback tone="success">{message}</Feedback>}
             {draft && (
                 <div className={styles.Draft}>
                     <div className={styles.DraftMeta}>
-                        <label>
-                            Grind spot
+                        <FormField label="Grind spot">
                             <select value={draft.grindSpotId} onChange={(event) => changeGrindSpot(event.target.value)}>
                                 {grindSpots.map((spot) => (
                                     <option key={spot.id} value={spot.id}>
@@ -156,16 +159,15 @@ export function MarniImport({ controller }: { controller: LiveSessionController 
                                     </option>
                                 ))}
                             </select>
-                        </label>
-                        <label>
-                            Duration (HH:MM:SS)
+                        </FormField>
+                        <FormField label="Duration (HH:MM:SS)">
                             <input
                                 value={duration}
                                 placeholder="01:00:00"
                                 inputMode="numeric"
                                 onChange={(event) => setDuration(event.target.value)}
                             />
-                        </label>
+                        </FormField>
                     </div>
                     <p className={styles.ReviewNote}>
                         Review every row marked Check. Low-confidence suggestions stay filled in; blank or invalid rows
@@ -184,8 +186,7 @@ export function MarniImport({ controller }: { controller: LiveSessionController 
                             return (
                                 <div className={styles.Item} key={item.slot}>
                                     <img src={item.thumbnail} alt={`Screenshot loot slot ${item.slot + 1}`} />
-                                    <label>
-                                        Item
+                                    <FormField label="Item">
                                         <select
                                             value={item.suggestedDropName}
                                             onChange={(event) =>
@@ -199,9 +200,8 @@ export function MarniImport({ controller }: { controller: LiveSessionController 
                                                 </option>
                                             ))}
                                         </select>
-                                    </label>
-                                    <label>
-                                        Quantity
+                                    </FormField>
+                                    <FormField label="Quantity">
                                         <input
                                             type="number"
                                             min="1"
@@ -209,7 +209,7 @@ export function MarniImport({ controller }: { controller: LiveSessionController 
                                             value={item.quantity}
                                             onChange={(event) => updateItem(item.slot, "quantity", event.target.value)}
                                         />
-                                    </label>
+                                    </FormField>
                                     <span className={needsReview ? styles.Check : styles.Ready}>
                                         {needsReview ? "Check" : "Ready"}
                                     </span>

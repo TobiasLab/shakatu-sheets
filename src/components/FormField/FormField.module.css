@@ -1,0 +1,37 @@
+.Field {
+    display: grid;
+    align-content: start;
+    gap: var(--space-2);
+    min-width: 0;
+    color: var(--text-soft);
+    font-size: var(--text-control);
+}
+.Field > input,
+.Field > select,
+.Field > textarea {
+    display: block;
+    width: 100%;
+    min-width: 0;
+    min-height: var(--control-height);
+    margin: 0;
+    padding: var(--space-2) var(--space-3);
+    border: 1px solid var(--line-strong);
+    border-radius: var(--control-radius);
+    background: var(--input-background);
+    color: var(--text-strong);
+    font: inherit;
+    line-height: 1.5;
+}
+.Field > textarea {
+    resize: vertical;
+}
+.Field > :disabled {
+    color: var(--muted);
+    cursor: not-allowed;
+}
+.Field > :focus {
+    border-color: var(--focus-border);
+}
+.Field > [aria-invalid="true"] {
+    border-color: var(--danger);
+}

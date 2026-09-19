@@ -2,6 +2,7 @@ import { type KeyboardEvent, type ReactNode, useEffect, useId, useState } from "
 import { getDropIcon } from "../../data/grindSpots";
 import type { SessionEntry } from "../../domain/session";
 import { formatSilver } from "../../format";
+import { EmptyState, Feedback } from "../Feedback/Feedback";
 import { Icon } from "../Icon/Icon";
 import styles from "./LootLedger.module.css";
 
@@ -146,6 +147,7 @@ function LedgerEntryRow({
 export function LootLedger({
     tools,
     beforeEntries,
+    loading = false,
     entries,
     grindSpotId,
     editingDisabled,
@@ -154,6 +156,7 @@ export function LootLedger({
 }: {
     tools: ReactNode;
     beforeEntries?: ReactNode;
+    loading?: boolean;
     entries: SessionEntry[];
     grindSpotId: string;
     editingDisabled: boolean;
@@ -171,7 +174,7 @@ export function LootLedger({
                 (filter === "expense" ? entry.valuation === "expense" : entry.valuation !== "expense")),
     );
     return (
-        <section className={`panel ${styles.LedgerPanel}`} aria-labelledby={headingId}>
+        <section className={`panel ${styles.LedgerPanel}`} aria-labelledby={headingId} aria-busy={loading}>
             <div className="panel-heading">
                 <div>
                     <h2 id={headingId}>Loot ledger</h2>
@@ -179,11 +182,14 @@ export function LootLedger({
                 {tools}
             </div>
             {beforeEntries}
-            {entries.length === 0 ? (
-                <div className={styles.EmptyLedger}>
-                    <strong>No loot yet</strong>
-                    <p>Drops will appear here as you play. Set up capture or add your first item.</p>
-                </div>
+            {loading ? (
+                <Feedback>Reading session entries…</Feedback>
+            ) : entries.length === 0 ? (
+                <EmptyState title={editingDisabled ? "No recorded entries" : "No loot yet"}>
+                    {editingDisabled
+                        ? "This session has no recorded loot or expenses."
+                        : "Set up capture or add your first item."}
+                </EmptyState>
             ) : (
                 <>
                     <div className={styles.LedgerToolbar}>
