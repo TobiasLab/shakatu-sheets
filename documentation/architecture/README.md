@@ -117,7 +117,8 @@ Always-on-top behavior depends on the desktop compositor; exclusive fullscreen g
 Window behavior follows [Tauri's window API](https://v2.tauri.app/reference/javascript/api/namespacewindow/).
 
 Settings → Garmoth → Inspect consumable data performs an explicit read of the approved character-build endpoint
-for a fetched character. Rust returns only recognized consumable field shapes: scalar values and unknown field names
+for a fetched character. Report version 2 includes the character response structure as well as recognized consumable fields,
+including JSON-encoded objects and arrays. Scalar values and unknown field names
 are redacted before crossing IPC. Reports are transient, bounded, and copied only on user action; no database or remote
 writes occur. The report distinguishes missing, null, and empty fields, but an absent recognized field does not prove
 that Garmoth lacks presets. No preset import or consumable upload schema is assumed from this diagnostic.

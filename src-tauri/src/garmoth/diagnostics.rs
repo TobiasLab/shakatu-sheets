@@ -29,7 +29,11 @@ fn field_label(key: &str) -> &str {
         "id" | "name" | "items" | "item" | "item_id" | "itemId" | "main_key" | "sub_key"
         | "price" | "unit_price" | "unitPrice" | "quantity" | "amount" | "duration"
         | "duration_ms" | "buffs" | "effects" | "preset" | "preset_id" | "presetId" | "data"
-        | "enabled" | "active" | "selected" | "icon" | "img" | "cost" => key,
+        | "enabled" | "active" | "selected" | "icon" | "img" | "cost" | "build" | "builds"
+        | "presets" | "character" | "characters" | "settings" | "equipment" | "loadout"
+        | "loadouts" | "buff" | "consumable_ids" | "consumableIds" | "consumable_id"
+        | "consumableId" | "consumable_data" | "consumableData" | "preset_data" | "presetData"
+        | "class" | "spec" => key,
         _ => "[redacted field]",
     }
 }
@@ -50,7 +54,12 @@ fn shape(value: &Value, depth: usize) -> Value {
         Value::Null => json!({"type": "null"}),
         Value::Bool(_) => json!({"type": "boolean"}),
         Value::Number(_) => json!({"type": "number"}),
-        Value::String(_) => json!({"type": "string"}),
+        Value::String(text) => match serde_json::from_str::<Value>(text) {
+            Ok(decoded) if decoded.is_object() || decoded.is_array() => {
+                json!({"type": "json-string", "shape": shape(&decoded, depth + 1)})
+            }
+            _ => json!({"type": "string"}),
+        },
     }
 }
 
@@ -78,6 +87,13 @@ fn collect(value: &Value, depth: usize, matches: &mut Vec<Value>, truncated: &mu
                 collect(item, depth + 1, matches, truncated);
             }
         }
+        Value::String(text) => {
+            if let Ok(decoded) = serde_json::from_str::<Value>(text) {
+                if decoded.is_object() || decoded.is_array() {
+                    collect(&decoded, depth + 1, matches, truncated);
+                }
+            }
+        }
         _ => {}
     }
 }
@@ -95,7 +111,8 @@ fn report(body: &[u8], character_id: &str) -> Result<String, String> {
     let mut truncated = false;
     collect(&rows[0], 0, &mut matches, &mut truncated);
     serde_json::to_string_pretty(&json!({
-        "reportVersion": 1,
+        "reportVersion": 2,
+        "responseShape": shape(&rows[0], 0),
         "valuesIncluded": false,
         "status": if matches.is_empty() { "no recognized consumable fields" } else { "consumable fields found" },
         "truncated": truncated,
@@ -166,10 +183,40 @@ mod tests {
     }
 
     #[test]
+    fn missing_consumables_still_reports_build_structure() {
+        let body = br#"[{"url":"private-character","build":{"presets":[{"buffs":[12],"name":"Secret Preset"}]}}]"#;
+        let output = report(body, "private-character").unwrap();
+        let value: Value = serde_json::from_str(&output).unwrap();
+        assert_eq!(value["reportVersion"], 2);
+        assert_eq!(value["fields"], json!([]));
+        assert!(output.contains("responseShape"));
+        assert!(output.contains("presets"));
+        assert!(output.contains("buffs"));
+        assert!(!output.contains("Secret Preset"));
+        assert!(!output.contains("private-character"));
+    }
+
+    #[test]
+    fn inspects_json_encoded_data_without_exposing_values() {
+        let body = serde_json::to_vec(&json!([{
+            "url": "test",
+            "data": json!({"consumables": [{"item_id": 987654, "name": "Secret"}]}).to_string()
+        }]))
+        .unwrap();
+        let output = report(&body, "test").unwrap();
+        let value: Value = serde_json::from_str(&output).unwrap();
+        assert_eq!(value["fields"].as_array().unwrap().len(), 1);
+        assert!(output.contains("json-string"));
+        assert!(output.contains("item_id"));
+        assert!(!output.contains("987654"));
+        assert!(!output.contains("Secret"));
+    }
+
+    #[test]
     fn bounds_report_size_and_marks_truncation() {
         let value = json!([{"url":"test","consumables": vec![json!({"id": 42}); 1000]}]);
         let output = report(&serde_json::to_vec(&value).unwrap(), "test").unwrap();
-        assert!(output.len() < 3000);
+        assert!(output.len() < 6000);
         assert!(output.contains("\"truncated\": true"));
         let mut value = json!(42);
         for _ in 0..12 {
