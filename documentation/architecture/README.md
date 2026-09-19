@@ -128,21 +128,14 @@ that Garmoth lacks presets. No preset import or consumable upload schema is esta
 ### Branch-only consumable upload experiment
 
 On `feat/consumable-preset-expenses`, every explicit session upload includes the following experimental array,
-using the names supplied by the user verbatim:
+using the preset name supplied by the user verbatim:
 
 ```json
-"consumables": [
-    "Body enhancement (60 min)",
-    "Simple cron meal",
-    "Perfume of envy",
-    "[Party] Harmony draught Edania",
-    "Adventure's boon (60 min)",
-    "Blessing of mystic beasts - all ap",
-    "Wind howling"
-]
+"consumables": ["Cheapo123"]
 ```
 
-The previous numeric item-ID experiment did not work in the user's test. Acceptance of names and cost handling
+The previous numeric item-ID and individual item-name experiments did not work in the user's tests.
+Acceptance of a preset name and cost handling
 remain unverified. This is a hardcoded experiment, not a session preset feature, and must be removed or validated
 before merging into main. No extra cost is calculated locally, no prices are fetched, and the existing net totals
 and upload reservation rules remain unchanged. On this experimental branch, confirmed uploads expose “Upload again (test)” with a duplicate-session confirmation.
