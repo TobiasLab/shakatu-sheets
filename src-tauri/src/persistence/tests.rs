@@ -785,7 +785,7 @@ fn history_index_migration_preserves_populated_version_two_database() {
 }
 
 #[test]
-fn explicit_test_reupload_keeps_unknown_blocked_and_restores_prior_success() {
+fn explicit_reupload_keeps_unknown_blocked_and_restores_prior_success() {
     let (path, mut connection) = temporary_database();
     let finished = session(SessionStatus::Finished);
     save_session_record(&mut connection, &finished).unwrap();
@@ -972,7 +972,7 @@ fn history_consumable_correction_preserves_session_and_unrelated_entries() {
 }
 
 #[test]
-fn history_consumable_correction_rejects_uploaded_unfinished_and_invalid_rows() {
+fn history_consumable_correction_rejects_unknown_unfinished_and_invalid_rows() {
     let mut connection = database();
     let active = session(SessionStatus::Idle);
     save_session_record(&mut connection, &active).unwrap();
@@ -984,15 +984,18 @@ fn history_consumable_correction_rejects_uploaded_unfinished_and_invalid_rows() 
     .is_err());
     let finished = session(SessionStatus::Finished);
     save_session_record(&mut connection, &finished).unwrap();
-    for status in ["unknown", "success"] {
-        connection.execute("INSERT OR REPLACE INTO garmoth_uploads (session_id,status,updated_at) VALUES (?1,?2,0)", rusqlite::params![finished.id,status]).unwrap();
-        assert!(apply_finished_session_consumables_record(
-            &mut connection,
-            &finished,
-            &[consumable_expense("new")]
+    connection
+        .execute(
+            "INSERT INTO garmoth_uploads (session_id,status,updated_at) VALUES (?1,'unknown',0)",
+            [&finished.id],
         )
-        .is_err());
-    }
+        .unwrap();
+    assert!(apply_finished_session_consumables_record(
+        &mut connection,
+        &finished,
+        &[consumable_expense("new")]
+    )
+    .is_err());
     connection
         .execute("DELETE FROM garmoth_uploads", [])
         .unwrap();
@@ -1014,6 +1017,43 @@ fn history_consumable_correction_rejects_uploaded_unfinished_and_invalid_rows() 
         load_session_by_id(&connection, &finished.id).unwrap(),
         Some(finished)
     );
+}
+
+#[test]
+fn uploaded_session_can_add_missing_consumables_without_clearing_upload_marker() {
+    let mut connection = database();
+    let finished = session(SessionStatus::Finished);
+    save_session_record(&mut connection, &finished).unwrap();
+    connection
+        .execute(
+            "INSERT INTO garmoth_uploads (session_id,status,updated_at) VALUES (?1,'success',0)",
+            [&finished.id],
+        )
+        .unwrap();
+    let updated = apply_finished_session_consumables_record(
+        &mut connection,
+        &finished,
+        &[consumable_expense("new")],
+    )
+    .unwrap();
+    assert_eq!(updated.entries.len(), finished.entries.len() + 1);
+    assert_eq!(updated.status, SessionStatus::Finished);
+    let status: String = connection
+        .query_row(
+            "SELECT status FROM garmoth_uploads WHERE session_id = ?1",
+            [&finished.id],
+            |row| row.get(0),
+        )
+        .unwrap();
+    assert_eq!(status, "success");
+    assert!(apply_finished_session_consumables_record(
+        &mut connection,
+        &updated,
+        &[consumable_expense("replacement")],
+    )
+    .unwrap_err()
+    .contains("cannot be replaced"));
+    assert!(reopen_session_record(&mut connection, &finished.id).is_err());
 }
 
 #[test]

@@ -135,7 +135,7 @@ session quantities and unit prices; zero prices must be explicit. Presets are re
 of whether the active session is finished. Saving a preset never changes session expenses.
 
 The grind desk exposes Apply preset. In History, Upload to Garmoth opens the same native selection modal when an
-unuploaded session has no tagged consumable expenses. It states that no preset is applied and offers an explicit
+session has no tagged consumable expenses, including Upload again for confirmed uploads. It states that no preset is applied and offers an explicit
 Upload without preset choice. Applying a preset returns to the updated totals for review before uploading; it does
 not start an upload. Sessions with consumables keep the normal upload flow. The modal shows preset names, quantities,
 and costs; no import or library-edit controls appear there. Replace session consumables changes
@@ -143,6 +143,6 @@ only tagged expenses, preserving ordinary expenses and loot. Quantities are sess
 never silently scaled when duration changes. Unknown IDs remain visible in Settings and editable by name.
 
 Applying from History asks for confirmation naming the target session and total expense. It keeps the session finished,
-preserves its completion date, and refreshes session totals and spot comparisons. Already-uploaded sessions and unknown
-upload outcomes disable the action. A stale preview is rejected and must be reloaded. General historical editing still
+preserves its completion date, and refreshes session totals and spot comparisons. Confirmed uploads may add missing consumables while retaining their upload marker; existing consumables cannot be
+replaced and the previous Garmoth session stays unchanged. Unknown upload outcomes disable the action. A stale preview is rejected and must be reloaded. General historical editing still
 requires reopening; the active session is not replaced by this expense correction.

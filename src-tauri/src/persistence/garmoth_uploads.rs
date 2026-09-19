@@ -39,7 +39,7 @@ pub(super) fn load_garmoth_upload_status(
 pub(crate) fn claim_garmoth_upload(
     path: &PathBuf,
     session_id: &str,
-    repeat_for_testing: bool,
+    repeat_upload: bool,
 ) -> Result<bool, String> {
     let mut connection = open_database(path)?;
     let transaction = connection
@@ -58,7 +58,7 @@ pub(crate) fn claim_garmoth_upload(
         return Err("only finished sessions can be uploaded".into());
     }
     let previous = load_garmoth_upload_status(&transaction, session_id)?;
-    if repeat_for_testing && previous == Some(GarmothUploadStatus::Success) {
+    if repeat_upload && previous == Some(GarmothUploadStatus::Success) {
         transaction.execute(
             "UPDATE garmoth_uploads SET status = 'unknown', updated_at = ?1 WHERE session_id = ?2",
             params![timestamp_ms(), session_id],

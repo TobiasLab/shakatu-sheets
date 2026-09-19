@@ -605,11 +605,23 @@ pub(super) fn apply_finished_session_consumables_record(
     if session.status != SessionStatus::Finished {
         return Err("Only finished sessions can be corrected from History.".into());
     }
-    if load_garmoth_upload_status(&transaction, &session.id)?.is_some() {
-        return Err(
-            "Consumables cannot be changed after a Garmoth upload or an unknown upload outcome."
-                .into(),
-        );
+    match load_garmoth_upload_status(&transaction, &session.id)? {
+        Some(GarmothUploadStatus::Unknown) => {
+            return Err(
+                "Consumables cannot be changed while the upload outcome is unknown.".into(),
+            );
+        }
+        Some(GarmothUploadStatus::Success)
+            if session
+                .entries
+                .iter()
+                .any(|entry| entry.garmoth_consumable_id.is_some()) =>
+        {
+            return Err(
+                "Consumables already recorded in an uploaded session cannot be replaced.".into(),
+            );
+        }
+        _ => {}
     }
     if session != *expected_session {
         return Err("The session changed. Reload History before applying a preset.".into());

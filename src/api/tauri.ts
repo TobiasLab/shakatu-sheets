@@ -42,7 +42,7 @@ export type GarmothSettings = {
 
 export type GarmothUploadInput = {
     sessionId: string;
-    repeatForTesting?: boolean;
+    repeatUpload?: boolean;
     grindspotId: number;
     minutes: number;
     hourly: number;

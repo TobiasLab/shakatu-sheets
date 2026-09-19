@@ -147,14 +147,15 @@ and optional Garmoth consumable ID. Later preset edits/deletion do not affect ex
 allows quantity/price edits and removal while a session is unfinished. General finished-session edits retain the
 existing explicit reopen rules. Presets are selected by recorded region; there is no cross-region price fallback for this workflow.
 
-History opens the shared preset picker from Upload to Garmoth when an unuploaded session has no tagged consumables,
+History opens the shared preset picker from Upload to Garmoth when a session has no tagged consumables,
 with a missing-preset notice and an explicit Upload without preset option. Applying returns to the updated upload
-preview; it does not upload automatically. There is no separate History Apply preset button. Already-uploaded test
-retries retain their existing behavior and cannot change saved expenses.
+preview; it does not upload automatically. There is no separate History Apply preset button. Upload again uses the
+same prompt. A previously successful upload may add missing consumables, but may not replace existing consumables.
+The success marker is retained, and the previous remote session is not changed.
 This uses an explicit consumable-only correction. After a confirmation naming the session and expense
 amount, Rust compares the reviewed session snapshot to the stored record and replaces only tagged consumable rows
 inside one transaction. Ordinary loot/expenses and all session metadata, including completion/fallback timestamps,
-remain unchanged. Stale previews, unfinished sessions, and any existing Garmoth upload marker are rejected. Corrections
+remain unchanged. Stale previews, unfinished sessions, and unknown Garmoth upload outcomes are rejected. Corrections
 share the Garmoth operations lock with uploads and deletion, so they cannot race an in-flight upload. Normal session
 saves still reject changes to finished records. History reloads its query/aggregates after correction; if the same
 finished session is still open in the app, its in-memory snapshot is refreshed to avoid a stale later save.
@@ -173,10 +174,11 @@ The user confirmed that the external API accepts the nested pairs below without 
 These are evidence fixtures only; the application no longer hardcodes this preset into every upload. Automatic
 account-preset fetching remains unverified. No authenticated research or live upload was performed during implementation.
 
-### Branch-only repeat-upload control
+### Repeat uploads
 
-On this experimental branch, confirmed uploads expose “Upload again (test)” with a duplicate-session confirmation.
+Confirmed uploads expose “Upload again” with a duplicate-session confirmation.
 An explicit IPC flag allows Rust to atomically reserve a previously successful upload again. Unknown outcomes remain
 blocked. A pre-transmission connect failure restores the previous success marker; a potentially transmitted failure
-leaves it unknown. Finished-session immutability and reopen restrictions remain intact. This repeat-upload escape hatch
-must be removed before merging into main.
+leaves it unknown. General finished-session editing and reopen restrictions remain intact; adding missing consumables
+before an explicit repeat upload is the narrow correction described above. Repeated uploads create a new remote session,
+not an update to the previous one.

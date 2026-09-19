@@ -16,7 +16,7 @@ export function ConsumablePresetPicker({
     session: SessionState;
     disabled: boolean;
     onApply: (snapshot: SessionState, entries: SessionEntry[]) => boolean | Promise<boolean>;
-    beforeUpload?: { onSkip: () => void };
+    beforeUpload?: { repeat: boolean; onSkip: () => void };
 }) {
     const dialog = useRef<HTMLDialogElement>(null);
     const opener = useRef<HTMLButtonElement>(null);
@@ -96,7 +96,7 @@ export function ConsumablePresetPicker({
                     void load(session);
                 }}
             >
-                {beforeUpload ? "Upload to Garmoth" : "Apply preset"}
+                {beforeUpload ? (beforeUpload.repeat ? "Upload again" : "Upload to Garmoth") : "Apply preset"}
             </button>
             <dialog
                 ref={dialog}
