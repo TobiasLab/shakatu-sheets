@@ -228,8 +228,7 @@
     border: 0;
 }
 
-.AreaSelector > legend,
-.ScaleControl {
+.AreaSelector > legend {
     padding: 0;
     color: var(--muted);
     font-size: 11px;
@@ -251,12 +250,6 @@
     border-color: transparent;
     padding: 8px 14px;
     font-size: 12px;
-}
-
-.AreaSelector :global(.button)[aria-pressed="true"] {
-    border-color: var(--gold);
-    color: var(--gold);
-    background: color-mix(in srgb, var(--gold) 10%, var(--surface));
 }
 
 .CalibrationInstruction,
@@ -365,12 +358,6 @@
 
 .ScaleControl select {
     min-width: 90px;
-    padding: 10px;
-    border: 1px solid var(--line);
-    border-radius: 5px;
-    color: var(--text);
-    background: var(--surface);
-    font: inherit;
 }
 
 .CalibrationError {
@@ -568,11 +555,6 @@
 }
 .CorrectionFields + .CorrectionFields {
     margin-top: 12px;
-}
-.CorrectionFields label {
-    display: grid;
-    gap: 4px;
-    min-width: 0;
 }
 .CorrectionFields select {
     max-width: 100%;

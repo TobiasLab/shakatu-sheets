@@ -6,6 +6,7 @@ import { mkdir, mkdtemp, rm, stat } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { setTimeout as delay } from "node:timers/promises";
+import { SESSION_AUTOSAVE_INTERVAL_MS } from "../src/hooks/sessionPersistence.ts";
 
 const binary = process.env.DESKTOP_SMOKE_BINARY;
 if (!binary) throw new Error("Set DESKTOP_SMOKE_BINARY to the installed application executable.");
@@ -77,9 +78,7 @@ try {
         const found = await evaluate(`const b = ${button(label)}; if (b) b.click(); return Boolean(b);`);
         assert(found, `Missing navigation: ${label}`);
     }
-    assert(
-        await evaluate(`const b = ${button("Add loot or expense Manual entry")}; if (b) b.click(); return Boolean(b);`),
-    );
+    assert(await evaluate(`const b = ${button("Add loot or expense")}; if (b) b.click(); return Boolean(b);`));
     await waitFor(
         "return Boolean(Array.from(document.querySelectorAll('button[type=submit]')).find(b => b.textContent.includes('Add to ledger')))",
     );
@@ -87,7 +86,8 @@ try {
         "Array.from(document.querySelectorAll('button[type=submit]')).find(b => b.textContent.includes('Add to ledger')).click(); return true;",
     );
     let saved;
-    for (let attempt = 0; attempt < 100; attempt += 1) {
+    const saveDeadline = Date.now() + SESSION_AUTOSAVE_INTERVAL_MS + 10_000;
+    while (Date.now() < saveDeadline) {
         saved = await request(`/session/${session}/execute/async`, {
             script: "const done = arguments[arguments.length - 1]; window.__TAURI_INTERNALS__.invoke('load_active_session').then(done, error => done({ error: String(error) }));",
             args: [],

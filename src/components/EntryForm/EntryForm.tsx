@@ -241,9 +241,6 @@ export function EntryForm({
                         <kbd>Enter</kbd>
                     </button>
                     {feedback && <Feedback tone={feedback.error ? "error" : "success"}>{feedback.text}</Feedback>}
-                    <p className={styles.DataNote}>
-                        Matching items at the same price combine automatically. Edit totals directly in the ledger.
-                    </p>
                 </form>
             </div>
         </aside>

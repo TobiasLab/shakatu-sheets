@@ -10,6 +10,8 @@ import ReactDOM from "react-dom/client";
 import { useSessionOverlay } from "./hooks/useSessionOverlay";
 import { usePersistedSession } from "./hooks/usePersistedSession";
 import { useLootFont } from "./hooks/useLootFont";
+import { useMarketPrices } from "./hooks/useMarketPrices";
+import { getGrindSpot, getMarketItemIds } from "./data/grindSpots";
 import { useOverlayOpacity } from "./hooks/useOverlayOpacity";
 import { SettingsView } from "./views/Settings/Settings";
 import { requestOverlayTimer } from "./api/sessionOverlay";
@@ -24,6 +26,13 @@ function Harness() {
     const opacity = useOverlayOpacity();
     const lootFont = useLootFont();
     const persisted = usePersistedSession(opacity.flush);
+    const spot = getGrindSpot(persisted.session.grindSpotId);
+    const market = useMarketPrices(persisted.databaseLoaded, persisted.session.region, spot.id);
+    const marketController = {
+        session: persisted.session, spot, market, marketItemIds: getMarketItemIds(spot.id),
+        databaseLoaded: persisted.databaseLoaded, editingDisabled: false, spotEditable: false,
+        changeRegion: region => persisted.dispatch({ type: "set-region", region }), changeGrindSpot: () => {},
+    };
     const overlay = useSessionOverlay({
         session: persisted.session, theme, opacity: opacity.opacity,
         timerEnabled: persisted.databaseLoaded && !persisted.closing,
@@ -45,7 +54,7 @@ function Harness() {
     window.showSettings = setSettingsVisible;
     window.openOverlay = overlay.openOverlay;
     return <><p id="publisher-error">{overlay.error}</p>
-        {settingsVisible && <SettingsView lootFont={lootFont} theme={theme} onThemeChange={setTheme} onOpenCapture={() => {}} overlayOpacity={opacity} />}
+        {settingsVisible && <SettingsView marketController={marketController} lootFont={lootFont} theme={theme} onThemeChange={setTheme} onOpenCapture={() => {}} overlayOpacity={opacity} />}
         <SessionOverlay /></>;
 }
 ReactDOM.createRoot(document.getElementById("root")).render(<React.StrictMode><Harness /></React.StrictMode>);
@@ -56,6 +65,7 @@ function installTauriMock() {
     window.__shown = false;
     window.__calls = [];
     window.__formats = 0;
+    window.__itemFormats = 0;
     window.__savedOpacity = 65;
     const NativeFormat = Intl.NumberFormat;
     Intl.NumberFormat = function CountingNumberFormat(...args) {
@@ -64,6 +74,7 @@ function installTauriMock() {
         Object.defineProperty(formatter, "format", {
             value: (...values) => {
                 window.__formats++;
+                if (args[0] === "de-DE") window.__itemFormats++;
                 return format(...values);
             },
         });
@@ -100,6 +111,9 @@ function installTauriMock() {
                 case "save_session":
                     window.__savedSession = structuredClone(args.session);
                     return;
+                case "load_market_prices":
+                case "load_consumable_presets":
+                    return [];
                 case "load_garmoth_settings":
                     return { apiKeyConfigured: false, characterIds: [], characters: [], selectedCharacterId: null };
                 case "load_loot_font":
@@ -226,13 +240,17 @@ try {
         const hiddenMessages = await sends();
         if (!process.env.BASELINE) assert.equal(hiddenMessages, 0);
         await evaluate("window.openOverlay()");
-        await until(`document.querySelector('time') && document.querySelectorAll('li').length === ${count}`);
-        await evaluate("window.__formats=0;window.__calls=[]");
+        await until(
+            `document.querySelector('time') && document.querySelectorAll('main ul[aria-label] > li').length === ${count}`,
+        );
+        await evaluate("window.__formats=0;window.__itemFormats=0;window.__calls=[]");
         const start = await evaluate('document.querySelector("time").textContent');
         await sleep(2200);
         const formattingCalls = await evaluate("window.__formats");
         assert.notEqual(await evaluate('document.querySelector("time").textContent'), start);
-        if (!process.env.BASELINE) assert(formattingCalls <= 6, "Timer ticks must not reformat item icons");
+        if (!process.env.BASELINE) {
+            assert.equal(await evaluate("window.__itemFormats"), 0, "Timer ticks must not reformat item quantities");
+        }
         const timerMessages = await sends();
         assert.equal(timerMessages, 0, "Timer ticks must not publish session snapshots");
         console.info(JSON.stringify({ count, hiddenMessages, formattingCalls, timerMessages }));
@@ -249,10 +267,12 @@ try {
         await sleep(100);
         await evaluate("window.openOverlay()");
         await until(
-            'document.documentElement.dataset.theme === "light" && document.querySelectorAll("li").length === 2 && document.body.innerText.includes("Paused")',
+            'document.documentElement.dataset.theme === "light" && document.querySelectorAll("main ul[aria-label] > li").length === 2 && document.body.innerText.includes("Paused")',
         );
         await evaluate('window.updateSession(1,"finished")');
-        await until('document.querySelectorAll("li").length === 1 && document.body.innerText.includes("Finished")');
+        await until(
+            'document.querySelectorAll("main ul[aria-label] > li").length === 1 && document.body.innerText.includes("Finished")',
+        );
         await evaluate('window.updateSession(0,"idle")');
         await until('document.body.innerText.includes("No drops yet")');
         // Exercise the event emitted by the native close handler, then catch up on reopen.
@@ -262,7 +282,7 @@ try {
         await sleep(100);
         assert.equal(await sends(), 0);
         await evaluate("window.openOverlay()");
-        await until('document.querySelectorAll("li").length === 30');
+        await until('document.querySelectorAll("main ul[aria-label] > li").length === 30');
         assert.equal(await evaluate('document.querySelector("#publisher-error").textContent'), "");
         await evaluate(
             'window.__shown=false;window.__event("session-overlay-visibility-changed");window.__failShow=true',

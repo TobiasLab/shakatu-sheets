@@ -145,3 +145,14 @@ Taxable drops use market pricing; enhanced items require manual prices because m
 Other drops use Garmoth's supplied fixed valuation, which may represent conversion value rather than an NPC sale price.
 Repeated drop keys are deduplicated; identically named treasure pieces are distinguished with their API keys.
 Four event entries without artwork use the existing artifact icon. Catalog and icons work offline without an API key.
+
+### Desktop and overlay UI review
+
+The installed desktop smoke needs a graphical session, `tauri-driver`, and the platform webview driver. A built binary
+alone is insufficient. Its persistence check allows the real one-minute autosave interval before verifying SQLite.
+A headless environment without those tools cannot establish native Linux or Windows UI correctness.
+
+`node scripts/smoke-session-overlay.mjs` runs the actual overlay and Settings components with synthetic native events.
+It checks visibility, timer controls, snapshot publication, opacity, and preferences; item assertions are scoped to the
+overlay so hidden catalogs in Settings cannot affect counts. This browser harness does not replace native drag, DPI,
+always-on-top, or game-capture verification.
