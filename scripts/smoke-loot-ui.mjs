@@ -338,17 +338,34 @@ try {
         await until("window.__session.grindSpotId === 'sycraia-lower-revamp'");
         await screenshot("settings-spot-browser");
         await click("Grind desk");
-        await click("Collapse sidebar");
-        assert(
-            await evaluate("document.querySelector('aside').getBoundingClientRect().width <= 70"),
-            "Collapsing navigation must recover workspace width",
+        assert.equal(
+            await evaluate(
+                "document.querySelector('nav[aria-label=\"Application views\"] [aria-current=page]')?.getAttribute('aria-label')",
+            ),
+            "Grind desk",
         );
-        await screenshot("sidebar-collapsed");
-        await click("Expand sidebar");
-        assert(
-            await evaluate("document.querySelector('aside').getBoundingClientRect().width > 200"),
-            "Expanding navigation must restore labels",
-        );
+        for (const width of [960, 640, 360]) {
+            await send("Emulation.setDeviceMetricsOverride", {
+                width,
+                height: 720,
+                deviceScaleFactor: 1,
+                mobile: false,
+            });
+            assert(await evaluate(`document.documentElement.scrollWidth <= ${width}`), "Navigation fits the viewport");
+            assert(
+                await evaluate(
+                    "[...document.querySelectorAll('nav[aria-label=\"Application views\"] button span')].every(label => label.getBoundingClientRect().width > 0)",
+                ),
+                "Navigation labels stay visible",
+            );
+        }
+        await screenshot("navigation-compact");
+        await send("Emulation.setDeviceMetricsOverride", {
+            width: 1280,
+            height: 820,
+            deviceScaleFactor: 1,
+            mobile: false,
+        });
     }
     if (process.env.UI_SCREENSHOT_ONLY === "1") {
         console.log(`Screenshot saved: ${output}/desk-idle.png`);

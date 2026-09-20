@@ -14,7 +14,7 @@
 }
 .Button[aria-pressed="true"] {
     background: var(--selected);
-    border-color: var(--line-strong);
+    border-color: var(--brand-border);
     color: var(--text-strong);
 }
 .Button[aria-pressed="true"]:enabled:hover {

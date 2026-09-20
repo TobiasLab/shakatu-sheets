@@ -2,11 +2,14 @@
     min-width: 0;
     width: 100%;
     align-self: start;
+    border: 1px solid var(--line);
+    border-radius: var(--panel-radius);
+    background: var(--surface);
 }
 .LedgerToolbar {
     display: flex;
     gap: 10px;
-    padding: 10px 0;
+    padding: 14px 20px;
     border-bottom: 1px solid var(--line);
 }
 .LedgerToolbar label {
@@ -40,12 +43,12 @@
     font-size: var(--text-label);
     font-weight: 500;
     color: var(--muted);
-    background: var(--canvas);
+    background: var(--surface-raised);
     border-bottom: 1px solid var(--line);
 }
 .LedgerList th:first-child {
     width: auto;
-    padding-left: 0;
+    padding-left: 20px;
 }
 .LedgerList th:nth-child(2) {
     width: 82px;
@@ -66,7 +69,7 @@
     vertical-align: middle;
 }
 .LedgerRow td:first-child {
-    padding-left: 0;
+    padding-left: 20px;
 }
 .LedgerRow:hover,
 .LedgerRow:focus-within {
@@ -174,7 +177,7 @@
     flex-wrap: wrap;
     justify-content: space-between;
     gap: 8px;
-    padding: 10px 0;
+    padding: 14px 20px;
     color: var(--muted);
     font-size: var(--text-label);
     border-top: 1px solid var(--line);
@@ -190,5 +193,19 @@
 
 .LedgerPanel > :global(.panel-heading) {
     flex-wrap: wrap;
-    padding-top: 0;
+    gap: 12px;
+    padding: 18px 20px;
+    border-bottom: 1px solid var(--line);
+}
+
+.EntryCount {
+    display: inline-block;
+    margin-left: 8px;
+    padding: 2px 6px;
+    border-radius: 5px;
+    background: var(--surface-raised);
+    color: var(--muted);
+    font-size: 11px;
+    font-weight: 450;
+    vertical-align: middle;
 }

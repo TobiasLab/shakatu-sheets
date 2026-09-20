@@ -177,7 +177,9 @@ export function LootLedger({
         <section className={`panel ${styles.LedgerPanel}`} aria-labelledby={headingId} aria-busy={loading}>
             <div className="panel-heading">
                 <div>
-                    <h2 id={headingId}>Loot ledger</h2>
+                    <h2 id={headingId}>
+                        Loot ledger{!loading && <span className={styles.EntryCount}>{entries.length}</span>}
+                    </h2>
                 </div>
                 {tools}
             </div>

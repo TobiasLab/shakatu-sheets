@@ -12,6 +12,11 @@
 .Editor textarea {
     width: 100%;
     resize: vertical;
+    padding: 12px;
+    border: 1px solid var(--line-strong);
+    border-radius: var(--control-radius);
+    background: var(--input-background);
+    color: var(--text);
 }
 .Editor summary {
     cursor: pointer;
@@ -68,4 +73,8 @@
     gap: var(--space-3);
     flex-wrap: wrap;
     text-align: left;
+    padding: 16px;
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    background: var(--surface);
 }

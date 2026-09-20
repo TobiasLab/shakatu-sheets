@@ -29,10 +29,25 @@
 .Overview {
     display: grid;
     grid-template-columns: repeat(3, minmax(0, 1fr));
-    gap: var(--space-6);
-    padding: 0 0 24px;
-    margin-bottom: var(--space-4);
-    border-bottom: 1px solid var(--line);
+    gap: 16px;
+    margin-bottom: 24px;
+}
+.Overview > div {
+    min-width: 0;
+    padding: 24px;
+    border: 1px solid var(--line);
+    border-radius: var(--panel-radius);
+    background: var(--surface);
+}
+.Overview > div:first-child {
+    background: var(--feature-background);
+    color: var(--feature-text);
+    border-color: transparent;
+}
+.Overview > div:first-child span,
+.Overview > div:first-child small,
+.Overview > div:first-child strong {
+    color: inherit;
 }
 .Overview span {
     display: block;
@@ -41,9 +56,10 @@
     margin-bottom: 7px;
 }
 .Overview strong {
-    font-size: 24px;
-    font-weight: 450;
-    letter-spacing: -0.7px;
+    font-size: clamp(26px, 3vw, 38px);
+    font-weight: 550;
+    letter-spacing: -1.3px;
+    overflow-wrap: anywhere;
     font-variant-numeric: tabular-nums;
 }
 .Overview small {
@@ -55,13 +71,16 @@
 }
 .HistoryGrid {
     display: grid;
-    grid-template-columns: minmax(230px, 0.85fr) minmax(0, 1.35fr);
-    gap: 28px;
+    grid-template-columns: minmax(260px, 0.8fr) minmax(0, 1.4fr);
+    gap: 24px;
     align-items: start;
 }
-.HistoryGrid > section:first-child {
-    border-right: 1px solid var(--line);
-    padding-right: 20px;
+.HistoryGrid > section {
+    min-width: 0;
+    padding: 24px;
+    border: 1px solid var(--line);
+    border-radius: var(--panel-radius);
+    background: var(--surface);
 }
 .HistoryGrid :global(.panel-heading) {
     min-height: 66px;
@@ -78,11 +97,13 @@
 .HistoryRow {
     display: grid;
     grid-template-columns: minmax(0, 1fr) 44px;
-    border-radius: 8px;
-    margin-bottom: 4px;
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    margin-bottom: 8px;
 }
 .HistoryRow:has(.Selected) {
     background: var(--selected);
+    border-color: var(--brand-border);
 }
 .HistorySelect {
     display: flex;
@@ -112,8 +133,8 @@
     display: block;
 }
 .HistoryList strong {
-    font-size: 12px;
-    font-weight: 500;
+    font-size: 13px;
+    font-weight: 550;
 }
 .HistoryList small {
     color: var(--muted);
@@ -157,7 +178,9 @@
     display: grid;
     grid-template-columns: repeat(3, minmax(0, 1fr));
     gap: var(--space-3);
-    padding: 18px 0;
+    padding: 18px;
+    border-radius: 10px;
+    background: var(--surface-raised);
     border-bottom: 1px solid var(--line);
 }
 .HistorySummary span,
@@ -205,8 +228,8 @@
 }
 .HistoryEntry span strong {
     overflow-wrap: anywhere;
-    font-size: 12px;
-    font-weight: 500;
+    font-size: 13px;
+    font-weight: 550;
 }
 .HistoryEntry span small {
     margin-top: 5px;
@@ -232,8 +255,8 @@
     font-size: 11px;
 }
 .UploadHeading strong {
-    font-size: 12px;
-    font-weight: 500;
+    font-size: 13px;
+    font-weight: 550;
     margin-top: 4px;
 }
 .UploadPreview {
@@ -264,11 +287,11 @@
         grid-template-columns: 1fr;
         gap: var(--space-5);
     }
-    .HistoryGrid > section:first-child {
-        border-right: 0;
-        border-bottom: 1px solid var(--line);
-        padding-right: 0;
-        padding-bottom: 16px;
+    .HistoryGrid > section {
+        padding: 20px;
+    }
+    .Overview > div {
+        padding: 20px 16px;
     }
     .HistoryList {
         max-height: 220px;
@@ -284,8 +307,8 @@
     }
 }
 @media (max-width: 480px) {
-    .Overview strong {
-        font-size: 18px;
+    .Overview {
+        grid-template-columns: 1fr;
     }
     .UploadHeading {
         flex-wrap: wrap;
@@ -293,12 +316,17 @@
 }
 
 .Comparisons {
+    padding: 24px;
+    border: 1px solid var(--line);
+    border-radius: var(--panel-radius);
+    background: var(--surface);
     margin-bottom: var(--space-6);
     min-width: 0;
 }
 .Comparisons h2 {
-    font-size: 15px;
-    font-weight: 550;
+    font-size: 16px;
+    font-weight: 600;
+    margin-bottom: 20px;
 }
 .ComparisonScroll {
     overflow-x: auto;
@@ -314,6 +342,15 @@
     padding: var(--space-2);
     text-align: right;
     border-bottom: 1px solid var(--line);
+}
+.ComparisonScroll thead th {
+    color: var(--muted);
+    font-size: 11px;
+    font-weight: 450;
+    background: var(--surface-raised);
+}
+.ComparisonScroll tbody tr:hover {
+    background: var(--hover);
 }
 .ComparisonScroll th {
     font-weight: 500;
@@ -342,6 +379,24 @@
     }
 }
 
-.Overview > div:first-child > strong {
-    color: var(--brand);
+.ComparisonRate {
+    display: grid;
+    justify-items: end;
+    gap: 6px;
+    min-width: 95px;
+}
+.ComparisonRate > span {
+    width: 100%;
+    height: 3px;
+    border-radius: 2px;
+    background: var(--line);
+}
+.ComparisonRate i {
+    display: block;
+    height: 100%;
+    border-radius: inherit;
+    background: var(--brand);
+}
+.ComparisonRate[data-negative="true"] i {
+    background: var(--danger);
 }

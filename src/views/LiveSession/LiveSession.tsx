@@ -123,16 +123,9 @@ export function LiveSessionView({
     return (
         <>
             <header className="topbar">
-                <div className={styles.SessionIdentity}>
-                    {!spotEditable && <img src={spot.trash.icon} width={48} height={48} alt="" />}
-                    <div>
-                        <h1>{spotEditable ? "New session" : spot.name}</h1>
-                        {!spotEditable && (
-                            <span className={styles.SpotLock}>
-                                <Icon name="lock" size={13} /> Grind spot locked for this session
-                            </span>
-                        )}
-                    </div>
+                <div className={styles.PageIdentity}>
+                    <h1>Grind desk</h1>
+                    <span className={styles.Region}>{session.region.toUpperCase()}</span>
                 </div>
                 <button
                     type="button"
@@ -149,14 +142,26 @@ export function LiveSessionView({
                 </button>
             </header>
             {overlay.error && <p role="alert">{overlay.error}</p>}
-            {spotEditable && (
-                <GrindSpotPicker
-                    spot={spot}
-                    disabled={!databaseLoaded || market.fetchingPrices || !visible}
-                    onSelect={changeGrindSpot}
-                />
-            )}
-            <SessionMetrics controller={controller} visible={visible} onFinish={() => void requestFinish()} />
+            <div className={styles.SessionFrame}>
+                {spotEditable ? (
+                    <GrindSpotPicker
+                        spot={spot}
+                        disabled={!databaseLoaded || market.fetchingPrices || !visible}
+                        onSelect={changeGrindSpot}
+                    />
+                ) : (
+                    <div className={styles.SessionIdentity}>
+                        <img src={spot.trash.icon} width={56} height={56} alt="" />
+                        <div>
+                            <h2>{spot.name}</h2>
+                            <span className={styles.SpotLock}>
+                                <Icon name="lock" size={13} /> Grind spot locked for this session
+                            </span>
+                        </div>
+                    </div>
+                )}
+                <SessionMetrics controller={controller} visible={visible} onFinish={() => void requestFinish()} />
+            </div>
             <dialog
                 ref={finishDialog}
                 className={styles.FinishDialog}

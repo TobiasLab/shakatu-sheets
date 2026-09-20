@@ -3,7 +3,7 @@
 See the [design language](design-language.md) for visual foundations, component conventions, modal sizing, and UI review
 criteria. This page describes screen behavior and product flows.
 
-The application uses a normal desktop window rather than an in-game overlay. The grind desk puts session time and earnings first. Neutral dark is the default for new installations; saved
+The application uses a normal desktop window rather than an in-game overlay. The grind desk puts session time and earnings first. Ink dark is the default for new installations; saved
 light, moss, and dark preferences are retained. The current flow is:
 
 1. Select a grind spot and region.
@@ -55,17 +55,17 @@ The local video sampling and annotation contract is described in the
 
 ## Workspace design
 
-The shared visual rules are defined in the [design language](design-language.md). A left sidebar provides Grind desk,
-History, Capture setup, and Settings, plus the current session and save state. It can collapse on desktop and becomes a
-labeled-for-assistive-technology icon rail below 1000px. A thin workspace bar keeps session status visible at compact sizes;
-persistence failures appear in a full-width alert. The sidebar collapse preference is transient UI state.
+The shared visual rules are defined in the [design language](design-language.md). A horizontal app bar provides Grind
+desk, History, Capture setup, and Settings. Compact windows retain all four labels in a second navigation row. Wider
+windows show a return-to-session control for running, paused, or completed sessions. Loading/save status and persistence
+failures remain visible at every width.
 
-The desk groups spot, region, and an explicit market-price disclosure above a single earnings/timer overview. The spot
+The desk shows the region beside its title and the selected spot above an earnings/timer overview. Region selection and market prices live in Settings → Market. The spot
 selector explains its lock after time or entries are recorded. Net silver/hour shows a dash until elapsed time is available.
 Manual time remains under Enter hours, while gross, expenses, and deductions are under Value breakdown. Neither timer ticks
 nor local filters mutate session snapshots.
 
-Capture and the ledger share the full workspace width. The capture strip expands inline for placement; source controls and
+Capture sits beside the ledger on wide desktops; compact layouts, setup, and unresolved capture review use the full workspace width. Capture expands inline for placement; source controls and
 platform guidance remain available during a session. Entry and screenshot actions sit beside the ledger heading so they do
 not cover table rows. The editable ledger follows below. Quantity and unit price are aligned in a table;
 Enter saves, Escape restores the saved values, and invalid edits restore values with an explanation. A blank price is invalid,
@@ -93,7 +93,7 @@ Advanced diagnostics, diagnostic JSONL, and optional paired ROI collection retai
 History shows totals for all completed sessions matching the current filter, including aggregate net, elapsed time, and
 net per hour weighted by elapsed time. Session selection shows its time, earnings, and recorded entries before Garmoth upload
 controls. Explicit reopen and confirmed deletion remain available. The finished desk offers a direct View history action.
-Settings uses divided label/form rows with section links, visual radio choices for themes, capture guidance, and sequential
+Settings uses a section index, grouped panels, visual radio choices for themes, capture guidance, and sequential
 Garmoth connection/character setup. Disabled character controls explain that the API connection comes first. Network requests remain explicit.
 
 ## History comparisons
@@ -142,7 +142,7 @@ confirmation. The selection stays highlighted when the picker is reopened; Undo 
 Selecting a preset updates draft expenses and net/hour totals only. Cancel discards the draft; the final upload action
 saves the expenses and submits the session. Users can also upload without selecting a preset.
 
-The upload modal follows the desk's visual hierarchy: selected spot, the shared flat earnings/time overview, then the
+The upload modal follows the desk's visual hierarchy: selected spot, the shared earnings/time overview, then the
 existing ledger with preset actions alongside its heading. Garmoth options form one compact wrapping row beneath the
 ledger. Use the standard 900px dialog width and Close Esc header; the body scrolls while the header and upload footer
 remain visible. Do not wrap upload options in an additional card or repeat totals below the ledger.

@@ -2,7 +2,7 @@
     min-width: 0;
 }
 .Picker {
-    margin-bottom: var(--space-6);
+    padding: 24px;
     min-width: 0;
 }
 .Selected {
@@ -12,13 +12,13 @@
     flex-wrap: wrap;
 }
 .Selected > img {
-    width: 48px;
-    height: 48px;
-    padding: 4px;
+    width: 56px;
+    height: 56px;
+    padding: 6px;
     object-fit: contain;
-    border: 1px solid var(--brand-border);
+    border: 1px solid var(--line-strong);
     border-radius: 12px;
-    background: var(--brand-surface);
+    background: var(--input-background);
 }
 .Identity {
     flex: 1;
@@ -30,8 +30,9 @@
 }
 .Identity h2 {
     margin: 4px 0 0;
-    font-size: 22px;
-    font-weight: 500;
+    font-size: clamp(20px, 2.2vw, 27px);
+    font-weight: 550;
+    letter-spacing: -0.6px;
     overflow-wrap: anywhere;
 }
 .Shortcuts {
@@ -118,14 +119,15 @@
     list-style: none;
 }
 .Tile {
+    background: var(--surface);
     display: flex;
     min-width: 0;
     border: 1px solid var(--line);
-    border-radius: 8px;
+    border-radius: 12px;
 }
 .Tile[data-selected="true"] {
     background: var(--selected);
-    border-color: var(--line-strong);
+    border-color: var(--brand-border);
 }
 .Choose {
     display: flex;
@@ -165,7 +167,7 @@
     color: var(--muted);
 }
 .Star[aria-pressed="true"] {
-    color: var(--gold);
+    color: var(--brand);
 }
 .Star[aria-pressed="true"] svg {
     fill: currentColor;
@@ -189,6 +191,9 @@
     }
 }
 @media (max-width: 600px) {
+    .Picker {
+        padding: 20px;
+    }
     .Grid {
         grid-template-columns: minmax(0, 1fr);
     }

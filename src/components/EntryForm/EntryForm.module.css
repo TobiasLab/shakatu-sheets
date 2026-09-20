@@ -11,6 +11,7 @@
 .ItemPicker {
     min-width: 0;
     border-right: 1px solid var(--line);
+    background: var(--canvas);
 }
 
 .SearchField {
@@ -269,10 +270,9 @@
     }
 }
 
-.SelectedDrop,
 .ItemIcon,
 .SelectedIcon {
-    border-radius: 6px;
+    border-radius: 10px;
 }
 .Form {
     padding: var(--space-6);
@@ -281,7 +281,7 @@
     padding-block: 11px;
 }
 .SearchField {
-    padding: var(--space-4);
+    padding: var(--space-5);
 }
 .SelectedDrop strong {
     white-space: normal;

@@ -1,4 +1,5 @@
 import { useMemo } from "react";
+import { Icon } from "../../components/Icon/Icon";
 import { calculateEntryTotals } from "../../domain/session";
 import { formatDuration, formatSilver } from "../../format";
 import { useElapsedTime } from "../../hooks/useElapsedTime";
@@ -20,7 +21,7 @@ export function SessionMetrics({
     const netPerHour = elapsedMs > 0 ? totals.net / (elapsedMs / 3_600_000) : 0;
     return (
         <section className={styles.MetricsGrid} aria-label="Session summary" aria-busy={!controller.databaseLoaded}>
-            <article className={styles.Metric}>
+            <article className={`${styles.Metric} ${styles.RateMetric}`}>
                 <span>Net silver / hour</span>
                 <strong>{controller.databaseLoaded && elapsedMs > 0 ? formatSilver(netPerHour, true) : "—"}</strong>
             </article>
@@ -64,7 +65,18 @@ function SessionClock({
     return (
         <section className={styles.SessionClock}>
             <div className={styles.ClockReadout}>
-                <span>Session time</span>
+                <span>
+                    Session time{" "}
+                    {session.status !== "idle" && (
+                        <b className={styles.TimerStatus} data-status={session.status}>
+                            {session.status === "running"
+                                ? "Running"
+                                : session.status === "paused"
+                                  ? "Paused"
+                                  : "Finished"}
+                        </b>
+                    )}
+                </span>
                 <time>{databaseLoaded ? formatDuration(elapsedMs) : "—"}</time>
             </div>
             <div className={styles.ClockActions}>
@@ -75,6 +87,7 @@ function SessionClock({
                         disabled={!databaseLoaded}
                         onClick={startOrResume}
                     >
+                        <Icon name="play" size={15} />
                         {session.status === "paused" ? "Resume timer" : "Start timer"}
                     </button>
                 )}
@@ -85,6 +98,7 @@ function SessionClock({
                         disabled={!databaseLoaded}
                         onClick={() => dispatch({ type: "pause", now: Date.now() })}
                     >
+                        <Icon name="pause" size={15} />
                         Pause timer
                     </button>
                 )}

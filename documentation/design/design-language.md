@@ -1,94 +1,97 @@
 # Design language
 
-Shakatu Sheets is a restrained desktop workspace for tracking grind sessions. Time, earnings, the selected location, and
-loot should be easy to scan. The interface uses neutral surfaces, system typography, flat sections, small icons, and color
-with a specific purpose. Game identity comes from recognizable item icons and names, with a restrained warm-gold accent.
+Shakatu Sheets is a desktop workspace for tracking grind sessions. Its visual identity pairs an ink canvas with mint
+surfaces, large earnings figures, a compact horizontal navigation bar, and a ledger that reads like a working document.
+The light theme uses paper and green ink; moss uses forest and sage. Bundled item artwork keeps locations recognizable.
 
-This is the reference for new and revised UI. The [design overview](README.md) documents feature behavior. Existing
-components may have local variations; use the conventions here when extending them, and update this guide when a shared
-convention changes. Do not copy an inconsistent control merely because it already exists.
+This is the reference for new and revised UI. The [design overview](README.md) documents feature behavior. Use the shared
+components and tokens before introducing local variations. The redesign retains existing session, capture, persistence,
+and integration behavior and adds no UI framework, remote fonts, or downloaded artwork.
 
 ## Foundations
 
 ### Color and surfaces
 
-Use the CSS custom properties in [src/index.css](../../src/index.css). Neutral dark is the default; every component must
-also work in light and moss. Theme identifiers are saved preferences and must remain compatible.
+Use the CSS custom properties in [src/index.css](../../src/index.css). Dark remains the default. Existing `dark`, `light`,
+and `moss` preference identifiers are unchanged.
 
 | Purpose | Tokens | Usage |
 | --- | --- | --- |
-| Workspace and navigation | `--canvas`, `--sidebar` | Main content and the contrasting sidebar |
-| Secondary surfaces | `--surface`, `--surface-raised` | Disclosures, menus, and subtle raised areas |
-| Interaction | `--hover`, `--selected` | Hover and persistent selection; selection also needs a semantic state |
-| Dividers | `--line`, `--row-line`, `--line-strong` | Section/table separators; stronger borders for inputs and emphasis |
-| Text hierarchy | `--text-strong`, `--text`, `--text-soft`, `--muted` | Headings, content, secondary content, and supporting labels |
-| Controls | `--input-background`, `--button-background`, `--button-border`, `--button-hover-border` | Reuse existing control styling |
-| Primary action | `--brand`, `--brand-contrast`, `--brand-hover` | Warm-gold primary actions with theme-specific text contrast |
-| Meaningful accents | `--success`, `--danger`, `--gold` | Success, errors/destructive actions, and favorites |
+| Workspace and navigation | `--canvas`, `--chrome` | Page background and app bar |
+| Content surfaces | `--surface`, `--surface-raised` | Working panels, dialogs, inset summaries, and table headings |
+| Interaction | `--hover`, `--selected` | Hover and persistent selection, paired with a semantic state |
+| Dividers | `--line`, `--row-line`, `--line-strong` | Panel/table separators and control borders |
+| Text hierarchy | `--text-strong`, `--text`, `--text-soft`, `--muted` | Titles, content, secondary content, and labels |
+| Controls | `--input-background`, `--button-background`, `--button-border`, `--button-hover-border` | Shared inputs and actions |
+| Primary actions | `--brand`, `--brand-contrast`, `--brand-hover` | Mint on dark, green on light, and sage on moss |
+| Selected surfaces | `--brand-surface`, `--brand-border` | Active navigation and selected controls |
+| Leading earnings | `--feature-background`, `--feature-text` | A pale colored block with dark, high-contrast figures |
+| Feedback | `--success`, `--danger` | Success, errors, destructive actions, and negative ledger values |
 | Keyboard focus | `--focus-border` | Visible focus outlines and focused input borders |
 
-Keep ordinary page sections flat, with spacing and one-pixel dividers establishing groups. Use bordered tiles when each
-item is selectable, as in the spot browser. Reserve substantial shadows for floating surfaces and dialogs. Avoid decorative
-metric cards, gradients, glowing borders, and arbitrary colors. State must remain understandable without color alone.
+Give each independent working area one bordered surface with `--panel-radius` (16px). Use dividers and spacing inside it;
+do not put every control in its own card. The leading earnings block uses its own paired text/background colors in all
+themes. Its static circular line motif is CSS decoration, separate from data. Reserve shadows for floating disclosures
+and dialogs. State must remain understandable without color alone. Existing `--gold` is a semantic warm warning/expense
+color, not a brand accent; `--mint` aliases the current brand for older capture styling.
 
-### Brand accent
+### Typography and spacing
 
-Use `--brand`, `--brand-hover`, `--brand-contrast`, `--brand-surface`, and `--brand-border` for the warm-gold identity.
-Dark and moss use pale gold; light uses a deeper bronze with white primary-button text. The accent identifies primary
-actions, active navigation, the app mark, and the leading earnings value. Keep other metrics and content neutral so
-the accent retains hierarchy. Do not recolor error or success feedback. Existing `--gold` still serves favorites and
-expense labels; its color is not the source for primary-button contrast.
-
-Use the selected spot's bundled item icon in a compact 48px framed treatment on both idle and active sessions.
-Keep the frame flat, without glow, gradients, or background artwork. The existing wordmark and icon system remain.
-
-### Typography
-
-Use the system font stack from `src/index.css`; do not load remote fonts. Use sentence case for headings and actions,
-preserving game names. Most weights are 400–550; size and spacing should establish hierarchy before boldness does.
+Use the system font stack; do not load remote fonts. The hierarchy comes from large page titles and earnings figures,
+moderate section headings, and compact controls. Use sentence case and preserve game names. The clock uses the local
+`--font-numeric` monospace stack. Other monetary values use tabular numerals without forcing a monospace face.
 
 | Role | Default |
 | --- | --- |
 | Body | 14px, line-height 1.5 |
-| Page title | 24px, weight 550, line-height 1.35 |
-| Section heading | 15px, weight 550 |
-| Subheading | 14px, weight 550 |
-| Dialog title | 18px, weight 550 |
-| Buttons and help text | 12px; button weight 500 |
-| Supporting labels | 11–12px, muted |
-| Session metrics | 27–36px; tabular numerals for values and time |
+| Page title | 28–36px, weight 650 |
+| Selected location | 20–27px, weight 550 |
+| Section heading | 16px, weight 600 |
+| Dialog title | 22px, weight 600 |
+| Controls | 12px, weight 600 for actions |
+| Supporting labels | 11–12px |
+| Leading earnings | 40–64px on desktop, smaller in compact windows |
+| Secondary earnings | 32–46px on desktop |
 
-Prominent content, such as the selected grind spot, can use an intermediate 22px heading. Tiny text is reserved for compact
-hints such as the 10px Esc label, never essential instructions. Long names must wrap where identification matters; do not
-truncate away distinctions between location variants.
+Use `--space-1` through `--space-6` for the 4, 8, 12, 16, 20, and 24px spacing steps. Standard controls use
+`--control-height` (38px) and `--control-radius` (8px); compact table and toolbar controls may be smaller. Dialogs use
+`--dialog-radius` (18px). Labels and control/title sizes use `--text-label`, `--text-control`, and `--text-dialog-title`.
+Long names wrap where identification matters. Tiny text is reserved for secondary hints, never essential instructions.
 
-### Spacing, borders, and icons
-
-Use the `--space-1` through `--space-6` tokens for the 4, 8, 12, 16, 20, and 24px spacing steps. Existing control-specific values such as 7px padding remain
-valid. Start with 8px between related controls, 12–16px within a group, and 20–28px between sections. Favor consistent
-alignment over adding containers.
-
-Use `--control-height` (34px) and `--control-radius` (7px) for standard controls, 6–8px corners for compact shortcuts and selectable tiles, and `--dialog-radius` (16px) for dialogs. Shared control, label, and dialog-title sizes use `--text-control`, `--text-label`, and `--text-dialog-title`. Borders are
-normally one pixel. Use the shared [Icon component](../../src/components/Icon/Icon.tsx) for interface symbols: small,
-monochrome SVG strokes, typically 18px. Bundled item icons may retain their color; use roughly 22px in shortcuts and
-36–40px in spot tiles or selected-location displays. Decorative icons have empty alternative text or are hidden from
-assistive technology. Icon-only actions need an accessible name.
+Use the shared [Icon component](../../src/components/Icon/Icon.tsx) for monochrome interface symbols. The wordmark pairs
+a solid app mark with stacked text on desktop. Bundled game icons retain their color and use a neutral frame: 56px in
+the selected location, 36px in catalogs, and smaller in shortcuts and tables. Decorative icons are hidden from assistive
+technology. Icon-only actions need an accessible name.
 
 ## Workspace and responsive layout
 
-Keep navigation in the sidebar and task content in the workspace. The sidebar is 224px wide on desktop and can collapse;
-below 1000px it becomes an icon rail with accessible labels. The workspace bar provides compact session context.
+The app bar contains the wordmark and a labeled horizontal navigation group for Grind desk, History, Capture setup, and
+Settings. There is no sidebar or collapse preference. At 960px and below, the navigation takes a second row and retains every
+label. A running, paused, or completed session has a compact return-to-session control in the app bar. Save status shares this reserved area so autosave never shifts the workspace. Loading and
+save failures remain visible independently of window width; omit idle readiness and successful-save messages.
 
-Place the current task title first, followed by setup/context, the primary overview, and working content. On the Grind desk,
-time and earnings lead the overview; capture and the ledger use the available width. Place actions next to the section they
-affect. Put secondary details behind clearly named disclosures, such as Value breakdown. Region selection and market price
-status/refresh controls belong together in Settings → Market. Show the current grind spot there and provide access to the
-shared spot browser, with the same session lock as the desk.
-The workspace omits idle readiness and successful-save messages; loading, saving, and errors remain visible.
+The workspace is at most 1480px wide. The Grind desk starts with its title and region, then a single session surface:
+selected spot above a three-part earnings/timer overview. The leading rate occupies a colored block; net value and timer
+remain on ordinary surfaces. At 760px and below, the clock moves beneath the two earnings figures. Unknown rates show a
+dash until time is recorded. Value breakdown and manual time remain disclosures.
 
-Allow control rows to wrap. Use `min-width: 0` for flexible content and `minmax(0, 1fr)` for grid columns that must shrink.
-Scroll wide tables within a labeled, keyboard-accessible region. The whole window should not become horizontally scrollable.
-At narrow widths, collapse multi-column pickers to one column when names and controls no longer fit comfortably.
+Below the overview, a 280px capture panel sits beside the ledger on wide desktops. Setup and unresolved capture review
+expand to the full width without changing the capture controller's lifecycle. Below 1100px, both sections stack in DOM
+order. The ledger has a compact action header, entry count, search/filter row when populated, sticky table labels, and
+inline editing. Large tables scroll within their labeled keyboard-accessible region.
+
+History uses three overview blocks, a comparison sheet, and separate session-list/detail surfaces. Comparison bars show
+the magnitude of each spot's actual duration-weighted rate relative to the largest magnitude in that comparison. Negative
+rates retain their sign and use the negative color; unknown rates have no bar. The values and table remain the accessible
+source of information. The methodology and sample-size context are unchanged.
+
+Settings has a section index beside its content, turning into a wrapping link row below 760px. Market and integrations
+use wide panels; appearance and capture share a row when space permits. Theme previews reflect the app bar and earnings
+block. Region, prices, and the shared spot browser remain together under Market with existing session locks.
+
+Dialogs, imports, presets, feedback, and the pop-out session use the same palette and control tokens. Native capture
+previews keep dark image surfaces with readable labels in every theme. Allow control rows to wrap; use `min-width: 0`
+and `minmax(0, 1fr)` for flexible content. The whole window must not scroll horizontally.
 
 ## Controls and selection
 
@@ -96,10 +99,10 @@ Reuse the global button classes instead of inventing a different treatment for e
 
 | Control | Convention |
 | --- | --- |
-| Standard action | `.button`: 34px minimum height, 12px text, 7px corners, 7px/12px padding |
+| Standard action | `.button`: 38px minimum height, 12px text, 8px corners, 9px/14px padding |
 | Primary action | `.button.primary-button`: reserve strong emphasis for the main next action in its context |
 | Secondary or dismiss action | `.button.subtle`: transparent background and border, subtle hover surface |
-| Input/select | Existing input tokens, one-pixel border, 7px corners, visible label or accessible name |
+| Input/select | Existing input tokens, one-pixel border, 8px corners, visible label or accessible name |
 | Search | Prominent at the top of a catalog; around 42px high, with a way to clear a nonempty query |
 | Selection/filter | Persistent selected surface and border, with `aria-pressed` or the appropriate native state |
 
@@ -111,7 +114,7 @@ layouts. Shared fields are used in entry, screenshot review, History filters, Se
 Use [SelectionButton](../../src/components/SelectionButton/SelectionButton.tsx) for immediately applied button choices,
 including spot filters/shortcuts, loot rows, preset choices, and History session rows. It owns `aria-pressed`, disabled
 behavior, and persistent selected/hover styling; callers own selection and content. Theme choices remain native radios
-with their existing arrow-key behavior. Keep table/list rows flat and allow catalog tiles their established corners.
+with their existing arrow-key behavior. Keep table cells flat; selectable session rows and catalog tiles use a clear surface and border.
 
 Use native buttons, inputs, and selects where they fit the interaction. A short list such as EU/NA can remain a select.
 A large catalog benefits from search and recognizable rows or tiles. A selection action and an auxiliary action such as
@@ -139,8 +142,8 @@ History filters and upload review also use the shared header; upload review disa
   at 620px, with the result area scrolling beneath its header, search, and filters.
 - For longer forms, the viewport ceiling is `calc(100dvh - 48px)`. Below 760px, use 12px viewport margins and a ceiling of
   `calc(100dvh - 24px)`; retain the 620px cap for compact pickers.
-- Use `--canvas`, a one-pixel `--line-strong` border, 16px corners, `0 20px 70px #0004` shadow, and a `#0007` backdrop.
-- The header uses 20px/24px padding, a bottom divider, and an 18px title. Omit subtitles by default. Compact headers use
+- Use `--surface`, a one-pixel `--line-strong` border, 18px corners, and `--dialog-shadow`. The dark backdrop uses a subtle 4px blur.
+- The header uses 20px/24px padding, a bottom divider, and a 22px title. Omit subtitles by default. Compact headers use
   16px padding. Keep the header and dismissal available while long content scrolls.
 - Short confirmations should be narrower and sized to their message; the existing finish dialog uses a 520px maximum.
 

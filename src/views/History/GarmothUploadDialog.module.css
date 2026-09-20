@@ -46,8 +46,20 @@
 }
 .Metrics {
     margin: 0;
-    padding: 16px 0 0;
+    padding: 0;
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    background: var(--surface-raised);
     grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+.Metrics strong {
+    font-size: 32px;
+    letter-spacing: -1px;
+}
+.Metrics > div:last-child > strong {
+    font-family: var(--font-numeric);
+    font-size: 27px;
+    white-space: nowrap;
 }
 .PresetStatus {
     color: var(--muted);
@@ -82,7 +94,7 @@
 }
 .Options input[type="number"] {
     width: 124px;
-    min-height: 34px;
+    min-height: var(--control-height);
     padding: 7px 10px;
     font-size: 12px;
     font-variant-numeric: tabular-nums;
@@ -99,7 +111,7 @@
     justify-content: flex-end;
     padding: 16px 24px;
     border-top: 1px solid var(--line);
-    background: var(--canvas);
+    background: var(--surface);
 }
 @media (max-width: 760px) {
     .Body {
@@ -122,6 +134,10 @@
 @media (max-width: 460px) {
     .Metrics {
         grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+    .Metrics > div:last-child {
+        grid-column: 1 / -1;
+        border-top: 1px solid var(--line);
     }
     .Location h3 {
         font-size: 18px;

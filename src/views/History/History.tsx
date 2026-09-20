@@ -154,6 +154,7 @@ export function HistoryView({
     const trackedMs = historyTotals.elapsedMs;
     const historyRate = netPerHour(historyTotals);
     const comparisonSpots = rankSpots(history?.spotSummaries ?? []);
+    const maxComparisonRate = Math.max(0, ...comparisonSpots.map((spot) => Math.abs(netPerHour(spot) ?? 0))) || 1;
     const selected = pageRecords.find((record) => record.session.id === selectedId) ?? pageRecords[0];
     const selectedTotals = selected ? calculateTotals(selected.session.entries, selected.session.elapsedMs) : null;
     let uploadPreview: GarmothUploadPreview | null = null;
@@ -479,7 +480,23 @@ export function HistoryView({
                                                     {spotName(spot.grindSpotId)}
                                                 </button>
                                             </th>
-                                            <td>{rate === null ? "—" : `${formatSilver(rate, true)}/h`}</td>
+                                            <td>
+                                                <div
+                                                    className={styles.ComparisonRate}
+                                                    data-negative={rate !== null && rate < 0}
+                                                >
+                                                    {rate === null ? "—" : `${formatSilver(rate, true)}/h`}
+                                                    {rate !== null && (
+                                                        <span aria-hidden="true">
+                                                            <i
+                                                                style={{
+                                                                    width: `${(Math.abs(rate) / maxComparisonRate) * 100}%`,
+                                                                }}
+                                                            />
+                                                        </span>
+                                                    )}
+                                                </div>
+                                            </td>
                                             <td>
                                                 {spot.sessionCount}
                                                 {spot.zeroDurationCount > 0 && (

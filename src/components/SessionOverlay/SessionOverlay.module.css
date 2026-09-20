@@ -1,7 +1,8 @@
 .Overlay {
     min-height: 100vh;
-    padding: 12px;
-    background: var(--sidebar);
+    padding: 16px;
+    background: var(--surface);
+    border-radius: 12px;
     border: 1px solid var(--line-strong);
 }
 .Header {
@@ -46,11 +47,12 @@
     font-size: 11px;
 }
 .Metrics strong {
+    letter-spacing: -1px;
     display: block;
     margin-top: 3px;
     font-size: 30px;
     font-variant-numeric: tabular-nums;
-    color: var(--gold);
+    color: var(--brand);
 }
 .Clock {
     display: grid;
@@ -64,6 +66,7 @@
     font-variant-numeric: tabular-nums;
 }
 .Clock time {
+    font-family: var(--font-numeric);
     grid-column: 1;
     font-size: 16px;
     font-weight: 600;
@@ -91,7 +94,7 @@
     background: var(--success);
 }
 .Status[data-status="paused"]::before {
-    background: var(--gold);
+    background: var(--brand);
 }
 .Drops {
     display: flex;
@@ -136,7 +139,7 @@
     display: grid;
     place-items: center;
     height: 100%;
-    color: var(--gold);
+    color: var(--brand);
 }
 .Empty {
     margin: 8px 4px;
