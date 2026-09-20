@@ -23,7 +23,6 @@ export function SessionMetrics({
             <article className={styles.Metric}>
                 <span>Net silver / hour</span>
                 <strong>{controller.databaseLoaded && elapsedMs > 0 ? formatSilver(netPerHour, true) : "—"}</strong>
-                <small>{elapsedMs > 0 ? "After tax & expenses" : "Start timer or enter completed hours"}</small>
             </article>
             <article className={styles.Metric}>
                 <span>Session net</span>

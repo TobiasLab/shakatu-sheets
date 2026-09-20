@@ -1,5 +1,7 @@
 import type { LootAlignmentGuide, LootUiScale } from "../../recognition/displayCapture";
+import { FormField } from "../FormField/FormField";
 import { Icon } from "../Icon/Icon";
+import { SelectionButton } from "../SelectionButton/SelectionButton";
 import { CaptureCorrection } from "./CaptureCorrection";
 import styles from "./LiveLootCapture.module.css";
 import type { useLiveLootCapture } from "./useLiveLootCapture";
@@ -149,17 +151,17 @@ export function LiveLootCapture({ controller }: { controller: ReturnType<typeof 
                     <h2 id="live-capture-heading" tabIndex={-1}>
                         Loot capture
                     </h2>
-                    <span>
-                        {recognitionStatus === "active"
-                            ? "Tracking your loot while you play"
-                            : recognitionError
-                              ? "Recognition needs your attention"
-                              : status === "capturing"
-                                ? sourceSupported
-                                    ? "Confirm your loot areas to begin"
-                                    : "Preview only · this source has no calibrated OCR profile"
-                                : "Automatically record drops from your game."}
-                    </span>
+                    {status === "capturing" && (
+                        <span role="status" data-recognition-status={recognitionStatus}>
+                            {recognitionStatus === "active"
+                                ? "Tracking loot"
+                                : recognitionError
+                                  ? "Recognition stopped"
+                                  : sourceSupported
+                                    ? "Confirm loot areas"
+                                    : "Preview only · unsupported source"}
+                        </span>
+                    )}
                 </div>
                 <div className={styles.Actions}>
                     {status !== "idle" ? (
@@ -206,14 +208,6 @@ export function LiveLootCapture({ controller }: { controller: ReturnType<typeof 
             )}
             {!databaseLoaded ? (
                 <p className={styles.Note}>Screen capture is available after the active session finishes loading.</p>
-            ) : sessionStatus === "idle" ? (
-                <p className={styles.Note}>
-                    Choose your game screen, align both loot areas, and confirm. The timer works independently.
-                </p>
-            ) : sessionStatus === "paused" ? (
-                <p className={styles.Note}>
-                    The timer is paused. Capture and local recognition remain available for this session.
-                </p>
             ) : sessionStatus === "finished" ? (
                 <p className={styles.Note}>Start a new session to choose a capture source.</p>
             ) : null}
@@ -392,28 +386,25 @@ export function LiveLootCapture({ controller }: { controller: ReturnType<typeof 
                                     <fieldset className={styles.AreaSelector}>
                                         <legend>Area to adjust</legend>
                                         <div className={styles.AreaSelectorButtons}>
-                                            <button
+                                            <SelectionButton
                                                 className="button"
-                                                type="button"
                                                 disabled={savingRegion || placementMode === "localizing"}
-                                                aria-pressed={activeRegionKind === "normal"}
+                                                selected={activeRegionKind === "normal"}
                                                 onClick={() => selectRegionKind("normal")}
                                             >
                                                 Loot stack
-                                            </button>
-                                            <button
+                                            </SelectionButton>
+                                            <SelectionButton
                                                 className="button"
-                                                type="button"
                                                 disabled={savingRegion || placementMode === "localizing"}
-                                                aria-pressed={activeRegionKind === "rare"}
+                                                selected={activeRegionKind === "rare"}
                                                 onClick={() => selectRegionKind("rare")}
                                             >
                                                 Rare loot
-                                            </button>
+                                            </SelectionButton>
                                         </div>
                                     </fieldset>
-                                    <label className={styles.ScaleControl}>
-                                        BDO UI scale
+                                    <FormField label="BDO UI scale" className={styles.ScaleControl}>
                                         <select
                                             value={uiScalePercent}
                                             disabled={savingRegion}
@@ -424,7 +415,7 @@ export function LiveLootCapture({ controller }: { controller: ReturnType<typeof 
                                             <option value={80}>80%</option>
                                             <option value={100}>100%</option>
                                         </select>
-                                    </label>
+                                    </FormField>
                                 </div>
                                 <p className={styles.CalibrationInstruction}>{calibrationInstruction}</p>
                                 {placementMode === "localizing" ? (
@@ -440,11 +431,7 @@ export function LiveLootCapture({ controller }: { controller: ReturnType<typeof 
                                 ) : (
                                     <div className={styles.PrecisionControls}>
                                         <div className={styles.PositionLabel}>
-                                            <strong>Fine-tune position</strong>
-                                            <span>
-                                                Move {activeRegionKind === "normal" ? "loot stack" : "rare loot"} by 1
-                                                pixel.
-                                            </span>
+                                            <strong>Fine-tune position · 1 px</strong>
                                         </div>
                                         <fieldset
                                             className={styles.DirectionPad}
@@ -781,7 +768,6 @@ export function LiveLootCapture({ controller }: { controller: ReturnType<typeof 
                 <div className={styles.ReviewFeed}>
                     <div className={styles.ReviewHeader}>
                         <div>
-                            <p className="eyebrow">Local OCR review</p>
                             <h3 id="loot-review-heading" tabIndex={-1}>
                                 Needs attention <span>({reviewResults.filter((entry) => !entry.accepted).length})</span>
                             </h3>
@@ -852,9 +838,8 @@ export function LiveLootCapture({ controller }: { controller: ReturnType<typeof 
                             ))}
                     </ul>
                     <p>
-                        These results have not been added. Review the saved image and choose the item and quantity to
-                        add. Captures are kept only until you clear them, finish this session, or close the app. Clear
-                        does not remove ledger entries.
+                        Not added to the ledger. Captures are discarded when you clear them, finish the session, or
+                        close the app. Clearing keeps ledger entries.
                     </p>
                 </div>
             )}

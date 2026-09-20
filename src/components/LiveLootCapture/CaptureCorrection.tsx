@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import type { LiveLootReviewEntry } from "../../recognition/liveLootReview";
 import { retryLootCapture } from "../../recognition/retryLootCapture";
+import { FormField } from "../FormField/FormField";
 import styles from "./LiveLootCapture.module.css";
 
 export function CaptureCorrection({
@@ -112,12 +113,11 @@ export function CaptureCorrection({
                             </button>
                         </>
                     )}
-                    <small role="status">{retrying ? "Reading this saved image only…" : retryMessage}</small>
+                    {retryMessage && <small role="status">{retryMessage}</small>}
                 </div>
             )}
             <div className={styles.CorrectionFields}>
-                <label>
-                    Item
+                <FormField label="Item">
                     <select required value={item} disabled={disabled} onChange={(event) => setItem(event.target.value)}>
                         <option value="">Choose item…</option>
                         {items.map((name) => (
@@ -126,9 +126,8 @@ export function CaptureCorrection({
                             </option>
                         ))}
                     </select>
-                </label>
-                <label>
-                    Quantity
+                </FormField>
+                <FormField label="Quantity">
                     <input
                         type="number"
                         min="1"
@@ -139,7 +138,7 @@ export function CaptureCorrection({
                         disabled={disabled}
                         onChange={(event) => setQuantity(event.target.value)}
                     />
-                </label>
+                </FormField>
                 <button className="button" type="submit" disabled={disabled}>
                     Add to session
                 </button>

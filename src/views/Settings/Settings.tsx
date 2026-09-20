@@ -317,15 +317,11 @@ export function SettingsView({
                                 step="5"
                                 value={overlayOpacity.opacity}
                                 disabled={!overlayOpacity.loaded}
-                                aria-describedby="overlay-opacity-description"
                                 onChange={(event) => overlayOpacity.updateOpacity(event.target.valueAsNumber)}
                             />
                             <output htmlFor="overlay-opacity">{overlayOpacity.opacity}%</output>
                         </div>
-                        <p id="overlay-opacity-description">
-                            Fades the entire overlay. Changes apply immediately and are saved automatically.
-                            {overlayOpacity.saving && " Saving…"}
-                        </p>
+                        {overlayOpacity.saving && <p role="status">Saving opacity…</p>}
                         {overlayOpacity.error && (
                             <div role="alert" className={styles.Error}>
                                 {overlayOpacity.error}
@@ -347,10 +343,6 @@ export function SettingsView({
                         </div>
                     </div>
                     <div className={styles.SettingsForm}>
-                        <p>
-                            Tracking continues while you browse or minimize. Live previews run only when setup is open
-                            and visible.
-                        </p>
                         <FormField label="In-game font">
                             <select
                                 id="loot-font"
@@ -366,7 +358,7 @@ export function SettingsView({
                             </select>
                         </FormField>
                         <p id="loot-font-description">
-                            Match the font selected in the game. Applies when capture next starts.
+                            Applies when capture next starts.
                             {lootFont.saving && " Saving…"}
                         </p>
                         {lootFont.error && (
@@ -390,7 +382,6 @@ export function SettingsView({
             <h2 id="integrations" className={styles.SectionTitle}>
                 Integrations <span>Optional</span>
             </h2>
-            <p className={styles.SectionNote}>Connect your account to publish finished sessions when you choose.</p>
             <div className={styles.SettingsGrid}>
                 <section className="panel">
                     <div className="panel-heading">
@@ -418,10 +409,7 @@ export function SettingsView({
                                 placeholder={settings?.apiKeyConfigured ? "Enter a replacement key" : "Garmoth API key"}
                             />
                         </FormField>
-                        <p>
-                            Your key stays on this device and is used only to connect to Garmoth. It is never displayed
-                            again.
-                        </p>
+                        <p>Your key stays on this device.</p>
                         <button
                             className="button primary-button"
                             type="submit"

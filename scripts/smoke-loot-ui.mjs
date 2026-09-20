@@ -1253,7 +1253,7 @@ try {
                 "Skipping confirmation requires both areas to already be confirmed",
             );
         }
-        await until("document.body.textContent.includes('Tracking your loot while you play')");
+        await until("document.querySelector('[data-recognition-status=active]') !== null");
         await evaluate("window.__emitLoot(0)");
         for (let rows = 1; rows <= 3; rows++) {
             for (let frame = 0; frame < 16; frame++) {

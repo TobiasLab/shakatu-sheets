@@ -254,15 +254,6 @@
     opacity: 0.65;
 }
 
-.DataNote {
-    margin: 0;
-    padding-top: 13px;
-    border-top: 1px solid var(--line);
-    color: var(--note-text);
-    font-size: 12px;
-    line-height: 1.55;
-}
-
 @media (max-width: 760px) {
     .EntryWorkspace {
         grid-template-columns: 1fr;

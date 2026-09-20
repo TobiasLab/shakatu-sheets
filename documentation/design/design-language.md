@@ -163,6 +163,11 @@ Keep calculation rules and methodological limitations in design documentation. S
 a specific actionable problem, such as an error or an unavailable action; do not replace removed prose with generic
 help disclosures or tooltips.
 
+Routine idle capture instructions, metric explanations, auto-save descriptions, integration taglines, and repeated
+manual-entry hints are omitted. Capture shows a concise recognition status only when connected. Keep actionable
+source limitations, file format/scale requirements, correction guidance, and explanations of session locks. Capture
+area choices and correction fields use the shared selection and field components; preview geometry stays specialized.
+
 Keep secondary filter controls behind a Filters button using the established native dialog pattern, rather than a
 permanent section above the content. A compact region value or active-filter count can appear on the button. Preserve
 accessible labels, keyboard focus, Escape dismissal, and useful error feedback.

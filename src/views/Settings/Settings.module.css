@@ -92,11 +92,6 @@
     color: var(--muted);
     font-weight: 400;
 }
-.SectionNote {
-    margin: 0 0 8px;
-    font-size: 12px;
-    color: var(--muted);
-}
 .ThemePicker {
     display: grid;
     grid-template-columns: repeat(3, minmax(0, 1fr));
