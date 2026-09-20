@@ -21,6 +21,14 @@
     margin-bottom: 26px;
     color: var(--text);
 }
+.Brand > svg {
+    box-sizing: content-box;
+    padding: 4px;
+    color: var(--brand);
+    background: var(--brand-surface);
+    border: 1px solid var(--brand-border);
+    border-radius: 8px;
+}
 .Brand > span {
     font-size: 13px;
     font-weight: 600;
@@ -48,6 +56,7 @@
 }
 .ViewNavigation button,
 .SidebarBottom > button {
+    position: relative;
     display: flex;
     align-items: center;
     gap: 10px;
@@ -68,8 +77,19 @@
 }
 .ViewNavigation button.Active,
 .SidebarBottom > button.Active {
-    background: var(--selected);
-    color: var(--text);
+    background: var(--brand-surface);
+    color: var(--text-strong);
+}
+.Active > svg {
+    color: var(--brand);
+}
+.Active::before {
+    content: "";
+    position: absolute;
+    inset: 10px auto 10px 0;
+    width: 2px;
+    border-radius: 2px;
+    background: var(--brand);
 }
 .SessionGroup {
     margin-top: 30px;

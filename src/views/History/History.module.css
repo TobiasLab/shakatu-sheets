@@ -377,3 +377,7 @@
         padding: 0 18px 18px;
     }
 }
+
+.Overview > div:first-child > strong {
+    color: var(--brand);
+}

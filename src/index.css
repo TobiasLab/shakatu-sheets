@@ -5,6 +5,11 @@
     color-scheme: dark;
     font-synthesis: none;
     text-rendering: optimizeLegibility;
+    --brand: #d8b77b;
+    --brand-hover: #e6c994;
+    --brand-contrast: #241c10;
+    --brand-surface: #30291f;
+    --brand-border: #685333;
     --canvas: #202020;
     --sidebar: #181818;
     --surface: #242424;
@@ -40,6 +45,11 @@
 }
 :root[data-theme="light"] {
     color-scheme: light;
+    --brand: #86551d;
+    --brand-hover: #704517;
+    --brand-contrast: #ffffff;
+    --brand-surface: #f8f0e2;
+    --brand-border: #d8bd90;
     --canvas: #ffffff;
     --sidebar: #f7f7f7;
     --surface: #ffffff;
@@ -74,6 +84,11 @@
     --note-text: #737373;
 }
 :root[data-theme="moss"] {
+    --brand: #dcc18d;
+    --brand-hover: #ecd3a5;
+    --brand-contrast: #252015;
+    --brand-surface: #333326;
+    --brand-border: #706344;
     --canvas: #202622;
     --sidebar: #19201b;
     --surface: #252d27;
@@ -224,13 +239,13 @@ h3 {
     opacity: 0.45;
 }
 .primary-button {
-    background: var(--mint);
-    color: var(--accent-contrast);
-    border-color: var(--mint);
+    background: var(--brand);
+    color: var(--brand-contrast);
+    border-color: var(--brand);
 }
 .primary-button:hover:not(:disabled) {
-    background: var(--accent-hover);
-    border-color: var(--accent-hover);
+    background: var(--brand-hover);
+    border-color: var(--brand-hover);
 }
 .button.subtle {
     background: transparent;
