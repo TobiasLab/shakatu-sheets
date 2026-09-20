@@ -2,7 +2,7 @@
     min-height: 100vh;
     padding: 16px;
     background: var(--surface);
-    border-radius: 12px;
+    border-radius: var(--control-radius);
     border: 1px solid var(--line-strong);
 }
 .Header {
@@ -28,6 +28,10 @@
     padding: 4px;
     font: inherit;
 }
+.DragHandle {
+    font-family: var(--font-display);
+    font-size: 20px;
+}
 .Close {
     cursor: pointer;
     font-size: 22px;
@@ -47,6 +51,7 @@
     font-size: 11px;
 }
 .Metrics strong {
+    font-weight: 450;
     letter-spacing: -1px;
     display: block;
     margin-top: 3px;
@@ -109,7 +114,7 @@
     min-width: 48px;
     height: 48px;
     border: 1px solid var(--line-strong);
-    border-radius: 5px;
+    border-radius: var(--control-radius);
     background: var(--surface-raised);
     overflow: hidden;
 }

@@ -179,7 +179,7 @@
     line-height: 1.6;
 }
 .Items {
-    border-radius: 6px;
+    border-radius: var(--control-radius);
     overflow: hidden;
 }
 .Item {

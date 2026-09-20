@@ -1,76 +1,67 @@
 .AppShell {
     min-height: 100vh;
+    border-top: 3px solid var(--brand);
 }
 .AppBar {
     display: flex;
     align-items: center;
-    gap: 24px;
-    min-height: 76px;
-    padding: 12px clamp(20px, 3vw, 48px);
-    border-bottom: 1px solid var(--line);
-    background: var(--chrome);
+    gap: 32px;
+    min-height: 78px;
+    max-width: 1360px;
+    margin: 0 auto;
+    padding: 0 32px;
+    border-bottom: 3px double var(--line-strong);
 }
 .Brand {
     display: flex;
     align-items: center;
-    gap: 12px;
+    gap: 10px;
     flex-shrink: 0;
+    color: var(--text-strong);
 }
 .Brand > svg {
-    box-sizing: content-box;
-    padding: 9px;
-    color: var(--brand-contrast);
-    background: var(--brand);
-    border-radius: 12px 12px 12px 3px;
+    color: var(--brand);
 }
 .Brand > span {
-    font-size: 18px;
-    line-height: 1.15;
-    font-weight: 700;
-    letter-spacing: -0.6px;
+    font-family: var(--font-display);
+    font-size: 28px;
+    font-weight: 500;
+    letter-spacing: -0.8px;
+    line-height: 1;
 }
 .Brand > span > span {
-    display: block;
     color: var(--muted);
-    font-size: 12px;
-    font-weight: 450;
-    letter-spacing: 1.7px;
-    text-transform: uppercase;
-    margin-top: 4px;
+    font-weight: 350;
 }
 .Navigation {
+    align-self: stretch;
     display: flex;
-    align-items: center;
-    gap: 4px;
-    padding: 5px;
-    border: 1px solid var(--line);
-    border-radius: 12px;
-    background: var(--canvas);
+    align-items: stretch;
+    gap: 20px;
 }
 .Navigation button {
     display: flex;
     align-items: center;
     justify-content: center;
-    gap: 8px;
+    gap: 7px;
     min-height: 38px;
-    border: 1px solid transparent;
-    border-radius: 8px;
-    padding: 8px 14px;
+    border: 0;
+    border-bottom: 2px solid transparent;
+    padding: 8px 2px;
     background: transparent;
     color: var(--muted);
     font-size: 12px;
-    font-weight: 550;
+    font-weight: 500;
     white-space: nowrap;
     cursor: pointer;
 }
 .Navigation button:hover {
-    color: var(--text);
-    background: var(--hover);
+    color: var(--text-strong);
+    border-bottom-color: var(--line-strong);
 }
 .Navigation button[aria-current="page"] {
     color: var(--brand);
-    background: var(--brand-surface);
-    border-color: var(--brand-border);
+    border-bottom-color: var(--brand);
 }
 .SessionPresence {
     min-width: 132px;
@@ -84,10 +75,10 @@
     gap: 8px;
     padding: 4px;
     border: 0;
-    border-radius: 4px;
+    border-radius: var(--control-radius);
     background: transparent;
     color: var(--text-soft);
-    font-size: 12px;
+    font-size: 11px;
     cursor: pointer;
 }
 .SessionPresence > span {
@@ -106,14 +97,13 @@
 }
 .StatusDot[data-status="running"] {
     background: var(--success);
-    box-shadow: 0 0 0 4px color-mix(in srgb, var(--success) 12%, transparent);
 }
 .Workspace {
-    max-width: 1480px;
+    max-width: 1360px;
     width: 100%;
     min-width: 0;
     margin: 0 auto;
-    padding: 28px clamp(20px, 3vw, 48px) 32px;
+    padding: 20px 32px 32px;
 }
 .SaveError {
     padding: 10px 32px;
@@ -135,46 +125,51 @@
 .SkipLink:focus {
     top: 12px;
 }
-@media (max-width: 960px) {
+@media (max-width: 760px) {
     .AppBar {
         flex-wrap: wrap;
-        gap: 16px;
-        padding: 16px;
-    }
-    .Brand > svg {
-        width: 20px;
-        height: 20px;
-        padding: 7px;
+        gap: 0 16px;
+        padding: 16px 20px 0;
     }
     .Brand > span {
-        display: flex;
-        align-items: baseline;
-        gap: 5px;
-        font-size: 16px;
-    }
-    .Brand > span > span {
-        font-size: inherit;
-        letter-spacing: inherit;
-        text-transform: none;
-        margin: 0;
+        font-size: 26px;
     }
     .SessionPresence {
         min-width: 0;
-        min-height: 32px;
+        min-height: 40px;
         flex: 1;
     }
     .Navigation {
         order: 1;
         width: 100%;
+        gap: 24px;
+        margin-top: 10px;
     }
     .Navigation button {
-        flex: 1;
-        flex-direction: column;
-        gap: 4px;
-        padding: 7px 4px;
+        min-height: 42px;
+    }
+    .Workspace {
+        padding: 24px 20px 32px;
+    }
+}
+@media (max-width: 480px) {
+    .AppBar {
+        padding-inline: 16px;
+    }
+    .Brand > svg {
+        width: 20px;
+    }
+    .Brand > span {
+        font-size: 23px;
+    }
+    .Navigation {
+        gap: 0;
+        justify-content: space-between;
+    }
+    .Navigation button {
         font-size: 11px;
     }
     .Workspace {
-        padding: 24px 16px 32px;
+        padding-inline: 16px;
     }
 }

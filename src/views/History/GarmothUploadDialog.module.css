@@ -26,13 +26,14 @@
 .Location img {
     flex-shrink: 0;
     border: 1px solid var(--line-strong);
-    border-radius: 7px;
+    border-radius: var(--control-radius);
     background: var(--input-background);
 }
 .Location h3 {
     margin: 0;
-    font-size: 22px;
-    font-weight: 550;
+    font-family: var(--font-display);
+    font-size: 28px;
+    font-weight: 450;
     line-height: 1.35;
     overflow-wrap: anywhere;
 }
@@ -48,9 +49,15 @@
     margin: 0;
     padding: 0;
     border: 1px solid var(--line);
-    border-radius: 12px;
-    background: var(--surface-raised);
+    border-radius: var(--control-radius);
+    background: transparent;
     grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+.Metrics > div {
+    padding: 16px;
+}
+.Metrics > div:last-child {
+    border-right: 0;
 }
 .Metrics strong {
     font-size: 32px;

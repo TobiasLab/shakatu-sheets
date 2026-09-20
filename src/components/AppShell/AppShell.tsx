@@ -46,7 +46,6 @@ export function AppShell({
                         aria-current={view === "live" ? "page" : undefined}
                         onClick={() => onViewChange("live")}
                     >
-                        <Icon name="desk" />
                         <span>Grind desk</span>
                     </button>
                     <button
@@ -55,11 +54,9 @@ export function AppShell({
                         aria-current={view === "history" ? "page" : undefined}
                         onClick={() => onViewChange("history")}
                     >
-                        <Icon name="history" />
                         <span>History</span>
                     </button>
                     <button type="button" aria-label="Capture setup" onClick={onOpenCapture}>
-                        <Icon name="capture" />
                         <span>Capture setup</span>
                     </button>
                     <button
@@ -68,7 +65,6 @@ export function AppShell({
                         aria-current={view === "settings" ? "page" : undefined}
                         onClick={() => onViewChange("settings")}
                     >
-                        <Icon name="settings" />
                         <span>Settings</span>
                     </button>
                 </nav>

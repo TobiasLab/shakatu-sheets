@@ -122,7 +122,7 @@ export function LiveSessionView({
 
     return (
         <>
-            <header className="topbar">
+            <header className={`topbar ${styles.DeskHeader}`}>
                 <div className={styles.PageIdentity}>
                     <h1>Grind desk</h1>
                     <span className={styles.Region}>{session.region.toUpperCase()}</span>
@@ -155,7 +155,7 @@ export function LiveSessionView({
                         <div>
                             <h2>{spot.name}</h2>
                             <span className={styles.SpotLock}>
-                                <Icon name="lock" size={13} /> Grind spot locked for this session
+                                <Icon name="lock" size={13} /> Locked for this session
                             </span>
                         </div>
                     </div>

@@ -272,7 +272,7 @@
 
 .ItemIcon,
 .SelectedIcon {
-    border-radius: 10px;
+    border-radius: var(--control-radius);
 }
 .Form {
     padding: var(--space-6);

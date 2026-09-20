@@ -17,35 +17,31 @@
     color: var(--text-soft);
     font-size: 13px;
     text-decoration: none;
-    padding: 12px 16px;
-    border-radius: 8px;
-    border: 1px solid transparent;
+    padding: 10px 0;
+    border-bottom: 1px solid var(--line);
 }
 .SectionNavigation a:hover,
 .SectionNavigation a:focus-visible {
     color: var(--brand);
-    background: var(--brand-surface);
-    border-color: var(--brand-border);
+    border-bottom-color: var(--brand);
 }
 .Preferences {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 24px;
+    gap: 32px;
 }
 .Preferences > section:first-child {
     grid-column: 1 / -1;
 }
 .SettingsGrid {
     display: grid;
-    gap: 24px;
+    gap: 32px;
 }
 .Preferences > section,
 .SettingsGrid > section {
     min-width: 0;
-    padding: 24px;
-    border: 1px solid var(--line);
-    border-radius: var(--panel-radius);
-    background: var(--surface);
+    padding: 20px 0 0;
+    border-top: 2px solid var(--text-soft);
     scroll-margin-top: 24px;
 }
 .Preferences :global(.panel-heading),
@@ -101,7 +97,9 @@
     align-items: center;
     gap: 10px;
     margin: 38px 0 8px;
-    font-size: 18px;
+    font-family: inherit;
+    font-size: 12px;
+    font-weight: 600;
     scroll-margin-top: 24px;
 }
 .SectionTitle span {
@@ -129,7 +127,7 @@
     min-width: 0;
     padding: var(--space-2);
     border: 1px solid var(--line);
-    border-radius: 9px;
+    border-radius: var(--control-radius);
     cursor: pointer;
     color: var(--text-soft);
     font-size: 11px;
@@ -155,16 +153,16 @@
     display: flex;
     flex-direction: column;
     height: 80px;
-    background: #101a20;
-    border: 1px solid #2b3d45;
-    border-radius: 5px;
+    background: #211f1c;
+    border: 1px solid #454037;
+    border-radius: 2px;
     overflow: hidden;
 }
 .ThemePreview > i {
     display: block;
     width: 100%;
     height: 15px;
-    background: #20323b;
+    background: #302d27;
 }
 .ThemePreview > span {
     display: grid;
@@ -176,41 +174,41 @@
 .ThemePreview b {
     height: 3px;
     border-radius: 2px;
-    background: #2b3d45;
+    background: #454037;
 }
 .ThemePreview b:first-child {
-    width: 65%;
-    height: 12px;
-    background: #c1eadd;
+    width: 45%;
+    height: 6px;
+    background: #f18c79;
 }
 .ThemePreview b:last-child {
     width: 85%;
 }
 .light .ThemePreview {
-    background: #eff2ef;
-    border-color: #dbe3de;
+    background: #f3efe5;
+    border-color: #d4ccbd;
 }
 .light .ThemePreview > i {
-    background: #ffffff;
+    background: #ebe5d9;
 }
 .light .ThemePreview b {
-    background: #dbe3de;
+    background: #d4ccbd;
 }
 .light .ThemePreview b:first-child {
-    background: #91b8ab;
+    background: #ae3926;
 }
 .moss .ThemePreview {
-    background: #19221d;
-    border-color: #3d493f;
+    background: #22291f;
+    border-color: #48503d;
 }
 .moss .ThemePreview > i {
-    background: #2e3d32;
+    background: #333d2e;
 }
 .moss .ThemePreview b {
-    background: #46594b;
+    background: #788169;
 }
 .moss .ThemePreview b:first-child {
-    background: #b7d58c;
+    background: #e3a88c;
 }
 .SettingsForm .SetupHint {
     color: var(--muted);
@@ -240,7 +238,7 @@
     }
     .Preferences > section,
     .SettingsGrid > section {
-        padding: 20px;
+        padding: 20px 0 0;
     }
     .SettingsForm {
         max-width: none;

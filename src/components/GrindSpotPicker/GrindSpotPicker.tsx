@@ -80,7 +80,6 @@ export function GrindSpotPicker({
                     <>
                         <img src={spot.trash.icon} alt="" width={40} height={40} />
                         <div className={styles.Identity}>
-                            <span>Grind spot</span>
                             <h2>{spot.name}</h2>
                         </div>
                     </>

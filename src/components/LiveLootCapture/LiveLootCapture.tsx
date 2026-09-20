@@ -144,13 +144,9 @@ export function LiveLootCapture({ controller }: { controller: ReturnType<typeof 
             className={styles.CapturePanel}
             aria-labelledby="live-capture-heading"
             data-setup-open={setupOpen && status === "capturing"}
-            data-review-open={reviewResults.some((result) => !result.accepted)}
         >
             <video ref={video} className={styles.SourceVideo} muted playsInline />
             <div className={styles.Intro}>
-                <span className={styles.CaptureMark}>
-                    <Icon name="capture" size={26} />
-                </span>
                 <div>
                     <h2 id="live-capture-heading" tabIndex={-1}>
                         Loot capture

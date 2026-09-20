@@ -2,7 +2,7 @@
     min-width: 0;
 }
 .Picker {
-    padding: 24px;
+    padding: 8px 0 16px;
     min-width: 0;
 }
 .Selected {
@@ -14,25 +14,18 @@
 .Selected > img {
     width: 56px;
     height: 56px;
-    padding: 6px;
+    padding: 4px;
     object-fit: contain;
-    border: 1px solid var(--line-strong);
-    border-radius: 12px;
-    background: var(--input-background);
 }
 .Identity {
     flex: 1;
     min-width: min(220px, 100%);
 }
-.Identity > span {
-    font-size: 11px;
-    color: var(--muted);
-}
 .Identity h2 {
     margin: 4px 0 0;
-    font-size: clamp(20px, 2.2vw, 27px);
-    font-weight: 550;
-    letter-spacing: -0.6px;
+    font-size: clamp(28px, 3.2vw, 40px);
+    font-weight: 400;
+    letter-spacing: -1px;
     overflow-wrap: anywhere;
 }
 .Shortcuts {
@@ -47,7 +40,7 @@
     gap: 8px;
     max-width: 100%;
     border: 1px solid var(--line);
-    border-radius: 6px;
+    border-radius: var(--control-radius);
     background: transparent;
     color: var(--text-soft);
     padding: 7px 10px;
@@ -94,7 +87,7 @@
     background: transparent;
     color: var(--text-soft);
     border: 1px solid transparent;
-    border-radius: 6px;
+    border-radius: var(--control-radius);
     padding: 7px 12px;
     font-size: 12px;
 }
@@ -123,7 +116,7 @@
     display: flex;
     min-width: 0;
     border: 1px solid var(--line);
-    border-radius: 12px;
+    border-radius: var(--panel-radius);
 }
 .Tile[data-selected="true"] {
     background: var(--selected);
@@ -138,7 +131,7 @@
     padding: 14px 8px 14px 12px;
     background: transparent;
     border: 0;
-    border-radius: 7px;
+    border-radius: var(--control-radius);
     color: var(--text);
     text-align: left;
     font-size: 13px;
@@ -162,7 +155,7 @@
     flex-shrink: 0;
     padding: 10px;
     border: 0;
-    border-radius: 7px;
+    border-radius: var(--control-radius);
     background: transparent;
     color: var(--muted);
 }
@@ -191,8 +184,16 @@
     }
 }
 @media (max-width: 600px) {
-    .Picker {
-        padding: 20px;
+    .Selected {
+        gap: 12px;
+    }
+    .Selected > img {
+        width: 44px;
+        height: 44px;
+    }
+    .Identity {
+        min-width: 0;
+        flex-basis: calc(100% - 60px);
     }
     .Grid {
         grid-template-columns: minmax(0, 1fr);

@@ -1,10 +1,26 @@
+@font-face {
+    font-family: "DM Sans";
+    src: url("/fonts/dmsans-variable.ttf") format("truetype");
+    font-style: normal;
+    font-weight: 100 1000;
+    font-display: swap;
+}
+@font-face {
+    font-family: "Newsreader";
+    src: url("/fonts/newsreader-variable.ttf") format("truetype");
+    font-style: normal;
+    font-weight: 200 800;
+    font-display: swap;
+}
 :root {
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    font-family: "DM Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
     color: var(--text);
     background: var(--canvas);
     color-scheme: dark;
     font-synthesis: none;
+    font-optical-sizing: auto;
     text-rendering: optimizeLegibility;
+    --font-display: "Newsreader", Georgia, serif;
     --font-numeric: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
     --space-1: 4px;
     --space-2: 8px;
@@ -12,46 +28,44 @@
     --space-4: 16px;
     --space-5: 20px;
     --space-6: 24px;
-    --control-height: 38px;
-    --control-radius: 8px;
-    --panel-radius: 16px;
-    --dialog-radius: 18px;
+    --control-height: 34px;
+    --control-radius: 3px;
+    --panel-radius: 3px;
+    --dialog-radius: 4px;
     --text-label: 11px;
     --text-control: 12px;
-    --text-dialog-title: 22px;
+    --text-dialog-title: 28px;
     --motion-fast: 120ms;
     --motion-dialog: 160ms;
     --ease-out: cubic-bezier(0.2, 0, 0, 1);
-    --dialog-shadow: 0 24px 100px #0006;
-    --brand: #8de2d0;
-    --brand-hover: #b4f0e2;
-    --brand-contrast: #123c34;
-    --brand-surface: #213d3d;
-    --brand-border: #426c65;
-    --feature-background: #c1eadd;
-    --feature-text: #163e34;
-    --canvas: #101a20;
-    --chrome: #142128;
-    --surface: #18262e;
-    --surface-raised: #20323b;
-    --hover: #263b43;
-    --selected: #25433f;
-    --line: #2b3d45;
-    --line-strong: #50626a;
-    --row-line: #293a42;
-    --text: #e0e9e9;
-    --text-strong: #f1f6f4;
-    --text-soft: #bacbce;
-    --muted: #95aaaf;
+    --dialog-shadow: 0 20px 80px #0006;
+    --brand: #f18c79;
+    --brand-hover: #ffbaa6;
+    --brand-contrast: #30201b;
+    --brand-surface: #372b25;
+    --brand-border: #896051;
+    --canvas: #211f1c;
+    --chrome: #211f1c;
+    --surface: #272520;
+    --surface-raised: #302d27;
+    --hover: #3a352e;
+    --selected: #3b2e26;
+    --line: #454037;
+    --line-strong: #766b5d;
+    --row-line: #39352e;
+    --text: #e0d9cd;
+    --text-strong: #f4ece0;
+    --text-soft: #c9bfae;
+    --muted: #aea393;
     --mint: var(--brand);
-    --gold: #efb59b;
-    --success: #99d7b9;
-    --danger: #ffb0a7;
-    --input-background: #132128;
-    --focus-border: #8de2d0;
-    --button-background: #20323b;
-    --button-border: #475e65;
-    --button-hover-border: #8aacae;
+    --gold: #d7b699;
+    --success: #b0c29a;
+    --danger: #ffa6b2;
+    --input-background: #25231e;
+    --focus-border: var(--brand);
+    --button-background: transparent;
+    --button-border: #766b5d;
+    --button-hover-border: #c9bfae;
     --accent-contrast: var(--brand-contrast);
     --accent-hover: var(--brand-hover);
     --accent-border: var(--brand-border);
@@ -59,75 +73,67 @@
     --clock-background: var(--surface-raised);
     --quick-item-background: var(--hover);
     --quick-item-selected: var(--selected);
-    --item-swatch: #2c4148;
-    --expense-swatch: #49352e;
+    --item-swatch: #383329;
+    --expense-swatch: #3b2e26;
     --note-text: var(--muted);
 }
 :root[data-theme="light"] {
     color-scheme: light;
-    --brand: #176957;
-    --brand-hover: #105443;
-    --brand-contrast: #ffffff;
-    --brand-surface: #dfede8;
-    --brand-border: #91b8ab;
-    --feature-background: #d5eae0;
-    --feature-text: #163e34;
-    --canvas: #eff2ef;
-    --chrome: #f9fbf8;
-    --surface: #ffffff;
-    --surface-raised: #f0f4f1;
-    --hover: #e5ece8;
-    --selected: #e0eee7;
-    --line: #dbe3de;
-    --line-strong: #a3b5ac;
-    --row-line: #e5ebe7;
-    --text: #253a35;
-    --text-strong: #182f29;
-    --text-soft: #476057;
-    --muted: #5e736a;
-    --gold: #9d4b28;
-    --success: #216c4b;
-    --danger: #b03232;
-    --input-background: #ffffff;
-    --focus-border: #176957;
-    --button-background: #ffffff;
-    --button-border: #b9c9c1;
-    --button-hover-border: #588c7c;
-    --item-swatch: #e5ede8;
-    --expense-swatch: #f6e8e1;
-    --dialog-shadow: 0 24px 100px #163e3426;
+    --brand: #ae3926;
+    --brand-hover: #8d291b;
+    --brand-contrast: #fff8ee;
+    --brand-surface: #f1e1d4;
+    --brand-border: #c4947e;
+    --canvas: #f3efe5;
+    --chrome: #f3efe5;
+    --surface: #faf7ef;
+    --surface-raised: #ebe5d9;
+    --hover: #e7dfd1;
+    --selected: #f0e1d5;
+    --line: #d4ccbd;
+    --line-strong: #958978;
+    --row-line: #ded7ca;
+    --text: #39362f;
+    --text-strong: #26231e;
+    --text-soft: #595245;
+    --muted: #6b6051;
+    --gold: #855b3e;
+    --success: #46613a;
+    --danger: #ad2541;
+    --input-background: #faf7ef;
+    --button-border: #a99b86;
+    --button-hover-border: #595245;
+    --item-swatch: #e5dccd;
+    --expense-swatch: #f0ded0;
+    --dialog-shadow: 0 20px 80px #30261f33;
 }
 :root[data-theme="moss"] {
-    --brand: #b7d58c;
-    --brand-hover: #d1e8ae;
-    --brand-contrast: #22321c;
-    --brand-surface: #33412d;
-    --brand-border: #6e825b;
-    --feature-background: #d0dfb3;
-    --feature-text: #2d4126;
-    --canvas: #19221d;
-    --chrome: #1d2922;
-    --surface: #243129;
-    --surface-raised: #2e3d32;
-    --hover: #39493b;
-    --selected: #3b4e35;
-    --line: #3b4b3e;
-    --line-strong: #647762;
-    --row-line: #36473a;
-    --text: #e5eddf;
-    --text-strong: #f2f6ed;
-    --text-soft: #c5d1bc;
-    --muted: #a9baa1;
-    --gold: #efbe9a;
-    --success: #aed49d;
-    --danger: #ffb0a7;
-    --input-background: #1d2a22;
-    --focus-border: #b7d58c;
-    --button-background: #2e3d32;
-    --button-border: #647762;
-    --button-hover-border: #a9baa1;
-    --item-swatch: #394c3c;
-    --expense-swatch: #493c30;
+    --brand: #e3a88c;
+    --brand-hover: #ffc6a8;
+    --brand-contrast: #30261d;
+    --brand-surface: #3a3b2e;
+    --brand-border: #888168;
+    --canvas: #22291f;
+    --chrome: #22291f;
+    --surface: #293125;
+    --surface-raised: #333d2e;
+    --hover: #3f4837;
+    --selected: #3b4130;
+    --line: #48503d;
+    --line-strong: #788169;
+    --row-line: #3c4534;
+    --text: #dce1cd;
+    --text-strong: #eef0df;
+    --text-soft: #c2cbb3;
+    --muted: #adb79d;
+    --gold: #d7b699;
+    --success: #b4d297;
+    --danger: #ffa6b2;
+    --input-background: #252e22;
+    --button-border: #788169;
+    --button-hover-border: #c2cbb3;
+    --item-swatch: #3a4430;
+    --expense-swatch: #433b2c;
 }
 * {
     box-sizing: border-box;
@@ -214,14 +220,17 @@ h3 {
     color: var(--text-strong);
 }
 h1 {
-    font-size: clamp(28px, 3vw, 36px);
-    font-weight: 650;
-    letter-spacing: -1.2px;
-    line-height: 1.35;
+    font-family: var(--font-display);
+    font-size: clamp(32px, 3vw, 40px);
+    font-weight: 450;
+    letter-spacing: -0.8px;
+    line-height: 1.15;
 }
 h2 {
-    font-size: 16px;
-    font-weight: 600;
+    font-family: var(--font-display);
+    font-size: 24px;
+    font-weight: 500;
+    line-height: 1.2;
 }
 h3 {
     font-size: 14px;
@@ -233,6 +242,8 @@ h3 {
     flex-wrap: wrap;
     justify-content: space-between;
     gap: 16px;
+    padding-bottom: 20px;
+    border-bottom: 1px solid var(--line-strong);
     margin-bottom: 24px;
 }
 .eyebrow {
@@ -256,7 +267,7 @@ h3 {
     border: 1px solid var(--button-border);
     border-radius: var(--control-radius);
     background: var(--button-background);
-    padding: 9px 14px;
+    padding: 7px 12px;
     cursor: pointer;
     font-size: var(--text-control);
     font-weight: 600;
@@ -325,7 +336,7 @@ h3 {
     width: 38px;
     height: 38px;
     border: 1px solid var(--line);
-    border-radius: 10px;
+    border-radius: var(--control-radius);
     margin-bottom: 16px;
 }
 .item-swatch {
@@ -335,7 +346,7 @@ h3 {
     place-items: center;
     background: var(--item-swatch);
     color: var(--text-soft);
-    border-radius: 6px;
+    border-radius: var(--control-radius);
 }
 .item-swatch.expense {
     background: var(--expense-swatch);
