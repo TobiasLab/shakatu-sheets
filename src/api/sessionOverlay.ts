@@ -34,3 +34,11 @@ export async function requestOverlayTimer(sessionId: string, action: OverlayTime
         stop();
     }
 }
+
+export function sessionOverlayUsesLayerShell() {
+    return invoke<boolean>("session_overlay_uses_layer_shell");
+}
+
+export function adjustSessionOverlay(action: "move" | "resize" | "nextMonitor", dx = 0, dy = 0) {
+    return invoke<void>("adjust_session_overlay", { action, dx: Math.round(dx), dy: Math.round(dy) });
+}

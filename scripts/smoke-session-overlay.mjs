@@ -122,6 +122,11 @@ function installTauriMock() {
                     if (window.__failLootFont) throw Error("Synthetic font save failure");
                     window.__savedLootFont = args.font;
                     return;
+                case "session_overlay_uses_layer_shell":
+                    return window.__layerShell ?? false;
+                case "adjust_session_overlay":
+                    if (window.__failPlacement) throw Error("Synthetic placement failure");
+                    return;
                 case "load_overlay_opacity":
                     return window.__savedOpacity;
                 case "save_overlay_opacity":
@@ -224,7 +229,9 @@ const server = await createServer({
 try {
     await send("Page.enable");
     await send("Runtime.enable");
-    await send("Page.addScriptToEvaluateOnNewDocument", { source: `(${installTauriMock.toString()})();` });
+    await send("Page.addScriptToEvaluateOnNewDocument", {
+        source: `window.__layerShell = ${Boolean(process.env.OVERLAY_LAYER_SHELL)}; (${installTauriMock.toString()})();`,
+    });
     await server.listen();
     await send("Page.navigate", { url: server.resolvedUrls.local[0] });
     await send("Page.bringToFront");
@@ -293,6 +300,99 @@ try {
         await evaluate("window.__failShow=false;window.openOverlay()");
         await until('document.querySelector("#publisher-error").textContent === ""');
         console.info("Overlay lifecycle smoke passed");
+        await evaluate("window.__calls=[];window.openOverlay()");
+        await sleep(100);
+        const focused = await evaluate('window.__calls.some(c => c.command === "plugin:window|set_focus")');
+        assert.equal(focused, !process.env.OVERLAY_LAYER_SHELL, "Layer overlays must not request focus on opening");
+        if (process.env.OVERLAY_LAYER_SHELL) {
+            await evaluate("window.showSettings(false)");
+            await sleep(100);
+            await until(`document.querySelector('[aria-label="Resize overlay"]') !== null`);
+            await evaluate(`document.querySelector('main header button').scrollIntoView({block: "center"})`);
+            await sleep(100);
+            const rect = await evaluate(
+                `(() => { const r = document.querySelector('main header button').getBoundingClientRect(); return {x: r.x + 15, y: r.y + 10}; })()`,
+            );
+            await evaluate("window.__calls=[]");
+            await send("Input.dispatchMouseEvent", {
+                type: "mousePressed",
+                ...rect,
+                button: "left",
+                buttons: 1,
+                clickCount: 1,
+            });
+            await until('document.querySelector("main [role=status]")?.textContent.includes("Release to move")');
+            await send("Input.dispatchMouseEvent", {
+                type: "mouseMoved",
+                x: rect.x + 80,
+                y: rect.y + 40,
+                button: "left",
+                buttons: 1,
+            });
+            assert.equal(
+                await evaluate('window.__calls.filter(c => c.command === "adjust_session_overlay").length'),
+                0,
+            );
+            await send("Input.dispatchMouseEvent", {
+                type: "mouseReleased",
+                x: rect.x + 80,
+                y: rect.y + 40,
+                button: "left",
+                buttons: 0,
+                clickCount: 1,
+            });
+            await until('window.__calls.some(c => c.command === "adjust_session_overlay")');
+            assert.deepEqual(await evaluate('window.__calls.find(c => c.command === "adjust_session_overlay").args'), {
+                action: "move",
+                dx: 80,
+                dy: 40,
+            });
+            await evaluate("window.__calls=[]");
+            await send("Input.dispatchMouseEvent", {
+                type: "mousePressed",
+                ...rect,
+                button: "left",
+                buttons: 1,
+                clickCount: 1,
+            });
+            await until('document.querySelector("main [role=status]")?.textContent.includes("Release to move")');
+            await evaluate(
+                `document.querySelector('main header button').dispatchEvent(new KeyboardEvent('keydown', {key: 'Escape', bubbles: true}));`,
+            );
+            await send("Input.dispatchMouseEvent", {
+                type: "mouseReleased",
+                x: rect.x + 80,
+                y: rect.y + 40,
+                button: "left",
+                buttons: 0,
+                clickCount: 1,
+            });
+            assert.equal(
+                await evaluate('window.__calls.filter(c => c.command === "adjust_session_overlay").length'),
+                0,
+                "Escape cancels placement",
+            );
+            await evaluate(
+                `document.querySelector('[aria-label="Resize overlay"]').dispatchEvent(new KeyboardEvent('keydown', {key: 'ArrowRight', bubbles: true}));`,
+            );
+            await until(
+                'window.__calls.some(c => c.command === "adjust_session_overlay" && c.args.action === "resize" && c.args.dx === 16)',
+            );
+            await evaluate(`document.querySelector('[aria-label="Move overlay to next display"]').click()`);
+            await until(
+                'window.__calls.some(c => c.command === "adjust_session_overlay" && c.args.action === "nextMonitor")',
+            );
+            await evaluate(
+                `window.__failPlacement=true;document.querySelector('[aria-label="Move overlay to next display"]').click()`,
+            );
+            await until(
+                'document.querySelector("main [role=alert]")?.textContent.includes("Synthetic placement failure")',
+            );
+            await evaluate("window.__failPlacement=false");
+            await evaluate("window.showSettings(true)");
+            await until('document.querySelector("#overlay-opacity")?.value === "65"');
+            console.info("Wayland placement controls smoke passed");
+        }
 
         assert.equal(await evaluate('document.querySelector("main input[type=range]")'), null);
         assert.equal(await evaluate('document.querySelector("main").style.opacity'), "0.65");
@@ -371,7 +471,10 @@ try {
         assert.equal(await evaluate("window.currentSession.status"), "running");
         await evaluate('window.updateSession(0,"finished")');
         await until('!document.querySelector("main button[aria-label$=timer]")');
-        assert.equal(await evaluate(`document.querySelectorAll('main button').length`), 2);
+        assert.equal(
+            await evaluate(`document.querySelectorAll('main button').length`),
+            process.env.OVERLAY_LAYER_SHELL ? 4 : 2,
+        );
         assert.match(
             await evaluate(`window.requestTimer(window.currentSession.id, 'resume').then(()=>'',String)`),
             /timer state has changed/,

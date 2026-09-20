@@ -20,7 +20,11 @@ pub fn run() {
         app.manage(garmoth::GarmothOperations::default());
         app.manage(native_capture::NativeCaptureState::default());
         #[cfg(target_os = "linux")]
-        linux_window::configure_session_overlay(app.handle())?;
+        app.manage(session_overlay_window::OverlayWindowMode(
+            linux_window::configure_session_overlay(app.handle())?,
+        ));
+        #[cfg(not(target_os = "linux"))]
+        app.manage(session_overlay_window::OverlayWindowMode::default());
         #[cfg(target_os = "windows")]
         {
             native_capture::configure_diagnostics(app.handle());
@@ -54,6 +58,8 @@ pub fn run() {
 
     #[cfg(all(debug_assertions, any(target_os = "linux", target_os = "windows")))]
     let builder = builder.invoke_handler(tauri::generate_handler![
+        session_overlay_window::session_overlay_uses_layer_shell,
+        session_overlay_window::adjust_session_overlay,
         persistence::sessions::delete_finished_session,
         persistence::sessions::list_finished_sessions,
         persistence::sessions::load_active_session,
@@ -90,6 +96,8 @@ pub fn run() {
 
     #[cfg(not(all(debug_assertions, any(target_os = "linux", target_os = "windows"))))]
     let builder = builder.invoke_handler(tauri::generate_handler![
+        session_overlay_window::session_overlay_uses_layer_shell,
+        session_overlay_window::adjust_session_overlay,
         persistence::sessions::delete_finished_session,
         persistence::sessions::list_finished_sessions,
         persistence::sessions::load_active_session,
@@ -134,6 +142,7 @@ mod loot_layout;
 mod market;
 mod native_capture;
 mod persistence;
+mod session_overlay_window;
 
 use tauri::{Emitter, Manager};
 

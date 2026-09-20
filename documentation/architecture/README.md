@@ -93,9 +93,15 @@ See [repeated loot arrivals](../design/repeated-loot-arrivals.md) for evidence, 
 ## Session overlay
 
 The desktop live-session toolbar opens a separate, resizable, always-on-top `session-overlay` window.
-On Linux, setup assigns GTK's `Utility` window-type hint before the hidden overlay is first shown.
-This asks X11/XWayland window managers to treat the pop-out as a floating utility; actual tiling and stacking
-remain window-manager policy. GTK's native Wayland backend does not communicate this utility type to the compositor.
+On supported native Wayland desktops (including KDE Plasma and Hyprland), setup initializes the hidden GTK window
+as a layer-shell `Overlay` surface before realization. This selects the compositor's overlay layer above fullscreen
+surfaces, without reserving screen space or requesting keyboard focus when opened. Keyboard focus is on demand
+when supported by the protocol. X11/XWayland and unsupported Wayland compositors retain the standard utility window;
+that fallback cannot guarantee visibility over fullscreen games.
+Layer surfaces use top/left margins rather than desktop window positions. Dragging the header or bottom-right resize
+handle applies the gesture on release, avoiding surface-local pointer feedback while moving. Arrow keys on either
+handle move/resize in 16-pixel steps (64 with Shift); Escape cancels an active drag. A display button cycles outputs.
+Placement is clamped to the current output, and the usual show/hide, snapshots, timer requests and opacity stay shared.
 Drag its header to move it; the close button hides it, preserving its position until the app exits.
 The main window sends session, theme, opacity, and timer-availability snapshots through targeted Tauri events only while the overlay is shown.
 A ready handshake and show/hide lifecycle events synchronize the latest snapshot on opening or reloading.
@@ -113,6 +119,7 @@ and pending saves are awaited before closing; hiding the overlay or leaving Sett
 Position and size are not persisted by the app.
 Closing the main window retains the save-before-destroy flow, then exits the app including the overlay.
 The overlay uses a separate capability for events, hiding, dragging, and minimized-state inspection.
+Native layer placement commands accept calls only from the session overlay and only when layer-shell is active.
 
 Browser preview disables the pop-out button. Desktop verification should cover dragging and resizing, hiding and
 reopening, loot edits/removals, pause/resume/reset, continued timing while the main window is minimized, and app exit.

@@ -3,6 +3,8 @@
 Use Node from `.node-version` and Rust from `rust-toolchain.toml`. For native Windows prerequisites, installer commands,
 and outstanding validation, see [Windows support](windows.md). Install locked dependencies and run the desktop application:
 
+Linux builds also require GTK Layer Shell 0.6 or later (`libgtk-layer-shell-dev` on Debian/Ubuntu,
+`gtk-layer-shell-devel` on Fedora, or `gtk-layer-shell` on Arch). The library must be available at runtime too.
 Linux builds require the PipeWire development headers (`libpipewire-0.3-dev` on Debian/Ubuntu or `pipewire-devel` on
 Fedora) and Clang for the Rust PipeWire bindings' generated FFI.
 
@@ -157,21 +159,40 @@ It checks visibility, timer controls, snapshot publication, opacity, and prefere
 overlay so hidden catalogs in Settings cannot affect counts. This browser harness does not replace native drag, DPI,
 always-on-top, or game-capture verification.
 
-#### Linux utility-window experiment
+#### Native Wayland session overlay
 
-The session overlay requests GTK's `Utility` window type before its first show, alongside its existing borderless,
-resizable and always-on-top configuration. This is an X11/XWayland window-manager hint, not a guarantee that it floats
-or stays above a focused fullscreen game. GTK's native Wayland backend does not communicate the utility type to KDE.
-See [GTK window-type hints](https://docs.gtk.org/gtk3/method.Window.set_type_hint.html) and
-[GTK's Wayland implementation](https://gitlab.gnome.org/GNOME/gtk/-/blob/gtk-3-24/gdk/wayland/gdkwindow-wayland.c).
+The earlier utility-window experiment did not keep the pop-out above BDO on KDE/XWayland. Supported native Wayland
+sessions now use GTK Layer Shell's `Overlay` layer. The backend is selected from GTK/protocol capabilities, not desktop
+name strings. X11/XWayland and unsupported compositors retain a standard utility window.
 
-To validate on KDE, record the desktop/session version and the app's actual GTK backend. On a desktop with XWayland
-available, `GDK_BACKEND=x11 npm run tauri dev` selects the X11 path for a comparison; it does not change the game's backend.
-After opening the pop-out, run `xprop _NET_WM_WINDOW_TYPE _NET_WM_STATE` and click it. Expect
-`_NET_WM_WINDOW_TYPE_UTILITY` and, if honored by the window manager, `_NET_WM_STATE_ABOVE`.
-Run the same check on the main window to confirm it remains a normal window. `xprop` cannot inspect native Wayland windows.
+Test with the native Wayland backend (remove the earlier `GDK_BACKEND=x11` override):
 
-Verify floating placement without a manual rule separately from visibility over BDO: focus the borderless game,
-Alt-Tab away and back, minimize the main app, then hide/reopen the pop-out. Check dragging, resizing, opacity and timer
-buttons, and that placing the overlay above the game does not obstruct the loot-capture regions.
-Record native Wayland results separately. These gameplay checks are pending until tested in a graphical gaming session.
+```sh
+GDK_BACKEND=wayland npm run tauri dev
+```
+
+Use the development build or unbundled executable for this test. Some AppImage GTK launch hooks force X11; verify
+native Wayland operation before testing packaged builds. Linux builds require the GTK Layer Shell development package
+listed above, and distribution packages must include its runtime library.
+
+Open the pop-out, focus BDO in borderless fullscreen, Alt-Tab away/back, and minimize the main app. Check that the overlay
+remains visible without taking keyboard focus when opened. Drag and release the header to move it; drag and release
+the bottom-right handle to resize. Arrow keys on these handles move/resize, Shift increases the step, and Escape cancels
+a drag. The display button cycles monitors. Check different monitor scales, hiding/reopening, timer controls, opacity,
+and capture regions (the visible overlay must not obscure loot being recognized). Verify compositor shortcuts remain
+usable. Game behavior on KDE still requires testing on the gaming machine.
+
+`OVERLAY_LAYER_SHELL=1 node scripts/smoke-session-overlay.mjs` exercises the layer placement UI, focus policy, and command
+failures with synthetic native APIs; omit the variable to test the standard window path. Native compositor testing is
+separate from this browser smoke.
+
+Native verification on September 20, 2026 used the real Tauri app in an isolated headless Sway 1.9 session with
+GTK Layer Shell 0.8.2. The pop-out rendered above a separately focused fullscreen GTK window. Native pointer input
+verified starting the timer, moving from (24, 24) to (204, 124), resizing from 360×250 to 460×330, and hiding/reopening
+with geometry preserved. The display button moved it to a second output; changing that output to scale 3 clamped the
+window to its 266×200 logical area, and disabling the output returned it to the remaining display. Protocol logs
+confirmed layer 3 (`Overlay`). This validates native integration on Sway; KDE/BDO and packaged builds remain unverified.
+
+Implementation references: [GTK Layer Shell](https://wmww.github.io/gtk-layer-shell/),
+[supported desktops](https://github.com/wmww/gtk-layer-shell#supported-desktops), and
+[AppImage GTK backend issue](https://github.com/tauri-apps/tauri/issues/15781).
