@@ -52,7 +52,7 @@ export function useOverlayPlacement(action: "move" | "resize", onError: (error: 
             };
             if (delta[event.key]) {
                 event.preventDefault();
-                apply(...delta[event.key]);
+                if (!gesture.current) apply(...delta[event.key]);
             }
         },
     };
