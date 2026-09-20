@@ -1,7 +1,7 @@
 import { emit, emitTo, listen } from "@tauri-apps/api/event";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { memo, useEffect, useMemo, useState } from "react";
-import { getDropIcon } from "../../data/grindSpots";
+import { getDropIcon, getGrindSpot } from "../../data/grindSpots";
 import { calculateEntryTotals } from "../../domain/session";
 import { formatDuration, formatSilver } from "../../format";
 import { useElapsedTime } from "../../hooks/useElapsedTime";
@@ -65,7 +65,6 @@ export function SessionOverlay() {
                     type="button"
                     className={styles.DragHandle}
                     title="Drag to move overlay"
-                    aria-label="Drag to move overlay"
                     onMouseDown={(event) => {
                         if (event.button === 0)
                             void getCurrentWindow()
@@ -73,7 +72,8 @@ export function SessionOverlay() {
                                 .catch((error) => setError(String(error)));
                     }}
                 >
-                    <span aria-hidden="true">⠿</span>
+                    <span aria-hidden="true">⠿</span>{" "}
+                    {snapshot ? getGrindSpot(snapshot.session.grindSpotId).name : "Session overlay"}
                 </button>
                 <button
                     type="button"
