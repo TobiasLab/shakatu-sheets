@@ -12,7 +12,13 @@
     flex-wrap: wrap;
 }
 .Selected > img {
+    width: 48px;
+    height: 48px;
+    padding: 4px;
     object-fit: contain;
+    border: 1px solid var(--brand-border);
+    border-radius: 12px;
+    background: var(--brand-surface);
 }
 .Identity {
     flex: 1;

@@ -34,6 +34,27 @@
     font-variant-numeric: tabular-nums;
     line-height: 1.2;
 }
+.Metric:first-child strong {
+    color: var(--brand);
+}
+.SessionIdentity {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    min-width: 0;
+}
+.SessionIdentity > img {
+    flex-shrink: 0;
+    padding: 4px;
+    border: 1px solid var(--brand-border);
+    border-radius: 12px;
+    background: var(--brand-surface);
+    object-fit: contain;
+}
+.SessionIdentity > div {
+    min-width: 0;
+    overflow-wrap: anywhere;
+}
 .Metric small {
     color: var(--muted);
     font-size: var(--text-label);

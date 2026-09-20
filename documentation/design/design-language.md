@@ -2,7 +2,7 @@
 
 Shakatu Sheets is a restrained desktop workspace for tracking grind sessions. Time, earnings, the selected location, and
 loot should be easy to scan. The interface uses neutral surfaces, system typography, flat sections, small icons, and color
-with a specific purpose. Game identity comes from recognizable item icons and names.
+with a specific purpose. Game identity comes from recognizable item icons and names, with a restrained warm-gold accent.
 
 This is the reference for new and revised UI. The [design overview](README.md) documents feature behavior. Existing
 components may have local variations; use the conventions here when extending them, and update this guide when a shared
@@ -23,13 +23,24 @@ also work in light and moss. Theme identifiers are saved preferences and must re
 | Dividers | `--line`, `--row-line`, `--line-strong` | Section/table separators; stronger borders for inputs and emphasis |
 | Text hierarchy | `--text-strong`, `--text`, `--text-soft`, `--muted` | Headings, content, secondary content, and supporting labels |
 | Controls | `--input-background`, `--button-background`, `--button-border`, `--button-hover-border` | Reuse existing control styling |
-| Primary action | `--mint`, `--accent-contrast`, `--accent-hover` | The primary button; token names do not imply a fixed hue |
+| Primary action | `--brand`, `--brand-contrast`, `--brand-hover` | Warm-gold primary actions with theme-specific text contrast |
 | Meaningful accents | `--success`, `--danger`, `--gold` | Success, errors/destructive actions, and favorites |
 | Keyboard focus | `--focus-border` | Visible focus outlines and focused input borders |
 
 Keep ordinary page sections flat, with spacing and one-pixel dividers establishing groups. Use bordered tiles when each
 item is selectable, as in the spot browser. Reserve substantial shadows for floating surfaces and dialogs. Avoid decorative
 metric cards, gradients, glowing borders, and arbitrary colors. State must remain understandable without color alone.
+
+### Brand accent
+
+Use `--brand`, `--brand-hover`, `--brand-contrast`, `--brand-surface`, and `--brand-border` for the warm-gold identity.
+Dark and moss use pale gold; light uses a deeper bronze with white primary-button text. The accent identifies primary
+actions, active navigation, the app mark, and the leading earnings value. Keep other metrics and content neutral so
+the accent retains hierarchy. Do not recolor error or success feedback. Existing `--gold` still serves favorites and
+expense labels; its color is not the source for primary-button contrast.
+
+Use the selected spot's bundled item icon in a compact 48px framed treatment on both idle and active sessions.
+Keep the frame flat, without glow, gradients, or background artwork. The existing wordmark and icon system remain.
 
 ### Typography
 

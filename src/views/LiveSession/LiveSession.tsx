@@ -123,13 +123,16 @@ export function LiveSessionView({
     return (
         <>
             <header className="topbar">
-                <div>
-                    <h1>{spotEditable ? "New session" : spot.name}</h1>
-                    {!spotEditable && (
-                        <span className={styles.SpotLock}>
-                            <Icon name="lock" size={13} /> Grind spot locked for this session
-                        </span>
-                    )}
+                <div className={styles.SessionIdentity}>
+                    {!spotEditable && <img src={spot.trash.icon} width={48} height={48} alt="" />}
+                    <div>
+                        <h1>{spotEditable ? "New session" : spot.name}</h1>
+                        {!spotEditable && (
+                            <span className={styles.SpotLock}>
+                                <Icon name="lock" size={13} /> Grind spot locked for this session
+                            </span>
+                        )}
+                    </div>
                 </div>
                 <button
                     type="button"
