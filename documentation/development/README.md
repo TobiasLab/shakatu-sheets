@@ -156,3 +156,22 @@ A headless environment without those tools cannot establish native Linux or Wind
 It checks visibility, timer controls, snapshot publication, opacity, and preferences; item assertions are scoped to the
 overlay so hidden catalogs in Settings cannot affect counts. This browser harness does not replace native drag, DPI,
 always-on-top, or game-capture verification.
+
+#### Linux utility-window experiment
+
+The session overlay requests GTK's `Utility` window type before its first show, alongside its existing borderless,
+resizable and always-on-top configuration. This is an X11/XWayland window-manager hint, not a guarantee that it floats
+or stays above a focused fullscreen game. GTK's native Wayland backend does not communicate the utility type to KDE.
+See [GTK window-type hints](https://docs.gtk.org/gtk3/method.Window.set_type_hint.html) and
+[GTK's Wayland implementation](https://gitlab.gnome.org/GNOME/gtk/-/blob/gtk-3-24/gdk/wayland/gdkwindow-wayland.c).
+
+To validate on KDE, record the desktop/session version and the app's actual GTK backend. On a desktop with XWayland
+available, `GDK_BACKEND=x11 npm run tauri dev` selects the X11 path for a comparison; it does not change the game's backend.
+After opening the pop-out, run `xprop _NET_WM_WINDOW_TYPE _NET_WM_STATE` and click it. Expect
+`_NET_WM_WINDOW_TYPE_UTILITY` and, if honored by the window manager, `_NET_WM_STATE_ABOVE`.
+Run the same check on the main window to confirm it remains a normal window. `xprop` cannot inspect native Wayland windows.
+
+Verify floating placement without a manual rule separately from visibility over BDO: focus the borderless game,
+Alt-Tab away and back, minimize the main app, then hide/reopen the pop-out. Check dragging, resizing, opacity and timer
+buttons, and that placing the overlay above the game does not obstruct the loot-capture regions.
+Record native Wayland results separately. These gameplay checks are pending until tested in a graphical gaming session.

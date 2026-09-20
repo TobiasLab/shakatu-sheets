@@ -3546,6 +3546,7 @@ version = "0.1.0"
 dependencies = [
  "arc-swap",
  "ashpd",
+ "gtk",
  "pipewire",
  "png 0.18.1",
  "quick-xml",

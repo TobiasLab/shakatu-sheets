@@ -93,6 +93,9 @@ See [repeated loot arrivals](../design/repeated-loot-arrivals.md) for evidence, 
 ## Session overlay
 
 The desktop live-session toolbar opens a separate, resizable, always-on-top `session-overlay` window.
+On Linux, setup assigns GTK's `Utility` window-type hint before the hidden overlay is first shown.
+This asks X11/XWayland window managers to treat the pop-out as a floating utility; actual tiling and stacking
+remain window-manager policy. GTK's native Wayland backend does not communicate this utility type to the compositor.
 Drag its header to move it; the close button hides it, preserving its position until the app exits.
 The main window sends session, theme, opacity, and timer-availability snapshots through targeted Tauri events only while the overlay is shown.
 A ready handshake and show/hide lifecycle events synchronize the latest snapshot on opening or reloading.

@@ -19,6 +19,8 @@ pub fn run() {
         app.manage(persistence::DatabasePath(database_path));
         app.manage(garmoth::GarmothOperations::default());
         app.manage(native_capture::NativeCaptureState::default());
+        #[cfg(target_os = "linux")]
+        linux_window::configure_session_overlay(app.handle())?;
         #[cfg(target_os = "windows")]
         {
             native_capture::configure_diagnostics(app.handle());
@@ -134,6 +136,9 @@ mod native_capture;
 mod persistence;
 
 use tauri::{Emitter, Manager};
+
+#[cfg(target_os = "linux")]
+mod linux_window;
 
 #[cfg(target_os = "windows")]
 mod windows_window;
