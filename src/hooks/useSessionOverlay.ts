@@ -2,6 +2,7 @@ import { isTauri } from "@tauri-apps/api/core";
 import { emit, emitTo, listen } from "@tauri-apps/api/event";
 import { Window } from "@tauri-apps/api/window";
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { sessionOverlayUsesLayerShell } from "../api/sessionOverlay";
 import {
     OVERLAY_READY,
     OVERLAY_STATE,
@@ -79,7 +80,7 @@ export function useSessionOverlay(
             if (!overlay) throw new Error("Session overlay window is unavailable. Restart the desktop app.");
             await overlay.show();
             await emit(OVERLAY_VISIBILITY_CHANGED);
-            await overlay.setFocus();
+            if (!(await sessionOverlayUsesLayerShell())) await overlay.setFocus();
         } catch (error) {
             setError(`Could not open overlay: ${String(error)}`);
         }

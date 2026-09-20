@@ -1,6 +1,7 @@
 import { emit, emitTo, listen } from "@tauri-apps/api/event";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { memo, useEffect, useMemo, useState } from "react";
+import { adjustSessionOverlay, sessionOverlayUsesLayerShell } from "../../api/sessionOverlay";
 import { getDropIcon, getGrindSpot } from "../../data/grindSpots";
 import { calculateEntryTotals } from "../../domain/session";
 import { formatDuration, formatSilver } from "../../format";
@@ -14,6 +15,7 @@ import {
     OVERLAY_VISIBILITY_CHANGED,
     type OverlaySnapshot,
 } from "./sessionOverlay";
+import { useOverlayPlacement } from "./useOverlayPlacement";
 
 const quantityFormatter = new Intl.NumberFormat("de-DE", { maximumFractionDigits: 0 });
 
@@ -21,6 +23,22 @@ export function SessionOverlay() {
     const [snapshot, setSnapshot] = useState<OverlaySnapshot | null>(null);
     const [visible, setVisible] = useState(false);
     const [error, setError] = useState("");
+    const [layerShell, setLayerShell] = useState<boolean | null>(null);
+    const { active: moving, ...moveHandlers } = useOverlayPlacement("move", setError);
+    const { active: resizing, ...resizeHandlers } = useOverlayPlacement("resize", setError);
+    useEffect(() => {
+        let disposed = false;
+        void sessionOverlayUsesLayerShell()
+            .then((enabled) => {
+                if (!disposed) setLayerShell(enabled);
+            })
+            .catch((error) => {
+                if (!disposed) setError(String(error));
+            });
+        return () => {
+            disposed = true;
+        };
+    }, []);
     useEffect(() => {
         let disposed = false;
         let revision = 0;
@@ -64,9 +82,16 @@ export function SessionOverlay() {
                 <button
                     type="button"
                     className={styles.DragHandle}
-                    title="Drag to move overlay"
-                    onMouseDown={(event) => {
-                        if (event.button === 0)
+                    title={
+                        layerShell
+                            ? "Drag and release to move; arrow keys also move the overlay"
+                            : "Drag to move overlay"
+                    }
+                    disabled={layerShell === null}
+                    {...(layerShell ? moveHandlers : {})}
+                    onPointerDown={(event) => {
+                        if (layerShell) moveHandlers.onPointerDown(event);
+                        else if (event.button === 0)
                             void getCurrentWindow()
                                 .startDragging()
                                 .catch((error) => setError(String(error)));
@@ -75,6 +100,19 @@ export function SessionOverlay() {
                     <span aria-hidden="true">⠿</span>{" "}
                     {snapshot ? getGrindSpot(snapshot.session.grindSpotId).name : "Session overlay"}
                 </button>
+                {layerShell && (
+                    <button
+                        type="button"
+                        className={styles.DisplayButton}
+                        aria-label="Move overlay to next display"
+                        title="Move overlay to next display"
+                        onClick={() => {
+                            void adjustSessionOverlay("nextMonitor").catch((error) => setError(String(error)));
+                        }}
+                    >
+                        ▣
+                    </button>
+                )}
                 <button
                     type="button"
                     className={styles.Close}
@@ -89,11 +127,27 @@ export function SessionOverlay() {
                     ×
                 </button>
             </header>
+            {(moving || resizing) && (
+                <p className={styles.PlacementHint} role="status">
+                    Release to {moving ? "move" : "resize"} · Esc to cancel
+                </p>
+            )}
             {error && <p role="alert">{error}</p>}
             {snapshot ? (
                 <OverlayContent snapshot={snapshot} visible={visible} />
             ) : (
                 <p>Waiting for the current session…</p>
+            )}
+            {layerShell && (
+                <button
+                    type="button"
+                    className={styles.ResizeHandle}
+                    aria-label="Resize overlay"
+                    title="Drag and release to resize; arrow keys also resize the overlay"
+                    {...resizeHandlers}
+                >
+                    ◢
+                </button>
             )}
         </main>
     );
