@@ -267,11 +267,11 @@ try {
         await sleep(100);
         await evaluate("window.openOverlay()");
         await until(
-            'document.documentElement.dataset.theme === "light" && document.querySelectorAll("main ul[aria-label] > li").length === 2 && document.body.innerText.includes("Paused")',
+            `document.documentElement.dataset.theme === "light" && document.querySelectorAll("main ul[aria-label] > li").length === 2 && document.querySelector('main button[aria-label="Resume timer"]') !== null`,
         );
         await evaluate('window.updateSession(1,"finished")');
         await until(
-            'document.querySelectorAll("main ul[aria-label] > li").length === 1 && document.body.innerText.includes("Finished")',
+            'document.querySelectorAll("main ul[aria-label] > li").length === 1 && !document.querySelector("main button[aria-label$=timer]")',
         );
         await evaluate('window.updateSession(0,"idle")');
         await until('document.body.innerText.includes("No drops yet")');
@@ -370,7 +370,7 @@ try {
         );
         assert.equal(await evaluate("window.currentSession.status"), "running");
         await evaluate('window.updateSession(0,"finished")');
-        await until('document.body.innerText.includes("Finished")');
+        await until('!document.querySelector("main button[aria-label$=timer]")');
         assert.equal(await evaluate(`document.querySelectorAll('main button').length`), 2);
         assert.match(
             await evaluate(`window.requestTimer(window.currentSession.id, 'resume').then(()=>'',String)`),
