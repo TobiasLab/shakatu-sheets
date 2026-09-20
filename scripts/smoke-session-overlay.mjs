@@ -322,6 +322,18 @@ try {
                 clickCount: 1,
             });
             await until('document.querySelector("main [role=status]")?.textContent.includes("Release to move")');
+            await send("Input.dispatchKeyEvent", {
+                type: "keyDown",
+                key: "ArrowRight",
+                code: "ArrowRight",
+                windowsVirtualKeyCode: 39,
+            });
+            await send("Input.dispatchKeyEvent", {
+                type: "keyUp",
+                key: "ArrowRight",
+                code: "ArrowRight",
+                windowsVirtualKeyCode: 39,
+            });
             await send("Input.dispatchMouseEvent", {
                 type: "mouseMoved",
                 x: rect.x + 80,
@@ -332,6 +344,7 @@ try {
             assert.equal(
                 await evaluate('window.__calls.filter(c => c.command === "adjust_session_overlay").length'),
                 0,
+                "Dragging and arrow keys must leave placement unchanged until release",
             );
             await send("Input.dispatchMouseEvent", {
                 type: "mouseReleased",
