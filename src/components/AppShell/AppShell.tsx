@@ -35,8 +35,11 @@ export function AppShell({
             </a>
             <aside className={styles.Sidebar}>
                 <div className={styles.Brand}>
-                    <Icon name="brand" size={24} />
-                    <span>Shakatu Sheets</span>
+                    <Icon name="brand" size={20} />
+                    <span>
+                        <strong>Shakatu</strong>
+                        <small>Sheets</small>
+                    </span>
                     <button
                         className={styles.CollapseButton}
                         type="button"
@@ -48,6 +51,7 @@ export function AppShell({
                         <Icon name="sidebar" size={17} />
                     </button>
                 </div>
+                <span className={styles.NavigationLabel}>Workspace</span>
                 <nav className={styles.ViewNavigation} aria-label="Application views">
                     <button
                         type="button"
@@ -129,7 +133,11 @@ export function AppShell({
             </aside>
             <div className={styles.Main}>
                 <header className={styles.WorkspaceBar}>
-                    <span>{view === "live" ? "Grind desk" : view === "history" ? "History" : "Settings"}</span>
+                    <span className={styles.Breadcrumb}>
+                        <span>Workspace</span>
+                        <i aria-hidden="true">/</i>
+                        {view === "live" ? "Grind desk" : view === "history" ? "History" : "Settings"}
+                    </span>
                     {sessionStatus !== "idle" && (
                         <span className={styles.WorkspaceStatus}>
                             <i className={`${styles.StatusDot} ${sessionStatus === "running" ? styles.Running : ""}`} />

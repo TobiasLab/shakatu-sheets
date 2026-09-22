@@ -1,49 +1,47 @@
 .EntryPanel {
     overflow: hidden;
 }
-
+.EntryPanel > :global(.panel-heading) {
+    padding: var(--space-4) var(--space-6);
+    border-bottom: 1px solid var(--line);
+}
 .EntryWorkspace {
     display: grid;
-    grid-template-columns: minmax(280px, 1.15fr) minmax(245px, 0.85fr);
+    grid-template-columns: minmax(280px, 1.08fr) minmax(260px, 0.92fr);
     min-width: 0;
 }
-
 .ItemPicker {
     min-width: 0;
     border-right: 1px solid var(--line);
+    background: var(--canvas);
 }
-
 .SearchField {
     display: block;
-    padding: 13px 14px;
+    padding: var(--space-4);
     border-bottom: 1px solid var(--line);
-    background: transparent;
-    color: var(--muted);
+    color: var(--text-soft);
     font-size: 12px;
-    letter-spacing: normal;
-    text-transform: none;
 }
-
 .SearchField input {
     display: block;
-    margin-top: 7px;
-    padding: 10px 11px;
-    font-size: 13px;
+    min-height: 40px;
+    margin-top: 8px;
+    padding: 10px 12px;
+    font-size: 12px;
 }
-
 .ItemList {
     max-height: 450px;
     overflow-y: auto;
     scrollbar-width: thin;
+    overscroll-behavior: contain;
 }
-
 .ItemList > button {
     display: grid;
-    grid-template-columns: 42px minmax(0, 1fr) 48px;
-    gap: 11px;
+    grid-template-columns: 40px minmax(0, 1fr) 48px;
+    gap: 12px;
     align-items: center;
     width: 100%;
-    padding: 9px 12px;
+    padding: 12px 16px;
     border: 0;
     border-bottom: 1px solid var(--row-line);
     border-radius: 0;
@@ -52,30 +50,33 @@
     text-align: left;
     cursor: pointer;
 }
-
 .ItemList > button:enabled:not([aria-pressed="true"]):hover {
-    background: var(--quick-item-background);
+    background: var(--hover);
 }
-
+.ItemList > button[aria-pressed="true"] {
+    background: var(--accent-surface);
+    box-shadow: inset 3px 0 var(--gold);
+}
+.ItemList > button:focus-visible {
+    outline-offset: -3px;
+}
 .ItemList > button:disabled {
-    cursor: default;
+    cursor: not-allowed;
     opacity: 0.5;
 }
-
 .ItemIcon,
 .SelectedIcon {
     display: grid;
     overflow: hidden;
     place-items: center;
     border: 1px solid var(--line-strong);
+    border-radius: 8px;
     background: var(--input-background);
 }
-
 .ItemIcon {
     width: 40px;
     height: 40px;
 }
-
 .ItemIcon img,
 .SelectedIcon img {
     display: block;
@@ -83,221 +84,154 @@
     height: 100%;
     object-fit: cover;
 }
-
 .ItemCopy {
     min-width: 0;
 }
-
 .ItemCopy strong,
 .ItemCopy small {
     display: block;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
+    overflow-wrap: anywhere;
 }
-
 .ItemCopy strong {
-    font-size: 13px;
-    font-weight: 600;
+    font-size: 12px;
+    font-weight: 500;
 }
-
 .ItemCopy small {
     margin-top: 4px;
     color: var(--muted);
-    font-family: inherit;
-    font-size: 10px;
-    letter-spacing: normal;
-    text-transform: none;
+    font-size: 11px;
 }
-
 .SelectItem {
     color: var(--muted);
-    font-family: inherit;
     font-size: 10px;
     text-align: right;
-    text-transform: none;
     opacity: 0;
 }
-
 .ItemList > button:focus-visible .SelectItem,
 .ItemList > button:hover .SelectItem,
 .ItemList > button.Selected .SelectItem {
     opacity: 1;
 }
-
 .ItemList > button.Selected .SelectItem {
-    color: var(--mint);
+    color: var(--gold);
 }
-
 .NoResults {
     display: grid;
-    gap: 5px;
-    padding: 28px 18px;
+    gap: 8px;
+    padding: 32px 18px;
     color: var(--muted);
-    font-size: 10px;
-    line-height: 1.5;
+    font-size: 12px;
     text-align: center;
 }
-
 .NoResults strong {
     color: var(--text);
-    font-size: 12px;
+    font-weight: 500;
 }
-
 .Form {
     display: grid;
     align-content: start;
     gap: var(--space-4);
-    padding: 17px;
-    background: transparent;
+    padding: var(--space-6);
+    background: var(--surface);
 }
-
 .SelectedDrop {
     display: flex;
     gap: 12px;
     align-items: center;
     min-width: 0;
-    padding: 0 0 14px;
+    padding-bottom: 18px;
     border-bottom: 1px solid var(--line);
-    background: transparent;
 }
-
 .SelectedDrop > div {
     min-width: 0;
 }
-
 .SelectedDrop strong {
     display: block;
-    overflow: hidden;
-    margin-top: 3px;
-    font-size: 12px;
-    text-overflow: ellipsis;
-    white-space: nowrap;
+    margin-top: 4px;
+    font-size: 14px;
+    font-weight: 550;
+    color: var(--text-strong);
+    overflow-wrap: anywhere;
 }
-
 .SelectedIcon {
     flex: 0 0 48px;
     width: 48px;
     height: 48px;
 }
-
 .FormRow {
     display: grid;
     grid-template-columns: minmax(80px, 0.8fr) minmax(120px, 1.2fr);
     gap: var(--space-3);
     align-items: start;
 }
-
 .QuantityControl {
     min-width: 0;
 }
-
 .QuantitySteps {
     display: grid;
     grid-template-columns: repeat(4, 1fr);
-    gap: 3px;
-    margin-top: 5px;
+    gap: 4px;
+    margin: 6px 0 0;
     padding: 0;
     border: 0;
 }
-
 .QuantitySteps legend {
     position: absolute;
     overflow: hidden;
     width: 1px;
     height: 1px;
-    clip: rect(0 0 0 0);
+    clip-path: inset(50%);
     white-space: nowrap;
 }
-
 .QuantitySteps button {
     min-width: 0;
     padding: 5px 2px;
     border: 1px solid var(--line);
-    border-radius: var(--space-1);
-    background: var(--quick-item-background);
-    color: var(--muted);
-    font-family: inherit;
+    border-radius: 5px;
+    background: var(--surface-raised);
+    color: var(--text-soft);
     font-size: 10px;
     cursor: pointer;
 }
-
-.QuantitySteps button:hover {
+.QuantitySteps button:hover:not(:disabled) {
     border-color: var(--accent-border);
-    color: var(--mint);
+    color: var(--gold);
 }
-
 .QuantitySteps button:disabled {
-    cursor: default;
+    cursor: not-allowed;
     opacity: 0.45;
 }
-
 .AddButton {
     display: flex;
     align-items: center;
     justify-content: space-between;
     width: 100%;
-    margin-top: 2px;
+    margin-top: 4px;
     padding-block: 11px;
 }
-
 .AddButton span {
     flex: 1;
 }
-
 .AddButton kbd {
     padding: 2px 5px;
     border: 1px solid currentColor;
-    border-radius: 2px;
+    border-radius: 4px;
     font-family: inherit;
     font-size: 10px;
     opacity: 0.65;
 }
-
 @media (max-width: 760px) {
     .EntryWorkspace {
-        grid-template-columns: 1fr;
+        grid-template-columns: minmax(0, 1fr);
     }
-
     .ItemPicker {
         border-right: 0;
         border-bottom: 1px solid var(--line);
     }
-
     .ItemList {
-        max-height: 370px;
+        max-height: 190px;
     }
-}
-
-.SelectedDrop,
-.ItemIcon,
-.SelectedIcon {
-    border-radius: 6px;
-}
-.Form {
-    padding: var(--space-6);
-}
-.ItemList > button {
-    padding-block: 11px;
-}
-.SearchField {
-    padding: var(--space-4);
-}
-.SelectedDrop strong {
-    white-space: normal;
-    overflow-wrap: anywhere;
-}
-@media (max-width: 760px) {
-    .ItemList {
-        max-height: 200px;
+    .Form {
+        padding: var(--space-4);
     }
-}
-
-.EntryPanel > :global(.panel-heading) {
-    padding: var(--space-4) var(--space-6);
-    border-bottom: 1px solid var(--line);
-}
-.ItemCopy strong {
-    font-weight: 500;
-    font-size: 12px;
 }

@@ -27,8 +27,10 @@ export function GrindSpotPicker({
     disabled,
     onSelect,
     compact = false,
+    locked = false,
 }: {
     compact?: boolean;
+    locked?: boolean;
     spot: GrindSpotProfile;
     disabled: boolean;
     onSelect: (id: string) => void;
@@ -85,22 +87,29 @@ export function GrindSpotPicker({
                         </div>
                     </>
                 )}
-                <button
-                    className="button"
-                    type="button"
-                    ref={opener}
-                    disabled={disabled}
-                    onClick={() => {
-                        setQuery("");
-                        setFilter("All");
-                        dialog.current?.showModal();
-                        search.current?.focus();
-                    }}
-                >
-                    Browse all spots
-                </button>
+                {locked ? (
+                    <span className={styles.LockNote}>
+                        <Icon name="lock" size={14} />
+                        Grind spot locked for this session
+                    </span>
+                ) : (
+                    <button
+                        className="button"
+                        type="button"
+                        ref={opener}
+                        disabled={disabled}
+                        onClick={() => {
+                            setQuery("");
+                            setFilter("All");
+                            dialog.current?.showModal();
+                            search.current?.focus();
+                        }}
+                    >
+                        Browse all spots
+                    </button>
+                )}
             </div>
-            {!compact && quickSpotIds(preferences).length > 0 && (
+            {!compact && !locked && quickSpotIds(preferences).length > 0 && (
                 <section className={styles.Shortcuts} aria-label="Quick access spots">
                     {quickSpotIds(preferences).map((id) => {
                         const quickSpot = getGrindSpot(id);

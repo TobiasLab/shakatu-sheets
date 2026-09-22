@@ -124,12 +124,7 @@ export function LiveSessionView({
         <>
             <header className="topbar">
                 <div>
-                    <h1>{spotEditable ? "New session" : spot.name}</h1>
-                    {!spotEditable && (
-                        <span className={styles.SpotLock}>
-                            <Icon name="lock" size={13} /> Grind spot locked for this session
-                        </span>
-                    )}
+                    <h1>Grind desk</h1>
                 </div>
                 <button
                     type="button"
@@ -142,17 +137,17 @@ export function LiveSessionView({
                     }
                     onClick={overlay.openOverlay}
                 >
+                    <Icon name="popout" size={16} />
                     Pop out session
                 </button>
             </header>
             {overlay.error && <p role="alert">{overlay.error}</p>}
-            {spotEditable && (
-                <GrindSpotPicker
-                    spot={spot}
-                    disabled={!databaseLoaded || market.fetchingPrices || !visible}
-                    onSelect={changeGrindSpot}
-                />
-            )}
+            <GrindSpotPicker
+                spot={spot}
+                locked={!spotEditable}
+                disabled={!spotEditable || !databaseLoaded || market.fetchingPrices || !visible}
+                onSelect={changeGrindSpot}
+            />
             <SessionMetrics controller={controller} visible={visible} onFinish={() => void requestFinish()} />
             <dialog
                 ref={finishDialog}

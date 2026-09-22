@@ -6,6 +6,10 @@
     color: var(--text-soft);
     font-size: var(--text-control);
 }
+.Field > span {
+    font-size: var(--text-control);
+    font-weight: 500;
+}
 .Field > input,
 .Field > select,
 .Field > textarea {
@@ -24,6 +28,11 @@
 }
 .Field > textarea {
     resize: vertical;
+}
+.Field > input:hover:not(:disabled):not(:focus):not([aria-invalid="true"]),
+.Field > select:hover:not(:disabled):not(:focus):not([aria-invalid="true"]),
+.Field > textarea:hover:not(:disabled):not(:focus):not([aria-invalid="true"]) {
+    border-color: var(--button-hover-border);
 }
 .Field > :disabled {
     color: var(--muted);

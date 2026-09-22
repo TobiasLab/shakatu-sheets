@@ -1,9 +1,9 @@
 .CapturePanel {
-    margin-bottom: 0;
-    padding: 16px 0;
-    border-radius: 0;
-    border: 0;
-    background: transparent;
+    min-width: 0;
+    padding: 16px 20px;
+    border: 1px solid var(--line);
+    border-radius: var(--panel-radius);
+    background: var(--surface);
 }
 
 .Intro {
@@ -50,6 +50,7 @@
 }
 
 .Preview {
+    border-radius: var(--control-radius);
     min-height: 180px;
     border: 1px solid var(--line);
     background: #020404;
@@ -90,9 +91,9 @@
     justify-content: center;
     flex-direction: column;
     gap: 4px;
-    color: var(--text);
+    color: #e2e4e8;
     background: rgb(2 4 4 / 52%);
-    font-family: "IBM Plex Mono", monospace;
+    font-family: ui-monospace, monospace;
     font-size: 10px;
     letter-spacing: 0.08em;
     text-align: center;
@@ -100,7 +101,7 @@
 }
 
 .PreviewPaused span {
-    color: var(--muted);
+    color: #aab4c1;
     font-size: 10px;
 }
 
@@ -147,7 +148,7 @@
     position: absolute;
     padding: 3px 5px;
     color: #0a0d0c;
-    font-family: "IBM Plex Mono", monospace;
+    font-family: ui-monospace, monospace;
     font-size: 10px;
     line-height: 1;
     letter-spacing: 0.08em;
@@ -371,6 +372,7 @@
 }
 
 .Diagnostics {
+    border-radius: var(--control-radius);
     margin: 0;
     border: 1px solid var(--line);
     background: var(--clock-background);
@@ -387,19 +389,17 @@
 
 .Diagnostics dt {
     color: var(--muted);
-    font-size: 11px;
-    letter-spacing: 0.12em;
-    text-transform: uppercase;
+    font-size: 12px;
 }
 
 .Diagnostics dd {
     margin: 5px 0 0;
-    font-family: "IBM Plex Mono", monospace;
+    font-family: ui-monospace, monospace;
     font-size: 12px;
 }
 
 .Diagnostics .Active {
-    color: var(--mint);
+    color: var(--success);
 }
 
 .Diagnostics .Warning {
@@ -435,6 +435,7 @@
 }
 
 .RegionPreview {
+    border-radius: var(--control-radius);
     margin-top: 12px;
     padding: 10px;
     border: 1px solid var(--line);
@@ -444,7 +445,7 @@
 .RegionPreview > span {
     display: block;
     margin-bottom: 8px;
-    color: var(--muted);
+    color: #aab4c1;
     font-size: 10px;
     letter-spacing: 0.1em;
     text-transform: uppercase;
@@ -482,6 +483,7 @@
 }
 
 .ReviewFeed {
+    border-radius: var(--control-radius);
     margin-top: 16px;
     padding: 14px;
     border: 1px solid var(--line);
@@ -590,14 +592,14 @@
 
 .ResultStatus {
     width: fit-content;
-    font-family: "IBM Plex Mono", monospace;
+    font-family: ui-monospace, monospace;
     font-size: 10px;
     letter-spacing: 0.1em;
     text-transform: uppercase;
 }
 
 .recognized {
-    color: var(--mint);
+    color: var(--success);
 }
 
 .withheld,
@@ -661,11 +663,6 @@
     font-size: 12px;
 }
 
-.CapturePanel {
-    min-width: 0;
-    padding: 0 0 20px;
-    border-bottom: 1px solid var(--line);
-}
 .Intro {
     flex-wrap: wrap;
     gap: 18px;
@@ -674,7 +671,13 @@
     min-width: 0;
 }
 .Intro h2 {
-    font-size: 14px;
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    font-size: 15px;
+}
+.Intro h2 svg {
+    color: var(--muted);
 }
 .Intro span,
 .Note,
@@ -739,15 +742,8 @@
 .Intro span {
     font-size: 12px;
 }
-
-.Intro :global(.primary-button) {
-    background: transparent;
-    color: var(--text);
-    border-color: var(--line-strong);
-}
-.Intro :global(.primary-button):hover:not(:disabled) {
-    background: var(--surface-raised);
-    border-color: var(--button-hover-border);
+.Intro [data-recognition-status="active"] {
+    color: var(--success);
 }
 
 .FileButton {

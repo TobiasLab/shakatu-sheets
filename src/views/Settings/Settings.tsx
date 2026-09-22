@@ -186,6 +186,7 @@ export function SettingsView({
                 <a href="#appearance">Appearance</a>
                 <a href="#capture-preferences">Capture</a>
                 <a href="#integrations">Integrations</a>
+                <a href="#consumables">Consumable presets</a>
             </nav>
             <div className={styles.Preferences}>
                 <section id="market" className="panel" aria-labelledby="market-title">
@@ -388,7 +389,7 @@ export function SettingsView({
                         <div>
                             <h2>Garmoth</h2>
                         </div>
-                        <span>
+                        <span className={styles.ConnectionStatus}>
                             {settings?.apiKeyConfigured
                                 ? "Configured"
                                 : settings === null && !error
@@ -488,43 +489,50 @@ export function SettingsView({
                         >
                             {busy === "selection" ? "Saving..." : "Save upload character"}
                         </button>
-                        <label className={styles.DiagnosticOption}>
-                            <input
-                                type="checkbox"
-                                checked={includeFieldNames}
-                                disabled={busy !== null || settingsLoading}
-                                onChange={(event) => {
-                                    setIncludeFieldNames(event.target.checked);
-                                    setConsumableReport("");
-                                }}
-                            />
-                            Include response field names
-                        </label>
-                        {includeFieldNames && <p>Field names may contain custom names. Review before sharing.</p>}
-                        <button
-                            className="button"
-                            type="button"
-                            disabled={!settings?.apiKeyConfigured || !selectedCharacterId || busy !== null}
-                            onClick={inspectConsumables}
-                        >
-                            {busy === "inspection" ? "Inspecting..." : "Inspect consumable data"}
-                        </button>
                         {feedbackTarget === "character" && feedback}
-                        {consumableReport && (
-                            <>
-                                <FormField label="Sanitized consumable report">
-                                    <textarea
-                                        className={styles.DiagnosticReport}
-                                        readOnly
-                                        rows={12}
-                                        value={consumableReport}
+                        <details className={styles.Diagnostics}>
+                            <summary>Connection diagnostics</summary>
+                            <div>
+                                <label className={styles.DiagnosticOption}>
+                                    <input
+                                        type="checkbox"
+                                        checked={includeFieldNames}
+                                        disabled={busy !== null || settingsLoading}
+                                        onChange={(event) => {
+                                            setIncludeFieldNames(event.target.checked);
+                                            setConsumableReport("");
+                                        }}
                                     />
-                                </FormField>
-                                <button className="button" type="button" onClick={copyConsumableReport}>
-                                    Copy report
+                                    Include response field names
+                                </label>
+                                {includeFieldNames && (
+                                    <p>Field names may contain custom names. Review before sharing.</p>
+                                )}
+                                <button
+                                    className="button"
+                                    type="button"
+                                    disabled={!settings?.apiKeyConfigured || !selectedCharacterId || busy !== null}
+                                    onClick={inspectConsumables}
+                                >
+                                    {busy === "inspection" ? "Inspecting..." : "Inspect consumable data"}
                                 </button>
-                            </>
-                        )}
+                                {consumableReport && (
+                                    <>
+                                        <FormField label="Sanitized consumable report">
+                                            <textarea
+                                                className={styles.DiagnosticReport}
+                                                readOnly
+                                                rows={12}
+                                                value={consumableReport}
+                                            />
+                                        </FormField>
+                                        <button className="button" type="button" onClick={copyConsumableReport}>
+                                            Copy report
+                                        </button>
+                                    </>
+                                )}
+                            </div>
+                        </details>
                     </div>
                 </section>
                 <section id="consumables" className="panel" aria-labelledby="consumables-settings-title">

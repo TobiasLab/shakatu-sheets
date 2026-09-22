@@ -13,13 +13,13 @@
     background: var(--hover);
 }
 .Button[aria-pressed="true"] {
-    background: var(--selected);
-    border-color: var(--line-strong);
+    background: var(--accent-surface);
+    border-color: var(--accent-border);
     color: var(--text-strong);
 }
 .Button[aria-pressed="true"]:enabled:hover {
-    background: var(--selected);
-    border-color: var(--button-hover-border);
+    background: var(--accent-surface);
+    border-color: var(--gold);
 }
 .Button:disabled {
     cursor: not-allowed;

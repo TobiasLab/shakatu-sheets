@@ -1,4 +1,5 @@
 import { useMemo } from "react";
+import { Icon } from "../../components/Icon/Icon";
 import { calculateEntryTotals } from "../../domain/session";
 import { formatDuration, formatSilver } from "../../format";
 import { useElapsedTime } from "../../hooks/useElapsedTime";
@@ -20,7 +21,7 @@ export function SessionMetrics({
     const netPerHour = elapsedMs > 0 ? totals.net / (elapsedMs / 3_600_000) : 0;
     return (
         <section className={styles.MetricsGrid} aria-label="Session summary" aria-busy={!controller.databaseLoaded}>
-            <article className={styles.Metric}>
+            <article className={`${styles.Metric} ${styles.PrimaryMetric}`}>
                 <span>Net silver / hour</span>
                 <strong>{controller.databaseLoaded && elapsedMs > 0 ? formatSilver(netPerHour, true) : "—"}</strong>
             </article>
@@ -75,6 +76,7 @@ function SessionClock({
                         disabled={!databaseLoaded}
                         onClick={startOrResume}
                     >
+                        <Icon name="play" size={15} />
                         {session.status === "paused" ? "Resume timer" : "Start timer"}
                     </button>
                 )}
@@ -85,6 +87,7 @@ function SessionClock({
                         disabled={!databaseLoaded}
                         onClick={() => dispatch({ type: "pause", now: Date.now() })}
                     >
+                        <Icon name="pause" size={15} />
                         Pause timer
                     </button>
                 )}

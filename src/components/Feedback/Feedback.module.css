@@ -3,6 +3,7 @@
     gap: var(--space-3);
     padding: var(--space-3) var(--space-4);
     border-left: 2px solid var(--line-strong);
+    border-radius: 0 var(--control-radius) var(--control-radius) 0;
     background: var(--surface-raised);
     min-width: 0;
     overflow-wrap: anywhere;
@@ -33,7 +34,7 @@
     justify-items: center;
     align-content: center;
     gap: var(--space-3);
-    min-height: 160px;
+    min-height: 140px;
     padding: var(--space-6);
     text-align: center;
 }

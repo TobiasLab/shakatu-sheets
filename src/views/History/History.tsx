@@ -451,7 +451,12 @@ export function HistoryView({
             )}
             {history && !error && comparisonSpots.length > 0 && (
                 <section className={styles.Comparisons} aria-label="Grind spot comparisons">
-                    <h2>Grind spot comparisons</h2>
+                    <div className={styles.ComparisonHeading}>
+                        <h2>Grind spot comparisons</h2>
+                        <span>
+                            {comparisonSpots.length} {comparisonSpots.length === 1 ? "spot" : "spots"}
+                        </span>
+                    </div>
                     {/* biome-ignore lint/a11y/noNoninteractiveTabindex: Scrollable tables need keyboard access. */}
                     <section className={styles.ComparisonScroll} aria-label="Spot earnings table" tabIndex={0}>
                         <table>
@@ -532,7 +537,7 @@ export function HistoryView({
                 </EmptyState>
             ) : (
                 <div className={styles.HistoryGrid}>
-                    <section className="panel">
+                    <section className={`panel ${styles.ListPanel}`}>
                         <div className="panel-heading">
                             <div>
                                 <h2 aria-live="polite">
@@ -624,7 +629,7 @@ export function HistoryView({
                     </section>
 
                     {selected && selectedTotals && (
-                        <section className="panel">
+                        <section className={`panel ${styles.DetailPanel}`}>
                             <div className="panel-heading">
                                 <div>
                                     <p className="eyebrow">{formatTimestamp(selected.finishedAt)} · Completed</p>

@@ -1,12 +1,22 @@
-.LedgerPanel {
+.LedgerPanel:global(.panel) {
     min-width: 0;
     width: 100%;
     align-self: start;
+    overflow: hidden;
+    border: 1px solid var(--line);
+    border-radius: var(--panel-radius);
+    background: var(--surface);
+}
+.LedgerPanel > :global(.panel-heading) {
+    flex-wrap: wrap;
+    min-height: 72px;
+    padding: 16px 20px;
+    border-bottom: 1px solid var(--line);
 }
 .LedgerToolbar {
     display: flex;
     gap: 10px;
-    padding: 10px 0;
+    padding: 12px 20px;
     border-bottom: 1px solid var(--line);
 }
 .LedgerToolbar label {
@@ -17,18 +27,27 @@
 }
 .LedgerToolbar input,
 .LedgerToolbar select {
-    padding: 8px 10px;
+    min-height: 36px;
+    padding: 8px 11px;
     font-size: 12px;
+}
+.LedgerToolbar select {
+    min-width: 126px;
 }
 .LedgerList {
     max-height: 560px;
     overflow: auto;
     scrollbar-width: thin;
+    overscroll-behavior: contain;
+}
+.LedgerList:focus-visible {
+    outline-offset: -3px;
 }
 .LedgerList table {
-    border-collapse: collapse;
+    border-collapse: separate;
+    border-spacing: 0;
     width: 100%;
-    min-width: 500px;
+    min-width: 560px;
     text-align: left;
     table-layout: fixed;
 }
@@ -36,66 +55,79 @@
     position: sticky;
     top: 0;
     z-index: 1;
-    padding: 10px 8px;
+    padding: 11px 10px;
     font-size: var(--text-label);
     font-weight: 500;
     color: var(--muted);
-    background: var(--canvas);
+    background: var(--surface-raised);
     border-bottom: 1px solid var(--line);
+    white-space: nowrap;
 }
 .LedgerList th:first-child {
     width: auto;
-    padding-left: 0;
+    padding-left: 20px;
 }
 .LedgerList th:nth-child(2) {
-    width: 82px;
+    width: 90px;
+    text-align: right;
 }
 .LedgerList th:nth-child(3) {
-    width: 118px;
+    width: 124px;
+    text-align: right;
 }
 .LedgerList th:nth-child(4) {
-    width: 88px;
+    width: 106px;
     text-align: right;
 }
 .LedgerList th:last-child {
-    width: 42px;
+    width: 48px;
 }
 .LedgerRow td {
-    padding: 13px 8px;
+    padding: 13px 10px;
     border-bottom: 1px solid var(--row-line);
     vertical-align: middle;
 }
+.LedgerRow:last-child td {
+    border-bottom: 0;
+}
 .LedgerRow td:first-child {
-    padding-left: 0;
+    padding-left: 20px;
+}
+.LedgerRow td:last-child {
+    padding-right: 12px;
 }
 .LedgerRow:hover,
 .LedgerRow:focus-within {
-    background: var(--surface-raised);
+    background: var(--hover);
 }
 .ItemCell {
     display: flex;
     align-items: center;
-    gap: 10px;
+    gap: 12px;
     min-width: 0;
 }
 .ItemIcon {
     display: block;
     overflow: hidden;
-    width: 32px;
-    height: 32px;
+    width: 36px;
+    height: 36px;
     flex-shrink: 0;
     border: 1px solid var(--line-strong);
-    border-radius: 5px;
+    border-radius: 8px;
     background: var(--input-background);
 }
 .ItemIcon img {
+    display: block;
     width: 100%;
     height: 100%;
     object-fit: cover;
 }
 .ItemCell :global(.item-swatch) {
+    width: 36px;
+    height: 36px;
     flex-shrink: 0;
-    border-radius: 5px;
+    border: 1px solid var(--line);
+    border-radius: 8px;
 }
 .ItemName {
     min-width: 0;
@@ -104,23 +136,24 @@
     display: block;
     font-size: 12px;
     font-weight: 550;
+    color: var(--text-strong);
     overflow-wrap: anywhere;
 }
 .ItemName span {
     display: block;
-    margin-top: 4px;
+    margin-top: 3px;
     font-size: var(--text-label);
     color: var(--muted);
 }
 .LedgerRow input {
     display: block;
-    padding: 7px 5px;
+    padding: 7px 0;
     text-align: right;
     font-variant-numeric: tabular-nums;
     font-size: 12px;
     border-color: transparent;
     background: transparent;
-    border-radius: 4px;
+    border-radius: 5px;
     appearance: textfield;
 }
 .LedgerRow input::-webkit-inner-spin-button,
@@ -136,6 +169,10 @@
     border-color: var(--focus-border);
     background: var(--input-background);
 }
+.LedgerRow input:disabled {
+    color: var(--text-soft);
+    opacity: 1;
+}
 .EntryValue {
     font-variant-numeric: tabular-nums;
     font-size: 13px;
@@ -150,7 +187,7 @@
     height: 32px;
     padding: 0;
     border: 0;
-    border-radius: 4px;
+    border-radius: 6px;
     background: transparent;
     color: var(--muted);
     cursor: pointer;
@@ -160,7 +197,7 @@
     background: var(--surface-raised);
 }
 .RemoveButton:disabled {
-    opacity: 0.4;
+    opacity: 0.3;
     cursor: not-allowed;
 }
 .EditError {
@@ -174,7 +211,7 @@
     flex-wrap: wrap;
     justify-content: space-between;
     gap: 8px;
-    padding: 10px 0;
+    padding: 12px 20px;
     color: var(--muted);
     font-size: var(--text-label);
     border-top: 1px solid var(--line);
@@ -183,12 +220,32 @@
     display: grid;
     justify-items: center;
     gap: 10px;
-    padding: 35px;
+    padding: 40px 20px;
     color: var(--muted);
     font-size: 13px;
 }
-
-.LedgerPanel > :global(.panel-heading) {
-    flex-wrap: wrap;
-    padding-top: 0;
+@media (max-width: 760px) {
+    .LedgerList table {
+        min-width: 500px;
+    }
+    .LedgerList th:nth-child(2) {
+        width: 72px;
+    }
+    .LedgerList th:nth-child(3) {
+        width: 106px;
+    }
+    .LedgerList th:nth-child(4) {
+        width: 100px;
+    }
+    .LedgerList th:last-child {
+        width: 42px;
+    }
+    .LedgerPanel > :global(.panel-heading),
+    .LedgerToolbar,
+    .LedgerNote {
+        padding-inline: 16px;
+    }
+    .LedgerPanel > :global(.panel-heading) {
+        gap: 12px;
+    }
 }

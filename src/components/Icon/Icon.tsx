@@ -12,9 +12,11 @@ type IconName =
     | "arrow"
     | "trash"
     | "play"
-    | "pause";
+    | "pause"
+    | "popout";
 
 const paths: Record<IconName, string> = {
+    popout: "M14 3h7v7 M21 3l-9 9 M10 3H3v18h18v-7",
     star: "m12 3 2.8 5.7 6.2.9-4.5 4.4 1.1 6.2L12 17.3l-5.6 2.9 1.1-6.2L3 9.6l6.2-.9z",
     lock: "M6 10h12v11H6z M8 10V7a4 4 0 0 1 8 0v3",
     brand: "M5 4h14v16H5z M8 8h8 M8 12h8 M8 16h4",
