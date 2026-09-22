@@ -1,42 +1,44 @@
-.SpotLock {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    margin-top: 8px;
-    font-size: 11px;
-    color: var(--muted);
-}
 .MetricsGrid {
     display: grid;
-    grid-template-columns: 1fr 1fr 1.15fr;
-    gap: var(--space-6);
-    margin-bottom: var(--space-6);
-    padding: var(--space-6) 0 var(--space-2);
-    border-top: 1px solid var(--line);
-    border-bottom: 1px solid var(--line);
+    grid-template-columns: minmax(0, 1fr) minmax(0, 0.9fr) minmax(0, 1.25fr);
+    margin-bottom: var(--space-5);
+    border: 1px solid var(--line);
+    border-radius: var(--panel-radius);
+    background: var(--surface);
 }
 .Metric {
     display: grid;
     align-content: start;
     min-width: 0;
-    gap: 8px;
-    padding: 0 0 var(--space-4);
+    gap: 12px;
+    padding: 20px;
+}
+.Metric + .Metric,
+.SessionClock {
+    border-left: 1px solid var(--line);
 }
 .Metric span,
 .ClockReadout > span {
     font-size: 12px;
-    color: var(--muted);
+    font-weight: 500;
+    color: var(--text-soft);
 }
 .Metric strong {
-    font-size: clamp(27px, 3vw, 36px);
-    font-weight: 500;
+    color: var(--text-strong);
+    font-size: clamp(30px, 3vw, 40px);
+    font-weight: 550;
     letter-spacing: -1.2px;
     font-variant-numeric: tabular-nums;
-    line-height: 1.2;
+    line-height: 1.15;
 }
-.Metric small {
-    color: var(--muted);
-    font-size: var(--text-label);
+.PrimaryMetric {
+    border-top: 2px solid var(--gold);
+    border-radius: var(--panel-radius) 0 0 var(--panel-radius);
+    padding-top: 18px;
+    background: var(--accent-surface);
+}
+.PrimaryMetric strong {
+    color: var(--gold);
 }
 .SessionClock {
     min-width: 0;
@@ -44,20 +46,21 @@
     flex-wrap: wrap;
     align-items: center;
     align-content: start;
-    gap: 10px;
-    padding-bottom: var(--space-4);
+    gap: 12px;
+    padding: 20px;
 }
 .ClockReadout {
     display: grid;
-    gap: 8px;
+    gap: 12px;
     width: 100%;
 }
 .ClockReadout time {
-    font-size: clamp(25px, 2.6vw, 32px);
-    font-weight: 450;
+    color: var(--text-strong);
+    font-size: clamp(28px, 2.7vw, 36px);
+    font-weight: 500;
     font-variant-numeric: tabular-nums;
-    letter-spacing: -0.6px;
-    line-height: 1.3;
+    letter-spacing: -0.8px;
+    line-height: 1.28;
 }
 .ClockActions {
     display: flex;
@@ -69,20 +72,29 @@
     font-size: var(--text-label);
     color: var(--muted);
 }
+.ManualTime summary,
+.Breakdown summary {
+    padding-block: 4px;
+}
+.ManualTime summary:hover,
+.Breakdown summary:hover {
+    color: var(--text);
+}
 .CompletedHours {
     position: absolute;
     z-index: 9;
     right: 0;
-    top: 28px;
+    top: 30px;
     width: 270px;
+    max-width: calc(100vw - 112px);
     padding: 16px;
     display: flex;
     align-items: end;
     gap: 8px;
     border: 1px solid var(--line-strong);
-    border-radius: 10px;
-    background: var(--surface);
-    box-shadow: 0 8px 30px #0002;
+    border-radius: var(--panel-radius);
+    background: var(--surface-raised);
+    box-shadow: var(--dialog-shadow);
 }
 .CompletedHours label {
     flex: 1;
@@ -93,17 +105,18 @@
     margin-bottom: 8px;
 }
 .CompletedHours input {
+    min-height: var(--control-height);
     padding: 8px;
 }
 .Breakdown {
     position: relative;
     color: var(--muted);
-    font-size: 11px;
+    font-size: var(--text-label);
 }
 .Breakdown dl {
     position: absolute;
     z-index: 8;
-    top: 20px;
+    top: 26px;
     left: 0;
     width: 230px;
     display: grid;
@@ -111,9 +124,9 @@
     margin: 8px 0 0;
     padding: 16px;
     border: 1px solid var(--line-strong);
-    border-radius: 10px;
-    background: var(--surface);
-    box-shadow: 0 8px 30px #0002;
+    border-radius: var(--panel-radius);
+    background: var(--surface-raised);
+    box-shadow: var(--dialog-shadow);
 }
 .Breakdown dl div {
     display: flex;
@@ -122,14 +135,14 @@
 }
 .Breakdown dd {
     margin: 0;
-    color: var(--text-soft);
+    color: var(--text);
     font-size: 12px;
     font-variant-numeric: tabular-nums;
 }
 .DeskBody {
     display: flex;
     flex-direction: column;
-    gap: 24px;
+    gap: var(--space-5);
 }
 .ContentGrid {
     display: flex;
@@ -145,17 +158,6 @@
     padding: 0;
     margin: 0;
 }
-.EntryTools > button {
-    justify-content: flex-start;
-    border: 0;
-    padding: 8px 10px;
-    background: transparent;
-    border-radius: var(--control-radius);
-    font-size: var(--text-control);
-}
-.EntryTools > button:hover:not(:disabled) {
-    background: var(--surface-raised);
-}
 .ToolDialog {
     composes: Surface from "../../components/Dialog/Dialog.module.css";
 }
@@ -168,57 +170,23 @@
     align-items: center;
     justify-content: space-between;
     gap: 20px;
-    padding: 16px;
-    border: 1px solid var(--line);
-    border-radius: 10px;
-    margin-bottom: 24px;
+    padding: 20px;
+    border: 1px solid var(--accent-border);
+    border-radius: var(--panel-radius);
+    background: var(--accent-surface);
+    margin-bottom: 20px;
 }
 .Completion strong {
-    font-size: 13px;
-    font-weight: 500;
+    color: var(--gold);
+    font-size: 14px;
+    font-weight: 550;
 }
 .Completion span {
     display: block;
     font-size: 12px;
-    color: var(--muted);
+    color: var(--text-soft);
     margin-top: 4px;
 }
-@media (max-width: 760px) {
-    .MetricsGrid {
-        gap: 14px;
-    }
-    .Metric strong {
-        font-size: 27px;
-    }
-    .ClockReadout time {
-        font-size: 25px;
-    }
-    .ClockActions button {
-        padding-inline: 9px;
-    }
-}
-@media (max-width: 700px) {
-    .MetricsGrid {
-        grid-template-columns: 1fr 1fr;
-    }
-    .SessionClock {
-        grid-column: 1 / -1;
-        gap: 12px;
-        padding-top: 12px;
-        border-top: 1px solid var(--line);
-    }
-    .ClockReadout {
-        width: auto;
-        margin-right: auto;
-    }
-    .ManualTime {
-        margin-left: auto;
-    }
-    .Completion {
-        flex-wrap: wrap;
-    }
-}
-
 .FinishDialog {
     composes: Surface from "../../components/Dialog/Dialog.module.css";
     width: min(520px, calc(100vw - 40px));
@@ -235,4 +203,53 @@
     flex-wrap: wrap;
     gap: 10px;
     margin-top: 24px;
+}
+@media (max-width: 760px) {
+    .MetricsGrid {
+        grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    }
+    .PrimaryMetric {
+        border-radius: var(--panel-radius) 0 0 0;
+    }
+    .Metric strong {
+        font-size: 30px;
+    }
+    .Breakdown dl {
+        left: auto;
+        right: 0;
+    }
+    .SessionClock {
+        grid-column: 1 / -1;
+        gap: 14px;
+        border-left: 0;
+        border-top: 1px solid var(--line);
+    }
+    .ClockReadout {
+        width: auto;
+        margin-right: auto;
+    }
+    .ClockReadout time {
+        font-size: 28px;
+    }
+    .ManualTime {
+        margin-left: auto;
+    }
+    .Completion {
+        flex-wrap: wrap;
+    }
+}
+@media (max-width: 420px) {
+    .Metric,
+    .SessionClock {
+        padding: 16px;
+    }
+    .PrimaryMetric {
+        padding-top: 14px;
+    }
+    .Metric strong {
+        font-size: 26px;
+    }
+    .ClockReadout {
+        width: 100%;
+    }
 }

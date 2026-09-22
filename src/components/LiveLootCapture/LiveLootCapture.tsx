@@ -149,6 +149,7 @@ export function LiveLootCapture({ controller }: { controller: ReturnType<typeof 
             <div className={styles.Intro}>
                 <div>
                     <h2 id="live-capture-heading" tabIndex={-1}>
+                        <Icon name="capture" size={18} />
                         Loot capture
                     </h2>
                     {status === "capturing" && (
@@ -185,7 +186,7 @@ export function LiveLootCapture({ controller }: { controller: ReturnType<typeof 
                         </>
                     ) : (
                         <button
-                            className="button primary-button"
+                            className="button"
                             type="button"
                             ref={setupButton}
                             disabled={!captureAllowed}

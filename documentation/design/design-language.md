@@ -1,8 +1,8 @@
 # Design language
 
-Shakatu Sheets is a restrained desktop workspace for tracking grind sessions. Time, earnings, the selected location, and
-loot should be easy to scan. The interface uses neutral surfaces, system typography, flat sections, small icons, and color
-with a specific purpose. Game identity comes from recognizable item icons and names.
+Shakatu Sheets is a desktop workspace for tracking grind sessions. Time, earnings, the selected location, and loot should
+be easy to scan. Ink surfaces, warm gold accents, framed sections, and system typography create a consistent hierarchy.
+Game identity comes from recognizable item icons and names. Keep the workspace compact and practical.
 
 This is the reference for new and revised UI. The [design overview](README.md) documents feature behavior. Existing
 components may have local variations; use the conventions here when extending them, and update this guide when a shared
@@ -12,7 +12,7 @@ convention changes. Do not copy an inconsistent control merely because it alread
 
 ### Color and surfaces
 
-Use the CSS custom properties in [src/index.css](../../src/index.css). Neutral dark is the default; every component must
+Use the CSS custom properties in [src/index.css](../../src/index.css). Ink dark is the default; every component must
 also work in light and moss. Theme identifiers are saved preferences and must remain compatible.
 
 | Purpose | Tokens | Usage |
@@ -27,25 +27,32 @@ also work in light and moss. Theme identifiers are saved preferences and must re
 | Meaningful accents | `--success`, `--danger`, `--gold` | Success, errors/destructive actions, and favorites |
 | Keyboard focus | `--focus-border` | Visible focus outlines and focused input borders |
 
-Keep ordinary page sections flat, with spacing and one-pixel dividers establishing groups. Use bordered tiles when each
-item is selectable, as in the spot browser. Reserve substantial shadows for floating surfaces and dialogs. Avoid decorative
-metric cards, gradients, glowing borders, and arbitrary colors. State must remain understandable without color alone.
+Use the canvas as the workspace background and `--surface` for major task sections: the selected location, session
+summary, capture, ledger, History panels, and Settings sections. Frame these with a one-pixel `--line` border and
+`--panel-radius` corners. Use `--surface-raised` for table headers and secondary groups. Keep rows inside these sections
+flat and separated by subtle dividers; avoid nested cards where spacing is enough.
+
+Warm gold identifies the primary action, active navigation, selection, and the leading earnings metric. The session
+summary is one divided surface with an accented silver/hour segment; History uses three summary tiles with recorded net
+accented. Green remains reserved for successful or active recognition. Pair color with text, borders, and semantic states.
+Reserve substantial shadows for floating surfaces and dialogs. Avoid gradients, glows, and unrelated accent colors.
+Light uses warm paper and white surfaces; moss uses green ink surfaces with the same gold hierarchy.
 
 ### Typography
 
 Use the system font stack from `src/index.css`; do not load remote fonts. Use sentence case for headings and actions,
-preserving game names. Most weights are 400–550; size and spacing should establish hierarchy before boldness does.
+preserving game names. Most weights are 400–600; size and spacing should establish hierarchy before boldness does.
 
 | Role | Default |
 | --- | --- |
 | Body | 14px, line-height 1.5 |
-| Page title | 24px, weight 550, line-height 1.35 |
+| Page title | 28px, weight 600, line-height 1.35 |
 | Section heading | 15px, weight 550 |
 | Subheading | 14px, weight 550 |
 | Dialog title | 18px, weight 550 |
 | Buttons and help text | 12px; button weight 500 |
-| Supporting labels | 11–12px, muted |
-| Session metrics | 27–36px; tabular numerals for values and time |
+| Supporting labels | 12px, muted; 10–11px only for compact secondary context |
+| Session metrics | 30–40px; tabular numerals for values and time |
 
 Prominent content, such as the selected grind spot, can use an intermediate 22px heading. Tiny text is reserved for compact
 hints such as the 10px Esc label, never essential instructions. Long names must wrap where identification matters; do not
@@ -57,19 +64,23 @@ Use the `--space-1` through `--space-6` tokens for the 4, 8, 12, 16, 20, and 24p
 valid. Start with 8px between related controls, 12–16px within a group, and 20–28px between sections. Favor consistent
 alignment over adding containers.
 
-Use `--control-height` (34px) and `--control-radius` (7px) for standard controls, 6–8px corners for compact shortcuts and selectable tiles, and `--dialog-radius` (16px) for dialogs. Shared control, label, and dialog-title sizes use `--text-control`, `--text-label`, and `--text-dialog-title`. Borders are
+Use `--control-height` (36px) and `--control-radius` (8px) for standard controls, `--panel-radius` (12px) for task sections,
+and `--dialog-radius` (16px) for dialogs. Shared control, label, and dialog-title sizes use `--text-control`, `--text-label`, and `--text-dialog-title`. Borders are
 normally one pixel. Use the shared [Icon component](../../src/components/Icon/Icon.tsx) for interface symbols: small,
-monochrome SVG strokes, typically 18px. Bundled item icons may retain their color; use roughly 22px in shortcuts and
-36–40px in spot tiles or selected-location displays. Decorative icons have empty alternative text or are hidden from
+monochrome SVG strokes, typically 18px. Bundled item icons retain their color; use roughly 22px in shortcuts,
+36–40px in catalogs and tables, and 48px in the selected-location display. Decorative icons have empty alternative text or are hidden from
 assistive technology. Icon-only actions need an accessible name.
 
 ## Workspace and responsive layout
 
 Keep navigation in the sidebar and task content in the workspace. The sidebar is 224px wide on desktop and can collapse;
-below 1000px it becomes an icon rail with accessible labels. The workspace bar provides compact session context.
+below 1000px it becomes a 72px icon rail with accessible labels (56px below 600px). Place the current-session block near
+the bottom of the expanded sidebar, above Settings. The workspace bar provides a breadcrumb and compact session status.
+The main workspace is capped at 1280px, with 32px desktop gutters and 16–24px compact gutters.
 
 Place the current task title first, followed by setup/context, the primary overview, and working content. On the Grind desk,
-time and earnings lead the overview; capture and the ledger use the available width. Place actions next to the section they
+the location remains in the same card when the session becomes locked, followed by a divided earnings/timer overview;
+capture and the ledger use the available width. The page title remains Grind desk across session states. Place actions next to the section they
 affect. Put secondary details behind clearly named disclosures, such as Value breakdown. Region selection and market price
 status/refresh controls belong together in Settings → Market. Show the current grind spot there and provide access to the
 shared spot browser, with the same session lock as the desk.
@@ -85,7 +96,7 @@ Reuse the global button classes instead of inventing a different treatment for e
 
 | Control | Convention |
 | --- | --- |
-| Standard action | `.button`: 34px minimum height, 12px text, 7px corners, 7px/12px padding |
+| Standard action | `.button`: 36px minimum height, 12px text, 8px corners, 7px/12px padding |
 | Primary action | `.button.primary-button`: reserve strong emphasis for the main next action in its context |
 | Secondary or dismiss action | `.button.subtle`: transparent background and border, subtle hover surface |
 | Input/select | Existing input tokens, one-pixel border, 7px corners, visible label or accessible name |
@@ -128,7 +139,7 @@ History filters and upload review also use the shared header; upload review disa
   at 620px, with the result area scrolling beneath its header, search, and filters.
 - For longer forms, the viewport ceiling is `calc(100dvh - 48px)`. Below 760px, use 12px viewport margins and a ceiling of
   `calc(100dvh - 24px)`; retain the 620px cap for compact pickers.
-- Use `--canvas`, a one-pixel `--line-strong` border, 16px corners, `0 20px 70px #0004` shadow, and a `#0007` backdrop.
+- Use `--surface`, a one-pixel `--line-strong` border, 16px corners, `--dialog-shadow`, and a `#080b10a6` backdrop.
 - The header uses 20px/24px padding, a bottom divider, and an 18px title. Omit subtitles by default. Compact headers use
   16px padding. Keep the header and dismissal available while long content scrolls.
 - Short confirmations should be narrower and sized to their message; the existing finish dialog uses a 520px maximum.
@@ -143,7 +154,7 @@ Use the same visible **Close Esc** control in every task dialog. It is a subtle 
 </button>
 ```
 
-The `kbd` label uses the inherited font, 10px text, and `--muted`. Keep the button from shrinking or wrapping within itself.
+The `kbd` label uses the inherited font, 10px text, `--muted`, and a small outlined keycap. Keep the button from shrinking or wrapping within itself.
 Do not introduce a bordered Close button or replace this established control with an unlabeled icon.
 
 Give the dialog an accessible title. Initially focus the first useful field, usually search, contain keyboard focus, support

@@ -2,16 +2,27 @@
     min-width: 0;
 }
 .Picker {
-    margin-bottom: var(--space-6);
     min-width: 0;
+    margin-bottom: var(--space-6);
+    padding: 20px;
+    border: 1px solid var(--line);
+    border-radius: var(--panel-radius);
+    background: var(--surface);
 }
 .Selected {
     display: flex;
     align-items: center;
+    min-height: 48px;
     gap: var(--space-4);
     flex-wrap: wrap;
 }
 .Selected > img {
+    width: 48px;
+    height: 48px;
+    padding: 3px;
+    border: 1px solid var(--line-strong);
+    border-radius: 10px;
+    background: var(--input-background);
     object-fit: contain;
 }
 .Identity {
@@ -23,16 +34,31 @@
     color: var(--muted);
 }
 .Identity h2 {
-    margin: 4px 0 0;
-    font-size: 22px;
-    font-weight: 500;
+    margin: 3px 0 0;
+    font-size: 20px;
+    font-weight: 550;
+    letter-spacing: -0.025em;
+    line-height: 1.35;
     overflow-wrap: anywhere;
+}
+.LockNote {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    max-width: 100%;
+    color: var(--muted);
+    font-size: 12px;
+}
+.LockNote svg {
+    flex-shrink: 0;
 }
 .Shortcuts {
     display: flex;
     flex-wrap: wrap;
     gap: 8px;
     margin-top: 16px;
+    padding-top: 16px;
+    border-top: 1px solid var(--line);
 }
 .Shortcut {
     display: flex;
@@ -40,8 +66,8 @@
     gap: 8px;
     max-width: 100%;
     border: 1px solid var(--line);
-    border-radius: 6px;
-    background: transparent;
+    border-radius: var(--control-radius);
+    background: var(--canvas);
     color: var(--text-soft);
     padding: 7px 10px;
     font-size: 12px;
@@ -54,6 +80,9 @@
 .Shortcut svg {
     flex-shrink: 0;
 }
+.Shortcut img {
+    border-radius: 4px;
+}
 .Dialog {
     composes: Surface from "../Dialog/Dialog.module.css";
     max-height: min(620px, calc(100dvh - 48px));
@@ -65,21 +94,22 @@
 .Search {
     display: flex;
     gap: 8px;
-    padding: 16px 24px 0;
+    padding: 20px 24px 0;
     flex-shrink: 0;
 }
 .Search input {
     min-height: 42px;
-    padding: 9px 12px;
+    padding: 10px 13px;
     min-width: 0;
     flex: 1;
+    font-size: 13px;
 }
 .Filters {
     display: flex;
     align-items: center;
     flex-wrap: wrap;
     gap: 6px;
-    padding: 16px 24px;
+    padding: 12px 24px 16px;
     flex-shrink: 0;
     border-bottom: 1px solid var(--line);
 }
@@ -87,7 +117,7 @@
     background: transparent;
     color: var(--text-soft);
     border: 1px solid transparent;
-    border-radius: 6px;
+    border-radius: var(--control-radius);
     padding: 7px 12px;
     font-size: 12px;
 }
@@ -95,6 +125,7 @@
     margin-left: auto;
     font-size: 11px;
     color: var(--muted);
+    font-variant-numeric: tabular-nums;
 }
 .Results {
     overscroll-behavior: contain;
@@ -102,11 +133,12 @@
     overflow-y: auto;
     min-height: 0;
     padding: 16px 24px 24px;
+    background: var(--canvas);
 }
 .Grid {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 8px;
+    gap: 10px;
     padding: 0;
     margin: 0;
     list-style: none;
@@ -115,11 +147,12 @@
     display: flex;
     min-width: 0;
     border: 1px solid var(--line);
-    border-radius: 8px;
+    border-radius: 10px;
+    background: var(--surface);
 }
 .Tile[data-selected="true"] {
-    background: var(--selected);
-    border-color: var(--line-strong);
+    background: var(--accent-surface);
+    border-color: var(--accent-border);
 }
 .Choose {
     display: flex;
@@ -127,10 +160,11 @@
     flex: 1;
     gap: 12px;
     min-width: 0;
-    padding: 14px 8px 14px 12px;
+    min-height: 76px;
+    padding: 14px 8px 14px 14px;
     background: transparent;
     border: 0;
-    border-radius: 7px;
+    border-radius: 9px;
     color: var(--text);
     text-align: left;
     font-size: 13px;
@@ -138,6 +172,12 @@
 }
 .Choose img {
     flex-shrink: 0;
+    width: 40px;
+    height: 40px;
+    padding: 2px;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    background: var(--input-background);
     object-fit: contain;
 }
 .Choose span {
@@ -146,15 +186,15 @@
 .Choose small {
     display: block;
     margin-top: 4px;
-    color: var(--muted);
+    color: var(--gold);
     font-size: 11px;
 }
 .Star {
     align-self: flex-start;
     flex-shrink: 0;
-    padding: 10px;
+    padding: 11px 10px;
     border: 0;
-    border-radius: 7px;
+    border-radius: 8px;
     background: transparent;
     color: var(--muted);
 }
@@ -176,7 +216,21 @@
     color: var(--muted);
     font-size: 13px;
 }
+.Shortcut,
+.Choose,
+.Star,
+.Filters button {
+    cursor: pointer;
+}
+.Shortcut:disabled,
+.Choose:disabled {
+    cursor: not-allowed;
+    opacity: 0.45;
+}
 @media (max-width: 760px) {
+    .Picker {
+        padding: 16px;
+    }
     .Dialog {
         width: calc(100vw - 24px);
         max-height: min(620px, calc(100dvh - 24px));
@@ -197,15 +251,11 @@
         padding: 12px 16px 16px;
     }
 }
-
-.Shortcut,
-.Choose,
-.Star,
-.Filters button {
-    cursor: pointer;
-}
-.Shortcut:disabled,
-.Choose:disabled {
-    cursor: not-allowed;
-    opacity: 0.45;
+@media (max-height: 480px) {
+    .Search {
+        padding-top: 12px;
+    }
+    .Filters {
+        padding-block: 8px;
+    }
 }

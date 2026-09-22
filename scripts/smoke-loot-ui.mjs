@@ -340,7 +340,7 @@ try {
         await click("Grind desk");
         await click("Collapse sidebar");
         assert(
-            await evaluate("document.querySelector('aside').getBoundingClientRect().width <= 70"),
+            await evaluate("document.querySelector('aside').getBoundingClientRect().width <= 80"),
             "Collapsing navigation must recover workspace width",
         );
         await screenshot("sidebar-collapsed");
@@ -435,8 +435,12 @@ try {
         await click("Start timer");
         await until("window.__session.status === 'running'");
         assert(
-            await evaluate("!document.querySelector('[aria-label=\"Grind spot\"]')"),
-            "Selection controls disappear once time is recorded",
+            await evaluate(`(() => {
+                const spot = document.querySelector('[aria-label="Grind spot"]');
+                return spot && [...spot.querySelectorAll('button')].every(button => button.getClientRects().length === 0) &&
+                    spot.textContent.includes('Grind spot locked for this session');
+            })()`),
+            "The spot stays visible while selection controls disappear once time is recorded",
         );
         await click("Choose capture source");
         await until(

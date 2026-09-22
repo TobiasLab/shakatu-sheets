@@ -5,13 +5,13 @@
     padding: 0;
     border: 1px solid var(--line-strong);
     border-radius: var(--dialog-radius);
-    background: var(--canvas);
+    background: var(--surface);
     color: var(--text);
     box-shadow: var(--dialog-shadow);
     overscroll-behavior: contain;
 }
 .Surface::backdrop {
-    background: #0007;
+    background: #080b10a6;
 }
 .Surface[open] {
     animation: appear var(--motion-dialog) var(--ease-out);
@@ -27,19 +27,23 @@
     gap: var(--space-5);
     padding: var(--space-5) var(--space-6);
     border-bottom: 1px solid var(--line);
-    background: var(--canvas);
+    background: var(--surface);
 }
 .Header h2 {
     min-width: 0;
     overflow-wrap: anywhere;
     font-size: var(--text-dialog-title);
     font-weight: 550;
+    letter-spacing: -0.02em;
 }
 .Header > button {
     flex-shrink: 0;
     white-space: nowrap;
 }
 .Header kbd {
+    padding: 2px 5px;
+    border: 1px solid var(--line-strong);
+    border-radius: 4px;
     font-size: 10px;
     color: var(--muted);
     font-family: inherit;
