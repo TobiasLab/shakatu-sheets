@@ -26,6 +26,9 @@
     font: inherit;
     line-height: 1.5;
 }
+.Field > input[type="number"] {
+    font-variant-numeric: tabular-nums;
+}
 .Field > textarea {
     resize: vertical;
 }

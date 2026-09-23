@@ -12,9 +12,9 @@
     --space-5: 20px;
     --space-6: 24px;
     --control-height: 36px;
-    --control-radius: 8px;
-    --panel-radius: 12px;
-    --dialog-radius: 16px;
+    --control-radius: 3px;
+    --panel-radius: 4px;
+    --dialog-radius: 6px;
     --text-label: 12px;
     --text-control: 12px;
     --text-dialog-title: 18px;
@@ -22,38 +22,45 @@
     --motion-dialog: 160ms;
     --ease-out: cubic-bezier(0.2, 0, 0, 1);
     --dialog-shadow: 0 20px 70px #0004;
-    --canvas: #14171c;
-    --sidebar: #101216;
-    --surface: #1b1f25;
-    --surface-raised: #22272e;
-    --hover: #272c33;
-    --selected: #302c24;
-    --line: #2c3139;
-    --line-strong: #424952;
-    --row-line: #292e36;
-    --text: #e2e4e8;
-    --text-strong: #f5f4f0;
-    --text-soft: #b7bec8;
-    --muted: #929ba8;
-    --mint: #d9bc82;
-    --gold: #dcc08b;
-    --success: #91c9ab;
-    --danger: #f1a49b;
-    --input-background: #171b20;
-    --focus-border: #dcc08b;
-    --button-background: #242930;
-    --button-border: #424952;
-    --button-hover-border: #6c7684;
-    --accent-contrast: #252016;
-    --accent-hover: #ead09c;
-    --accent-border: #756344;
-    --accent-surface: #2c2821;
-    --clock-background: #171b20;
-    --quick-item-background: #22272e;
-    --quick-item-selected: #302c24;
-    --item-swatch: #292f38;
-    --expense-swatch: #332b22;
-    --note-text: #929ba8;
+    /* Adapted from BDO's in-game settings and market panels. */
+    --canvas: #201f24;
+    --sidebar: #242328;
+    --surface: #29282e;
+    --surface-raised: #323138;
+    --hover: #3b393f;
+    --selected: #423c32;
+    --line: #403e46;
+    --line-strong: #605d66;
+    --row-line: #37353c;
+    --text: #e7e1d3;
+    --text-strong: #f4efe4;
+    --text-soft: #c5bdad;
+    --muted: #aaa393;
+    --mint: var(--gold);
+    --gold: #d2bb7e;
+    --success: #a6c595;
+    --danger: #eca296;
+    --warning: #dfbf7c;
+    --negative: #d8aaa0;
+    --input-background: #232227;
+    --focus-border: #d2bb7e;
+    --button-background: #39373e;
+    --button-border: #605d66;
+    --button-hover-border: #8a8381;
+    --primary-background: #61533e;
+    --primary-text: #fff1d4;
+    --primary-border: #9a8258;
+    --primary-hover: #736146;
+    --accent-contrast: #242328;
+    --accent-hover: #e0c990;
+    --accent-border: #8b7855;
+    --accent-surface: #39352e;
+    --clock-background: #242328;
+    --quick-item-background: #323138;
+    --quick-item-selected: #423c32;
+    --item-swatch: #39373e;
+    --expense-swatch: #413334;
+    --note-text: #aaa393;
 }
 :root[data-theme="light"] {
     color-scheme: light;
@@ -69,10 +76,16 @@
     --text: #30352f;
     --text-strong: #20271f;
     --text-soft: #555e53;
-    --muted: #687064;
+    --muted: #60685d;
     --mint: #765622;
     --gold: #80602b;
     --success: #347153;
+    --warning: #806020;
+    --negative: #9c5148;
+    --primary-background: #765622;
+    --primary-text: #ffffff;
+    --primary-border: #765622;
+    --primary-hover: #614518;
     --danger: #b24136;
     --input-background: #ffffff;
     --focus-border: #80602b;
@@ -88,7 +101,7 @@
     --quick-item-selected: #ede5d4;
     --item-swatch: #edece6;
     --expense-swatch: #f5eddd;
-    --note-text: #687064;
+    --note-text: #60685d;
 }
 :root[data-theme="moss"] {
     --canvas: #18221e;
@@ -107,6 +120,12 @@
     --mint: #d8c38e;
     --gold: #ddc897;
     --focus-border: #ddc897;
+    --warning: #dfbf7c;
+    --negative: #d8aaa0;
+    --primary-background: #535b3d;
+    --primary-text: #f3eedc;
+    --primary-border: #82815d;
+    --primary-hover: #656c49;
     --input-background: #1a261f;
     --button-background: #29382f;
     --button-border: #4e6455;
@@ -186,6 +205,14 @@ select:disabled {
 input:disabled {
     color: var(--muted);
 }
+input::placeholder {
+    color: var(--muted);
+    opacity: 1;
+}
+input[aria-invalid="true"],
+select[aria-invalid="true"] {
+    border-color: var(--danger);
+}
 button,
 input,
 select,
@@ -207,9 +234,9 @@ h3 {
     color: var(--text-strong);
 }
 h1 {
-    font-size: 28px;
+    font-size: 24px;
     font-weight: 600;
-    letter-spacing: -0.7px;
+    letter-spacing: -0.45px;
     line-height: 1.35;
 }
 h2 {
@@ -231,10 +258,9 @@ h3 {
 .eyebrow {
     margin: 0 0 5px;
     font-size: 11px;
-    color: var(--gold);
-    font-weight: 600;
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
+    color: var(--text-soft);
+    font-weight: 500;
+    letter-spacing: 0.03em;
 }
 .page-description {
     margin: 8px 0 0;
@@ -262,16 +288,16 @@ h3 {
 }
 .button:disabled {
     cursor: not-allowed;
-    opacity: 0.45;
+    opacity: 0.55;
 }
 .primary-button {
-    background: var(--mint);
-    color: var(--accent-contrast);
-    border-color: var(--mint);
+    background: var(--primary-background);
+    color: var(--primary-text);
+    border-color: var(--primary-border);
 }
 .button.primary-button:hover:not(:disabled) {
-    background: var(--accent-hover);
-    border-color: var(--accent-hover);
+    background: var(--primary-hover);
+    border-color: var(--primary-border);
 }
 .button.subtle {
     background: transparent;
@@ -319,7 +345,7 @@ h3 {
     width: 38px;
     height: 38px;
     border: 1px solid var(--line);
-    border-radius: 10px;
+    border-radius: var(--panel-radius);
     margin-bottom: 16px;
 }
 .item-swatch {
@@ -329,14 +355,14 @@ h3 {
     place-items: center;
     background: var(--item-swatch);
     color: var(--text-soft);
-    border-radius: 6px;
+    border-radius: var(--control-radius);
 }
 .item-swatch.expense {
     background: var(--expense-swatch);
-    color: var(--gold);
+    color: var(--negative);
 }
 .negative {
-    color: var(--gold);
+    color: var(--negative);
 }
 summary {
     cursor: pointer;
@@ -364,4 +390,8 @@ summary {
 :root[data-window="session-overlay"],
 :root[data-window="session-overlay"] body {
     background: transparent;
+}
+
+:root[data-window="session-overlay"] body {
+    min-width: 0;
 }

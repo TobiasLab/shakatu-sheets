@@ -10,8 +10,8 @@
     display: grid;
     align-content: start;
     min-width: 0;
-    gap: 12px;
-    padding: 20px;
+    gap: 10px;
+    padding: 18px 20px;
 }
 .Metric + .Metric,
 .SessionClock {
@@ -25,17 +25,15 @@
 }
 .Metric strong {
     color: var(--text-strong);
-    font-size: clamp(30px, 3vw, 40px);
+    font-size: clamp(28px, 2.7vw, 36px);
     font-weight: 550;
-    letter-spacing: -1.2px;
+    letter-spacing: -0.8px;
     font-variant-numeric: tabular-nums;
     line-height: 1.15;
 }
 .PrimaryMetric {
-    border-top: 2px solid var(--gold);
     border-radius: var(--panel-radius) 0 0 var(--panel-radius);
-    padding-top: 18px;
-    background: var(--accent-surface);
+    box-shadow: inset 0 2px var(--accent-border);
 }
 .PrimaryMetric strong {
     color: var(--gold);
@@ -46,8 +44,8 @@
     flex-wrap: wrap;
     align-items: center;
     align-content: start;
-    gap: 12px;
-    padding: 20px;
+    gap: 10px;
+    padding: 18px 20px;
 }
 .ClockReadout {
     display: grid;
@@ -119,6 +117,7 @@
     top: 26px;
     left: 0;
     width: 230px;
+    max-width: calc(100vw - 100px);
     display: grid;
     gap: 12px;
     margin: 8px 0 0;
@@ -171,13 +170,14 @@
     justify-content: space-between;
     gap: 20px;
     padding: 20px;
-    border: 1px solid var(--accent-border);
+    border: 1px solid var(--line-strong);
+    border-left: 2px solid var(--success);
     border-radius: var(--panel-radius);
-    background: var(--accent-surface);
+    background: var(--surface);
     margin-bottom: 20px;
 }
 .Completion strong {
-    color: var(--gold);
+    color: var(--success);
     font-size: 14px;
     font-weight: 550;
 }
@@ -197,6 +197,12 @@
 }
 .FinishDialog p {
     margin: 16px 0;
+    color: var(--text-soft);
+    font-size: 13px;
+}
+.FinishDialog p[role="alert"] {
+    color: var(--danger);
+    overflow-wrap: anywhere;
 }
 .FinishActions {
     display: flex;
@@ -243,13 +249,14 @@
     .SessionClock {
         padding: 16px;
     }
-    .PrimaryMetric {
-        padding-top: 14px;
-    }
     .Metric strong {
         font-size: 26px;
     }
     .ClockReadout {
         width: 100%;
     }
+}
+
+.OverlayError {
+    margin-bottom: var(--space-4);
 }

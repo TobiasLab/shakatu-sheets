@@ -59,7 +59,6 @@ export function GarmothUploadDialog({
     useEffect(() => {
         const element = dialog.current;
         element?.showModal();
-        element?.querySelector<HTMLInputElement>('input[type="search"]')?.focus();
         return () => element?.close();
     }, []);
 

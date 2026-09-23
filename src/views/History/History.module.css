@@ -5,7 +5,18 @@
     gap: var(--space-2);
 }
 .FilterDialog[open] {
+    display: flex;
+    flex-direction: column;
     max-width: 560px;
+    overflow: hidden;
+}
+.FilterDialog > header {
+    flex-shrink: 0;
+}
+.FilterBody {
+    min-height: 0;
+    overflow-y: auto;
+    overscroll-behavior: contain;
 }
 .FilterFields {
     display: grid;
@@ -15,13 +26,56 @@
 }
 .FilterFooter {
     display: flex;
-    justify-content: flex-end;
-    padding: 0 24px 24px;
+    justify-content: space-between;
+    flex-shrink: 0;
+    gap: 12px;
+    padding: 16px 24px;
+    border-top: 1px solid var(--line);
+    background: var(--surface-raised);
 }
 .FilterError {
     margin: 0 24px 16px;
     color: var(--danger);
     font-size: 12px;
+}
+.ActiveFilters {
+    display: flex;
+    min-width: 0;
+    padding: 0;
+    border: 0;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin: -8px 0 20px;
+}
+.ActiveFilters button {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    max-width: 100%;
+    min-height: 32px;
+    padding: 5px 10px;
+    border: 1px solid var(--accent-border);
+    border-radius: var(--control-radius);
+    background: var(--surface);
+    color: var(--text-soft);
+    font-size: 12px;
+    text-align: left;
+    overflow-wrap: anywhere;
+    cursor: pointer;
+}
+.ActiveFilters button:hover:not(:disabled) {
+    background: var(--accent-surface);
+    color: var(--gold);
+}
+.ActiveFilters button:disabled {
+    cursor: not-allowed;
+    opacity: 0.5;
+}
+.ActiveFilters button > span {
+    flex-shrink: 0;
+    color: var(--muted);
+    font-size: 16px;
+    line-height: 1;
 }
 .Overview {
     display: grid;
@@ -65,6 +119,7 @@
     font-weight: 400;
 }
 .Overview .TimedCount {
+    min-height: 0;
     margin: 8px 0 0;
     font-size: 11px;
 }
@@ -96,6 +151,11 @@
 }
 .ComparisonScroll {
     overflow-x: auto;
+    overscroll-behavior-x: contain;
+}
+.ComparisonScroll:focus-visible,
+.HistoryEntries:focus-visible {
+    outline-offset: -3px;
 }
 .ComparisonScroll table {
     width: 100%;
@@ -130,10 +190,19 @@
     font-weight: 500;
 }
 .ComparisonScroll tbody th button {
-    min-height: 0;
-    padding: 0;
+    min-height: 32px;
+    max-width: 260px;
+    padding: 4px 0;
     text-align: left;
+    white-space: normal;
+    overflow-wrap: anywhere;
     color: var(--text);
+}
+.ComparisonScroll tbody tr[data-selected="true"] {
+    background: var(--accent-surface);
+}
+.ComparisonScroll tbody th button[aria-pressed="true"] {
+    color: var(--gold);
 }
 .ComparisonScroll tbody tr:hover {
     background: var(--hover);
@@ -170,7 +239,12 @@
     gap: 14px;
     border-bottom: 1px solid var(--line);
 }
+.HistoryGrid :global(.panel-heading) > div {
+    min-width: 0;
+    max-width: 100%;
+}
 .HistoryGrid :global(.panel-heading) h2 {
+    overflow-wrap: anywhere;
     font-size: 14px;
 }
 .DetailPanel :global(.panel-heading) h2 {
@@ -181,22 +255,27 @@
 }
 .Pagination {
     display: flex;
-    justify-content: space-between;
-    gap: var(--space-2);
-    padding: 10px 14px;
-    border-bottom: 1px solid var(--line);
+    flex-wrap: wrap;
+    gap: 4px;
+    margin-left: auto;
+}
+.Pagination :global(.button) {
+    min-height: 30px;
+    padding: 5px 8px;
+    font-size: 11px;
 }
 .HistoryList {
-    max-height: 650px;
+    max-height: clamp(200px, 55vh, 650px);
     padding: 8px;
     overflow: auto;
+    overscroll-behavior-y: contain;
 }
 .HistoryRow {
     display: grid;
-    grid-template-columns: minmax(0, 1fr) 48px;
+    grid-template-columns: minmax(0, 1fr) auto;
     margin-bottom: 5px;
     border: 1px solid transparent;
-    border-radius: 8px;
+    border-radius: var(--control-radius);
 }
 .HistoryRow:last-child {
     margin-bottom: 0;
@@ -212,11 +291,15 @@
     width: 100%;
     padding: 14px 12px;
     border: 0;
-    border-radius: 7px;
+    border-radius: var(--control-radius);
     background: transparent;
     color: var(--text-soft);
     text-align: left;
+    overflow-wrap: anywhere;
     cursor: pointer;
+}
+.HistoryList button:focus-visible {
+    outline-offset: -3px;
 }
 .HistorySelect:hover {
     background: var(--hover);
@@ -264,10 +347,10 @@
     align-self: start;
     margin-top: 8px;
     min-height: 34px;
-    padding: 0 4px;
+    padding: 0 8px;
     border: 0;
-    border-radius: 6px;
-    font-size: 10px;
+    border-radius: var(--control-radius);
+    font-size: 11px;
     color: var(--muted);
     background: transparent;
     cursor: pointer;
@@ -321,6 +404,7 @@
 .HistoryEntries {
     max-height: 450px;
     overflow: auto;
+    overscroll-behavior-y: contain;
     padding: 0 20px;
 }
 .HistoryEntry {
@@ -369,8 +453,13 @@
     flex-wrap: wrap;
     gap: 16px;
 }
+.UploadHeading > div {
+    min-width: 0;
+    max-width: 100%;
+}
 .UploadHeading span,
 .UploadHeading strong {
+    overflow-wrap: anywhere;
     display: block;
 }
 .UploadHeading span {
@@ -389,8 +478,10 @@
     margin-top: 16px;
     font-size: 11px;
     color: var(--muted);
+    overflow-wrap: anywhere;
 }
 .GarmothUpload p {
+    overflow-wrap: anywhere;
     margin: 12px 0 0;
     color: var(--muted);
     font-size: 12px;
@@ -471,6 +562,6 @@
         padding: 18px;
     }
     .FilterFooter {
-        padding: 0 18px 18px;
+        padding: 14px 18px;
     }
 }

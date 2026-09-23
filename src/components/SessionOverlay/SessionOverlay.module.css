@@ -1,14 +1,18 @@
 .Overlay {
     position: relative;
-    min-height: 100vh;
-    padding: 12px;
+    height: 100vh;
+    min-width: 0;
+    padding: 10px;
+    overflow-y: auto;
+    overflow-x: hidden;
+    scrollbar-width: thin;
     background: var(--sidebar);
     border: 1px solid var(--line-strong);
 }
 .Header {
     display: flex;
     align-items: center;
-    gap: 8px;
+    gap: 4px;
 }
 .DragHandle {
     flex: 1;
@@ -28,6 +32,9 @@
     color: var(--text-soft);
     padding: 4px;
     font: inherit;
+    font-size: 12px;
+    min-height: 26px;
+    border-radius: var(--control-radius);
 }
 .Close {
     cursor: pointer;
@@ -35,12 +42,17 @@
     line-height: 1;
 }
 .Metrics {
-    display: flex;
-    flex-wrap: wrap;
-    justify-content: space-between;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto;
     align-items: center;
-    gap: 12px;
-    padding: 14px 4px;
+    gap: 8px;
+    padding: 10px 0 12px;
+}
+.Metrics > div {
+    min-width: 0;
+}
+.Metrics > div:first-child strong {
+    color: var(--gold);
 }
 .Metrics span {
     display: block;
@@ -50,15 +62,18 @@
 .Metrics strong {
     display: block;
     margin-top: 3px;
-    font-size: 30px;
+    font-size: clamp(22px, 7.5vw, 28px);
+    line-height: 1.2;
+    font-weight: 550;
+    letter-spacing: -0.5px;
     font-variant-numeric: tabular-nums;
-    color: var(--gold);
+    color: var(--text-strong);
 }
 .Clock {
     display: grid;
     grid-template-columns: auto;
     align-items: center;
-    column-gap: 10px;
+    column-gap: 6px;
     row-gap: 4px;
     flex-shrink: 0;
     margin-left: auto;
@@ -67,7 +82,7 @@
 }
 .Clock time {
     grid-column: 1;
-    font-size: 16px;
+    font-size: 14px;
     font-weight: 600;
     line-height: 1.2;
     white-space: nowrap;
@@ -75,25 +90,25 @@
 .Drops {
     display: flex;
     flex-wrap: wrap;
-    gap: 8px;
+    gap: 6px;
     padding: 0;
     margin: 0;
     list-style: none;
 }
 .Drops li {
     display: grid;
-    min-width: 48px;
-    height: 48px;
+    min-width: 40px;
+    height: 40px;
     border: 1px solid var(--line-strong);
-    border-radius: 5px;
+    border-radius: var(--control-radius);
     background: var(--surface-raised);
     overflow: hidden;
 }
 .Drops img {
     grid-area: 1 / 1;
     justify-self: center;
-    width: 46px;
-    height: 46px;
+    width: 38px;
+    height: 38px;
     object-fit: contain;
 }
 .Quantity {
@@ -123,8 +138,8 @@
     font-size: 12px;
 }
 .TimerButton:global(.button) {
-    width: 30px;
-    min-height: 30px;
+    width: 28px;
+    min-height: 28px;
     grid-column: 2;
     grid-row: 1;
     padding: 0;
@@ -166,4 +181,26 @@
     color: var(--text-soft);
     font-size: 11px;
     pointer-events: none;
+}
+
+.Close,
+.DisplayButton {
+    display: grid;
+    place-items: center;
+    width: 28px;
+    height: 28px;
+    flex-shrink: 0;
+    border-radius: var(--control-radius);
+}
+.Close:hover,
+.DisplayButton:hover,
+.DragHandle:hover {
+    color: var(--text-strong);
+    background: var(--hover);
+}
+.Error {
+    margin: 8px 0;
+    color: var(--danger);
+    font-size: 12px;
+    overflow-wrap: anywhere;
 }

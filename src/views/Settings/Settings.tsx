@@ -272,10 +272,10 @@ export function SettingsView({
                     </div>
                 </section>
 
-                <section id="appearance" className="panel">
+                <section id="appearance" className="panel" aria-labelledby="appearance-title">
                     <div className="panel-heading">
                         <div>
-                            <h2>Appearance</h2>
+                            <h2 id="appearance-title">Appearance</h2>
                         </div>
                     </div>
                     <div className={styles.SettingsForm}>
@@ -337,10 +337,10 @@ export function SettingsView({
                         )}
                     </div>
                 </section>
-                <section id="capture-preferences" className="panel">
+                <section id="capture-preferences" className="panel" aria-labelledby="capture-preferences-title">
                     <div className="panel-heading">
                         <div>
-                            <h2>Capture</h2>
+                            <h2 id="capture-preferences-title">Capture</h2>
                         </div>
                     </div>
                     <div className={styles.SettingsForm}>
@@ -535,7 +535,11 @@ export function SettingsView({
                         </details>
                     </div>
                 </section>
-                <section id="consumables" className="panel" aria-labelledby="consumables-settings-title">
+                <section
+                    id="consumables"
+                    className={`panel ${styles.ConsumablesSection}`}
+                    aria-labelledby="consumables-settings-title"
+                >
                     <div className="panel-heading">
                         <h2 id="consumables-settings-title">Consumable presets</h2>
                     </div>

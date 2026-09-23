@@ -153,14 +153,18 @@ export function LiveLootCapture({ controller }: { controller: ReturnType<typeof 
                         Loot capture
                     </h2>
                     {status === "capturing" && (
-                        <span role="status" data-recognition-status={recognitionStatus}>
+                        <span role="status" data-recognition-status={recognitionError ? "error" : recognitionStatus}>
                             {recognitionStatus === "active"
                                 ? "Tracking loot"
                                 : recognitionError
                                   ? "Recognition stopped"
-                                  : sourceSupported
-                                    ? "Confirm loot areas"
-                                    : "Preview only · unsupported source"}
+                                  : recognitionStatus === "unavailable"
+                                    ? "Preview only · recognition unavailable"
+                                    : recognitionStatus === "starting"
+                                      ? "Starting recognition…"
+                                      : sourceSupported
+                                        ? "Confirm loot areas"
+                                        : "Preview only · unsupported source"}
                         </span>
                     )}
                 </div>
@@ -203,7 +207,8 @@ export function LiveLootCapture({ controller }: { controller: ReturnType<typeof 
                     <span>1 · Source selected</span>
                     <span className={!regionConfirmed ? styles.CurrentStep : ""}>2 · Align areas</span>
                     <span className={regionConfirmed ? styles.CurrentStep : ""}>
-                        3 · {regionConfirmed ? "Areas confirmed" : "Confirm & track"}
+                        3 ·{" "}
+                        {regionConfirmed ? "Areas confirmed" : calibratedProfile ? "Confirm & track" : "Confirm areas"}
                     </span>
                 </section>
             )}
@@ -773,8 +778,15 @@ export function LiveLootCapture({ controller }: { controller: ReturnType<typeof 
                                 Needs attention <span>({reviewResults.filter((entry) => !entry.accepted).length})</span>
                             </h3>
                         </div>
-                        <button className="button subtle" type="button" onClick={clearReviewResults}>
-                            Clear
+                        <button
+                            className="button subtle"
+                            type="button"
+                            onClick={() => {
+                                clearReviewResults();
+                                document.getElementById("live-capture-heading")?.focus();
+                            }}
+                        >
+                            Clear review
                         </button>
                     </div>
                     {omittedReviewResults > 0 && (

@@ -325,88 +325,91 @@ export function HistoryView({
                     closeLabel="Close filters"
                     onClose={() => filterDialog.current?.close()}
                 />
-                <div className={styles.FilterFields}>
-                    <FormField label="Region">
-                        <select
-                            ref={regionInput}
-                            aria-label="Recorded region"
-                            value={region}
-                            disabled={!databaseLoaded || actionBusy}
-                            onChange={(event) => {
-                                resetPage();
-                                setRegion(event.target.value as "eu" | "na");
-                            }}
-                        >
-                            <option value="eu">EU</option>
-                            <option value="na">NA</option>
-                        </select>
-                    </FormField>
-                    <FormField label="Grind spot">
-                        <select
-                            aria-label="Grind spot"
-                            value={grindSpotFilter}
-                            disabled={!databaseLoaded || actionBusy}
-                            onChange={(event) => selectSpot(event.target.value)}
-                        >
-                            <option value="all">All grind spots</option>
-                            {grindSpotFilter !== "all" && !grindSpots.some((spot) => spot.id === grindSpotFilter) && (
-                                <option value={grindSpotFilter}>{grindSpotFilter}</option>
-                            )}
-                            {history?.spotSummaries
-                                .filter(
-                                    (spot) =>
-                                        spot.grindSpotId !== grindSpotFilter &&
-                                        !grindSpots.some((known) => known.id === spot.grindSpotId),
-                                )
-                                .map((spot) => (
-                                    <option key={spot.grindSpotId} value={spot.grindSpotId}>
-                                        {spot.grindSpotId}
+                <div className={styles.FilterBody}>
+                    <div className={styles.FilterFields}>
+                        <FormField label="Region">
+                            <select
+                                ref={regionInput}
+                                aria-label="Recorded region"
+                                value={region}
+                                disabled={!databaseLoaded || actionBusy}
+                                onChange={(event) => {
+                                    resetPage();
+                                    setRegion(event.target.value as "eu" | "na");
+                                }}
+                            >
+                                <option value="eu">EU</option>
+                                <option value="na">NA</option>
+                            </select>
+                        </FormField>
+                        <FormField label="Grind spot">
+                            <select
+                                aria-label="Grind spot"
+                                value={grindSpotFilter}
+                                disabled={!databaseLoaded || actionBusy}
+                                onChange={(event) => selectSpot(event.target.value)}
+                            >
+                                <option value="all">All grind spots</option>
+                                {grindSpotFilter !== "all" &&
+                                    !grindSpots.some((spot) => spot.id === grindSpotFilter) && (
+                                        <option value={grindSpotFilter}>{grindSpotFilter}</option>
+                                    )}
+                                {history?.spotSummaries
+                                    .filter(
+                                        (spot) =>
+                                            spot.grindSpotId !== grindSpotFilter &&
+                                            !grindSpots.some((known) => known.id === spot.grindSpotId),
+                                    )
+                                    .map((spot) => (
+                                        <option key={spot.grindSpotId} value={spot.grindSpotId}>
+                                            {spot.grindSpotId}
+                                        </option>
+                                    ))}
+                                {grindSpots.map((spot) => (
+                                    <option key={spot.id} value={spot.id}>
+                                        {spot.name}
                                     </option>
                                 ))}
-                            {grindSpots.map((spot) => (
-                                <option key={spot.id} value={spot.id}>
-                                    {spot.name}
-                                </option>
-                            ))}
-                        </select>
-                    </FormField>
-                    <FormField label="Completed from">
-                        <input
-                            type="date"
-                            aria-invalid={Boolean(dateError)}
-                            aria-describedby={dateError ? "history-date-error" : undefined}
-                            min="1970-01-01"
-                            value={fromDate}
-                            disabled={!databaseLoaded || actionBusy}
-                            onChange={(event) => {
-                                resetPage();
-                                setFromDate(event.target.value);
-                            }}
-                        />
-                    </FormField>
-                    <FormField label="Completed through">
-                        <input
-                            type="date"
-                            aria-invalid={Boolean(dateError)}
-                            aria-describedby={dateError ? "history-date-error" : undefined}
-                            min="1970-01-01"
-                            id="history-completed-through"
-                            value={toDate}
-                            disabled={!databaseLoaded || actionBusy}
-                            onChange={(event) => {
-                                resetPage();
-                                setToDate(event.target.value);
-                            }}
-                        />
-                    </FormField>
-                </div>
-                {(dateError || error) && (
-                    <div className={styles.FilterError}>
-                        <Feedback id="history-date-error" tone="error">
-                            {dateError || error}
-                        </Feedback>
+                            </select>
+                        </FormField>
+                        <FormField label="Completed from">
+                            <input
+                                type="date"
+                                aria-invalid={Boolean(dateError)}
+                                aria-describedby={dateError ? "history-date-error" : undefined}
+                                min="1970-01-01"
+                                value={fromDate}
+                                disabled={!databaseLoaded || actionBusy}
+                                onChange={(event) => {
+                                    resetPage();
+                                    setFromDate(event.target.value);
+                                }}
+                            />
+                        </FormField>
+                        <FormField label="Completed through">
+                            <input
+                                type="date"
+                                aria-invalid={Boolean(dateError)}
+                                aria-describedby={dateError ? "history-date-error" : undefined}
+                                min="1970-01-01"
+                                id="history-completed-through"
+                                value={toDate}
+                                disabled={!databaseLoaded || actionBusy}
+                                onChange={(event) => {
+                                    resetPage();
+                                    setToDate(event.target.value);
+                                }}
+                            />
+                        </FormField>
                     </div>
-                )}
+                    {(dateError || error) && (
+                        <div className={styles.FilterError}>
+                            <Feedback id="history-date-error" tone="error">
+                                {dateError || error}
+                            </Feedback>
+                        </div>
+                    )}
+                </div>
                 <div className={styles.FilterFooter}>
                     <button
                         className="button subtle"
@@ -416,9 +419,67 @@ export function HistoryView({
                     >
                         Clear filters
                     </button>
+                    <button
+                        className="button primary-button"
+                        type="button"
+                        onClick={() => filterDialog.current?.close()}
+                    >
+                        Done
+                    </button>
                 </div>
             </dialog>
 
+            {hasFilters && (
+                <fieldset className={styles.ActiveFilters} aria-label="Active history filters">
+                    {region !== initialRegion && (
+                        <button
+                            type="button"
+                            disabled={actionBusy}
+                            aria-label="Reset region filter"
+                            onClick={() => {
+                                resetPage();
+                                setRegion(null);
+                                filterButton.current?.focus();
+                            }}
+                        >
+                            {region.toUpperCase()} <span aria-hidden="true">×</span>
+                        </button>
+                    )}
+                    {grindSpotFilter !== "all" && (
+                        <button
+                            type="button"
+                            disabled={actionBusy}
+                            aria-label="Clear grind spot filter"
+                            onClick={() => {
+                                selectSpot("all");
+                                filterButton.current?.focus();
+                            }}
+                        >
+                            {spotName(grindSpotFilter)} <span aria-hidden="true">×</span>
+                        </button>
+                    )}
+                    {(fromDate || toDate) && (
+                        <button
+                            type="button"
+                            disabled={actionBusy}
+                            aria-label="Clear date filter"
+                            onClick={() => {
+                                resetPage();
+                                setFromDate("");
+                                setToDate("");
+                                filterButton.current?.focus();
+                            }}
+                        >
+                            {fromDate && toDate
+                                ? `${fromDate} – ${toDate}`
+                                : fromDate
+                                  ? `From ${fromDate}`
+                                  : `Through ${toDate}`}
+                            <span aria-hidden="true">×</span>
+                        </button>
+                    )}
+                </fieldset>
+            )}
             {history && !error && historyTotals.sessionCount > 0 && (
                 <section className={styles.Overview} aria-label="Filtered history summary">
                     <div>
@@ -473,11 +534,12 @@ export function HistoryView({
                                 {comparisonSpots.map((spot) => {
                                     const rate = netPerHour(spot);
                                     return (
-                                        <tr key={spot.grindSpotId}>
+                                        <tr key={spot.grindSpotId} data-selected={grindSpotFilter === spot.grindSpotId}>
                                             <th scope="row">
                                                 <button
                                                     type="button"
                                                     className="button subtle"
+                                                    aria-pressed={grindSpotFilter === spot.grindSpotId}
                                                     disabled={actionBusy || loading}
                                                     onClick={() => selectSpot(spot.grindSpotId)}
                                                 >
@@ -545,29 +607,29 @@ export function HistoryView({
                                     {history?.totalCount ?? pageRecords.length} sessions
                                 </h2>
                             </div>
+                            <nav className={styles.Pagination} aria-label="History pages">
+                                <button
+                                    className="button subtle"
+                                    type="button"
+                                    ref={previousButton}
+                                    disabled={actionBusy || loading || !history || history.offset === 0}
+                                    onClick={() => changePage(Math.max(0, (history?.offset ?? 0) - 20))}
+                                >
+                                    Previous
+                                </button>
+                                <button
+                                    className="button subtle"
+                                    type="button"
+                                    disabled={
+                                        actionBusy || loading || !history || history.offset + 20 >= history.totalCount
+                                    }
+                                    ref={nextButton}
+                                    onClick={() => changePage((history?.offset ?? 0) + 20)}
+                                >
+                                    Next
+                                </button>
+                            </nav>
                         </div>
-                        <nav className={styles.Pagination} aria-label="History pages">
-                            <button
-                                className="button subtle"
-                                type="button"
-                                ref={previousButton}
-                                disabled={actionBusy || loading || !history || history.offset === 0}
-                                onClick={() => changePage(Math.max(0, (history?.offset ?? 0) - 20))}
-                            >
-                                Previous
-                            </button>
-                            <button
-                                className="button subtle"
-                                type="button"
-                                disabled={
-                                    actionBusy || loading || !history || history.offset + 20 >= history.totalCount
-                                }
-                                ref={nextButton}
-                                onClick={() => changePage((history?.offset ?? 0) + 20)}
-                            >
-                                Next
-                            </button>
-                        </nav>
                         <div className={styles.HistoryList}>
                             {pageRecords.map((record) => {
                                 const totals = calculateTotals(record.session.entries, record.session.elapsedMs);
@@ -676,7 +738,8 @@ export function HistoryView({
                                     <strong>No entries recorded</strong>
                                 </div>
                             ) : (
-                                <div className={styles.HistoryEntries}>
+                                // biome-ignore lint/a11y/noNoninteractiveTabindex: Read-only recorded items need keyboard scrolling.
+                                <section className={styles.HistoryEntries} aria-label="Recorded items" tabIndex={0}>
                                     {selected.session.entries.map((entry) => {
                                         const icon = getDropIcon(selected.session.grindSpotId, entry.name);
                                         return (
@@ -708,7 +771,7 @@ export function HistoryView({
                                             </div>
                                         );
                                     })}
-                                </div>
+                                </section>
                             )}
                             <div className={styles.GarmothUpload}>
                                 <div className={styles.UploadHeading}>

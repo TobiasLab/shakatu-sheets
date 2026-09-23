@@ -21,7 +21,7 @@
     height: 48px;
     padding: 3px;
     border: 1px solid var(--line-strong);
-    border-radius: 10px;
+    border-radius: var(--panel-radius);
     background: var(--input-background);
     object-fit: contain;
 }
@@ -30,7 +30,7 @@
     min-width: min(220px, 100%);
 }
 .Identity > span {
-    font-size: 11px;
+    font-size: var(--text-label);
     color: var(--muted);
 }
 .Identity h2 {
@@ -56,8 +56,8 @@
     display: flex;
     flex-wrap: wrap;
     gap: 8px;
-    margin-top: 16px;
-    padding-top: 16px;
+    margin-top: 12px;
+    padding-top: 12px;
     border-top: 1px solid var(--line);
 }
 .Shortcut {
@@ -147,7 +147,7 @@
     display: flex;
     min-width: 0;
     border: 1px solid var(--line);
-    border-radius: 10px;
+    border-radius: var(--panel-radius);
     background: var(--surface);
 }
 .Tile[data-selected="true"] {
@@ -160,11 +160,11 @@
     flex: 1;
     gap: 12px;
     min-width: 0;
-    min-height: 76px;
-    padding: 14px 8px 14px 14px;
+    min-height: 68px;
+    padding: 12px 8px 12px 12px;
     background: transparent;
     border: 0;
-    border-radius: 9px;
+    border-radius: var(--control-radius);
     color: var(--text);
     text-align: left;
     font-size: 13px;
@@ -176,7 +176,7 @@
     height: 40px;
     padding: 2px;
     border: 1px solid var(--line);
-    border-radius: 8px;
+    border-radius: var(--control-radius);
     background: var(--input-background);
     object-fit: contain;
 }
@@ -190,11 +190,12 @@
     font-size: 11px;
 }
 .Star {
-    align-self: flex-start;
+    align-self: center;
     flex-shrink: 0;
-    padding: 11px 10px;
+    margin-right: 4px;
+    padding: 9px 8px;
     border: 0;
-    border-radius: 8px;
+    border-radius: var(--control-radius);
     background: transparent;
     color: var(--muted);
 }
@@ -212,7 +213,8 @@
 }
 .Empty {
     text-align: center;
-    padding: 32px 0;
+    margin: 0;
+    padding: 36px 12px;
     color: var(--muted);
     font-size: 13px;
 }

@@ -9,8 +9,8 @@
 }
 .LedgerPanel > :global(.panel-heading) {
     flex-wrap: wrap;
-    min-height: 72px;
-    padding: 16px 20px;
+    min-height: 64px;
+    padding: 12px 20px;
     border-bottom: 1px solid var(--line);
 }
 .LedgerToolbar {
@@ -83,7 +83,7 @@
     width: 48px;
 }
 .LedgerRow td {
-    padding: 13px 10px;
+    padding: 11px 10px;
     border-bottom: 1px solid var(--row-line);
     vertical-align: middle;
 }
@@ -113,7 +113,7 @@
     height: 36px;
     flex-shrink: 0;
     border: 1px solid var(--line-strong);
-    border-radius: 8px;
+    border-radius: var(--control-radius);
     background: var(--input-background);
 }
 .ItemIcon img {
@@ -127,15 +127,15 @@
     height: 36px;
     flex-shrink: 0;
     border: 1px solid var(--line);
-    border-radius: 8px;
+    border-radius: var(--control-radius);
 }
 .ItemName {
     min-width: 0;
 }
 .ItemName strong {
     display: block;
-    font-size: 12px;
-    font-weight: 550;
+    font-size: var(--text-control);
+    font-weight: 500;
     color: var(--text-strong);
     overflow-wrap: anywhere;
 }
@@ -153,7 +153,7 @@
     font-size: 12px;
     border-color: transparent;
     background: transparent;
-    border-radius: 5px;
+    border-radius: var(--control-radius);
     appearance: textfield;
 }
 .LedgerRow input::-webkit-inner-spin-button,
@@ -187,7 +187,7 @@
     height: 32px;
     padding: 0;
     border: 0;
-    border-radius: 6px;
+    border-radius: var(--control-radius);
     background: transparent;
     color: var(--muted);
     cursor: pointer;
@@ -197,7 +197,7 @@
     background: var(--surface-raised);
 }
 .RemoveButton:disabled {
-    opacity: 0.3;
+    opacity: 0.45;
     cursor: not-allowed;
 }
 .EditError {
@@ -211,7 +211,7 @@
     flex-wrap: wrap;
     justify-content: space-between;
     gap: 8px;
-    padding: 12px 20px;
+    padding: 10px 20px;
     color: var(--muted);
     font-size: var(--text-label);
     border-top: 1px solid var(--line);

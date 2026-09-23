@@ -10,7 +10,7 @@
 }
 .SectionNavigation a {
     padding: 8px 12px;
-    border-radius: 6px;
+    border-radius: var(--control-radius);
     color: var(--text-soft);
     font-size: 12px;
     text-decoration: none;
@@ -53,6 +53,14 @@
     font-weight: 550;
     letter-spacing: -0.2px;
 }
+.SettingsGrid > .ConsumablesSection {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 20px;
+}
+.ConsumablesSection :global(.panel-heading) {
+    padding: 0 0 16px;
+    border-bottom: 1px solid var(--line);
+}
 .SettingsForm {
     display: grid;
     gap: 16px;
@@ -63,6 +71,7 @@
 }
 .SettingsForm p {
     margin: 0;
+    overflow-wrap: anywhere;
     color: var(--muted);
     font-size: 12px;
     line-height: 1.65;
@@ -97,7 +106,7 @@
     min-width: 52px;
     padding: 5px 8px;
     border: 1px solid var(--line);
-    border-radius: 6px;
+    border-radius: var(--control-radius);
     text-align: center;
     color: var(--text-soft);
     background: var(--surface-raised);
@@ -105,8 +114,15 @@
     font-variant-numeric: tabular-nums;
 }
 .Error {
+    display: grid;
+    justify-items: start;
+    gap: 12px;
+    padding: 14px;
+    border: 1px solid var(--danger);
+    border-radius: var(--control-radius);
     color: var(--danger);
     font-size: 12px;
+    overflow-wrap: anywhere;
 }
 .SectionTitle {
     display: flex;
@@ -164,7 +180,7 @@
     min-width: 0;
     padding: 7px 7px 11px;
     border: 1px solid var(--line-strong);
-    border-radius: 9px;
+    border-radius: var(--control-radius);
     cursor: pointer;
     color: var(--text-soft);
     font-size: 12px;
@@ -196,8 +212,8 @@
 .ThemePreview {
     display: flex;
     height: 82px;
-    background: #14171c;
-    border: 1px solid #333a44;
+    background: #201f24;
+    border: 1px solid #403e46;
     border-radius: 5px;
     overflow: hidden;
 }
@@ -205,8 +221,8 @@
     display: block;
     width: 23%;
     height: 100%;
-    border-right: 1px solid #333a44;
-    background: #101216;
+    border-right: 1px solid #403e46;
+    background: #242328;
 }
 .ThemePreview > span {
     display: grid;
@@ -218,13 +234,13 @@
 .ThemePreview b {
     height: 8px;
     border-radius: 2px;
-    background: #292f38;
+    background: #323138;
 }
 .ThemePreview b:first-child {
     width: 55%;
     height: 4px;
     margin-bottom: 3px;
-    background: #dcc08b;
+    background: #d2bb7e;
 }
 .ThemePreview b:last-child {
     width: 85%;
@@ -267,6 +283,8 @@
     background: var(--surface-raised);
 }
 .MarketDetails {
+    min-width: 0;
+    overflow-wrap: anywhere;
     display: grid;
     gap: 16px;
     padding: 16px;
@@ -315,6 +333,7 @@
     font-size: 12px;
 }
 .Diagnostics summary {
+    padding-block: 4px;
     cursor: pointer;
     color: var(--text-soft);
 }

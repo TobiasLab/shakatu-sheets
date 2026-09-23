@@ -1079,20 +1079,6 @@ export function useLiveLootCapture({
         }
     }, [regionConfirmed]);
 
-    useEffect(() => {
-        onStatusChange(
-            error || recognitionError
-                ? "Capture needs attention"
-                : status === "capturing"
-                  ? recognitionStatus === "active"
-                      ? "Tracking loot"
-                      : "Capture setup"
-                  : status === "idle"
-                    ? "Capture off"
-                    : "Connecting capture",
-        );
-    }, [error, recognitionError, recognitionStatus, status, onStatusChange]);
-
     async function toggleSampleCollection() {
         const captureToken = nativeCaptureToken.current;
         if (captureToken === null || sampleCollectionBusy) return;
@@ -1523,6 +1509,25 @@ export function useLiveLootCapture({
     const calibratedProfile = sourceDimensions
         ? findLiveLootProfile(sourceDimensions.width, sourceDimensions.height, uiScalePercent)
         : null;
+    const displayedRecognitionStatus = sourceDimensions && !calibratedProfile ? "unavailable" : recognitionStatus;
+    useEffect(() => {
+        onStatusChange(
+            error || recognitionError
+                ? "Capture needs attention"
+                : status === "capturing"
+                  ? displayedRecognitionStatus === "active"
+                      ? "Tracking loot"
+                      : displayedRecognitionStatus === "unavailable"
+                        ? "Capture preview only"
+                        : displayedRecognitionStatus === "starting"
+                          ? "Starting recognition"
+                          : "Capture setup"
+                  : status === "idle"
+                    ? "Capture off"
+                    : "Connecting capture",
+        );
+    }, [error, recognitionError, displayedRecognitionStatus, status, onStatusChange]);
+
     const rareGeometry = sourceDimensions
         ? findRareLootGeometry(sourceDimensions.width, sourceDimensions.height, uiScalePercent)
         : null;
@@ -2262,7 +2267,7 @@ export function useLiveLootCapture({
         normalRegionFrameSize,
         rareRegionPixels,
         rareRegionFrameSize,
-        recognitionStatus,
+        recognitionStatus: displayedRecognitionStatus,
         recognitionLabel,
         ocrDiagnostics,
         NORMAL_MAX_OUTSTANDING_OCR_JOBS,
