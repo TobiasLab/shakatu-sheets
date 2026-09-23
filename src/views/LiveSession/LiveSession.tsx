@@ -8,6 +8,7 @@ import { LootLedger } from "../../components/LootLedger/LootLedger";
 import { createEntry } from "../../domain/session";
 import type { LiveSessionController } from "../../hooks/useLiveSession";
 import type { LootFont } from "../../recognition/lootFont";
+import { FinishReviewDialog } from "./FinishReviewDialog";
 import styles from "./LiveSession.module.css";
 import { SessionMetrics } from "./SessionSummary";
 import { SessionTools } from "./SessionTools";
@@ -97,7 +98,6 @@ export function LiveSessionView({
         setPreparingReview(true);
         setFinishError("");
         finishDialog.current?.showModal();
-        document.getElementById("finish-review-title")?.focus();
         try {
             const remaining = await capture.prepareReview();
             if (request !== finishRequest.current) return;
@@ -154,61 +154,24 @@ export function LiveSessionView({
                 onSelect={changeGrindSpot}
             />
             <SessionMetrics controller={controller} visible={visible} onFinish={() => void requestFinish()} />
-            <dialog
-                ref={finishDialog}
-                className={styles.FinishDialog}
-                aria-labelledby="finish-review-title"
-                onCancel={keepSessionOpen}
-            >
-                <h2 id="finish-review-title" tabIndex={-1}>
-                    {preparingReview ? "Reading final drops…" : "Review before finishing"}
-                </h2>
-                <p role="status">
-                    {preparingReview
-                        ? "The timer is paused while the remaining captures are read."
-                        : finishError
-                          ? "Review preparation did not complete. Your session is still open."
-                          : unresolvedCount > 0
-                            ? `${unresolvedCount} ${unresolvedCount === 1 ? "entry still needs" : "entries still need"} attention. These drops have not been added to your session.`
-                            : "All captured drops have been reviewed."}
-                </p>
-                {!preparingReview && unresolvedCount > 0 && (
-                    <p>Review or dismiss them now. Finishing without adding them discards their saved captures.</p>
-                )}
-                {finishError && <p role="alert">{finishError}</p>}
-                <div className={styles.FinishActions}>
-                    {!preparingReview && unresolvedCount > 0 && (
-                        <button
-                            type="button"
-                            className="button primary-button"
-                            onClick={() => {
-                                keepSessionOpen();
-                                const heading = document.getElementById("loot-review-heading");
-                                heading?.scrollIntoView({ block: "start" });
-                                heading?.focus({ preventScroll: true });
-                            }}
-                        >
-                            Review drops
-                        </button>
-                    )}
-                    <button type="button" className="button" onClick={keepSessionOpen}>
-                        Keep session open
-                    </button>
-                    {!preparingReview && !finishError && (
-                        <button
-                            type="button"
-                            className="button subtle"
-                            disabled={!databaseLoaded}
-                            onClick={() => {
-                                finishDialog.current?.close();
-                                dispatch({ type: "finish", now: Date.now() });
-                            }}
-                        >
-                            {unresolvedCount > 0 ? "Finish without adding these drops" : "Finish session"}
-                        </button>
-                    )}
-                </div>
-            </dialog>
+            <FinishReviewDialog
+                dialogRef={finishDialog}
+                preparing={preparingReview}
+                error={finishError}
+                unresolvedCount={unresolvedCount}
+                canFinish={databaseLoaded}
+                onKeepOpen={keepSessionOpen}
+                onReview={() => {
+                    keepSessionOpen();
+                    const heading = document.getElementById("loot-review-heading");
+                    heading?.scrollIntoView({ block: "start" });
+                    heading?.focus({ preventScroll: true });
+                }}
+                onFinish={() => {
+                    finishDialog.current?.close();
+                    dispatch({ type: "finish", now: Date.now() });
+                }}
+            />
             {session.status === "finished" && (
                 <section className={styles.Completion} aria-label="Session complete">
                     <div>
