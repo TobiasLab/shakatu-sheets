@@ -176,6 +176,9 @@ await send("Page.addScriptToEvaluateOnNewDocument", {
             if (command === "native_capture_capabilities") return { backend: ${JSON.stringify(backend)}, available: true, reason: null, debugRoiSamples: true };
             if (command === "load_loot_capture_settings") return null;
             if (command === "load_garmoth_settings") {
+                if (new URLSearchParams(location.search).has("supplemental-drops")) {
+                    return { apiKeyConfigured: true, characterIds: [1], characters: [{id:1,name:"Fixture character"}], selectedCharacterId: 1 };
+                }
                 if (window.__failSettings) throw Error("Synthetic settings read failure");
                 return { apiKeyConfigured: window.__keyConfigured ?? false, characterIds: [], characters: [], selectedCharacterId: null };
             }
@@ -1385,6 +1388,60 @@ try {
         await until(
             'window.__calls.filter(c => c.command === "list_finished_sessions").at(-1)?.args.query.region === "na"',
         );
+        await send("Page.navigate", { url: `${appUrl}?supplemental-drops=1` });
+        await until("window.__session?.status === 'idle'");
+        await click("Settings");
+        await click("Fetch EU prices");
+        await until("document.querySelector('#market').textContent.includes('EU prices from')");
+        assert(
+            await evaluate(
+                "window.__calls.find(c => c.command === 'fetch_market_prices').args.itemIds.includes(50807)",
+            ),
+            "Shared market items must be included in price lookup",
+        );
+        await click("Grind desk");
+        await click("Add loot or expense");
+        const supplementalNames = ["Laila's Petal", "Pure Forest Breath", "[Event] Bountiful Autumn Lunchbox"];
+        for (const [index, name] of supplementalNames.entries()) {
+            await setField('dialog[open] input[type="search"]', name);
+            await until("document.querySelectorAll('dialog[open] button[aria-pressed]').length === 1");
+            await evaluate("document.querySelector('dialog[open] button[aria-pressed]').click()");
+            await setField('dialog[open] input[min="1"]', "2");
+            await evaluate("document.querySelector('dialog[open] form').requestSubmit()");
+            await until(`window.__session.entries.length === ${index + 1}`);
+        }
+        assert.deepEqual(
+            await evaluate(
+                "window.__session.entries.map(({name,quantity,unitPrice,valuation}) => ({name,quantity,unitPrice,valuation}))",
+            ),
+            supplementalNames.map((name, index) => ({
+                name,
+                quantity: 2,
+                unitPrice: [500_000, 12_345, 10_000_000][index],
+                valuation: index === 1 ? "market" : "vendor",
+            })),
+        );
+        await click("Close manual entry");
+        await click("Enter hours");
+        await setField('input[name="completedHours"]', "1");
+        await click("Save hours");
+        await click("Finish");
+        await until("window.__session.status === 'finished'");
+        const supplementalEntries = await evaluate("JSON.stringify(window.__session.entries)");
+        await evaluate(
+            "window.__historyRecords = [{session:window.__session,finishedAt:Date.now(),garmothUploadStatus:null}]",
+        );
+        await click("History");
+        await until("document.body.innerText.includes('blocked until support is confirmed')");
+        assert(
+            await evaluate(
+                "[...document.querySelectorAll('button')].some(b => b.textContent.trim() === 'Upload to Garmoth' && b.disabled)",
+            ),
+            "Supplemental drops outside the spot table must block upload even with a connected character",
+        );
+        assert.equal(await evaluate("JSON.stringify(window.__session.entries)"), supplementalEntries);
+        assert.equal(await evaluate("window.__calls.some(c => c.command === 'upload_garmoth_session')"), false);
+        await screenshot("supplemental-upload-blocked");
         assert.equal(errors.length, 0, JSON.stringify(errors));
         console.log(
             `UI smoke passed: timer, navigation, capture lifecycle, preview suppression, diagnostics, screenshot state, dialog focus, expense price isolation, new-session reset, ledger editing/filtering, history filters, themes, compact screens. Screenshots: ${output}`,

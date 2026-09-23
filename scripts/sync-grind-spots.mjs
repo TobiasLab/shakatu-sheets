@@ -5,6 +5,7 @@ import {
     hermesiaInnerCastle,
     magaiaTemple,
     starsEnd,
+    supplementalDrops,
     sycraiaLower,
     zephyrosCastle,
 } from "../src/data/grindSpots";
@@ -37,6 +38,7 @@ function drop(key) {
         ...(item.tax === 1 && item.sub_key === 0 ? { marketItemId: item.main_key } : {}),
     };
 }
+const refreshedSupplementalDrops = supplementalDrops.map((item) => drop(item.garmothKey));
 const spots = Object.values(metadata.spots)
     .filter(
         (spot) =>
@@ -75,6 +77,7 @@ await Promise.all(
     }),
 );
 await writeFile("src/data/garmothSpots.json", `${JSON.stringify(spots, null, 4)}\n`);
+await writeFile("src/data/supplementalDrops.json", `${JSON.stringify(refreshedSupplementalDrops, null, 4)}\n`);
 const mappings = Object.fromEntries(
     [...existing, ...spots].map((spot) => [
         spot.id,

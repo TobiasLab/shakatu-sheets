@@ -1,0 +1,24 @@
+[
+    {
+        "name": "Laila's Petal",
+        "icon": "/items/garmoth/54031.webp",
+        "garmothKey": "54031_0",
+        "valuation": "vendor",
+        "unitPrice": 500000
+    },
+    {
+        "name": "Pure Forest Breath",
+        "icon": "/items/garmoth/50807.webp",
+        "garmothKey": "50807_0",
+        "valuation": "market",
+        "unitPrice": null,
+        "marketItemId": 50807
+    },
+    {
+        "name": "[Event] Bountiful Autumn Lunchbox",
+        "icon": "/items/garmoth/1000835.webp",
+        "garmothKey": "1000835_0",
+        "valuation": "vendor",
+        "unitPrice": 10000000
+    }
+]
