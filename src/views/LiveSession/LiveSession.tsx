@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { Feedback } from "../../components/Feedback/Feedback";
 import { GrindSpotPicker } from "../../components/GrindSpotPicker/GrindSpotPicker";
 import { Icon } from "../../components/Icon/Icon";
 import { LiveLootCapture } from "../../components/LiveLootCapture/LiveLootCapture";
@@ -141,7 +142,11 @@ export function LiveSessionView({
                     Pop out session
                 </button>
             </header>
-            {overlay.error && <p role="alert">{overlay.error}</p>}
+            {overlay.error && (
+                <div className={styles.OverlayError}>
+                    <Feedback tone="error">{overlay.error}</Feedback>
+                </div>
+            )}
             <GrindSpotPicker
                 spot={spot}
                 locked={!spotEditable}

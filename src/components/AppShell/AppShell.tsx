@@ -125,7 +125,7 @@ export function AppShell({
                                     ? "Saving…"
                                     : databaseStatus === "loading"
                                       ? "Loading session…"
-                                      : "Could not save"}
+                                      : "Storage error"}
                             </span>
                         </div>
                     )}
@@ -151,7 +151,7 @@ export function AppShell({
                 </header>
                 {databaseError && (
                     <div className={styles.SaveError} role="alert">
-                        <strong>Could not save your session.</strong> {databaseError}
+                        <strong>Session storage needs attention.</strong> {databaseError}
                     </div>
                 )}
                 <main id="workspace" tabIndex={-1} className={styles.Workspace}>

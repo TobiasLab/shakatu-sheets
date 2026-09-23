@@ -186,50 +186,52 @@ export function ConsumablePresetSettings({
                 </Feedback>
             )}
             {!loaded && !loadError && <Feedback>Loading presets…</Feedback>}
-            <FormField label="Preset region">
-                <select
-                    value={region}
-                    disabled={disabled}
-                    onChange={(event) => {
-                        setRegion(event.target.value as SessionState["region"]);
-                        setSelectedId("");
-                        setName("");
-                        setItems([]);
-                        setError("");
-                        setMessage("");
-                    }}
-                >
-                    <option value="eu">EU</option>
-                    <option value="na">NA</option>
-                </select>
-            </FormField>
-            <FormField label={`Saved preset · ${region.toUpperCase()}`}>
-                <select
-                    value={selectedId}
-                    disabled={disabled}
-                    onChange={(event) => {
-                        const id = event.target.value;
-                        setSelectedId(id);
-                        const preset = regionalPresets.find((candidate) => candidate.id === id);
-                        if (preset) {
-                            setName(preset.name);
-                            setItems(draftItems(preset.items));
-                        }
-                        setError("");
-                        setMessage("");
-                    }}
-                >
-                    <option value="">Unsaved preset</option>
-                    {regionalPresets.map((preset) => (
-                        <option key={preset.id} value={preset.id}>
-                            {preset.name}
-                        </option>
-                    ))}
-                </select>
-            </FormField>
-            <details open={items.length === 0}>
+            <div className={styles.SelectionFields}>
+                <FormField label="Preset region">
+                    <select
+                        value={region}
+                        disabled={disabled}
+                        onChange={(event) => {
+                            setRegion(event.target.value as SessionState["region"]);
+                            setSelectedId("");
+                            setName("");
+                            setItems([]);
+                            setError("");
+                            setMessage("");
+                        }}
+                    >
+                        <option value="eu">EU</option>
+                        <option value="na">NA</option>
+                    </select>
+                </FormField>
+                <FormField label={`Saved preset · ${region.toUpperCase()}`}>
+                    <select
+                        value={selectedId}
+                        disabled={disabled}
+                        onChange={(event) => {
+                            const id = event.target.value;
+                            setSelectedId(id);
+                            const preset = regionalPresets.find((candidate) => candidate.id === id);
+                            if (preset) {
+                                setName(preset.name);
+                                setItems(draftItems(preset.items));
+                            }
+                            setError("");
+                            setMessage("");
+                        }}
+                    >
+                        <option value="">Unsaved preset</option>
+                        {regionalPresets.map((preset) => (
+                            <option key={preset.id} value={preset.id}>
+                                {preset.name}
+                            </option>
+                        ))}
+                    </select>
+                </FormField>
+            </div>
+            <details className={styles.Import} open={items.length === 0}>
                 <summary>Import Garmoth export</summary>
-                <form onSubmit={importPreset} className={styles.Editor}>
+                <form onSubmit={importPreset} className={styles.ImportForm}>
                     <FormField label="Preset JSON">
                         <textarea
                             rows={4}
@@ -270,10 +272,10 @@ export function ConsumablePresetSettings({
                         <table>
                             <thead>
                                 <tr>
-                                    <th>Consumable</th>
-                                    <th>Session quantity</th>
-                                    <th>Unit price</th>
-                                    <th>
+                                    <th scope="col">Consumable</th>
+                                    <th scope="col">Session quantity</th>
+                                    <th scope="col">Unit price</th>
+                                    <th scope="col">
                                         <span className={styles.Hidden}>Actions</span>
                                     </th>
                                 </tr>
@@ -345,7 +347,12 @@ export function ConsumablePresetSettings({
                         </table>
                     </section>
                     <div className={styles.Actions}>
-                        <strong>Expenses: {total === null ? "—" : formatSilver(total)}</strong>
+                        <div className={styles.ExpenseTotal}>
+                            <span>Session expenses</span>
+                            <strong>
+                                {total === null ? "—" : formatSilver(total)} <small>silver</small>
+                            </strong>
+                        </div>
                         <button
                             type="button"
                             className="button primary-button"

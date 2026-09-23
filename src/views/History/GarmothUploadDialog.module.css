@@ -13,8 +13,11 @@
 .Body {
     min-height: 0;
     overflow: auto;
+    overscroll-behavior: contain;
     padding: 20px 24px;
     display: grid;
+    grid-auto-rows: max-content;
+    align-content: start;
     gap: 20px;
 }
 .Location {
@@ -23,10 +26,13 @@
     gap: 12px;
     min-width: 0;
 }
+.Location > div {
+    min-width: 0;
+}
 .Location img {
     flex-shrink: 0;
     border: 1px solid var(--line-strong);
-    border-radius: 7px;
+    border-radius: var(--control-radius);
     background: var(--input-background);
 }
 .Location h3 {
@@ -41,6 +47,7 @@
     flex-wrap: wrap;
     gap: 4px 12px;
     margin-top: 4px;
+    overflow-wrap: anywhere;
     color: var(--muted);
     font-size: 12px;
 }
@@ -90,6 +97,9 @@
     display: flex;
     align-items: center;
     gap: 8px;
+}
+.Agris {
+    flex-wrap: wrap;
 }
 .Options input[type="checkbox"] {
     width: auto;

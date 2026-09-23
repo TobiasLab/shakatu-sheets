@@ -12,6 +12,7 @@ const backend = process.env.UI_SMOKE_BACKEND === "windows" ? "windows" : "linux"
 const source = process.env.UI_SMOKE_SOURCE ?? "3440x1440";
 if (!["3440x1440", "2560x1440", "1920x1080"].includes(source)) throw new Error("Unsupported smoke source");
 const [sourceWidth, sourceHeight] = source.split("x").map(Number);
+const hasRecognitionProfile = source === "3440x1440" || source === "2560x1440";
 const previewHeight = Math.round((sourceHeight * 640) / sourceWidth);
 const appUrl = process.env.UI_SMOKE_URL ?? "http://127.0.0.1:1420";
 const page = await (await fetch("http://127.0.0.1:9222/json/new?about:blank", { method: "PUT" })).json();
@@ -41,8 +42,9 @@ async function evaluate(expression) {
     return result.result.value;
 }
 const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
-async function until(expression) {
-    for (let i = 0; i < 100; i++) {
+async function until(expression, timeoutMs = 5_000) {
+    const deadline = Date.now() + timeoutMs;
+    while (Date.now() < deadline) {
         if (await evaluate(expression)) return;
         await delay(50);
     }
@@ -1257,66 +1259,111 @@ try {
                 "Skipping confirmation requires both areas to already be confirmed",
             );
         }
-        await until("document.querySelector('[data-recognition-status=active]') !== null");
-        await evaluate("window.__emitLoot(0)");
-        for (let rows = 1; rows <= 3; rows++) {
-            for (let frame = 0; frame < 16; frame++) {
-                await evaluate(`window.__emitLoot(${rows})`);
+        if (hasRecognitionProfile) {
+            // Keep the synthetic source updating while OCR starts or restarts after a native frame gap.
+            await evaluate("window.__emitLoot(0)");
+            // Let the first frame publish any restart before consulting the rendered status.
+            await delay(65);
+            await until(
+                "(() => { window.__emitLoot(0); return document.querySelector('[data-recognition-status=active]') !== null; })()",
+            );
+            for (let rows = 1; rows <= 3; rows++) {
+                for (let frame = 0; frame < 16; frame++) {
+                    await evaluate(`window.__emitLoot(${rows})`);
+                    await delay(65);
+                }
+            }
+            const reviewEntries = "document.querySelectorAll('[aria-label^=\"Dismiss review entry\"]')";
+            // Three real local OCR jobs can exceed the ordinary UI update deadline on slower hosts.
+            const reviewStartedAt = Date.now();
+            await until(`${reviewEntries}.length === 3`, 30_000);
+            console.info(`Synthetic OCR review completed in ${Date.now() - reviewStartedAt} ms`);
+            const entriesBeforeReview = await evaluate("window.__session.entries.length");
+            await click("Retry OCR");
+            await click("Dismiss");
+            await until(`${reviewEntries}.length === 2`);
+            await delay(300);
+            assert.equal(
+                await evaluate("window.__session.entries.length"),
+                entriesBeforeReview,
+                "Dismissing a retry must not add loot",
+            );
+            // Finish while a new notification is still being tracked, before its OCR result.
+            for (let frame = 0; frame < 4; frame++) {
+                await evaluate("window.__emitLoot(4)");
                 await delay(65);
             }
+            await click("Finish");
+            await until("document.querySelector('#finish-review-title')?.textContent === 'Review before finishing'");
+            await until("window.__session.status === 'paused'");
+            assert.equal(
+                await evaluate(`${reviewEntries}.length`),
+                3,
+                "Finishing must drain the final notification and retain unresolved captures",
+            );
+            assert(await evaluate("document.querySelector('dialog[open]').contains(document.activeElement)"));
+            await screenshot("finish-review");
+            await press("Escape", "Escape", 27);
+            assert.equal(await evaluate("window.__session.status"), "paused", "Escape must keep the session open");
+            await click("Finish");
+            await until("document.querySelector('#finish-review-title')?.textContent === 'Review before finishing'");
+            await click("Review drops");
+            assert.equal(await evaluate("document.activeElement.id"), "loot-review-heading");
+            const reviewForm =
+                "document.querySelector('[aria-label^=\"Dismiss review entry\"]').closest('li').querySelector('form')";
+            await evaluate(`(${reviewForm}).querySelector('select').setAttribute('id','review-item-test')`);
+            await evaluate(`(${reviewForm}).querySelector('input').setAttribute('id','review-quantity-test')`);
+            await setField("#review-item-test", "Ancient Spirit Dust");
+            await setField("#review-quantity-test", "2");
+            await evaluate(`(${reviewForm}).requestSubmit()`);
+            await until(`${reviewEntries}.length === 2`);
+            await until("window.__session.entries.some(e=>e.name==='Ancient Spirit Dust' && e.quantity===2)");
+            await click("Finish");
+            await until("document.querySelector('#finish-review-title')?.textContent === 'Review before finishing'");
+            await click("Finish without adding these drops");
+            await until("window.__session.status === 'finished'");
+            assert.equal(
+                await evaluate("window.__session.entries.length"),
+                entriesBeforeReview + 1,
+                "Finishing must not add dismissed or unresolved drops",
+            );
+            assert.equal(await evaluate(`${reviewEntries}.length`), 0);
+        } else {
+            await until("document.querySelector('[data-recognition-status=unavailable]') !== null");
+            await click("Set up capture");
+            await evaluate("window.__emitFrame()");
+            await until("document.querySelector('[aria-label=\"Sampled capture preview\"]')?.width === 640");
+            const diagnosticsOpen = await evaluate(
+                "[...document.querySelectorAll('summary')].find(s => s.textContent === 'Advanced diagnostics').parentElement.open",
+            );
+            if (!diagnosticsOpen) await click("Advanced diagnostics");
+            assert(await evaluate("document.body.textContent.includes('No calibrated profile')"));
+            assert(
+                await evaluate(
+                    "[...document.querySelectorAll('button')].some(b => b.textContent.trim() === 'Both areas confirmed' && b.disabled)",
+                ),
+                "A source without an OCR profile still supports confirmed area placement",
+            );
+            const entriesBeforePreview = await evaluate("JSON.stringify(window.__session.entries)");
+            await evaluate("window.__emitLoot(0)");
+            for (let frame = 0; frame < 16; frame++) {
+                await evaluate("window.__emitLoot(1)");
+                await delay(65);
+            }
+            assert(
+                await evaluate("document.querySelector('[data-recognition-status=unavailable]') !== null"),
+                "An uncalibrated source must remain preview-only after receiving loot frames",
+            );
+            assert.equal(
+                await evaluate("document.querySelectorAll('[aria-label^=\"Dismiss review entry\"]').length"),
+                0,
+            );
+            assert.equal(await evaluate("JSON.stringify(window.__session.entries)"), entriesBeforePreview);
+            await screenshot("capture-preview-only");
+            await click("Close setup");
+            await click("Finish");
+            await until("window.__session.status === 'finished'");
         }
-        const reviewEntries = "document.querySelectorAll('[aria-label^=\"Dismiss review entry\"]')";
-        await until(`${reviewEntries}.length === 3`);
-        const entriesBeforeReview = await evaluate("window.__session.entries.length");
-        await click("Retry OCR");
-        await click("Dismiss");
-        await until(`${reviewEntries}.length === 2`);
-        await delay(300);
-        assert.equal(
-            await evaluate("window.__session.entries.length"),
-            entriesBeforeReview,
-            "Dismissing a retry must not add loot",
-        );
-        // Finish while a new notification is still being tracked, before its OCR result.
-        for (let frame = 0; frame < 4; frame++) {
-            await evaluate("window.__emitLoot(4)");
-            await delay(65);
-        }
-        await click("Finish");
-        await until("document.querySelector('#finish-review-title')?.textContent === 'Review before finishing'");
-        await until("window.__session.status === 'paused'");
-        assert.equal(
-            await evaluate(`${reviewEntries}.length`),
-            3,
-            "Finishing must drain the final notification and retain unresolved captures",
-        );
-        assert(await evaluate("document.querySelector('dialog[open]').contains(document.activeElement)"));
-        await screenshot("finish-review");
-        await press("Escape", "Escape", 27);
-        assert.equal(await evaluate("window.__session.status"), "paused", "Escape must keep the session open");
-        await click("Finish");
-        await until("document.querySelector('#finish-review-title')?.textContent === 'Review before finishing'");
-        await click("Review drops");
-        assert.equal(await evaluate("document.activeElement.id"), "loot-review-heading");
-        const reviewForm =
-            "document.querySelector('[aria-label^=\"Dismiss review entry\"]').closest('li').querySelector('form')";
-        await evaluate(`(${reviewForm}).querySelector('select').setAttribute('id','review-item-test')`);
-        await evaluate(`(${reviewForm}).querySelector('input').setAttribute('id','review-quantity-test')`);
-        await setField("#review-item-test", "Ancient Spirit Dust");
-        await setField("#review-quantity-test", "2");
-        await evaluate(`(${reviewForm}).requestSubmit()`);
-        await until(`${reviewEntries}.length === 2`);
-        await until("window.__session.entries.some(e=>e.name==='Ancient Spirit Dust' && e.quantity===2)");
-        await click("Finish");
-        await until("document.querySelector('#finish-review-title')?.textContent === 'Review before finishing'");
-        await click("Finish without adding these drops");
-        await until("window.__session.status === 'finished'");
-        assert.equal(
-            await evaluate("window.__session.entries.length"),
-            entriesBeforeReview + 1,
-            "Finishing must not add dismissed or unresolved drops",
-        );
-        assert.equal(await evaluate(`${reviewEntries}.length`), 0);
         await click("Settings");
         assert(await evaluate("document.querySelector('#market select').disabled"));
         assert(await evaluate("document.querySelector('#market [aria-label=\"Grind spot\"] button').disabled"));

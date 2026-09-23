@@ -6,6 +6,7 @@ import { getDropIcon, getGrindSpot } from "../../data/grindSpots";
 import { calculateEntryTotals } from "../../domain/session";
 import { formatDuration, formatSilver } from "../../format";
 import { useElapsedTime } from "../../hooks/useElapsedTime";
+import { Icon } from "../Icon/Icon";
 import { OverlayTimerButton } from "./OverlayTimerButton";
 import styles from "./SessionOverlay.module.css";
 import {
@@ -72,6 +73,7 @@ export function SessionOverlay() {
                 void pending.then((unlisten) => unlisten()).catch(() => undefined);
         };
     }, []);
+    const spotName = snapshot ? getGrindSpot(snapshot.session.grindSpotId).name : "Session overlay";
     const theme = snapshot?.theme;
     useEffect(() => {
         if (theme) document.documentElement.dataset.theme = theme;
@@ -82,11 +84,11 @@ export function SessionOverlay() {
                 <button
                     type="button"
                     className={styles.DragHandle}
-                    title={
+                    title={`${spotName} · ${
                         layerShell
                             ? "Drag and release to move; arrow keys also move the overlay"
                             : "Drag to move overlay"
-                    }
+                    }`}
                     disabled={layerShell === null}
                     {...(layerShell ? moveHandlers : {})}
                     onPointerDown={(event) => {
@@ -97,8 +99,7 @@ export function SessionOverlay() {
                                 .catch((error) => setError(String(error)));
                     }}
                 >
-                    <span aria-hidden="true">⠿</span>{" "}
-                    {snapshot ? getGrindSpot(snapshot.session.grindSpotId).name : "Session overlay"}
+                    <span aria-hidden="true">⠿</span> {spotName}
                 </button>
                 {layerShell && (
                     <button
@@ -110,7 +111,7 @@ export function SessionOverlay() {
                             void adjustSessionOverlay("nextMonitor").catch((error) => setError(String(error)));
                         }}
                     >
-                        ▣
+                        <Icon name="monitor" size={15} />
                     </button>
                 )}
                 <button
@@ -124,7 +125,7 @@ export function SessionOverlay() {
                             .catch((error) => setError(String(error)));
                     }}
                 >
-                    ×
+                    <Icon name="close" size={16} />
                 </button>
             </header>
             {(moving || resizing) && (
@@ -132,11 +133,17 @@ export function SessionOverlay() {
                     Release to {moving ? "move" : "resize"} · Esc to cancel
                 </p>
             )}
-            {error && <p role="alert">{error}</p>}
+            {error && (
+                <p className={styles.Error} role="alert">
+                    {error}
+                </p>
+            )}
             {snapshot ? (
                 <OverlayContent snapshot={snapshot} visible={visible} />
             ) : (
-                <p>Waiting for the current session…</p>
+                <p className={styles.Empty} role="status">
+                    Waiting for the current session…
+                </p>
             )}
             {layerShell && (
                 <button
@@ -171,7 +178,10 @@ function OverlayContent({ snapshot, visible }: { snapshot: OverlaySnapshot; visi
                     <strong>{formatSilver(totals.net, true)}</strong>
                 </div>
                 <div className={styles.Clock}>
-                    <time>{formatDuration(elapsedMs)}</time>
+                    <time>
+                        <span className="sr-only">Session time: </span>
+                        {formatDuration(elapsedMs)}
+                    </time>
                     <OverlayTimerButton key={session.id} session={session} enabled={snapshot.timerEnabled} />
                 </div>
             </div>

@@ -3,65 +3,92 @@
 }
 .Editor {
     display: grid;
-    gap: var(--space-4);
     min-width: 0;
+    gap: var(--space-4);
 }
 .Editor textarea {
     width: 100%;
     resize: vertical;
+    font-family: ui-monospace, monospace;
+    font-size: 12px;
     line-height: 1.6;
 }
-.Editor details {
-    padding: 14px 16px;
+.SelectionFields {
+    display: grid;
+    grid-template-columns: minmax(100px, 0.4fr) minmax(0, 1fr);
+    gap: 16px;
+}
+.Import {
+    min-width: 0;
     border: 1px solid var(--line);
     border-radius: var(--control-radius);
-    background: var(--canvas);
+    background: var(--surface-raised);
 }
-.Editor summary {
-    cursor: pointer;
+.Import summary {
+    padding: 12px 14px;
     color: var(--text-soft);
     font-size: 12px;
     font-weight: 500;
+    cursor: pointer;
 }
-.Editor details[open] > summary {
-    margin-bottom: var(--space-4);
+.Import summary:focus-visible {
+    outline-offset: -3px;
+}
+.ImportForm {
+    display: grid;
+    gap: 12px;
+    padding: 0 14px 14px;
+}
+.ImportForm > button {
+    justify-self: start;
 }
 .TableScroll {
+    max-width: 100%;
     overflow-x: auto;
+    overscroll-behavior-x: contain;
     border: 1px solid var(--line);
-    border-radius: 8px;
-    scrollbar-width: thin;
+    border-radius: var(--control-radius);
+}
+.TableScroll:focus-visible {
+    outline-offset: -3px;
 }
 .TableScroll table {
     width: 100%;
-    border-collapse: separate;
-    border-spacing: 0;
+    min-width: 590px;
+    border-collapse: collapse;
+    font-size: 12px;
+    font-variant-numeric: tabular-nums;
 }
 .TableScroll th,
 .TableScroll td {
-    padding: 10px 12px;
+    padding: 12px;
     text-align: left;
     border-bottom: 1px solid var(--row-line);
 }
 .TableScroll th {
-    color: var(--muted);
+    padding-block: 10px;
     background: var(--surface-raised);
+    color: var(--muted);
     font-size: 11px;
     font-weight: 500;
     white-space: nowrap;
 }
-.TableScroll tr:last-child td {
+.TableScroll tbody tr:last-child td {
     border-bottom: 0;
 }
 .TableScroll td:first-child {
-    min-width: 260px;
-    width: 46%;
+    min-width: 200px;
+    width: 44%;
+}
+.TableScroll th:nth-child(2),
+.TableScroll th:nth-child(3) {
+    text-align: right;
 }
 .TableScroll input {
     width: 100%;
-    min-width: 85px;
+    min-width: 80px;
     min-height: var(--control-height);
-    padding: var(--space-2);
+    padding: 7px 8px;
     font-size: 12px;
 }
 .TableScroll input[type="number"] {
@@ -70,23 +97,39 @@
 }
 .TableScroll small {
     display: block;
-    margin-top: 4px;
+    margin: 5px 0 0 8px;
     color: var(--muted);
-    font-size: 11px;
+    font-size: 10px;
 }
 .Actions {
     display: flex;
     align-items: center;
-    gap: var(--space-2);
     flex-wrap: wrap;
+    gap: 10px;
     padding-top: 4px;
 }
-.Actions strong {
+.ExpenseTotal {
+    display: grid;
+    gap: 4px;
+    min-width: 0;
     margin-right: auto;
+    padding-block: 4px;
+}
+.ExpenseTotal > span {
+    color: var(--muted);
+    font-size: 11px;
+}
+.ExpenseTotal > strong {
     color: var(--text-strong);
-    font-size: 13px;
+    font-size: 19px;
     font-weight: 550;
+    overflow-wrap: anywhere;
     font-variant-numeric: tabular-nums;
+}
+.ExpenseTotal small {
+    color: var(--muted);
+    font-size: 11px;
+    font-weight: 400;
 }
 .Hidden {
     position: absolute;
@@ -97,31 +140,61 @@
 }
 .PresetList {
     display: grid;
-    gap: var(--space-2);
+    min-width: 0;
+    gap: 8px;
 }
 .PresetList button {
     display: flex;
-    align-items: center;
+    align-items: start;
     justify-content: space-between;
-    gap: 8px 16px;
     flex-wrap: wrap;
-    padding: 16px;
-    border-color: var(--line);
-    background: var(--canvas);
+    gap: 12px 20px;
+    padding: 14px 16px;
     text-align: left;
 }
-.PresetList strong {
-    color: var(--text-strong);
-    font-size: 13px;
-    font-weight: 550;
+.PresetList button:focus-visible {
+    outline-offset: -3px;
 }
-.PresetList span {
-    color: var(--muted);
+.PresetIdentity,
+.PresetCost {
+    display: grid;
+    min-width: 0;
+    max-width: 100%;
+    gap: 6px;
+}
+.PresetIdentity {
+    flex: 1 1 180px;
+}
+.PresetIdentity strong,
+.PresetCost strong {
+    overflow-wrap: anywhere;
     font-size: 12px;
+    font-weight: 550;
+    line-height: 1.5;
+}
+.PresetIdentity small,
+.PresetCost small {
+    color: var(--muted);
+    font-size: 11px;
+}
+.PresetCost {
+    margin-left: auto;
+    text-align: right;
     font-variant-numeric: tabular-nums;
+}
+.PresetCost small {
+    color: var(--gold);
 }
 @media (max-width: 760px) {
     .Root {
         padding: 16px;
+    }
+}
+@media (max-width: 420px) {
+    .SelectionFields {
+        grid-template-columns: minmax(0, 1fr);
+    }
+    .ExpenseTotal {
+        width: 100%;
     }
 }

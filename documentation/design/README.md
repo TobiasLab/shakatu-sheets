@@ -53,9 +53,11 @@ The local video sampling and annotation contract is described in the
 [live loot benchmark guide](live-loot-benchmark.md).
 
 
+See the [frontend polish review](frontend-polish-review.md) for the September 2026 visual audit and verification scope.
+
 ## Workspace design
 
-The shared visual rules are defined in the [design language](design-language.md). A left sidebar provides Grind desk,
+The shared visual rules and BDO reference sources are defined in the [design language](design-language.md). A left sidebar provides Grind desk,
 History, Capture setup, and Settings, plus the current session and save state. It can collapse on desktop and becomes a
 labeled-for-assistive-technology icon rail below 1000px. A thin workspace bar keeps session status visible at compact sizes;
 persistence failures appear in a full-width alert. The sidebar collapse preference is transient UI state.
@@ -88,13 +90,14 @@ actions and a separate reset named for the selected area. Layout import lives in
 is emphasized in the footer. Confirming both areas closes setup and
 returns keyboard focus to its button. Setup can reopen during capture. Previews run only while setup is visible; recognition
 continues across navigation and minimization. Needs attention shows unaccepted results, distinguishes read failures from
-recognized loot awaiting insertion, and explains Retry add, manual correction, and Clear. Clearing review does not remove loot.
+recognized loot awaiting insertion, and explains Retry add, manual correction, and Clear review. Clearing review does not remove loot.
 Advanced diagnostics, diagnostic JSONL, and optional paired ROI collection retain their existing behavior and bounds.
 
 History shows totals for all completed sessions matching the current filter, including aggregate net, elapsed time, and
 net per hour weighted by elapsed time. Session selection shows its time, earnings, and recorded entries before Garmoth upload
 controls. Explicit reopen and confirmed deletion remain available. The finished desk offers a direct View history action.
 Settings uses framed sections with aligned label/form columns, section links, theme previews with native radio controls,
+a full-width consumable editor with paired selectors and a clearly grouped expense table,
 capture guidance, and sequential Garmoth connection/character setup. Connection diagnostics are in a native disclosure. Disabled character controls explain that the API connection comes first. Network requests remain explicit.
 
 ## History comparisons
@@ -105,7 +108,8 @@ comparisons and then the session list and detail.
 History defaults to the current session region and all dates. Completion-date inputs use local calendar days, including
 both selected dates. A Filters button opens a native dialog using the same styling as the entry dialog. Region, dates,
 and spot apply immediately; Clear filters restores the initial region, all dates, and all spots. The button shows the
-region and additional active-filter count. Escape and Close return focus to the button. Filters remain usable for empty
+region and additional active-filter count. Active date and spot values also appear as removable chips; selecting a spot
+comparison marks its row selected. Escape and Close return focus to the button. Filters remain usable for empty
 results. Previous/Next controls browse 20 records at a time with a matching-session count. Page descriptions and
 methodological explanations stay out of the interface; the calculation rules are documented below.
 
@@ -139,14 +143,16 @@ The grind desk exposes Apply preset. In History, Upload to Garmoth and Upload ag
 modal containing the selected session's read-only ledger, stored expenses, date, duration, region, and totals. Select
 preset opens the shared selection content inside the same modal; import and library editing remain in Settings.
 Clicking a preset applies it immediately and highlights its row, without expanding item details or requiring another
-confirmation. The selection stays highlighted when the picker is reopened; Undo clears the draft selection.
+confirmation. The selection stays highlighted and labelled Applied when the picker is reopened; Undo clears the draft selection.
 Selecting a preset updates draft expenses and net/hour totals only. Cancel discards the draft; the final upload action
 saves the expenses and submits the session. Users can also upload without selecting a preset.
 
 The upload modal follows the desk's visual hierarchy: selected spot, the shared divided earnings/time overview, then the
 existing ledger with preset actions alongside its heading. Garmoth options form one compact wrapping row beneath the
 ledger. Use the standard 900px dialog width and Close Esc header; the body scrolls while the header and upload footer
-remain visible. Do not wrap upload options in an additional card or repeat totals below the ledger.
+remain visible. Body grid rows size to their content so short windows cannot compress the ledger into the upload options.
+Opening review preserves the selected-session context at the top. Do not wrap upload options in an additional card or
+repeat totals below the ledger.
 
 The modal includes Contribute to global data (off by default), Used Agris with an optional amount (blank means unknown),
 and optional Drop rate %. Options persist across failed attempts in the open modal and reset when it is reopened.

@@ -81,11 +81,20 @@ export function ConsumablePresetSelection({
                         disabled={loading || busy || disabled}
                         onClick={() => void apply(preset)}
                     >
-                        <strong>{preset.name}</strong>
-                        <span>
-                            {preset.items.length} consumables ·{" "}
-                            {formatSilver(preset.items.reduce((sum, item) => sum + item.quantity * item.unitPrice, 0))}{" "}
-                            silver
+                        <span className={styles.PresetIdentity}>
+                            <strong>{preset.name}</strong>
+                            <small>
+                                {preset.items.length} {preset.items.length === 1 ? "consumable" : "consumables"}
+                            </small>
+                        </span>
+                        <span className={styles.PresetCost}>
+                            <strong>
+                                {formatSilver(
+                                    preset.items.reduce((sum, item) => sum + item.quantity * item.unitPrice, 0),
+                                )}{" "}
+                                silver
+                            </strong>
+                            {selectedId === preset.id && <small>Applied</small>}
                         </span>
                     </SelectionButton>
                 ))}

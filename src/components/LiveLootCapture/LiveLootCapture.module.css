@@ -39,6 +39,7 @@
 
 .Error {
     color: var(--danger);
+    overflow-wrap: anywhere;
     font-size: 12px;
 }
 
@@ -94,15 +95,15 @@
     color: #e2e4e8;
     background: rgb(2 4 4 / 52%);
     font-family: ui-monospace, monospace;
-    font-size: 10px;
-    letter-spacing: 0.08em;
+    font-size: 11px;
+    letter-spacing: 0.03em;
     text-align: center;
     text-transform: uppercase;
 }
 
 .PreviewPaused span {
     color: #aab4c1;
-    font-size: 10px;
+    font-size: 11px;
 }
 
 .RegionOverlay {
@@ -149,9 +150,9 @@
     padding: 3px 5px;
     color: #0a0d0c;
     font-family: ui-monospace, monospace;
-    font-size: 10px;
+    font-size: 11px;
     line-height: 1;
-    letter-spacing: 0.08em;
+    letter-spacing: 0.03em;
     text-transform: uppercase;
     white-space: nowrap;
 }
@@ -189,7 +190,7 @@
     padding: 2px 4px;
     color: #fff;
     background: rgb(2 4 4 / 84%);
-    font-size: 9px;
+    font-size: 11px;
 }
 
 .CalibrationPanel {
@@ -199,7 +200,7 @@
     margin: 12px 0 0;
     padding: 16px;
     border: 1px solid var(--line);
-    border-radius: 8px;
+    border-radius: var(--panel-radius);
     background: var(--clock-background);
 }
 
@@ -230,20 +231,17 @@
 }
 
 .AreaSelector > legend {
+    margin-bottom: 8px;
     padding: 0;
     color: var(--muted);
     font-size: 11px;
-}
-
-.AreaSelector > legend {
-    margin-bottom: 8px;
 }
 
 .AreaSelectorButtons {
     gap: 4px;
     padding: 4px;
     border: 1px solid var(--line);
-    border-radius: 7px;
+    border-radius: var(--panel-radius);
     background: var(--surface);
 }
 
@@ -364,7 +362,7 @@
 .CalibrationError {
     margin: 10px 0 0;
     color: var(--danger);
-    font-size: 10px;
+    font-size: 11px;
 }
 
 .CaptureSidebar {
@@ -403,7 +401,7 @@
 }
 
 .Diagnostics .Warning {
-    color: var(--gold);
+    color: var(--warning);
 }
 
 .DevSampleCollector {
@@ -422,7 +420,7 @@
 .DevSampleCollector > small,
 .DevSampleCollector > code {
     color: var(--muted);
-    font-size: 10px;
+    font-size: 11px;
     line-height: 1.5;
 }
 
@@ -446,8 +444,8 @@
     display: block;
     margin-bottom: 8px;
     color: #aab4c1;
-    font-size: 10px;
-    letter-spacing: 0.1em;
+    font-size: 11px;
+    letter-spacing: 0.03em;
     text-transform: uppercase;
 }
 
@@ -462,7 +460,7 @@
 .RegionPreview p {
     margin: 8px 0 0;
     color: #65cde5;
-    font-size: 10px;
+    font-size: 11px;
     line-height: 1.4;
 }
 
@@ -504,14 +502,10 @@
 
 .ReviewHeader {
     display: flex;
+    flex-wrap: wrap;
     align-items: center;
     justify-content: space-between;
     gap: 16px;
-}
-
-.ReviewHeader h3 {
-    margin-top: 3px;
-    font-size: 16px;
 }
 
 .ReviewFeed ul {
@@ -546,7 +540,7 @@
     display: block;
     max-width: 100%;
     height: auto;
-    border-radius: 6px;
+    border-radius: var(--control-radius);
     margin: 8px 0 12px;
 }
 .CorrectionFields {
@@ -557,6 +551,9 @@
 }
 .CorrectionFields + .CorrectionFields {
     margin-top: 12px;
+}
+.CorrectionFields > label:first-child {
+    flex: 1 1 220px;
 }
 .CorrectionFields select {
     max-width: 100%;
@@ -572,7 +569,9 @@
 }
 
 .ReviewFeed strong {
-    font-size: 12px;
+    font-size: 13px;
+    font-weight: 550;
+    overflow-wrap: anywhere;
 }
 
 .ReviewFeed small,
@@ -585,17 +584,18 @@
     margin: 10px 0 0;
 }
 
-.ReviewFeed .FeedWarning,
+.ReviewFeed .FeedWarning {
+    color: var(--warning);
+}
 .ReviewFeed .ResultError {
     color: var(--danger);
 }
 
 .ResultStatus {
     width: fit-content;
-    font-family: ui-monospace, monospace;
-    font-size: 10px;
-    letter-spacing: 0.1em;
-    text-transform: uppercase;
+    font-weight: 500;
+    font-size: 11px;
+    letter-spacing: 0.03em;
 }
 
 .recognized {
@@ -604,7 +604,7 @@
 
 .withheld,
 .dropped {
-    color: var(--gold);
+    color: var(--warning);
 }
 
 .failed {
@@ -704,7 +704,7 @@
 .SetupProgress span {
     border: 1px solid var(--line);
     padding: 5px 8px;
-    border-radius: 5px;
+    border-radius: var(--control-radius);
 }
 .SetupProgress .CurrentStep {
     color: var(--mint);
@@ -719,13 +719,6 @@
     border-top: 1px solid var(--line);
     padding-top: 13px;
 }
-.CapturePanel[data-setup-open="false"] .Intro {
-    display: flex;
-}
-.CapturePanel[data-setup-open="false"] .Actions {
-    display: flex;
-}
-
 .CapturePanel[data-setup-open="false"] > .Note {
     font-size: 11px;
     max-width: 650px;
@@ -734,13 +727,10 @@
     border: 0;
     padding-top: 0;
     margin-top: 10px;
-    font-size: 10px;
+    font-size: 11px;
 }
 .CapturePanel[data-setup-open="false"] > .SetupProgress {
     display: none;
-}
-.Intro span {
-    font-size: 12px;
 }
 .Intro [data-recognition-status="active"] {
     color: var(--success);
@@ -788,4 +778,23 @@
 
 .PreviewStage .RecognitionGuide:active {
     cursor: grabbing;
+}
+
+.Intro [data-recognition-status="error"] {
+    color: var(--danger);
+}
+.ReviewFeed li:has(.withheld),
+.ReviewFeed li:has(.dropped) {
+    border-left-color: var(--warning);
+}
+.ReviewFeed li:has(.failed) {
+    border-left-color: var(--danger);
+}
+.PrivacyNote p {
+    max-width: 84ch;
+    margin-bottom: 0;
+}
+
+.Intro [data-recognition-status="unavailable"] {
+    color: var(--warning);
 }

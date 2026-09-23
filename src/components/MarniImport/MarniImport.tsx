@@ -122,7 +122,6 @@ export function MarniImport({ controller }: { controller: LiveSessionController 
         <section className={styles.ImportPanel} aria-labelledby="marni-import-heading">
             <div className={styles.ImportIntro}>
                 <div>
-                    <p className="eyebrow">Local screenshot recognition</p>
                     <h2 id="marni-import-heading">Import Marni loot</h2>
                     <span>Use a cropped loot tracker screenshot at 80%, 100%, or 120% UI scale.</span>
                 </div>
@@ -142,7 +141,7 @@ export function MarniImport({ controller }: { controller: LiveSessionController 
             )}
             {processing && (
                 <div className={styles.Progress} aria-live="polite">
-                    <progress max="1" value={progress} />
+                    <progress aria-label="Screenshot recognition" max="1" value={progress} />
                     <span>{status}</span>
                 </div>
             )}
@@ -165,6 +164,7 @@ export function MarniImport({ controller }: { controller: LiveSessionController 
                                 value={duration}
                                 placeholder="01:00:00"
                                 inputMode="numeric"
+                                aria-invalid={duration !== "" && elapsedMs === null}
                                 onChange={(event) => setDuration(event.target.value)}
                             />
                         </FormField>
@@ -184,7 +184,7 @@ export function MarniImport({ controller }: { controller: LiveSessionController 
                                 item.matchScore === null ||
                                 item.matchScore > 0.25;
                             return (
-                                <div className={styles.Item} key={item.slot}>
+                                <div className={styles.Item} key={item.slot} data-needs-review={needsReview}>
                                     <img src={item.thumbnail} alt={`Screenshot loot slot ${item.slot + 1}`} />
                                     <FormField label="Item">
                                         <select
@@ -207,6 +207,7 @@ export function MarniImport({ controller }: { controller: LiveSessionController 
                                             min="1"
                                             step="1"
                                             value={item.quantity}
+                                            aria-invalid={!Number.isSafeInteger(quantity) || quantity <= 0}
                                             onChange={(event) => updateItem(item.slot, "quantity", event.target.value)}
                                         />
                                     </FormField>

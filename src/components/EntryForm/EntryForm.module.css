@@ -2,6 +2,8 @@
     overflow: hidden;
 }
 .EntryPanel > :global(.panel-heading) {
+    flex-wrap: wrap;
+    gap: var(--space-2);
     padding: var(--space-4) var(--space-6);
     border-bottom: 1px solid var(--line);
 }
@@ -37,11 +39,11 @@
 }
 .ItemList > button {
     display: grid;
-    grid-template-columns: 40px minmax(0, 1fr) 48px;
+    grid-template-columns: 36px minmax(0, 1fr) 48px;
     gap: 12px;
     align-items: center;
     width: 100%;
-    padding: 12px 16px;
+    padding: 10px 16px;
     border: 0;
     border-bottom: 1px solid var(--row-line);
     border-radius: 0;
@@ -55,7 +57,7 @@
 }
 .ItemList > button[aria-pressed="true"] {
     background: var(--accent-surface);
-    box-shadow: inset 3px 0 var(--gold);
+    box-shadow: inset 2px 0 var(--gold);
 }
 .ItemList > button:focus-visible {
     outline-offset: -3px;
@@ -70,12 +72,12 @@
     overflow: hidden;
     place-items: center;
     border: 1px solid var(--line-strong);
-    border-radius: 8px;
+    border-radius: var(--control-radius);
     background: var(--input-background);
 }
 .ItemIcon {
-    width: 40px;
-    height: 40px;
+    width: 36px;
+    height: 36px;
 }
 .ItemIcon img,
 .SelectedIcon img {
@@ -103,7 +105,7 @@
 }
 .SelectItem {
     color: var(--muted);
-    font-size: 10px;
+    font-size: 11px;
     text-align: right;
     opacity: 0;
 }
@@ -117,6 +119,7 @@
 }
 .NoResults {
     display: grid;
+    justify-items: center;
     gap: 8px;
     padding: 32px 18px;
     color: var(--muted);
@@ -139,7 +142,7 @@
     gap: 12px;
     align-items: center;
     min-width: 0;
-    padding-bottom: 18px;
+    padding-bottom: var(--space-4);
     border-bottom: 1px solid var(--line);
 }
 .SelectedDrop > div {
@@ -187,7 +190,7 @@
     min-width: 0;
     padding: 5px 2px;
     border: 1px solid var(--line);
-    border-radius: 5px;
+    border-radius: var(--control-radius);
     background: var(--surface-raised);
     color: var(--text-soft);
     font-size: 10px;
@@ -204,23 +207,22 @@
 .AddButton {
     display: flex;
     align-items: center;
-    justify-content: space-between;
-    width: 100%;
+    justify-self: end;
+    gap: var(--space-4);
     margin-top: 4px;
-    padding-block: 11px;
-}
-.AddButton span {
-    flex: 1;
 }
 .AddButton kbd {
     padding: 2px 5px;
     border: 1px solid currentColor;
-    border-radius: 4px;
+    border-radius: 3px;
     font-family: inherit;
     font-size: 10px;
     opacity: 0.65;
 }
 @media (max-width: 760px) {
+    .EntryPanel > :global(.panel-heading) {
+        padding-inline: var(--space-4);
+    }
     .EntryWorkspace {
         grid-template-columns: minmax(0, 1fr);
     }
