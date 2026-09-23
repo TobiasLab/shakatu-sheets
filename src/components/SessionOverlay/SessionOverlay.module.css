@@ -79,9 +79,6 @@
 .Metrics > div:first-child strong {
     color: var(--gold);
 }
-.ShortValue {
-    display: none;
-}
 .Clock {
     display: grid;
     flex-shrink: 0;
@@ -227,13 +224,4 @@
     color: var(--danger);
     font-size: 12px;
     overflow-wrap: anywhere;
-}
-
-@media (max-width: 380px) {
-    .FullValue {
-        display: none;
-    }
-    .ShortValue {
-        display: inline;
-    }
 }

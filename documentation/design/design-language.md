@@ -226,8 +226,9 @@ External fonts and new UI dependencies are not part of the current language.
 
 The separate overlay prioritizes loot. A 24px header contains the single-line location, compact timer, and window
 controls. The location truncates with its full name in a tooltip. Below it, a single 14px earnings row shows Silver/h
-and Net in fixed columns with tabular numerals and no wrapping. Up to 380px wide, values drop from two decimal places
-to one without rounding up (300.99M → 300.9M); full silver amounts remain available through tooltips and accessible names.
+and Net in fixed columns with tabular numerals and no wrapping. Compact amounts retain up to two decimal places
+(e.g. 300.99M), including at the minimum window width. Full silver amounts remain available through tooltips and
+accessible names.
 
 48px loot tiles fill the remaining height and scroll independently, keeping the header and earnings stationary.
 The supported minimum is 320×180. Additional drops must not shift the earnings columns when a scrollbar appears.

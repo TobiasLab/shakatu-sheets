@@ -20,12 +20,9 @@ export function aggregateDrops(entries: SessionEntry[]) {
     return Array.from(quantities, ([name, quantity]) => ({ name, quantity }));
 }
 
-const overlaySilverFormatters = {
-    1: new Intl.NumberFormat("en", { maximumFractionDigits: 1, useGrouping: false }),
-    2: new Intl.NumberFormat("en", { maximumFractionDigits: 2, useGrouping: false }),
-};
+const overlaySilverFormatter = new Intl.NumberFormat("en", { maximumFractionDigits: 2, useGrouping: false });
 
-export function formatOverlaySilver(value: number, fractionDigits: 1 | 2) {
+export function formatOverlaySilver(value: number) {
     const absolute = Math.abs(value);
     const [unit, suffix] =
         absolute >= 1e12
@@ -37,8 +34,8 @@ export function formatOverlaySilver(value: number, fractionDigits: 1 | 2) {
                 : absolute >= 1e3
                   ? [1e3, "K"]
                   : [1, ""];
-    const precision = 10 ** fractionDigits;
+    const precision = 100;
     // Reduce displayed precision without rounding the amount up to the next unit.
     const shortened = Math.trunc(value / (unit / precision)) / precision || 0;
-    return `${overlaySilverFormatters[fractionDigits].format(shortened)}${suffix}`;
+    return `${overlaySilverFormatter.format(shortened)}${suffix}`;
 }

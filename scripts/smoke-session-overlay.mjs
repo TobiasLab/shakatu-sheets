@@ -317,11 +317,11 @@ try {
                 mobile: false,
             });
             let previousRight = null;
-            for (const [amount, full, short] of [
-                [300990000, "300.99M", "300.9M"],
-                [999999999, "999.99M", "999.9M"],
-                [-300990000, "-300.99M", "-300.9M"],
-                [9007199254740991, "9007.19T", "9007.1T"],
+            for (const [amount, expected] of [
+                [300990000, "300.99M"],
+                [999999999, "999.99M"],
+                [-300990000, "-300.99M"],
+                [9007199254740991, "9007.19T"],
             ]) {
                 for (const theme of ["dark", "light", "moss"]) {
                     await evaluate(`window.__event("session-overlay-state", {
@@ -331,7 +331,6 @@ try {
                                 saleMultiplier:1,source:"manual",createdAt:1})).map((entry,i)=>i?{...entry,valuation:"vendor"}:entry)},
                         theme:"${theme}",timerEnabled:true,opacity:100
                     })`);
-                    const expected = width <= 380 ? short : full;
                     await until(
                         `[...document.querySelectorAll('[aria-label="Session earnings"] strong:first-of-type [aria-hidden]')].find(el=>getComputedStyle(el).display!=="none")?.textContent.trim() === '${expected}'`,
                     );

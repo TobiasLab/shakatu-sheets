@@ -190,12 +190,7 @@ function OverlaySilver({ value, label }: { value: number | null; label: string }
     return (
         <strong title={`${label}: ${fullAmount}`}>
             <span className="sr-only">{`${label}: ${fullAmount}`}</span>
-            <span className={styles.FullValue} aria-hidden="true">
-                {value === null ? "—" : formatOverlaySilver(value, 2)}
-            </span>
-            <span className={styles.ShortValue} aria-hidden="true">
-                {value === null ? "—" : formatOverlaySilver(value, 1)}
-            </span>
+            <span aria-hidden="true">{value === null ? "—" : formatOverlaySilver(value)}</span>
         </strong>
     );
 }
