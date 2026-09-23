@@ -1,6 +1,7 @@
 // Run with Chromium listening on port 9222: node scripts/smoke-session-overlay.mjs
 // Tests the real React components with synthetic session data and mocked native window events.
 import assert from "node:assert/strict";
+import { mkdir, writeFile } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
 import react from "@vitejs/plugin-react";
 import { createServer } from "vite";
@@ -38,6 +39,7 @@ function Harness() {
         timerEnabled: persisted.databaseLoaded && !persisted.closing,
     }, persisted.requestOverlayTimer);
     window.currentSession = persisted.session;
+    window.overlayLootNames = [spot.trash, ...spot.drops].map(drop => drop.name);
     window.databaseLoaded = persisted.databaseLoaded;
     window.requestTimer = requestOverlayTimer;
     window.updateSession = (count, status = "running") => persisted.dispatch({
@@ -304,6 +306,79 @@ try {
         await sleep(100);
         const focused = await evaluate('window.__calls.some(c => c.command === "plugin:window|set_focus")');
         assert.equal(focused, !process.env.OVERLAY_LAYER_SHELL, "Layer overlays must not request focus on opening");
+        // Resize with large/negative earnings and a scrolling loot list: values must retain their unit and position.
+        await evaluate('window.showSettings(false);document.querySelector("#publisher-error").style.display="none"');
+        await until('!document.querySelector("#overlay-opacity")');
+        for (const width of [480, 380, 360, 320]) {
+            await send("Emulation.setDeviceMetricsOverride", {
+                width,
+                height: 180,
+                deviceScaleFactor: 1,
+                mobile: false,
+            });
+            let previousRight = null;
+            for (const [amount, full, short] of [
+                [300990000, "300.99M", "300.9M"],
+                [999999999, "999.99M", "999.9M"],
+                [-300990000, "-300.99M", "-300.9M"],
+                [9007199254740991, "9007.19T", "9007.1T"],
+            ]) {
+                for (const theme of ["dark", "light", "moss"]) {
+                    await evaluate(`window.__event("session-overlay-state", {
+                        session: {...window.currentSession, status:"paused", elapsedMs:3600000, startedAt:null,
+                            entries:Array.from({length:30},(_,i)=>({id:String(i),name:window.overlayLootNames[i] ?? "Loot "+i,quantity:1,
+                                unitPrice:i===0?Math.abs(${amount}):0,valuation:${amount}<0?"expense":"vendor",
+                                saleMultiplier:1,source:"manual",createdAt:1})).map((entry,i)=>i?{...entry,valuation:"vendor"}:entry)},
+                        theme:"${theme}",timerEnabled:true,opacity:100
+                    })`);
+                    const expected = width <= 380 ? short : full;
+                    await until(
+                        `[...document.querySelectorAll('[aria-label="Session earnings"] strong:first-of-type [aria-hidden]')].find(el=>getComputedStyle(el).display!=="none")?.textContent.trim() === '${expected}'`,
+                    );
+                    const geometry = await evaluate(`(() => {
+                        const main=document.querySelector('main').getBoundingClientRect();
+                        const header=document.querySelector('main header').getBoundingClientRect();
+                        const loot=document.querySelector('[aria-label="Dropped items"]');
+                        const stats=[...document.querySelectorAll('[aria-label="Session earnings"] strong')];
+                        return {headerHeight:header.height, lootTop:loot.getBoundingClientRect().top-main.top,
+                            lootHeight:loot.clientHeight, scrolls:loot.scrollHeight>loot.clientHeight,
+                            right:stats.map(el=>el.getBoundingClientRect().right),
+                            fits:stats.every(el=>{
+                                const value=[...el.querySelectorAll('[aria-hidden]')].find(s=>getComputedStyle(s).display!=='none');
+                                const r=value.getBoundingClientRect(), label=el.previousElementSibling.getBoundingClientRect();
+                                return r.left>=label.right+3 && r.right<=main.right-8 && r.height<=21;
+                            }),
+                            controls:[...document.querySelectorAll('main header button,main time')].every(el=>{
+                                const r=el.getBoundingClientRect();return r.left>=main.left && r.right<=main.right && r.top>=main.top && r.bottom<=main.top+34;
+                            })};
+                    })()`);
+                    assert(
+                        geometry.fits && geometry.controls,
+                        `Stats and controls fit at ${width}px: ${JSON.stringify(geometry)}`,
+                    );
+                    assert(geometry.headerHeight <= 28 && geometry.lootTop <= 68 && geometry.lootHeight >= 100);
+                    assert(geometry.scrolls, "Loot scrolls independently in a short window");
+                    if (previousRight)
+                        assert.deepEqual(geometry.right, previousRight, "Earnings stay anchored as values change");
+                    previousRight = geometry.right;
+                    if (process.env.UI_SMOKE_OUTPUT && amount === 300990000 && [320, 480].includes(width)) {
+                        await mkdir(process.env.UI_SMOKE_OUTPUT, { recursive: true });
+                        const { data } = await send("Page.captureScreenshot", { format: "png" });
+                        await writeFile(
+                            `${process.env.UI_SMOKE_OUTPUT}/overlay-${width}-${theme}.png`,
+                            Buffer.from(data, "base64"),
+                        );
+                    }
+                }
+            }
+        }
+        console.info("Overlay resize, precision, anchored metrics, and loot space passed in all themes");
+        await evaluate("window.showSettings(true)");
+        await until('!!document.querySelector("#overlay-opacity")');
+        await evaluate(
+            'window.__event("session-overlay-state",{session:window.currentSession,theme:"light",timerEnabled:true,opacity:65})',
+        );
+        await until(`!!document.querySelector('[aria-label="Pause timer"]')`);
         if (process.env.OVERLAY_LAYER_SHELL) {
             await evaluate("window.showSettings(false)");
             await sleep(100);
