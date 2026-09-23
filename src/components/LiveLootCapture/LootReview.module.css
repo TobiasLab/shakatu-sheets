@@ -1,0 +1,271 @@
+.Review {
+    margin-top: 20px;
+    border: 1px solid var(--line);
+    border-radius: var(--panel-radius);
+    overflow: hidden;
+}
+.Header,
+.DetailHeader {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+}
+.Header {
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--line);
+}
+.Header h3 {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 14px;
+}
+.Count {
+    min-width: 24px;
+    padding: 2px 6px;
+    border: 1px solid var(--accent-border);
+    border-radius: var(--control-radius);
+    color: var(--warning);
+    background: var(--accent-surface);
+    font-size: 11px;
+    text-align: center;
+    font-variant-numeric: tabular-nums;
+}
+.Workspace {
+    display: grid;
+    grid-template-columns: minmax(200px, 0.7fr) minmax(0, 1.8fr);
+    align-items: start;
+}
+.Queue {
+    max-height: 420px;
+    margin: 0;
+    padding: 6px;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    scrollbar-width: thin;
+    list-style: none;
+}
+.Queue li + li {
+    margin-top: 2px;
+}
+.Queue button {
+    display: grid;
+    gap: 5px;
+    width: 100%;
+    padding: 10px 12px;
+    border: 1px solid transparent;
+    border-radius: var(--control-radius);
+    background: transparent;
+    color: var(--text-soft);
+    text-align: left;
+    cursor: pointer;
+}
+.Queue button:hover {
+    background: var(--hover);
+}
+.Queue button[aria-pressed="true"] {
+    border-color: var(--accent-border);
+    background: var(--accent-surface);
+    box-shadow: inset 2px 0 var(--gold);
+    color: var(--text-strong);
+}
+.Queue button:focus-visible {
+    outline-offset: -3px;
+}
+.Queue strong {
+    font-size: 12px;
+    font-weight: 500;
+    overflow-wrap: anywhere;
+}
+.QueueMeta {
+    display: flex;
+    justify-content: space-between;
+    gap: 8px;
+    color: var(--muted);
+    font-size: 10px;
+}
+.Ready {
+    color: var(--success);
+    font-size: 11px;
+}
+.Detail {
+    min-width: 0;
+    min-height: 260px;
+    padding: 20px;
+    border-left: 1px solid var(--line);
+    background: var(--canvas);
+}
+.DetailHeader {
+    align-items: start;
+}
+.DetailHeader > div {
+    min-width: 0;
+}
+.DetailHeader > button {
+    flex-shrink: 0;
+}
+.DetailMeta {
+    color: var(--muted);
+    font-size: 11px;
+}
+.Detail h4 {
+    margin: 5px 0 0;
+    color: var(--text-strong);
+    font-size: 15px;
+    font-weight: 550;
+    overflow-wrap: anywhere;
+}
+.Reason,
+.Unavailable,
+.ReadyAction p {
+    margin: 12px 0 16px;
+    color: var(--text-soft);
+    font-size: 12px;
+    line-height: 1.6;
+    overflow-wrap: anywhere;
+}
+.Error {
+    margin: 12px 0;
+    padding: 10px 12px;
+    border-left: 2px solid var(--danger);
+    background: var(--surface-raised);
+    color: var(--danger);
+    font-size: 12px;
+    overflow-wrap: anywhere;
+}
+.Correction {
+    min-width: 0;
+}
+.Capture {
+    margin: 0 0 16px;
+    border: 1px solid var(--line);
+    border-radius: var(--control-radius);
+    overflow: hidden;
+    background: var(--surface);
+}
+.Capture figcaption {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 6px 10px;
+    color: var(--muted);
+    font-size: 11px;
+}
+.Capture figcaption :global(.button) {
+    min-height: 28px;
+    padding: 4px 8px;
+    font-size: 11px;
+}
+.CaptureImage {
+    display: grid;
+    place-items: center;
+    min-height: 76px;
+    padding: 12px;
+    background: #151419;
+}
+.Capture canvas {
+    display: block;
+    max-width: 100%;
+    height: auto;
+    max-height: 120px;
+    object-fit: contain;
+}
+.CorrectionFields {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 96px;
+    gap: 12px;
+}
+.CorrectionActions,
+.ReadyAction {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 12px;
+}
+.CorrectionActions {
+    margin-top: 16px;
+}
+.ReadyAction p {
+    flex-basis: 100%;
+}
+.RetryResult {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px 12px;
+    padding: 12px;
+    margin-bottom: 16px;
+    border: 1px solid var(--line);
+    background: var(--surface);
+    font-size: 12px;
+}
+.RetryResult p {
+    flex-basis: 100%;
+    margin: 0;
+    color: var(--text-soft);
+    overflow-wrap: anywhere;
+}
+.RetryResult strong {
+    flex: 1;
+    min-width: 0;
+    font-weight: 500;
+    overflow-wrap: anywhere;
+}
+.Footer {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px 16px;
+    padding: 10px 16px;
+    border-top: 1px solid var(--line);
+    color: var(--muted);
+    font-size: 11px;
+}
+.ClearConfirmation {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--line);
+    background: var(--surface-raised);
+}
+.ClearConfirmation p {
+    margin: 0;
+    color: var(--text-soft);
+    font-size: 12px;
+}
+.ClearConfirmation > div {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+@media (max-width: 760px) {
+    .Workspace {
+        grid-template-columns: minmax(0, 1fr);
+    }
+    .Queue {
+        max-height: 154px;
+    }
+    .Detail {
+        padding: 16px;
+        border-left: 0;
+        border-top: 1px solid var(--line);
+    }
+}
+@media (max-width: 420px) {
+    .Header {
+        gap: 8px;
+        padding: 10px 12px;
+        flex-wrap: wrap;
+    }
+    .Detail {
+        padding: 12px;
+    }
+    .CorrectionFields {
+        grid-template-columns: minmax(0, 1fr) 72px;
+    }
+}

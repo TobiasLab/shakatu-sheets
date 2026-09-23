@@ -187,29 +187,6 @@
     color: var(--text-soft);
     margin-top: 4px;
 }
-.FinishDialog {
-    composes: Surface from "../../components/Dialog/Dialog.module.css";
-    width: min(520px, calc(100vw - 40px));
-    padding: var(--space-6);
-}
-.FinishDialog h2 {
-    font-size: var(--text-dialog-title);
-}
-.FinishDialog p {
-    margin: 16px 0;
-    color: var(--text-soft);
-    font-size: 13px;
-}
-.FinishDialog p[role="alert"] {
-    color: var(--danger);
-    overflow-wrap: anywhere;
-}
-.FinishActions {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 10px;
-    margin-top: 24px;
-}
 @media (max-width: 760px) {
     .MetricsGrid {
         grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);

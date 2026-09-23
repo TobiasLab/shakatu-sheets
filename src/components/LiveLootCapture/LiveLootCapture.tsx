@@ -2,8 +2,8 @@ import type { LootAlignmentGuide, LootUiScale } from "../../recognition/displayC
 import { FormField } from "../FormField/FormField";
 import { Icon } from "../Icon/Icon";
 import { SelectionButton } from "../SelectionButton/SelectionButton";
-import { CaptureCorrection } from "./CaptureCorrection";
 import styles from "./LiveLootCapture.module.css";
+import { LootReview } from "./LootReview";
 import type { useLiveLootCapture } from "./useLiveLootCapture";
 
 type SourceDimensions = { width: number; height: number };
@@ -131,13 +131,6 @@ export function LiveLootCapture({ controller }: { controller: ReturnType<typeof 
         normalRegionCanvas,
         rareRegionCanvas,
         recognitionAnnouncement,
-        reviewResults,
-        clearReviewResults,
-        dismissReviewResult,
-        omittedReviewResults,
-        resultDescription,
-        acceptReviewResult,
-        correctReviewResult,
     } = controller;
     return (
         <section
@@ -770,92 +763,7 @@ export function LiveLootCapture({ controller }: { controller: ReturnType<typeof 
             <div className={styles.RecognitionAnnouncements} aria-live="polite" aria-atomic="true">
                 {recognitionAnnouncement}
             </div>
-            {reviewResults.some((entry) => !entry.accepted) && (
-                <div className={styles.ReviewFeed}>
-                    <div className={styles.ReviewHeader}>
-                        <div>
-                            <h3 id="loot-review-heading" tabIndex={-1}>
-                                Needs attention <span>({reviewResults.filter((entry) => !entry.accepted).length})</span>
-                            </h3>
-                        </div>
-                        <button
-                            className="button subtle"
-                            type="button"
-                            onClick={() => {
-                                clearReviewResults();
-                                document.getElementById("live-capture-heading")?.focus();
-                            }}
-                        >
-                            Clear review
-                        </button>
-                    </div>
-                    {omittedReviewResults > 0 && (
-                        <p className={styles.FeedWarning} role="status">
-                            {`${omittedReviewResults} older ${omittedReviewResults === 1 ? "result was" : "results were"} removed from this review feed. Unresolved item captures are retained.`}
-                        </p>
-                    )}
-                    <ul>
-                        {reviewResults
-                            .filter((entry) => !entry.accepted)
-                            .map((review) => (
-                                <li key={review.id}>
-                                    <div>
-                                        <span className={`${styles.ResultStatus} ${styles[review.result.status]}`}>
-                                            {review.source === "normal" ? "Normal loot" : "Rare banner"} ·{" "}
-                                            {review.result.status === "recognized"
-                                                ? "Ready to add"
-                                                : review.result.status === "withheld"
-                                                  ? "Needs review"
-                                                  : review.result.status === "dropped"
-                                                    ? "Not processed"
-                                                    : "Could not read"}
-                                        </span>
-                                        <strong>{resultDescription(review.result)}</strong>
-                                        {review.error && <small className={styles.ResultError}>{review.error}</small>}
-                                    </div>
-                                    <button
-                                        className="button subtle"
-                                        type="button"
-                                        aria-label={`Dismiss review entry ${review.id + 1}`}
-                                        onClick={(event) => {
-                                            const row = event.currentTarget.closest("li");
-                                            const next = row?.nextElementSibling ?? row?.previousElementSibling;
-                                            dismissReviewResult(review.id);
-                                            const target =
-                                                next?.querySelector<HTMLButtonElement>("button") ??
-                                                document.getElementById("live-capture-heading");
-                                            target?.focus();
-                                        }}
-                                    >
-                                        Dismiss
-                                    </button>
-                                    {review.result.status === "recognized" && !review.accepted && (
-                                        <button
-                                            className="button"
-                                            type="button"
-                                            disabled={sessionStatus === "finished"}
-                                            onClick={() => acceptReviewResult(review.id)}
-                                        >
-                                            Retry add
-                                        </button>
-                                    )}
-                                    {(review.result.status === "withheld" || review.result.status === "failed") && (
-                                        <CaptureCorrection
-                                            review={review}
-                                            items={itemDictionary}
-                                            disabled={!databaseLoaded || sessionStatus === "finished"}
-                                            onAdd={correctReviewResult}
-                                        />
-                                    )}
-                                </li>
-                            ))}
-                    </ul>
-                    <p>
-                        Not added to the ledger. Captures are discarded when you clear them, finish the session, or
-                        close the app. Clearing keeps ledger entries.
-                    </p>
-                </div>
-            )}
+            <LootReview controller={controller} />
             <details className={styles.PrivacyNote}>
                 <summary>Privacy & capture details</summary>
                 <p>

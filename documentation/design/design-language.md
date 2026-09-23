@@ -159,7 +159,7 @@ History filters and upload review also use the shared header; upload review disa
 - Use `--surface`, a one-pixel `--line-strong` border, 6px corners, `--dialog-shadow`, and a neutral `#000a` backdrop.
 - The header uses 16px/24px padding, a bottom divider, and an 18px title. Omit subtitles by default. Compact headers use
   16px padding. Keep the header and dismissal available while long content scrolls.
-- Short confirmations should be narrower and sized to their message; the existing finish dialog uses a 520px maximum.
+- Short confirmations should be narrower and sized to their message; the finish-review dialog uses a 540px maximum.
 
 ### Close control and keyboard behavior
 
@@ -221,6 +221,37 @@ CSS for presentation. Controls use 120ms color, border, and background transitio
 Dialogs fade in over 160ms without sliding or scaling; closing remains immediate. The `--motion-fast` and
 `--motion-dialog` tokens become zero under `prefers-reduced-motion`. Avoid decorative or continuous animation.
 External fonts and new UI dependencies are not part of the current language.
+
+## Unresolved capture review
+
+Needs attention is a queue beside one selected capture, rather than a stack of open forms. Queue rows show the source,
+entry number, and short review reason. The selected editor groups its retained crop and Retry OCR action, item/quantity
+fields, and one primary Add to session action. OCR suggestions fill the correction fields only after Use suggestion;
+adding remains explicit. Recognized entries awaiting insertion use Retry add. Unprocessed summaries explain that no
+capture was retained and point to manual entry.
+
+Switching entries preserves correction drafts and cancels any in-flight OCR retry. The queue is ordered oldest first;
+new arrivals append without changing the current selection. Resolving an entry advances to its neighbor and restores
+keyboard focus if focus was inside the review queue or editor; clearing the queue resets drafts.
+Arrow keys, Home, and End navigate the queue; Tab moves from the selected entry into its editor.
+The queue scrolls independently and stacks above the editor on narrow windows. Dismiss all has an inline confirmation;
+ledger entries are unaffected. A compact footer explains retention and exclusion from totals once for the whole queue.
+
+The finish-review modal uses the shared dialog header and Close Esc control, a count summary, and a separated action
+footer. Review drops is the primary action; finishing without adding unresolved drops sits with its discard consequence in a
+separate bottom row. Preparing, failed, and ready states retain the same frame. During preparation or after an error,
+finishing is unavailable. Escape and Keep session open preserve the paused session. Only the body scrolls in short windows.
+
+Review interaction checks run with Chromium listening on port 9222:
+
+```sh
+node scripts/smoke-loot-review.mjs
+```
+
+This fixture runs in React Strict Mode and covers draft retention, queue navigation, focus, insertion failures, cancelled
+OCR retries, bulk dismissal,
+and responsive modal states. OCR suggestions are synthetic in this focused fixture; `scripts/smoke-loot-ui.mjs` exercises
+the real local OCR pipeline and capture-to-finish flow.
 
 ## Compact session overlay
 

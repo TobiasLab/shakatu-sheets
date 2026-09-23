@@ -89,8 +89,9 @@ selection and UI scale above placement guidance. Fine positioning uses a cross-s
 actions and a separate reset named for the selected area. Layout import lives in an expandable section, and confirmation
 is emphasized in the footer. Confirming both areas closes setup and
 returns keyboard focus to its button. Setup can reopen during capture. Previews run only while setup is visible; recognition
-continues across navigation and minimization. Needs attention shows unaccepted results, distinguishes read failures from
-recognized loot awaiting insertion, and explains Retry add, manual correction, and Clear review. Clearing review does not remove loot.
+continues across navigation and minimization. Needs attention distinguishes read failures from recognized loot awaiting
+insertion in a selectable queue with one correction editor. Switching captures preserves item/quantity drafts. Retry OCR
+offers a suggestion that must be explicitly applied and added. Dismiss all asks for confirmation and keeps ledger entries.
 Advanced diagnostics, diagnostic JSONL, and optional paired ROI collection retain their existing behavior and bounds.
 
 History shows totals for all completed sessions matching the current filter, including aggregate net, elapsed time, and

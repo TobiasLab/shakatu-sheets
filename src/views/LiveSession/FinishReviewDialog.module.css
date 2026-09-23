@@ -1,0 +1,108 @@
+.Dialog {
+    composes: Surface from "../../components/Dialog/Dialog.module.css";
+    width: min(540px, calc(100vw - 24px));
+}
+.Dialog[open] {
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+.Body {
+    display: grid;
+    gap: 16px;
+    min-height: 0;
+    padding: 24px;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+}
+.Summary {
+    display: grid;
+    grid-template-columns: 48px minmax(0, 1fr);
+    align-items: center;
+    gap: 16px;
+}
+.Count {
+    display: grid;
+    place-items: center;
+    min-height: 48px;
+    padding: 4px;
+    border: 1px solid var(--accent-border);
+    border-radius: var(--panel-radius);
+    background: var(--accent-surface);
+    color: var(--warning);
+    font-size: 24px;
+    font-weight: 550;
+    font-variant-numeric: tabular-nums;
+}
+.Summary strong {
+    color: var(--text-strong);
+    font-size: 15px;
+    font-weight: 550;
+}
+.Summary p {
+    margin: 6px 0 0;
+    color: var(--text-soft);
+    font-size: 12px;
+    line-height: 1.6;
+}
+.Progress {
+    width: 100%;
+    height: 5px;
+    accent-color: var(--gold);
+}
+.Actions {
+    display: flex;
+    flex-shrink: 0;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 16px 24px;
+    border-top: 1px solid var(--line);
+    background: var(--surface-raised);
+}
+.Discard {
+    display: flex;
+    flex-shrink: 0;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 4px 12px;
+    padding: 12px 24px;
+    border-top: 1px solid var(--line);
+}
+.Discard > span {
+    color: var(--muted);
+    font-size: 11px;
+}
+.Discard :global(.button) {
+    min-height: 30px;
+    padding-inline: 0;
+    font-size: 11px;
+    color: var(--text-soft);
+}
+@media (max-width: 760px) {
+    .Body {
+        padding: 20px 16px;
+    }
+    .Actions,
+    .Discard {
+        padding-inline: 16px;
+    }
+}
+@media (max-width: 380px) {
+    .Summary {
+        grid-template-columns: 36px minmax(0, 1fr);
+        gap: 12px;
+    }
+    .Count {
+        min-height: 36px;
+        font-size: 20px;
+    }
+    .Actions {
+        gap: 8px;
+        padding-block: 12px;
+    }
+    .Actions :global(.button) {
+        flex: 1;
+    }
+}

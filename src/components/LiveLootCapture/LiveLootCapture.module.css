@@ -480,14 +480,6 @@
     min-height: 60px;
 }
 
-.ReviewFeed {
-    border-radius: var(--control-radius);
-    margin-top: 16px;
-    padding: 14px;
-    border: 1px solid var(--line);
-    background: var(--clock-background);
-}
-
 .RecognitionAnnouncements {
     position: absolute;
     width: 1px;
@@ -498,117 +490,6 @@
     clip: rect(0, 0, 0, 0);
     white-space: nowrap;
     border: 0;
-}
-
-.ReviewHeader {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    justify-content: space-between;
-    gap: 16px;
-}
-
-.ReviewFeed ul {
-    display: grid;
-    gap: 7px;
-    max-height: 360px;
-    margin: 12px 0 0;
-    padding: 0;
-    padding-right: 5px;
-    overflow-y: auto;
-    overscroll-behavior: contain;
-    scrollbar-gutter: stable;
-    list-style: none;
-}
-
-.ReviewFeed li {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    justify-content: space-between;
-    gap: 14px;
-    padding: 10px 12px;
-    border-left: 2px solid var(--line-strong);
-    background: var(--surface);
-}
-
-.Correction {
-    flex: 1 0 100%;
-    min-width: 0;
-}
-.Correction canvas {
-    display: block;
-    max-width: 100%;
-    height: auto;
-    border-radius: var(--control-radius);
-    margin: 8px 0 12px;
-}
-.CorrectionFields {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: end;
-    gap: 10px;
-}
-.CorrectionFields + .CorrectionFields {
-    margin-top: 12px;
-}
-.CorrectionFields > label:first-child {
-    flex: 1 1 220px;
-}
-.CorrectionFields select {
-    max-width: 100%;
-}
-.CorrectionFields input {
-    width: 100px;
-}
-
-.ReviewFeed li > div {
-    display: grid;
-    min-width: 0;
-    gap: 3px;
-}
-
-.ReviewFeed strong {
-    font-size: 13px;
-    font-weight: 550;
-    overflow-wrap: anywhere;
-}
-
-.ReviewFeed small,
-.ReviewFeed > p {
-    color: var(--muted);
-    font-size: 11px;
-}
-
-.ReviewFeed > p {
-    margin: 10px 0 0;
-}
-
-.ReviewFeed .FeedWarning {
-    color: var(--warning);
-}
-.ReviewFeed .ResultError {
-    color: var(--danger);
-}
-
-.ResultStatus {
-    width: fit-content;
-    font-weight: 500;
-    font-size: 11px;
-    letter-spacing: 0.03em;
-}
-
-.recognized {
-    color: var(--success);
-}
-
-.withheld,
-.dropped {
-    color: var(--warning);
-}
-
-.failed {
-    color: var(--danger);
 }
 
 @media (max-width: 760px) {
@@ -641,19 +522,6 @@
 
     .ScaleControl select {
         width: 100%;
-    }
-
-    .ReviewFeed li {
-        align-items: stretch;
-        flex-direction: column;
-    }
-
-    .ReviewFeed li :global(.button) {
-        width: 100%;
-    }
-
-    .ReviewFeed ul {
-        max-height: 280px;
     }
 }
 
@@ -710,10 +578,6 @@
     color: var(--mint);
     border-color: var(--accent-border);
     background: var(--accent-surface);
-}
-.ReviewHeader h3 {
-    font-size: 16px;
-    margin: 0;
 }
 .PrivacyNote {
     border-top: 1px solid var(--line);
@@ -782,13 +646,6 @@
 
 .Intro [data-recognition-status="error"] {
     color: var(--danger);
-}
-.ReviewFeed li:has(.withheld),
-.ReviewFeed li:has(.dropped) {
-    border-left-color: var(--warning);
-}
-.ReviewFeed li:has(.failed) {
-    border-left-color: var(--danger);
 }
 .PrivacyNote p {
     max-width: 84ch;

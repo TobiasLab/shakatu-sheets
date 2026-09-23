@@ -1273,7 +1273,7 @@ try {
                     await delay(65);
                 }
             }
-            const reviewEntries = "document.querySelectorAll('[aria-label^=\"Dismiss review entry\"]')";
+            const reviewEntries = "document.querySelectorAll('[data-review-entry]')";
             // Three real local OCR jobs can exceed the ordinary UI update deadline on slower hosts.
             const reviewStartedAt = Date.now();
             await until(`${reviewEntries}.length === 3`, 30_000);
@@ -1309,8 +1309,7 @@ try {
             await until("document.querySelector('#finish-review-title')?.textContent === 'Review before finishing'");
             await click("Review drops");
             assert.equal(await evaluate("document.activeElement.id"), "loot-review-heading");
-            const reviewForm =
-                "document.querySelector('[aria-label^=\"Dismiss review entry\"]').closest('li').querySelector('form')";
+            const reviewForm = "document.querySelector('#loot-review-detail form')";
             await evaluate(`(${reviewForm}).querySelector('select').setAttribute('id','review-item-test')`);
             await evaluate(`(${reviewForm}).querySelector('input').setAttribute('id','review-quantity-test')`);
             await setField("#review-item-test", "Ancient Spirit Dust");
@@ -1354,10 +1353,7 @@ try {
                 await evaluate("document.querySelector('[data-recognition-status=unavailable]') !== null"),
                 "An uncalibrated source must remain preview-only after receiving loot frames",
             );
-            assert.equal(
-                await evaluate("document.querySelectorAll('[aria-label^=\"Dismiss review entry\"]').length"),
-                0,
-            );
+            assert.equal(await evaluate("document.querySelectorAll('[data-review-entry]').length"), 0);
             assert.equal(await evaluate("JSON.stringify(window.__session.entries)"), entriesBeforePreview);
             await screenshot("capture-preview-only");
             await click("Close setup");
