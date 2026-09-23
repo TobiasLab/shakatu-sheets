@@ -224,11 +224,14 @@ External fonts and new UI dependencies are not part of the current language.
 
 ## Compact session overlay
 
-The separate overlay shares theme tokens and uses a three-column earnings/time row. At the supported 320×180 minimum,
-metric values scale to 22–28px, item tiles are 40px, and timer, hide, and placement controls remain visible. Long location
-names truncate in the drag handle with the full name available through its title. The overlay body can shrink below the
-main app’s 320px minimum so a vertical scrollbar does not create horizontal overflow. Additional drops scroll within the
-overlay. Waiting and window-control errors use explicit status/alert text; timer ticks are not live announcements.
+The separate overlay prioritizes loot. A 24px header contains the single-line location, compact timer, and window
+controls. The location truncates with its full name in a tooltip. Below it, a single 14px earnings row shows Silver/h
+and Net in fixed columns with tabular numerals and no wrapping. Up to 380px wide, values drop from two decimal places
+to one without rounding up (300.99M → 300.9M); full silver amounts remain available through tooltips and accessible names.
+
+48px loot tiles fill the remaining height and scroll independently, keeping the header and earnings stationary.
+The supported minimum is 320×180. Additional drops must not shift the earnings columns when a scrollbar appears.
+Waiting and window-control errors use explicit status/alert text; timer ticks are not live announcements.
 
 ## Reviewing a UI change
 

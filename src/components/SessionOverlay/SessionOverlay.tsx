@@ -11,6 +11,7 @@ import { OverlayTimerButton } from "./OverlayTimerButton";
 import styles from "./SessionOverlay.module.css";
 import {
     aggregateDrops,
+    formatOverlaySilver,
     OVERLAY_READY,
     OVERLAY_STATE,
     OVERLAY_VISIBILITY_CHANGED,
@@ -101,6 +102,7 @@ export function SessionOverlay() {
                 >
                     <span aria-hidden="true">⠿</span> {spotName}
                 </button>
+                {snapshot && <OverlayClock snapshot={snapshot} visible={visible} />}
                 {layerShell && (
                     <button
                         type="button"
@@ -168,25 +170,46 @@ function OverlayContent({ snapshot, visible }: { snapshot: OverlaySnapshot; visi
     const netPerHour = elapsedMs > 0 ? totals.net / (elapsedMs / 3_600_000) : 0;
     return (
         <>
-            <div className={styles.Metrics}>
+            <section className={styles.Metrics} aria-label="Session earnings">
                 <div>
-                    <span>Net silver / hour</span>
-                    <strong>{elapsedMs > 0 ? formatSilver(netPerHour, true) : "—"}</strong>
+                    <span>Silver/h</span>
+                    <OverlaySilver value={elapsedMs > 0 ? netPerHour : null} label="Net silver per hour" />
                 </div>
                 <div>
-                    <span>Session net</span>
-                    <strong>{formatSilver(totals.net, true)}</strong>
+                    <span>Net</span>
+                    <OverlaySilver value={totals.net} label="Session net silver" />
                 </div>
-                <div className={styles.Clock}>
-                    <time>
-                        <span className="sr-only">Session time: </span>
-                        {formatDuration(elapsedMs)}
-                    </time>
-                    <OverlayTimerButton key={session.id} session={session} enabled={snapshot.timerEnabled} />
-                </div>
-            </div>
+            </section>
             <OverlayDrops entries={entries} grindSpotId={grindSpotId} />
         </>
+    );
+}
+
+function OverlaySilver({ value, label }: { value: number | null; label: string }) {
+    const fullAmount = value === null ? "—" : formatSilver(value);
+    return (
+        <strong title={`${label}: ${fullAmount}`}>
+            <span className="sr-only">{`${label}: ${fullAmount}`}</span>
+            <span className={styles.FullValue} aria-hidden="true">
+                {value === null ? "—" : formatOverlaySilver(value, 2)}
+            </span>
+            <span className={styles.ShortValue} aria-hidden="true">
+                {value === null ? "—" : formatOverlaySilver(value, 1)}
+            </span>
+        </strong>
+    );
+}
+
+function OverlayClock({ snapshot, visible }: { snapshot: OverlaySnapshot; visible: boolean }) {
+    const elapsedMs = useElapsedTime(snapshot.session, visible);
+    return (
+        <div className={styles.Clock}>
+            <time title="Session time">
+                <span className="sr-only">Session time: </span>
+                {formatDuration(elapsedMs)}
+            </time>
+            <OverlayTimerButton key={snapshot.session.id} session={snapshot.session} enabled={snapshot.timerEnabled} />
+        </div>
     );
 }
 
@@ -197,7 +220,8 @@ const OverlayDrops = memo(function OverlayDrops({
     const drops = aggregateDrops(entries);
     return (
         <>
-            <ul className={styles.Drops} aria-label="Dropped items">
+            {/* biome-ignore lint/a11y/noNoninteractiveTabindex: The loot list scrolls independently and needs keyboard access. */}
+            <ul className={styles.Drops} aria-label="Dropped items" tabIndex={0}>
                 {drops.map(({ name, quantity }) => {
                     const icon = getDropIcon(grindSpotId, name);
                     const formattedQuantity = quantityFormatter.format(quantity);
