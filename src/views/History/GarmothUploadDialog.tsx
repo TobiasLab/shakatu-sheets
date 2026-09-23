@@ -7,7 +7,12 @@ import { LootLedger } from "../../components/LootLedger/LootLedger";
 import { grindSpots } from "../../data/grindSpots";
 import { calculateTotals, type SessionEntry } from "../../domain/session";
 import { formatDuration, formatSilver, formatTimestamp } from "../../format";
-import { buildGarmothUpload, type GarmothUploadPreview, parseGarmothOptions } from "../../garmoth";
+import {
+    buildGarmothUpload,
+    type GarmothUploadPreview,
+    getGarmothUploadBlockReason,
+    parseGarmothOptions,
+} from "../../garmoth";
 import dialogStyles from "../LiveSession/LiveSession.module.css";
 import styles from "./GarmothUploadDialog.module.css";
 
@@ -51,8 +56,7 @@ export function GarmothUploadDialog({
     let previewError = "";
     try {
         preview = buildGarmothUpload(draft);
-        if (preview.unmatchedEntries.length)
-            previewError = `Unmapped loot: ${preview.unmatchedEntries.join(", ")}. Reopen the session to correct it.`;
+        previewError = getGarmothUploadBlockReason(preview);
     } catch (reason) {
         previewError = String(reason instanceof Error ? reason.message : reason);
     }

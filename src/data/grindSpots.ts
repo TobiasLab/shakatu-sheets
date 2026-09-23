@@ -1,5 +1,6 @@
 import type { Valuation } from "../domain/session";
 import importedSpots from "./garmothSpots.json";
+import importedSupplementalDrops from "./supplementalDrops.json";
 
 export type DropTemplate = {
     name: string;
@@ -17,6 +18,9 @@ export type GrindSpotProfile = {
     trash: DropTemplate;
     drops: DropTemplate[];
 };
+
+// Shared tracking items; membership here does not establish support for Garmoth uploads.
+export const supplementalDrops = importedSupplementalDrops as DropTemplate[];
 
 function market(name: string, itemId: number): DropTemplate {
     return {
@@ -283,7 +287,9 @@ export function getGrindSpot(id: string): GrindSpotProfile {
 
 export function getGrindSpotDrops(id: string): DropTemplate[] {
     const spot = getGrindSpot(id);
-    return [spot.trash, ...spot.drops];
+    const drops = [spot.trash, ...spot.drops];
+    const spotKeys = new Set(drops.map((drop) => drop.garmothKey));
+    return [...drops, ...supplementalDrops.filter((drop) => !spotKeys.has(drop.garmothKey))];
 }
 
 export function getDropIcon(grindSpotId: string, name: string): string | undefined {
@@ -291,7 +297,11 @@ export function getDropIcon(grindSpotId: string, name: string): string | undefin
 }
 
 export function getMarketItemIds(grindSpotId: string): number[] {
-    return getGrindSpot(grindSpotId)
-        .drops.map((drop) => drop.marketItemId)
-        .filter((itemId): itemId is number => itemId !== undefined);
+    return [
+        ...new Set(
+            getGrindSpotDrops(grindSpotId)
+                .map((drop) => drop.marketItemId)
+                .filter((itemId): itemId is number => itemId !== undefined),
+        ),
+    ];
 }

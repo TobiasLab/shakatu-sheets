@@ -15,7 +15,7 @@ import { getDropIcon, grindSpots } from "../../data/grindSpots";
 import { historyDateBoundary, netPerHour, rankSpots, summarizeHistory } from "../../domain/history";
 import { calculateTotals, type SessionState } from "../../domain/session";
 import { formatDuration, formatSilver, formatTimestamp } from "../../format";
-import { buildGarmothUpload, type GarmothUploadPreview } from "../../garmoth";
+import { buildGarmothUpload, type GarmothUploadPreview, getGarmothUploadBlockReason } from "../../garmoth";
 import type { DatabaseStatus } from "../../hooks/usePersistedSession";
 import dialogStyles from "../LiveSession/LiveSession.module.css";
 import { GarmothUploadDialog } from "./GarmothUploadDialog";
@@ -161,6 +161,7 @@ export function HistoryView({
     if (selected) {
         try {
             uploadPreview = buildGarmothUpload(selected.session);
+            uploadPreviewError = getGarmothUploadBlockReason(uploadPreview);
         } catch (previewFailure) {
             uploadPreviewError = String(previewFailure);
         }
@@ -786,7 +787,9 @@ export function HistoryView({
                                                     ? "Loading connection…"
                                                     : !uploadCharacter
                                                       ? "Connect a character to share"
-                                                      : "Ready for review"}
+                                                      : uploadPreviewError
+                                                        ? "Upload unavailable"
+                                                        : "Ready for review"}
                                         </strong>
                                     </div>
                                     {selected.garmothUploadStatus === "unknown" ? null : !garmothSettingsLoaded ? (
@@ -844,13 +847,6 @@ export function HistoryView({
                                         Could not read Garmoth settings: {settingsError}
                                     </p>
                                 )}
-                                {uploadPreview?.unmatchedEntries.length ? (
-                                    <p className={styles.UploadError} role="alert">
-                                        These revenue entries have no Garmoth drop mapping:{" "}
-                                        {uploadPreview.unmatchedEntries.join(", ")}. Reopen the session and remove or
-                                        rename them before uploading.
-                                    </p>
-                                ) : null}
                                 {uploadPreviewError && <Feedback tone="error">{uploadPreviewError}</Feedback>}
                                 {selected.garmothUploadStatus === "unknown" && !uploadError && (
                                     <p className={styles.UploadError} role="alert">

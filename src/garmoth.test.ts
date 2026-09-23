@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
 import mappings from "./data/garmothMappings.json";
-import { getGrindSpotDrops, grindSpots } from "./data/grindSpots";
+import { getGrindSpotDrops, grindSpots, supplementalDrops } from "./data/grindSpots";
 import type { SessionState } from "./domain/session";
-import { buildGarmothUpload, parseGarmothOptions } from "./garmoth";
+import { buildGarmothUpload, getGarmothUploadBlockReason, parseGarmothOptions } from "./garmoth";
 
 function finishedSession(): SessionState {
     return {
@@ -60,7 +60,7 @@ describe("buildGarmothUpload", () => {
                     {
                         garmothId: spot.garmothId,
                         drops: Object.fromEntries(
-                            getGrindSpotDrops(spot.id).map((drop) => [drop.name, drop.garmothKey]),
+                            [spot.trash, ...spot.drops].map((drop) => [drop.name, drop.garmothKey]),
                         ),
                     },
                 ]),
@@ -110,6 +110,50 @@ describe("buildGarmothUpload", () => {
         session.entries.push({ ...session.entries[0], id: "custom", name: "Custom loot" });
 
         expect(buildGarmothUpload(session).unmatchedEntries).toEqual(["Custom loot"]);
+    });
+
+    it("blocks supplemental items outside the spot table while preserving their local income", () => {
+        const session = finishedSession();
+        const original = buildGarmothUpload(session);
+        for (const drop of supplementalDrops) {
+            session.entries.push({
+                ...session.entries[0],
+                id: drop.garmothKey,
+                name: drop.name,
+                quantity: 2,
+                valuation: drop.valuation,
+                unitPrice: drop.unitPrice ?? 2_330_000,
+                saleMultiplier: drop.valuation === "market" ? 0.845 : 1,
+            });
+        }
+        const preview = buildGarmothUpload(session);
+        expect(preview.unmatchedEntries).toEqual(supplementalDrops.map((drop) => drop.name));
+        expect(preview.input.drops).toEqual(original.input.drops);
+        expect(preview.input.total).toBe(original.input.total + 21_000_000 + 4_660_000 * 0.845);
+        expect(getGarmothUploadBlockReason(preview)).toContain("blocked until support is confirmed");
+        expect(getGarmothUploadBlockReason(preview)).not.toContain("Reopen");
+    });
+
+    it("allows Pure Forest Breath when the spot already lists it", () => {
+        const session = finishedSession();
+        const spot = grindSpots.find((spot) => spot.name === "Manshaum Forest");
+        if (!spot) throw new Error("Missing Manshaum Forest profile");
+        session.grindSpotId = spot.id;
+        session.entries = [{ ...session.entries[0], name: "Pure Forest Breath", quantity: 3 }];
+        const preview = buildGarmothUpload(session);
+        expect(preview.input.drops["50807_0"]).toBe(3);
+        expect(preview.unmatchedEntries).toEqual([]);
+        expect(getGarmothUploadBlockReason(preview)).toBe("");
+    });
+
+    it("explains supplemental and unknown entries separately", () => {
+        const session = finishedSession();
+        for (const name of ["Laila's Petal", "Custom loot"]) {
+            session.entries.push({ ...session.entries[0], id: name, name, quantity: 1 });
+        }
+        const reason = getGarmothUploadBlockReason(buildGarmothUpload(session));
+        expect(reason).toContain("Garmoth does not list these items for this spot: Laila's Petal.");
+        expect(reason).toContain("Unmapped loot: Custom loot. Reopen the session to correct it.");
     });
 });
 

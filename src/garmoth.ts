@@ -1,5 +1,5 @@
 import type { GarmothUploadInput } from "./api/tauri";
-import { getGrindSpotDrops, grindSpots } from "./data/grindSpots";
+import { grindSpots, supplementalDrops } from "./data/grindSpots";
 import { calculateTotals, type SessionState } from "./domain/session";
 
 export type GarmothUploadPreview = {
@@ -15,7 +15,8 @@ export function buildGarmothUpload(session: SessionState): GarmothUploadPreview 
         throw new Error("Only a completed session with a duration can be uploaded.");
     }
 
-    const templates = getGrindSpotDrops(spot.id);
+    // Only spot-listed items are supported for upload, even when more items can be tracked locally.
+    const templates = [spot.trash, ...spot.drops];
     const drops = Object.fromEntries(templates.map((drop) => [drop.garmothKey, 0]));
     const unmatchedEntries: string[] = [];
     for (const entry of session.entries) {
@@ -54,6 +55,20 @@ export function buildGarmothUpload(session: SessionState): GarmothUploadPreview 
         ).size,
         unmatchedEntries: [...new Set(unmatchedEntries)],
     };
+}
+
+export function getGarmothUploadBlockReason(preview: GarmothUploadPreview): string {
+    const supplementalNames = new Set(supplementalDrops.map((drop) => drop.name));
+    const supplemental = preview.unmatchedEntries.filter((name) => supplementalNames.has(name));
+    const unknown = preview.unmatchedEntries.filter((name) => !supplementalNames.has(name));
+    return [
+        supplemental.length
+            ? `Garmoth does not list these items for this spot: ${supplemental.join(", ")}. Uploads containing them are blocked until support is confirmed. Your items remain saved locally.`
+            : "",
+        unknown.length ? `Unmapped loot: ${unknown.join(", ")}. Reopen the session to correct it.` : "",
+    ]
+        .filter(Boolean)
+        .join(" ");
 }
 
 export function parseGarmothOptions(global: boolean, usedAgris: boolean, agrisAmount: string, dropRate: string) {

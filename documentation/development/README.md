@@ -148,6 +148,13 @@ Other drops use Garmoth's supplied fixed valuation, which may represent conversi
 Repeated drop keys are deduplicated; identically named treasure pieces are distinguished with their API keys.
 Four event entries without artwork use the existing artifact icon. Catalog and icons work offline without an API key.
 
+The shared `src/data/supplementalDrops.json` catalog adds Laila's Petal, Pure Forest Breath, and
+[Event] Bountiful Autumn Lunchbox to every spot's manual entry, recognition dictionary, screenshot import, icons, and
+market-price lookup. The sync script refreshes these curated records by their `garmothKey`; add future shared items
+to this file using the same drop schema. Existing spot entries take precedence and are not duplicated.
+The backend upload manifest remains limited to each spot's own table. Until Garmoth confirms support, sessions with
+supplemental items outside that table cannot be uploaded; their local entries and totals are retained.
+
 ### Desktop and overlay UI review
 
 The installed desktop smoke needs a graphical session, `tauri-driver`, and the platform webview driver. A built binary
