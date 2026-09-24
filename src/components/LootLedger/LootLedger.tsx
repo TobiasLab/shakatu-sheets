@@ -81,14 +81,6 @@ function LedgerEntryRow({
                     )}
                     <div className={styles.ItemName}>
                         <strong>{entry.name}</strong>
-                        <span>
-                            {entry.valuation === "market"
-                                ? `Market · ${Math.round(entry.saleMultiplier * 1000) / 10}% kept`
-                                : entry.valuation === "expense"
-                                  ? "Expense"
-                                  : `Vendor · ${Math.round(entry.saleMultiplier * 1000) / 10}% kept`}
-                            {entry.source === "recognition" ? " · Auto" : ""}
-                        </span>
                         {error && (
                             <small className={styles.EditError} role="alert">
                                 {error}
