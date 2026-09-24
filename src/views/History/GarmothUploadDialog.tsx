@@ -147,8 +147,8 @@ export function GarmothUploadDialog({
                     </div>
                 </section>
                 <LootLedger
-                    entries={draft.entries}
-                    grindSpotId={draft.grindSpotId}
+                    session={draft}
+                    visible
                     editingDisabled
                     onRemove={() => {}}
                     onUpdate={() => {}}

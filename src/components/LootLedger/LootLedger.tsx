@@ -1,19 +1,24 @@
 import { type KeyboardEvent, type ReactNode, useEffect, useId, useState } from "react";
 import { getDropIcon } from "../../data/grindSpots";
-import type { SessionEntry } from "../../domain/session";
+import { calculateQuantityPerHour, type SessionEntry, type SessionState } from "../../domain/session";
 import { formatSilver } from "../../format";
+import { useElapsedTime } from "../../hooks/useElapsedTime";
 import { EmptyState, Feedback } from "../Feedback/Feedback";
 import { Icon } from "../Icon/Icon";
 import styles from "./LootLedger.module.css";
 
+const quantityRateFormatter = new Intl.NumberFormat("en", { maximumFractionDigits: 2 });
+
 function LedgerEntryRow({
     entry,
+    elapsedMs,
     grindSpotId,
     editingDisabled,
     onRemove,
     onUpdate,
 }: {
     entry: SessionEntry;
+    elapsedMs: number;
     grindSpotId: string;
     editingDisabled: boolean;
     onRemove: (id: string) => void;
@@ -23,6 +28,8 @@ function LedgerEntryRow({
     const [unitPrice, setUnitPrice] = useState(String(entry.unitPrice));
     const [error, setError] = useState("");
     const icon = getDropIcon(grindSpotId, entry.name);
+    const quantityPerHour = calculateQuantityPerHour(entry.quantity, elapsedMs);
+    const formattedQuantityRate = quantityPerHour === null ? "—" : quantityRateFormatter.format(quantityPerHour);
 
     useEffect(() => {
         setQuantity(String(entry.quantity));
@@ -103,6 +110,9 @@ function LedgerEntryRow({
                     onKeyDown={handleEditKey}
                 />
             </td>
+            <td className={styles.QuantityRate} title={formattedQuantityRate}>
+                {formattedQuantityRate}
+            </td>
             <td>
                 <input
                     type="number"
@@ -140,8 +150,8 @@ export function LootLedger({
     tools,
     beforeEntries,
     loading = false,
-    entries,
-    grindSpotId,
+    session,
+    visible,
     editingDisabled,
     onRemove,
     onUpdate,
@@ -149,12 +159,14 @@ export function LootLedger({
     tools: ReactNode;
     beforeEntries?: ReactNode;
     loading?: boolean;
-    entries: SessionEntry[];
-    grindSpotId: string;
+    session: SessionState;
+    visible: boolean;
     editingDisabled: boolean;
     onRemove: (id: string) => void;
     onUpdate: (id: string, quantity: number, unitPrice: number) => void;
 }) {
+    const { entries, grindSpotId } = session;
+    const elapsedMs = useElapsedTime(session, visible);
     const headingId = useId();
     const [query, setQuery] = useState("");
     const [filter, setFilter] = useState("all");
@@ -234,6 +246,7 @@ export function LootLedger({
                                     <tr>
                                         <th scope="col">Item</th>
                                         <th scope="col">Quantity</th>
+                                        <th scope="col">Quantity/h</th>
                                         <th scope="col">Unit price</th>
                                         <th scope="col">Gross silver</th>
                                         <th scope="col">
@@ -246,6 +259,7 @@ export function LootLedger({
                                         <LedgerEntryRow
                                             key={entry.id}
                                             entry={entry}
+                                            elapsedMs={elapsedMs}
                                             grindSpotId={grindSpotId}
                                             editingDisabled={editingDisabled}
                                             onRemove={onRemove}

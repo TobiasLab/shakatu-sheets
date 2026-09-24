@@ -190,8 +190,8 @@ export function LiveSessionView({
                         key={session.id}
                         tools={<SessionTools controller={controller} visible={visible} />}
                         loading={!databaseLoaded}
-                        entries={session.entries}
-                        grindSpotId={session.grindSpotId}
+                        session={session}
+                        visible={visible}
                         editingDisabled={editingDisabled}
                         onRemove={(id) => dispatch({ type: "remove-entry", id })}
                         onUpdate={(id, quantity, unitPrice) =>

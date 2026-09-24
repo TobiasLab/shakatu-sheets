@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+    calculateQuantityPerHour,
     calculateTotals,
     createSession,
     getElapsedMs,
@@ -231,5 +232,24 @@ describe("consumable preset application", () => {
         ]) {
             expect(reduceSession(initial, { type: "apply-consumables", entries })).toBe(initial);
         }
+    });
+});
+
+describe("quantity per hour", () => {
+    it("has no rate before elapsed time is recorded", () => {
+        expect(calculateQuantityPerHour(25, 0)).toBeNull();
+    });
+
+    it("normalizes quantities to an hour and preserves fractional drops", () => {
+        expect(calculateQuantityPerHour(25, 1_800_000)).toBe(50);
+        expect(calculateQuantityPerHour(1, 7_200_000)).toBe(0.5);
+    });
+
+    it("excludes paused time and continues with accumulated grind time", () => {
+        const running = reduceSession(createSession(), { type: "start", now: 0 });
+        const paused = reduceSession(running, { type: "pause", now: 1_800_000 });
+        expect(calculateQuantityPerHour(25, getElapsedMs(paused, 3_600_000))).toBe(50);
+        const resumed = reduceSession(paused, { type: "resume", now: 3_600_000 });
+        expect(calculateQuantityPerHour(25, getElapsedMs(resumed, 5_400_000))).toBe(25);
     });
 });
