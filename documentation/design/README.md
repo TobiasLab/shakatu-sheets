@@ -80,7 +80,7 @@ opener; manual entry initially focuses item search. The catalog focuses quantity
 focuses the entry name. Submission feedback distinguishes added entries from invalid or overflowing quantities. Dialog content
 stays mounted when closed, preserving screenshot review within the same session; a new session clears the import draft and
 entry feedback. A new session also resets the manual-entry draft and ledger filters. Expense draft prices stay independent
-of market-region changes. Ledger retention labels use each entry’s stored sale multiplier. Import still requires an empty idle session. The import draft labels low-confidence populated suggestions for
+of market-region changes. Ledger item cells show the name and icon without valuation or capture-source subtitles. Import still requires an empty idle session. The import draft labels low-confidence populated suggestions for
 review and does not claim they are blank.
 
 Capture setup expands to the full desk width, with source/alignment/confirmation progress, full preview, normal and rare crop

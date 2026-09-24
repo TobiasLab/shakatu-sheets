@@ -139,12 +139,6 @@
     color: var(--text-strong);
     overflow-wrap: anywhere;
 }
-.ItemName span {
-    display: block;
-    margin-top: 3px;
-    font-size: var(--text-label);
-    color: var(--muted);
-}
 .LedgerRow input {
     display: block;
     padding: 7px 0;
