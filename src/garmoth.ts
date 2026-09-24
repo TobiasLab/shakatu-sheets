@@ -1,12 +1,12 @@
 import type { GarmothUploadInput } from "./api/tauri";
-import { grindSpots, supplementalDrops } from "./data/grindSpots";
+import { grindSpots } from "./data/grindSpots";
 import { calculateTotals, type SessionState } from "./domain/session";
 
 export type GarmothUploadPreview = {
     input: GarmothUploadInput;
     mappedDropCount: number;
     consumableCount: number;
-    unmatchedEntries: string[];
+    omittedEntries: string[];
 };
 
 export function buildGarmothUpload(session: SessionState): GarmothUploadPreview {
@@ -18,12 +18,12 @@ export function buildGarmothUpload(session: SessionState): GarmothUploadPreview 
     // Only spot-listed items are supported for upload, even when more items can be tracked locally.
     const templates = [spot.trash, ...spot.drops];
     const drops = Object.fromEntries(templates.map((drop) => [drop.garmothKey, 0]));
-    const unmatchedEntries: string[] = [];
+    const omittedEntries: string[] = [];
     for (const entry of session.entries) {
         if (entry.valuation === "expense") continue;
         const template = templates.find((drop) => drop.name === entry.name);
         if (!template) {
-            unmatchedEntries.push(entry.name);
+            omittedEntries.push(entry.name);
             continue;
         }
         drops[template.garmothKey] += entry.quantity;
@@ -53,22 +53,14 @@ export function buildGarmothUpload(session: SessionState): GarmothUploadPreview 
                 entry.garmothConsumableId === undefined ? [] : [entry.garmothConsumableId],
             ),
         ).size,
-        unmatchedEntries: [...new Set(unmatchedEntries)],
+        omittedEntries: [...new Set(omittedEntries)],
     };
 }
 
-export function getGarmothUploadBlockReason(preview: GarmothUploadPreview): string {
-    const supplementalNames = new Set(supplementalDrops.map((drop) => drop.name));
-    const supplemental = preview.unmatchedEntries.filter((name) => supplementalNames.has(name));
-    const unknown = preview.unmatchedEntries.filter((name) => !supplementalNames.has(name));
-    return [
-        supplemental.length
-            ? `Garmoth does not list these items for this spot: ${supplemental.join(", ")}. Uploads containing them are blocked until support is confirmed. Your items remain saved locally.`
-            : "",
-        unknown.length ? `Unmapped loot: ${unknown.join(", ")}. Reopen the session to correct it.` : "",
-    ]
-        .filter(Boolean)
-        .join(" ");
+export function getGarmothUploadNotice(preview: GarmothUploadPreview): string {
+    return preview.omittedEntries.length
+        ? `Not sent in Garmoth's item list: ${preview.omittedEntries.join(", ")}. Session totals still include these items.`
+        : "";
 }
 
 export function parseGarmothOptions(global: boolean, usedAgris: boolean, agrisAmount: string, dropRate: string) {

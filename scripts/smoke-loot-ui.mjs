@@ -183,6 +183,11 @@ await send("Page.addScriptToEvaluateOnNewDocument", {
                 return { apiKeyConfigured: window.__keyConfigured ?? false, characterIds: [], characters: [], selectedCharacterId: null };
             }
             if (command === "save_garmoth_api_key") { window.__keyConfigured = true; return; }
+            if (command === "upload_garmoth_session") {
+                const record = window.__historyRecords.find(r => r.session.id === args.input.sessionId);
+                record.garmothUploadStatus = "success";
+                return {status:"success",message:"Session uploaded to Garmoth.",savedSession:null};
+            }
             if (command === "load_consumable_presets") {
                 if (window.__holdPresets) await new Promise(resolve => { window.__releasePresets = resolve; });
                 if (window.__failPresets) throw Error("Synthetic preset read failure");
@@ -1421,6 +1426,13 @@ try {
                 valuation: index === 1 ? "market" : "vendor",
             })),
         );
+        await setField('dialog[open] input[type="search"]', "Black Stone");
+        await evaluate(
+            "[...document.querySelectorAll('dialog[open] button[aria-pressed]')].find(b => b.querySelector('strong')?.textContent === 'Black Stone').click()",
+        );
+        await setField('dialog[open] input[min="1"]', "3");
+        await evaluate("document.querySelector('dialog[open] form').requestSubmit()");
+        await until("window.__session.entries.length === 4");
         await click("Close manual entry");
         await click("Enter hours");
         await setField('input[name="completedHours"]', "1");
@@ -1432,16 +1444,29 @@ try {
             "window.__historyRecords = [{session:window.__session,finishedAt:Date.now(),garmothUploadStatus:null}]",
         );
         await click("History");
-        await until("document.body.innerText.includes('blocked until support is confirmed')");
+        await until("document.body.innerText.includes('Session totals still include these items.')");
         assert(
             await evaluate(
-                "[...document.querySelectorAll('button')].some(b => b.textContent.trim() === 'Upload to Garmoth' && b.disabled)",
+                "[...document.querySelectorAll('button')].some(b => b.textContent.trim() === 'Upload to Garmoth' && !b.disabled)",
             ),
-            "Supplemental drops outside the spot table must block upload even with a connected character",
+            "Supplemental drops outside the spot table must not block upload",
         );
         assert.equal(await evaluate("JSON.stringify(window.__session.entries)"), supplementalEntries);
-        assert.equal(await evaluate("window.__calls.some(c => c.command === 'upload_garmoth_session')"), false);
-        await screenshot("supplemental-upload-blocked");
+        await click("Upload to Garmoth");
+        await until(
+            "document.querySelector('dialog[open]')?.innerText.includes('Session totals still include these items.')",
+        );
+        await screenshot("supplemental-upload-review");
+        await click("Upload to Garmoth");
+        await until("window.__calls.some(c => c.command === 'upload_garmoth_session')");
+        const upload = await evaluate("window.__calls.find(c => c.command === 'upload_garmoth_session').args.input");
+        for (const key of ["54031_0", "50807_0", "1000835_0"]) assert.equal(key in upload.drops, false);
+        assert.equal(upload.drops["16001_0"], 3);
+        assert.equal(upload.total, Math.round(21_000_000 + 5 * 12_345 * 0.845));
+        assert.equal(upload.hourly, upload.total);
+        assert.equal(JSON.stringify(upload.expectedSession.entries), supplementalEntries);
+        await until("!document.querySelector('dialog[open]')");
+        assert.equal(await evaluate("JSON.stringify(window.__session.entries)"), supplementalEntries);
         assert.equal(errors.length, 0, JSON.stringify(errors));
         console.log(
             `UI smoke passed: timer, navigation, capture lifecycle, preview suppression, diagnostics, screenshot state, dialog focus, expense price isolation, new-session reset, ledger editing/filtering, history filters, themes, compact screens. Screenshots: ${output}`,

@@ -15,7 +15,7 @@ import { getDropIcon, grindSpots } from "../../data/grindSpots";
 import { historyDateBoundary, netPerHour, rankSpots, summarizeHistory } from "../../domain/history";
 import { calculateTotals, type SessionState } from "../../domain/session";
 import { formatDuration, formatSilver, formatTimestamp } from "../../format";
-import { buildGarmothUpload, type GarmothUploadPreview, getGarmothUploadBlockReason } from "../../garmoth";
+import { buildGarmothUpload, type GarmothUploadPreview, getGarmothUploadNotice } from "../../garmoth";
 import type { DatabaseStatus } from "../../hooks/usePersistedSession";
 import dialogStyles from "../LiveSession/LiveSession.module.css";
 import { GarmothUploadDialog } from "./GarmothUploadDialog";
@@ -161,7 +161,6 @@ export function HistoryView({
     if (selected) {
         try {
             uploadPreview = buildGarmothUpload(selected.session);
-            uploadPreviewError = getGarmothUploadBlockReason(uploadPreview);
         } catch (previewFailure) {
             uploadPreviewError = String(previewFailure);
         }
@@ -809,11 +808,7 @@ export function HistoryView({
                                         <button
                                             className="button primary-button"
                                             type="button"
-                                            disabled={
-                                                actionBusy ||
-                                                !uploadPreview ||
-                                                uploadPreview.unmatchedEntries.length > 0
-                                            }
+                                            disabled={actionBusy || !uploadPreview}
                                             ref={uploadButton}
                                             onClick={() => {
                                                 setUploadError("");
@@ -846,6 +841,9 @@ export function HistoryView({
                                     <p className={styles.UploadError} role="alert">
                                         Could not read Garmoth settings: {settingsError}
                                     </p>
+                                )}
+                                {uploadPreview && uploadPreview.omittedEntries.length > 0 && (
+                                    <Feedback>{getGarmothUploadNotice(uploadPreview)}</Feedback>
                                 )}
                                 {uploadPreviewError && <Feedback tone="error">{uploadPreviewError}</Feedback>}
                                 {selected.garmothUploadStatus === "unknown" && !uploadError && (

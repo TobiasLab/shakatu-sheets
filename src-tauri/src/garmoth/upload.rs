@@ -151,10 +151,10 @@ fn expected_drops(
         if entry.valuation == Valuation::Expense {
             continue;
         }
-        let key = mapping
-            .drops
-            .get(&entry.name)
-            .ok_or_else(|| format!("{} has no Garmoth drop mapping", entry.name))?;
+        // Keep unsupported loot in the saved session and totals, but omit it from Garmoth's item list.
+        let Some(key) = mapping.drops.get(&entry.name) else {
+            continue;
+        };
         if entry.quantity >= i64::MAX as f64 {
             return Err("a session drop quantity is too large for Garmoth".into());
         }
@@ -459,6 +459,72 @@ mod tests {
                 "status":"finished", "startedAt":null, "elapsedMs":3600000, "entries":[] }
         }))
         .unwrap()
+    }
+
+    #[test]
+    fn omits_unsupported_loot_without_changing_session_totals_or_validation() {
+        let mappings: BTreeMap<String, GrindSpotMapping> =
+            serde_json::from_str(include_str!("../../../src/data/garmothMappings.json")).unwrap();
+        let mapping = &mappings["stars-end-revamp"];
+        for name in [
+            "Laila's Petal",
+            "Pure Forest Breath",
+            "[Event] Bountiful Autumn Lunchbox",
+            "Custom loot",
+        ] {
+            for include_supported in [false, true] {
+                let mut input = sample_input();
+                let entry = SessionEntry {
+                    id: "unsupported".into(),
+                    name: name.into(),
+                    quantity: 2.0,
+                    unit_price: 500,
+                    valuation: Valuation::Vendor,
+                    sale_multiplier: 1.0,
+                    source: crate::persistence::sessions::EntrySource::Manual,
+                    created_at: 0,
+                    garmoth_consumable_id: None,
+                };
+                input.expected_session.entries = vec![entry.clone()];
+                input.total = 1000;
+                input.drops = mapping.drops.values().map(|key| (key.clone(), 0)).collect();
+                if include_supported {
+                    input.expected_session.entries.push(SessionEntry {
+                        id: "supported".into(),
+                        name: "Corrupted Sanguine Crystal".into(),
+                        quantity: 3.0,
+                        unit_price: 100,
+                        ..entry.clone()
+                    });
+                    input.drops.insert("56339_0".into(), 3);
+                    input.total += 300;
+                }
+                input.expected_session.entries.push(SessionEntry {
+                    id: "expense".into(),
+                    name: "Tent buff".into(),
+                    quantity: 1.0,
+                    unit_price: 50,
+                    valuation: Valuation::Expense,
+                    ..entry
+                });
+                input.total -= 50;
+                input.hourly = input.total;
+                let saved = input.expected_session.clone();
+                assert!(validate_upload(&input).is_ok());
+                assert!(reviewed_consumables(&input, &saved).unwrap().is_empty());
+                assert_eq!(saved, input.expected_session);
+
+                // Omissions never permit extra keys, altered totals, or missing supported loot.
+                input.drops.insert("54031_0".into(), 2);
+                assert!(reviewed_consumables(&input, &saved).is_err());
+                input.drops.remove("54031_0");
+                input.total -= 1000;
+                assert!(reviewed_consumables(&input, &saved).is_err());
+                input.total += 1000;
+                input.drops.remove("56339_0");
+                assert!(reviewed_consumables(&input, &saved).is_err());
+            }
+        }
     }
 
     #[test]
