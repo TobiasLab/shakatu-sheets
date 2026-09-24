@@ -152,8 +152,9 @@ The shared `src/data/supplementalDrops.json` catalog adds Laila's Petal, Pure Fo
 [Event] Bountiful Autumn Lunchbox to every spot's manual entry, recognition dictionary, screenshot import, icons, and
 market-price lookup. The sync script refreshes these curated records by their `garmothKey`; add future shared items
 to this file using the same drop schema. Existing spot entries take precedence and are not duplicated.
-The backend upload manifest remains limited to each spot's own table. Until Garmoth confirms support, sessions with
-supplemental items outside that table cannot be uploaded; their local entries and totals are retained.
+The backend upload manifest remains limited to each spot's own table. Items outside that table (including custom
+loot) are omitted from Garmoth's item list without blocking the upload. The review lists omitted items; local entries
+and full session totals are retained, including in the total and hourly income sent to Garmoth.
 
 ### Desktop and overlay UI review
 

@@ -10,7 +10,7 @@ import { formatDuration, formatSilver, formatTimestamp } from "../../format";
 import {
     buildGarmothUpload,
     type GarmothUploadPreview,
-    getGarmothUploadBlockReason,
+    getGarmothUploadNotice,
     parseGarmothOptions,
 } from "../../garmoth";
 import dialogStyles from "../LiveSession/LiveSession.module.css";
@@ -56,7 +56,6 @@ export function GarmothUploadDialog({
     let previewError = "";
     try {
         preview = buildGarmothUpload(draft);
-        previewError = getGarmothUploadBlockReason(preview);
     } catch (reason) {
         previewError = String(reason instanceof Error ? reason.message : reason);
     }
@@ -241,6 +240,7 @@ export function GarmothUploadDialog({
                         />
                     </label>
                 </fieldset>
+                {preview && preview.omittedEntries.length > 0 && <Feedback>{getGarmothUploadNotice(preview)}</Feedback>}
                 {(error || previewError) && <Feedback tone="error">{error || previewError}</Feedback>}
             </div>
             <footer className={styles.Actions}>

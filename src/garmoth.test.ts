@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import mappings from "./data/garmothMappings.json";
 import { getGrindSpotDrops, grindSpots, supplementalDrops } from "./data/grindSpots";
 import type { SessionState } from "./domain/session";
-import { buildGarmothUpload, getGarmothUploadBlockReason, parseGarmothOptions } from "./garmoth";
+import { buildGarmothUpload, getGarmothUploadNotice, parseGarmothOptions } from "./garmoth";
 
 function finishedSession(): SessionState {
     return {
@@ -81,7 +81,7 @@ describe("buildGarmothUpload", () => {
         });
         expect(preview.input.drops["56339_0"]).toBe(10_000);
         expect(preview.input.drops["16001_0"]).toBe(10);
-        expect(preview.unmatchedEntries).toEqual([]);
+        expect(preview.omittedEntries).toEqual([]);
         expect(preview.mappedDropCount).toBe(2);
     });
 
@@ -101,18 +101,18 @@ describe("buildGarmothUpload", () => {
             expect(preview.input.grindspotId).toBe(spot.garmothId);
             expect(preview.input.drops[spot.trash.garmothKey]).toBe(100);
             expect(preview.input.total).toBe(100 * (spot.trash.unitPrice ?? 0));
-            expect(preview.unmatchedEntries).toEqual([]);
+            expect(preview.omittedEntries).toEqual([]);
         }
     });
 
-    it("reports unsupported revenue entries instead of silently dropping them", () => {
+    it("reports unsupported revenue entries omitted from the upload", () => {
         const session = finishedSession();
         session.entries.push({ ...session.entries[0], id: "custom", name: "Custom loot" });
 
-        expect(buildGarmothUpload(session).unmatchedEntries).toEqual(["Custom loot"]);
+        expect(buildGarmothUpload(session).omittedEntries).toEqual(["Custom loot"]);
     });
 
-    it("blocks supplemental items outside the spot table while preserving their local income", () => {
+    it("omits supplemental items outside the spot table while preserving their income", () => {
         const session = finishedSession();
         const original = buildGarmothUpload(session);
         for (const drop of supplementalDrops) {
@@ -127,11 +127,11 @@ describe("buildGarmothUpload", () => {
             });
         }
         const preview = buildGarmothUpload(session);
-        expect(preview.unmatchedEntries).toEqual(supplementalDrops.map((drop) => drop.name));
+        expect(preview.omittedEntries).toEqual(supplementalDrops.map((drop) => drop.name));
         expect(preview.input.drops).toEqual(original.input.drops);
         expect(preview.input.total).toBe(original.input.total + 21_000_000 + 4_660_000 * 0.845);
-        expect(getGarmothUploadBlockReason(preview)).toContain("blocked until support is confirmed");
-        expect(getGarmothUploadBlockReason(preview)).not.toContain("Reopen");
+        expect(getGarmothUploadNotice(preview)).toContain("Session totals still include these items.");
+        expect(getGarmothUploadNotice(preview)).not.toContain("Reopen");
     });
 
     it("allows Pure Forest Breath when the spot already lists it", () => {
@@ -142,18 +142,39 @@ describe("buildGarmothUpload", () => {
         session.entries = [{ ...session.entries[0], name: "Pure Forest Breath", quantity: 3 }];
         const preview = buildGarmothUpload(session);
         expect(preview.input.drops["50807_0"]).toBe(3);
-        expect(preview.unmatchedEntries).toEqual([]);
-        expect(getGarmothUploadBlockReason(preview)).toBe("");
+        expect(preview.omittedEntries).toEqual([]);
+        expect(getGarmothUploadNotice(preview)).toBe("");
     });
 
-    it("explains supplemental and unknown entries separately", () => {
+    it("lists supplemental and unknown items together as omitted", () => {
         const session = finishedSession();
         for (const name of ["Laila's Petal", "Custom loot"]) {
             session.entries.push({ ...session.entries[0], id: name, name, quantity: 1 });
         }
-        const reason = getGarmothUploadBlockReason(buildGarmothUpload(session));
-        expect(reason).toContain("Garmoth does not list these items for this spot: Laila's Petal.");
-        expect(reason).toContain("Unmapped loot: Custom loot. Reopen the session to correct it.");
+        const reason = getGarmothUploadNotice(buildGarmothUpload(session));
+        expect(reason).toBe(
+            "Not sent in Garmoth's item list: Laila's Petal, Custom loot. Session totals still include these items.",
+        );
+    });
+
+    it("allows sessions with only unsupported loot and lists repeated omissions once", () => {
+        const session = finishedSession();
+        session.entries = ["Custom loot", "Custom loot", "Laila's Petal"].map((name, index) => ({
+            ...session.entries[0],
+            id: String(index),
+            name,
+            quantity: 1,
+            unitPrice: 500_000,
+        }));
+        const before = structuredClone(session);
+        const preview = buildGarmothUpload(session);
+        expect(preview.omittedEntries).toEqual(["Custom loot", "Laila's Petal"]);
+        expect(preview.mappedDropCount).toBe(0);
+        expect(Object.values(preview.input.drops).every((quantity) => quantity === 0)).toBe(true);
+        expect(preview.input.total).toBe(1_500_000);
+        expect(preview.input.hourly).toBe(1_000_000);
+        expect(session).toEqual(before);
+        expect(preview.input.expectedSession).toEqual(before);
     });
 });
 
@@ -175,7 +196,7 @@ it("previews saved consumable expenses without treating them as loot", () => {
     expect(preview.consumableCount).toBe(1);
     expect(preview.input.drops).toEqual(before.input.drops);
     expect(preview.input.total).toBe(before.input.total - 300);
-    expect(preview.unmatchedEntries).toEqual(before.unmatchedEntries);
+    expect(preview.omittedEntries).toEqual(before.omittedEntries);
 });
 
 describe("upload options", () => {
