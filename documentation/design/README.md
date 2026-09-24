@@ -73,7 +73,9 @@ platform guidance remain available during a session. Entry and screenshot action
 not cover table rows. The editable ledger follows below. Quantity and unit price are aligned in a table;
 Enter saves, Escape restores the saved values, and invalid edits restore values with an explanation. A blank price is invalid,
 while an explicit zero remains valid. Search and loot/expense filters only change the visible rows. Narrow windows scroll the
-table within its labeled, keyboard-scrollable region rather than widening the whole app.
+table within its labeled, keyboard-scrollable region rather than widening the whole app. Quantity/h shows each row’s quantity
+divided by elapsed session hours, with up to two decimal places. It updates while running, excludes paused time, and uses
+manually entered hours when provided. Before any time is recorded, it shows a dash.
 
 Add loot or expense and Import a screenshot open native dialogs. Dialogs contain focus, close with Escape, and restore the
 opener; manual entry initially focuses item search. The catalog focuses quantity after item selection. A direct expense action

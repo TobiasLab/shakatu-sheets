@@ -1040,6 +1040,11 @@ try {
         await evaluate("document.querySelector('[aria-label=\"Close manual entry\"]').click()");
         const quantitySelector = 'input[aria-label^="Quantity for"]';
         const priceSelector = 'input[aria-label^="Unit price for"]';
+        const lootQuantityLabel = await evaluate(
+            `document.querySelector('${quantitySelector}').getAttribute('aria-label')`,
+        );
+        const quantityRateCell = `[...document.querySelectorAll('${quantitySelector}')].find(input => input.getAttribute('aria-label') === ${JSON.stringify(lootQuantityLabel)}).closest('tr').cells[2]`;
+        assert.equal(await evaluate(`${quantityRateCell}.textContent`), "—", "Zero elapsed time has no rate");
         await evaluate(`document.querySelector('${quantitySelector}').focus()`);
         await setField(quantitySelector, "25");
         await press("Enter", "Enter", 13);
@@ -1144,6 +1149,11 @@ try {
         await setField('input[name="completedHours"]', "1.5");
         await click("Save hours");
         await until("window.__session.elapsedMs === 5400000");
+        assert.equal(
+            await evaluate(`${quantityRateCell}.textContent`),
+            "16.67",
+            "Quantity/h must use the edited quantity and manually entered hours",
+        );
         assert(
             await evaluate(
                 "document.activeElement.textContent === 'Enter hours' && !document.activeElement.parentElement.open",
@@ -1151,8 +1161,25 @@ try {
             "Saving hours closes the form and restores focus",
         );
         await click("Start timer");
+        await evaluate(`document.querySelector('${quantitySelector}').focus()`);
+        await setField(quantitySelector, "99");
+        await until(`Number(${quantityRateCell}.textContent) < 16.67`);
+        assert.equal(
+            await evaluate(`document.querySelector('${quantitySelector}').value`),
+            "99",
+            "Timer ticks must preserve an unfinished quantity edit",
+        );
+        await press("Escape", "Escape", 27);
+        await evaluate("document.activeElement.blur()");
         await click("Pause timer");
         await until("window.__session.status === 'paused'");
+        const pausedQuantityRate = await evaluate(`${quantityRateCell}.textContent`);
+        await delay(1_100);
+        assert.equal(
+            await evaluate(`${quantityRateCell}.textContent`),
+            pausedQuantityRate,
+            "Quantity/h must stay fixed while paused",
+        );
         await click("Resume timer");
         await until("window.__session.status === 'running'");
         await click("Pause timer");

@@ -47,7 +47,7 @@
     border-collapse: separate;
     border-spacing: 0;
     width: 100%;
-    min-width: 560px;
+    min-width: 660px;
     text-align: left;
     table-layout: fixed;
 }
@@ -72,10 +72,14 @@
     text-align: right;
 }
 .LedgerList th:nth-child(3) {
-    width: 124px;
+    width: 100px;
     text-align: right;
 }
 .LedgerList th:nth-child(4) {
+    width: 124px;
+    text-align: right;
+}
+.LedgerList th:nth-child(5) {
     width: 106px;
     text-align: right;
 }
@@ -167,6 +171,14 @@
     color: var(--text-soft);
     opacity: 1;
 }
+.QuantityRate {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    font-variant-numeric: tabular-nums;
+    font-size: 12px;
+    text-align: right;
+    white-space: nowrap;
+}
 .EntryValue {
     font-variant-numeric: tabular-nums;
     font-size: 13px;
@@ -220,15 +232,15 @@
 }
 @media (max-width: 760px) {
     .LedgerList table {
-        min-width: 500px;
+        min-width: 600px;
     }
     .LedgerList th:nth-child(2) {
         width: 72px;
     }
-    .LedgerList th:nth-child(3) {
+    .LedgerList th:nth-child(4) {
         width: 106px;
     }
-    .LedgerList th:nth-child(4) {
+    .LedgerList th:nth-child(5) {
         width: 100px;
     }
     .LedgerList th:last-child {

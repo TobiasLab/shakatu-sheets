@@ -220,6 +220,10 @@ export function getElapsedMs(state: SessionState, now: number): number {
     return state.elapsedMs + Math.max(0, now - state.startedAt);
 }
 
+export function calculateQuantityPerHour(quantity: number, elapsedMs: number): number | null {
+    return elapsedMs > 0 ? quantity / (elapsedMs / 3_600_000) : null;
+}
+
 export function calculateEntryTotals(entries: SessionEntry[]) {
     let gross = 0;
     let expenses = 0;
