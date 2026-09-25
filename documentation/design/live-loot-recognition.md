@@ -8,6 +8,10 @@ The current OCR policy and measured 80%/100% corpus results are documented in
 supplementary frames only for unresolved results. Debug collection logs recognized events as well as failures, with exact
 row bounds and per-pass metadata in version 2 `ocr-issues.jsonl` records.
 
+[Local quantity learning](quantity-learning.md) is an opt-in addition for normal-loot Needs attention corrections.
+It stores tiny quantity examples in a separate local database, suggests whole quantities, and offers separately enabled
+automatic recovery with reserved-example and multi-frame checks. Accepted OCR quantities remain unchanged.
+
 ## Status
 
 Linux capture feasibility is established. The first native-resolution offline pipeline tracks events, selects OCR frames,
@@ -299,7 +303,8 @@ Before release, broader benchmark data must establish whether automatic insertio
 - Capture and local recognition can start before the timer and continue while it is paused. They stop when the session
   finishes, the user leaves the live view, the source ends, or the component is destroyed.
 - Full frames, cropped rows, and OCR images remain in memory and are discarded after processing unless the explicit
-  debug-only ROI sample action is active.
+  debug-only ROI sample action is active or quantity learning is enabled. Learning persists only small quantity crops
+  from explicit Needs attention corrections, with their labels and bounded OCR text, in its separate local database.
 - No screenshots or videos are persisted or uploaded by default.
 - Debug ROI sample collection requires a separate explicit action, identifies the two exported regions, shows its output
   path and progress, and stops after at most 30 minutes.
@@ -339,7 +344,8 @@ delivery, other layouts, or release accuracy.
 - Consecutive identical notifications are counted as separate events.
 - Stopping capture releases the operating-system stream immediately.
 - Capture continues to supply at least five sampled frames per second while BDO is focused.
-- Normal use writes no captured pixels to disk and performs no recognition network requests.
+- With quantity learning and debug sampling off, normal use writes no captured pixels to disk. Recognition performs
+  no network requests; enabling learning retains only explicitly corrected quantity examples locally.
 
 Coverage is separate from accuracy: the system may leave difficult events for review to protect the accepted-event error
 rate. Full-session accuracy also depends on avoiding missed frames and duplicate events, not only OCR quality.

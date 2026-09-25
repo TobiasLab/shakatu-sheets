@@ -94,7 +94,13 @@ npm run dev
 chromium --headless --remote-debugging-port=9222 --user-data-dir=/tmp/shakatu-ui-browser about:blank
 # In another terminal (Node 22+ for the built-in WebSocket client):
 node scripts/smoke-loot-ui.mjs
+node scripts/smoke-loot-learning.mjs
 ```
+
+The learning smoke uses synthetic crops and a persistence adapter to check opt-in, suggestions, corrections, failure
+retries, auto-allow controls, deletion, and reset. For synthetic matching overhead, run
+`npx vite-node --script scripts/benchmark-loot-learning.mjs`; see [quantity learning](../design/quantity-learning.md)
+for acceptance rules and the separate database's main-branch compatibility.
 
 The test opens and closes its own tab, uses real browser pointer and keyboard events, and verifies navigation/minimization/
 preview and finish behavior, sidebar collapse/expansion and capture navigation, timer persistence isolation, dialog focus and

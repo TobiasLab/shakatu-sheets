@@ -66,9 +66,11 @@ import {
 } from "../../recognition/liveLootReview";
 import { LIVE_LOOT_SAMPLE_FPS } from "../../recognition/lootCaptureTiming";
 import type { LootFont } from "../../recognition/lootFont";
+import { suggestUnresolvedQuantity } from "../../recognition/quantityLearning";
 import { RARE_LOOT_OCR_SELECTION, RareLootFrameAnalyzer, rareLootDetectionProfile } from "../../recognition/rareLoot";
 import { RareLootLocalizer } from "../../recognition/rareLootLocalization";
 import { RoiOcrDiagnostics, type RoiOcrIssue, roiOcrFailure } from "../../recognition/roiOcrDiagnostics";
+import { useQuantityLearning } from "./useQuantityLearning";
 
 type CaptureStatus = "idle" | "requesting" | "connecting" | "capturing";
 type RecognitionStatus = "idle" | "starting" | "active" | "unavailable" | "error";
@@ -243,7 +245,8 @@ function regionsCaptureSelection(
 }
 
 function resultDescription(result: LiveLootRecognitionResult) {
-    if (result.status === "recognized") return `${result.itemName} x ${result.quantity}`;
+    if (result.status === "recognized")
+        return `${result.itemName} x ${result.quantity}${result.learnedQuantity ? " (learned quantity)" : ""}`;
     if (result.status === "failed") return "Local OCR failed for this notification.";
     if (result.status === "dropped") {
         const cause =
@@ -299,6 +302,7 @@ export function useLiveLootCapture({
     itemDictionary,
     onAcceptRecognition,
 }: LiveLootCaptureProps) {
+    const learning = useQuantityLearning();
     const closingRecognition = useRef(false);
     const [captureFont, setCaptureFont] = useState<LootFont>("korean");
     const windowVisible = useWindowVisible();
@@ -768,7 +772,10 @@ export function useLiveLootCapture({
             onAcceptRecognitionRef.current(name, count, "manual"),
         );
         replaceReviewEntry(corrected);
-        if (corrected.accepted) cancelAutomaticRetry(id);
+        if (!review.accepted && corrected.accepted) {
+            cancelAutomaticRetry(id);
+            learning.learnCorrection(review, quantity);
+        }
     }
 
     function dismissReviewResult(id: number) {
@@ -1589,6 +1596,15 @@ export function useLiveLootCapture({
                         id,
                         source,
                         font: captureFont,
+                        learningId: crypto.randomUUID(),
+                        learningProfile: sourceDimensions
+                            ? {
+                                  font: captureFont,
+                                  uiScalePercent: calibratedProfile.capture.uiScalePercent,
+                                  sourceWidth: sourceDimensions.width,
+                                  sourceHeight: sourceDimensions.height,
+                              }
+                            : undefined,
                         result,
                         accepted: false,
                         error: "",
@@ -1619,6 +1635,21 @@ export function useLiveLootCapture({
                     profile: calibratedProfile.profile,
                     dictionary: itemDictionaryRef.current,
                     readText: normalDiagnostics.wrap(readText),
+                    suggestQuantity: (frames, readings) =>
+                        sourceDimensions
+                            ? suggestUnresolvedQuantity(
+                                  frames,
+                                  readings,
+                                  itemDictionaryRef.current,
+                                  {
+                                      font: captureFont,
+                                      uiScalePercent: calibratedProfile.capture.uiScalePercent,
+                                      sourceWidth: sourceDimensions.width,
+                                      sourceHeight: sourceDimensions.height,
+                                  },
+                                  learning.model.current,
+                              )
+                            : undefined,
                     onResult: (result) => {
                         normalDiagnostics.result(result);
                         appendResult("normal", result);
@@ -2201,6 +2232,7 @@ export function useLiveLootCapture({
             } ${placementConfirmationInstruction}`;
 
     return {
+        learning,
         setupButton,
         setupOpen,
         diagnosticsOpen,

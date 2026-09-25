@@ -63,6 +63,8 @@ export type LootRecognitionResult = {
 
 type LiveLootEventResultBase = LootRecognitionResult & {
     capture?: LootReviewCapture;
+    quantitySuggestion?: LootQuantitySuggestion;
+    learnedQuantity?: boolean;
     status: "recognized" | "withheld" | "failed";
     reason:
         | null
@@ -132,7 +134,12 @@ export type LiveLootOcrFrame = {
     diagnostics?: { passes: LootOcrPass[] };
 };
 
-export type LootReviewCapture = LootRoiFrame & { bounds?: LootOcrBounds };
+export type LootQuantitySuggestion = { quantity: number; itemName: string | null; automatic: boolean };
+export type LootReviewCapture = LootRoiFrame & {
+    bounds?: LootOcrBounds;
+    quantityBounds?: LootOcrBounds;
+    originalText?: string;
+};
 
 /** Copy only the item row; never retain the full capture buffer for review. */
 export function copyLootReviewCapture(frame: LiveLootOcrFrame): LootReviewCapture {
@@ -140,9 +147,14 @@ export function copyLootReviewCapture(frame: LiveLootOcrFrame): LootReviewCaptur
     const top = Math.max(0, Math.floor(frame.bounds?.top ?? observation.centerY - 24));
     const bottom = Math.min(roi.height, Math.ceil(frame.bounds?.bottom ?? observation.centerY + 24));
     const height = Math.max(1, bottom - top);
+    const digits = observation.fingerprint.digits?.bounds;
     return {
         width: roi.width,
         height,
+        quantityBounds:
+            digits && digits.top >= top && digits.bottom <= bottom
+                ? { ...digits, top: digits.top - top, bottom: digits.bottom - top }
+                : undefined,
         pixels: roi.pixels.slice(top * roi.width * 4, (top + height) * roi.width * 4),
         bounds: {
             left: frame.bounds?.left ?? normalLootColumn(roi.width, 0.25),
@@ -179,6 +191,10 @@ export type LiveLootCoordinatorOptions = {
     profile: LootDetectionProfile;
     dictionary: readonly string[];
     readText: LiveLootOcrReader;
+    suggestQuantity?: (
+        frames: readonly LiveLootOcrFrame[],
+        readings: readonly (readonly string[])[],
+    ) => LootQuantitySuggestion | undefined;
     /** Must complete synchronously. Returned thenables are treated as callback errors and are not awaited. */
     onResult: (result: LiveLootRecognitionResult) => void;
     maxPendingOcrJobs?: number;
@@ -1388,12 +1404,14 @@ export class LiveLootCoordinator {
                 }
 
                 let result: LiveLootEventResult | undefined;
+                let originalText = "";
                 this.activeOcrDelivery = delivery;
                 try {
                     const primaryFrames = delivery.frames.slice(0, this.ocrFrameCount);
                     delivery.activeFrames = primaryFrames;
                     delivery.selectedFrames = primaryFrames.map(({ frame }) => frame);
-                    const rawReadings = await this.options.readText(primaryFrames, this.abortController.signal);
+                    let rawReadings = await this.options.readText(primaryFrames, this.abortController.signal);
+                    originalText = rawReadings[0]?.join("\n").slice(0, 3200) ?? "";
                     if (rawReadings.length !== primaryFrames.length) {
                         throw new Error("Loot OCR readings must match the selected frame count.");
                     }
@@ -1413,10 +1431,8 @@ export class LiveLootCoordinator {
                         );
                         if (additionalReadings.length !== additionalFrames.length)
                             throw new Error("Loot OCR readings must match the selected frame count.");
-                        analysis = analyzeLootReadings(
-                            [...rawReadings, ...additionalReadings],
-                            this.options.dictionary,
-                        );
+                        rawReadings = [...rawReadings, ...additionalReadings];
+                        analysis = analyzeLootReadings(rawReadings, this.options.dictionary);
                     }
                     if (delivery.generation === this.generation) {
                         const metadata = this.emptyResult(delivery);
@@ -1433,6 +1449,23 @@ export class LiveLootCoordinator {
                                   status: "withheld",
                                   reason: analysis.reason,
                               };
+                        if (!analysis.consensus && this.options.suggestQuantity) {
+                            const suggestion = this.options.suggestQuantity(
+                                delivery.frames.slice(0, rawReadings.length),
+                                rawReadings,
+                            );
+                            result.quantitySuggestion = suggestion;
+                            if (suggestion?.automatic && suggestion.itemName) {
+                                result = {
+                                    ...result,
+                                    status: "recognized",
+                                    reason: null,
+                                    itemName: suggestion.itemName,
+                                    quantity: suggestion.quantity,
+                                    learnedQuantity: true,
+                                };
+                            }
+                        }
                     }
                 } catch {
                     result = {
@@ -1443,6 +1476,7 @@ export class LiveLootCoordinator {
                 } finally {
                     if (result && result.status !== "recognized" && delivery.frames[0]) {
                         result.capture = copyLootReviewCapture(delivery.frames[0]);
+                        result.capture.originalText = originalText;
                     }
                     this.releaseOcrDelivery(delivery);
                     if (this.activeOcrDelivery === delivery) this.activeOcrDelivery = undefined;
