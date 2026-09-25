@@ -46,11 +46,12 @@ line readings can resolve the conflict; otherwise unanimous antialiased digit-cr
 present in both full-line sizes. For an unresolved quantity,
 a localized digits-only 4× single-word pass can corroborate a quantity already present in a full-line reading. Outside the
 conflict path described above, it only repairs unparsed suffixes with a visible textual `x` marker and does not replace
-parsed numbers. Korean quantity crops preserve antialiased edges; full-line images remain binary.
+parsed numbers. Korean full-line and quantity crops preserve antialiased edges;
+see [Korean 6/9 recognition](korean-loot-six-nine.md).
 There is no extra quantity pass when no repair is possible. The shared worker restores its line segmentation and unrestricted
 character set before subsequent normal or rare text. Limits are nine threshold passes per frame and five frames per event;
 this worst case is reserved for unresolved events. [Strong Sword](strong-sword-font.md) has separate enlargement and
-unanimous digit-recovery rules; Korean behavior remains unchanged.
+unanimous digit-recovery rules.
 
 ## Dictionary And Diagnostics
 

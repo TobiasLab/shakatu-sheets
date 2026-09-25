@@ -59,11 +59,9 @@ for (const scale of [80, 100] as LootUiScale[]) {
                     top: box.top - bounds.y,
                     bottom: box.bottom - bounds.y,
                 };
-                for (const font of ["korean", "strong-sword"] as const) {
-                    expect(
-                        preprocessLootOcrFrame(smaller, center - bounds.y, 150, translated, "white", 2, font),
-                    ).toEqual(preprocessLootOcrFrame(input, center, 150, box, "white", 2, font));
-                }
+                expect(preprocessLootOcrFrame(smaller, center - bounds.y, 150, translated)).toEqual(
+                    preprocessLootOcrFrame(input, center, 150, box),
+                );
             }
         });
         it("preserves rare banner detection and the entire gold OCR line", () => {

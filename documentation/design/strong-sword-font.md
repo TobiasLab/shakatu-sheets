@@ -11,9 +11,9 @@ when changing its font.
 
 ## Detection behavior
 
-Korean uses the existing row geometry, pixel thresholds, fingerprints, quantity localization, binary OCR preprocessing,
-retry policy, and consensus rules. The new optional detection/OCR font arguments default to Korean. There are no model
-changes or per-item quantity corrections.
+Korean uses the existing row geometry, pixel thresholds, fingerprints, quantity localization, retry policy, and consensus
+rules. Its OCR preprocessing now preserves antialiased edges (see [Korean 6/9 recognition](korean-loot-six-nine.md)).
+The optional detection/OCR font arguments default to Korean. There are no model changes or per-item quantity corrections.
 
 Strong Sword first uses a four-native-pixel word gap at 80% scale when separating the quantity marker, then tries
 three pixels if no suffix was found. The narrower gap handles ×4; trying four first preserves the internal spacing

@@ -67,12 +67,20 @@ async function readRow(run, label, bounds) {
     const rows = analyzeLootRoiFrame(frame, run.profile);
     const observation = rows.observations.find((row) => row.centerY === label.centerY);
     const glyphs = bounds
-        ? preprocessLootOcrFrame(frame, label.centerY, 150, {
-              left: bounds.left,
-              right: bounds.right,
-              top: label.centerY - bounds.halfHeight,
-              bottom: label.centerY + bounds.halfHeight,
-          })
+        ? preprocessLootOcrFrame(
+              frame,
+              label.centerY,
+              150,
+              {
+                  left: bounds.left,
+                  right: bounds.right,
+                  top: label.centerY - bounds.halfHeight,
+                  bottom: label.centerY + bounds.halfHeight,
+              },
+              "white",
+              2,
+              false,
+          )
         : null;
     return { fingerprint: observation?.fingerprint, glyphs };
 }

@@ -1,0 +1,1074 @@
+{
+    "version": 1,
+    "itemDictionary": [
+        "Branch of Abundance",
+        "Empty Picture Frame",
+        "Black Stone",
+        "Ancient Spirit Dust",
+        "Caphras Stone",
+        "Corrupt Oil of Immortality",
+        "Nev's Fragment",
+        "WON Origin Shard",
+        "WON Wandering Origin Crystal",
+        "Silent Fragment of Origin",
+        "Silent Crystal of Origin",
+        "Twilight of the End - Earring",
+        "Apeiron Earring",
+        "Broken Vestige of Goldroot",
+        "Fusion Shard",
+        "Refined Origin of Hunger",
+        "Refined Essence of Devouring",
+        "Sunset Primordial Pigment - Edana",
+        "Sunset Primordial Luster - Edana",
+        "Crimson Primordial Luster - Sovereign",
+        "Crimson Primordial Pigment - Sovereign",
+        "Violet Primordial Luster - Sovereign",
+        "Violet Primordial Pigment - Sovereign",
+        "Violet Primordial Pigment - Edana",
+        "Violet Primordial Luster - Edana",
+        "Embers of Ynix - Armor",
+        "Sealed Black Magic Crystal",
+        "[Event] Bountiful Autumn Lunchbox"
+    ],
+    "runs": [
+        {
+            "id": "run-1790368760136-2464682-0001",
+            "split": "development",
+            "font": "korean",
+            "normalCases": [
+                {
+                    "id": "korean-six-nine-development-1503",
+                    "firstBatchId": 1503,
+                    "lastBatchId": 1503,
+                    "events": [
+                        {
+                            "firstBatchId": 1503,
+                            "item": "Branch of Abundance",
+                            "quantity": 9
+                        }
+                    ]
+                },
+                {
+                    "id": "korean-six-nine-development-1515",
+                    "firstBatchId": 1515,
+                    "lastBatchId": 1515,
+                    "events": [
+                        {
+                            "firstBatchId": 1515,
+                            "item": "Branch of Abundance",
+                            "quantity": 6
+                        }
+                    ]
+                },
+                {
+                    "id": "korean-six-nine-development-1524",
+                    "firstBatchId": 1524,
+                    "lastBatchId": 1524,
+                    "events": [
+                        {
+                            "firstBatchId": 1524,
+                            "item": "Branch of Abundance",
+                            "quantity": 6
+                        }
+                    ]
+                },
+                {
+                    "id": "korean-six-nine-development-1525",
+                    "firstBatchId": 1525,
+                    "lastBatchId": 1525,
+                    "events": [
+                        {
+                            "firstBatchId": 1525,
+                            "item": "Branch of Abundance",
+                            "quantity": 9
+                        }
+                    ]
+                },
+                {
+                    "id": "korean-six-nine-development-1527",
+                    "firstBatchId": 1527,
+                    "lastBatchId": 1527,
+                    "events": [
+                        {
+                            "firstBatchId": 1527,
+                            "item": "Branch of Abundance",
+                            "quantity": 9
+                        }
+                    ]
+                },
+                {
+                    "id": "korean-six-nine-development-1530",
+                    "firstBatchId": 1530,
+                    "lastBatchId": 1530,
+                    "events": [
+                        {
+                            "firstBatchId": 1530,
+                            "item": "Empty Picture Frame",
+                            "quantity": 1
+                        }
+                    ]
+                },
+                {
+                    "id": "korean-six-nine-development-1539",
+                    "firstBatchId": 1539,
+                    "lastBatchId": 1539,
+                    "events": [
+                        {
+                            "firstBatchId": 1539,
+                            "item": "Branch of Abundance",
+                            "quantity": 6
+                        }
+                    ]
+                },
+                {
+                    "id": "korean-six-nine-development-1551",
+                    "firstBatchId": 1551,
+                    "lastBatchId": 1551,
+                    "events": [
+                        {
+                            "firstBatchId": 1551,
+                            "item": "Branch of Abundance",
+                            "quantity": 9
+                        }
+                    ]
+                },
+                {
+                    "id": "korean-six-nine-development-1562",
+                    "firstBatchId": 1562,
+                    "lastBatchId": 1562,
+                    "events": [
+                        {
+                            "firstBatchId": 1562,
+                            "item": "Branch of Abundance",
+                            "quantity": 9
+                        }
+                    ]
+                },
+                {
+                    "id": "korean-six-nine-development-1568",
+                    "firstBatchId": 1568,
+                    "lastBatchId": 1568,
+                    "events": [
+                        {
+                            "firstBatchId": 1568,
+                            "item": "Branch of Abundance",
+                            "quantity": 9
+                        }
+                    ]
+                },
+                {
+                    "id": "korean-six-nine-development-1654",
+                    "firstBatchId": 1654,
+                    "lastBatchId": 1654,
+                    "events": [
+                        {
+                            "firstBatchId": 1654,
+                            "item": "Branch of Abundance",
+                            "quantity": 9
+                        }
+                    ]
+                },
+                {
+                    "id": "korean-six-nine-development-1791",
+                    "firstBatchId": 1791,
+                    "lastBatchId": 1791,
+                    "events": [
+                        {
+                            "firstBatchId": 1791,
+                            "item": "Branch of Abundance",
+                            "quantity": 9
+                        }
+                    ]
+                },
+                {
+                    "id": "korean-six-nine-development-1795",
+                    "firstBatchId": 1795,
+                    "lastBatchId": 1795,
+                    "events": [
+                        {
+                            "firstBatchId": 1795,
+                            "item": "Branch of Abundance",
+                            "quantity": 9
+                        }
+                    ]
+                },
+                {
+                    "id": "korean-six-nine-development-1798",
+                    "firstBatchId": 1798,
+                    "lastBatchId": 1798,
+                    "events": [
+                        {
+                            "firstBatchId": 1798,
+                            "item": "Branch of Abundance",
+                            "quantity": 9
+                        }
+                    ]
+                },
+                {
+                    "id": "korean-six-nine-development-1803",
+                    "firstBatchId": 1803,
+                    "lastBatchId": 1803,
+                    "events": [
+                        {
+                            "firstBatchId": 1803,
+                            "item": "Branch of Abundance",
+                            "quantity": 6
+                        }
+                    ]
+                },
+                {
+                    "id": "korean-six-nine-development-1804",
+                    "firstBatchId": 1804,
+                    "lastBatchId": 1804,
+                    "events": [
+                        {
+                            "firstBatchId": 1804,
+                            "item": "Branch of Abundance",
+                            "quantity": 9
+                        }
+                    ]
+                },
+                {
+                    "id": "korean-six-nine-development-1828",
+                    "firstBatchId": 1828,
+                    "lastBatchId": 1828,
+                    "events": [
+                        {
+                            "firstBatchId": 1828,
+                            "item": "Branch of Abundance",
+                            "quantity": 9
+                        }
+                    ]
+                },
+                {
+                    "id": "korean-six-nine-development-1833",
+                    "firstBatchId": 1833,
+                    "lastBatchId": 1833,
+                    "events": [
+                        {
+                            "firstBatchId": 1833,
+                            "item": "Branch of Abundance",
+                            "quantity": 6
+                        }
+                    ]
+                },
+                {
+                    "id": "korean-six-nine-development-1836",
+                    "firstBatchId": 1836,
+                    "lastBatchId": 1836,
+                    "events": [
+                        {
+                            "firstBatchId": 1836,
+                            "item": "Branch of Abundance",
+                            "quantity": 9
+                        }
+                    ]
+                },
+                {
+                    "id": "korean-six-nine-development-1839",
+                    "firstBatchId": 1839,
+                    "lastBatchId": 1839,
+                    "events": [
+                        {
+                            "firstBatchId": 1839,
+                            "item": "Branch of Abundance",
+                            "quantity": 9
+                        }
+                    ]
+                },
+                {
+                    "id": "korean-six-nine-development-1840",
+                    "firstBatchId": 1840,
+                    "lastBatchId": 1840,
+                    "events": [
+                        {
+                            "firstBatchId": 1840,
+                            "item": "Black Stone",
+                            "quantity": 1
+                        }
+                    ]
+                },
+                {
+                    "id": "korean-six-nine-development-1852",
+                    "firstBatchId": 1852,
+                    "lastBatchId": 1852,
+                    "events": [
+                        {
+                            "firstBatchId": 1852,
+                            "item": "Branch of Abundance",
+                            "quantity": 9
+                        }
+                    ]
+                },
+                {
+                    "id": "korean-six-nine-development-2032",
+                    "firstBatchId": 2032,
+                    "lastBatchId": 2032,
+                    "events": [
+                        {
+                            "firstBatchId": 2032,
+                            "item": "Branch of Abundance",
+                            "quantity": 6
+                        }
+                    ]
+                },
+                {
+                    "id": "korean-six-nine-development-2042",
+                    "firstBatchId": 2042,
+                    "lastBatchId": 2042,
+                    "events": [
+                        {
+                            "firstBatchId": 2042,
+                            "item": "Branch of Abundance",
+                            "quantity": 6
+                        }
+                    ]
+                },
+                {
+                    "id": "korean-six-nine-development-2063",
+                    "firstBatchId": 2063,
+                    "lastBatchId": 2063,
+                    "events": [
+                        {
+                            "firstBatchId": 2063,
+                            "item": "Branch of Abundance",
+                            "quantity": 9
+                        }
+                    ]
+                },
+                {
+                    "id": "korean-six-nine-development-2067",
+                    "firstBatchId": 2067,
+                    "lastBatchId": 2067,
+                    "events": [
+                        {
+                            "firstBatchId": 2067,
+                            "item": "Branch of Abundance",
+                            "quantity": 6
+                        }
+                    ]
+                },
+                {
+                    "id": "korean-six-nine-development-2070",
+                    "firstBatchId": 2070,
+                    "lastBatchId": 2070,
+                    "events": [
+                        {
+                            "firstBatchId": 2070,
+                            "item": "Branch of Abundance",
+                            "quantity": 9
+                        }
+                    ]
+                },
+                {
+                    "id": "korean-six-nine-development-2073",
+                    "firstBatchId": 2073,
+                    "lastBatchId": 2073,
+                    "events": [
+                        {
+                            "firstBatchId": 2073,
+                            "item": "Black Stone",
+                            "quantity": 1
+                        }
+                    ]
+                },
+                {
+                    "id": "korean-six-nine-development-2075",
+                    "firstBatchId": 2075,
+                    "lastBatchId": 2075,
+                    "events": [
+                        {
+                            "firstBatchId": 2075,
+                            "item": "Branch of Abundance",
+                            "quantity": 9
+                        }
+                    ]
+                },
+                {
+                    "id": "korean-six-nine-development-2088",
+                    "firstBatchId": 2088,
+                    "lastBatchId": 2088,
+                    "events": [
+                        {
+                            "firstBatchId": 2088,
+                            "item": "Branch of Abundance",
+                            "quantity": 9
+                        }
+                    ]
+                },
+                {
+                    "id": "korean-six-nine-development-2099",
+                    "firstBatchId": 2099,
+                    "lastBatchId": 2099,
+                    "events": [
+                        {
+                            "firstBatchId": 2099,
+                            "item": "Branch of Abundance",
+                            "quantity": 9
+                        }
+                    ]
+                },
+                {
+                    "id": "korean-six-nine-development-2102",
+                    "firstBatchId": 2102,
+                    "lastBatchId": 2102,
+                    "events": [
+                        {
+                            "firstBatchId": 2102,
+                            "item": "Branch of Abundance",
+                            "quantity": 6
+                        }
+                    ]
+                },
+                {
+                    "id": "korean-six-nine-development-2116",
+                    "firstBatchId": 2116,
+                    "lastBatchId": 2116,
+                    "events": [
+                        {
+                            "firstBatchId": 2116,
+                            "item": "Branch of Abundance",
+                            "quantity": 6
+                        }
+                    ]
+                },
+                {
+                    "id": "korean-six-nine-development-2306",
+                    "firstBatchId": 2306,
+                    "lastBatchId": 2306,
+                    "events": [
+                        {
+                            "firstBatchId": 2306,
+                            "item": "Branch of Abundance",
+                            "quantity": 9
+                        }
+                    ]
+                },
+                {
+                    "id": "korean-six-nine-development-2311",
+                    "firstBatchId": 2311,
+                    "lastBatchId": 2311,
+                    "events": [
+                        {
+                            "firstBatchId": 2311,
+                            "item": "Branch of Abundance",
+                            "quantity": 9
+                        }
+                    ]
+                },
+                {
+                    "id": "korean-six-nine-development-2313",
+                    "firstBatchId": 2313,
+                    "lastBatchId": 2313,
+                    "events": [
+                        {
+                            "firstBatchId": 2313,
+                            "item": "Branch of Abundance",
+                            "quantity": 9
+                        }
+                    ]
+                },
+                {
+                    "id": "korean-six-nine-development-2318",
+                    "firstBatchId": 2318,
+                    "lastBatchId": 2318,
+                    "events": [
+                        {
+                            "firstBatchId": 2318,
+                            "item": "Branch of Abundance",
+                            "quantity": 9
+                        }
+                    ]
+                },
+                {
+                    "id": "korean-six-nine-development-2327",
+                    "firstBatchId": 2327,
+                    "lastBatchId": 2327,
+                    "events": [
+                        {
+                            "firstBatchId": 2327,
+                            "item": "Branch of Abundance",
+                            "quantity": 9
+                        }
+                    ]
+                },
+                {
+                    "id": "korean-six-nine-development-2343",
+                    "firstBatchId": 2343,
+                    "lastBatchId": 2343,
+                    "events": [
+                        {
+                            "firstBatchId": 2343,
+                            "item": "Branch of Abundance",
+                            "quantity": 9
+                        }
+                    ]
+                },
+                {
+                    "id": "korean-six-nine-development-2350",
+                    "firstBatchId": 2350,
+                    "lastBatchId": 2350,
+                    "events": [
+                        {
+                            "firstBatchId": 2350,
+                            "item": "Branch of Abundance",
+                            "quantity": 6
+                        }
+                    ]
+                },
+                {
+                    "id": "korean-six-nine-control-4053",
+                    "firstBatchId": 4053,
+                    "lastBatchId": 4053,
+                    "events": [
+                        {
+                            "firstBatchId": 4053,
+                            "item": "Branch of Abundance",
+                            "quantity": 75
+                        }
+                    ]
+                },
+                {
+                    "id": "korean-six-nine-control-4987",
+                    "firstBatchId": 4987,
+                    "lastBatchId": 4987,
+                    "events": [
+                        {
+                            "firstBatchId": 4987,
+                            "item": "Branch of Abundance",
+                            "quantity": 36
+                        }
+                    ]
+                },
+                {
+                    "id": "korean-six-nine-control-5761",
+                    "firstBatchId": 5761,
+                    "lastBatchId": 5761,
+                    "events": [
+                        {
+                            "firstBatchId": 5761,
+                            "item": "Branch of Abundance",
+                            "quantity": 24
+                        }
+                    ]
+                },
+                {
+                    "id": "korean-six-nine-control-6928",
+                    "firstBatchId": 6928,
+                    "lastBatchId": 6928,
+                    "events": [
+                        {
+                            "firstBatchId": 6928,
+                            "item": "Branch of Abundance",
+                            "quantity": 36
+                        }
+                    ]
+                },
+                {
+                    "id": "korean-six-nine-control-7702",
+                    "firstBatchId": 7702,
+                    "lastBatchId": 7702,
+                    "events": [
+                        {
+                            "firstBatchId": 7702,
+                            "item": "Black Stone",
+                            "quantity": 13
+                        }
+                    ]
+                },
+                {
+                    "id": "korean-six-nine-control-7705",
+                    "firstBatchId": 7705,
+                    "lastBatchId": 7705,
+                    "events": [
+                        {
+                            "firstBatchId": 7705,
+                            "item": "Branch of Abundance",
+                            "quantity": 297
+                        }
+                    ]
+                },
+                {
+                    "id": "korean-six-nine-control-8799",
+                    "firstBatchId": 8799,
+                    "lastBatchId": 8799,
+                    "events": [
+                        {
+                            "firstBatchId": 8799,
+                            "item": "Branch of Abundance",
+                            "quantity": 42
+                        }
+                    ]
+                },
+                {
+                    "id": "korean-six-nine-control-9693",
+                    "firstBatchId": 9693,
+                    "lastBatchId": 9693,
+                    "events": [
+                        {
+                            "firstBatchId": 9693,
+                            "item": "Branch of Abundance",
+                            "quantity": 18
+                        }
+                    ]
+                },
+                {
+                    "id": "korean-six-nine-control-11905",
+                    "firstBatchId": 11905,
+                    "lastBatchId": 11905,
+                    "events": [
+                        {
+                            "firstBatchId": 11905,
+                            "item": "Branch of Abundance",
+                            "quantity": 78
+                        }
+                    ]
+                },
+                {
+                    "id": "korean-six-nine-control-12139",
+                    "firstBatchId": 12139,
+                    "lastBatchId": 12139,
+                    "events": [
+                        {
+                            "firstBatchId": 12139,
+                            "item": "Branch of Abundance",
+                            "quantity": 21
+                        }
+                    ]
+                },
+                {
+                    "id": "korean-six-nine-control-12998",
+                    "firstBatchId": 12998,
+                    "lastBatchId": 12998,
+                    "events": [
+                        {
+                            "firstBatchId": 12998,
+                            "item": "Branch of Abundance",
+                            "quantity": 24
+                        }
+                    ]
+                },
+                {
+                    "id": "korean-six-nine-control-14104",
+                    "firstBatchId": 14104,
+                    "lastBatchId": 14104,
+                    "events": [
+                        {
+                            "firstBatchId": 14104,
+                            "item": "Branch of Abundance",
+                            "quantity": 18
+                        }
+                    ]
+                },
+                {
+                    "id": "korean-six-nine-control-15816",
+                    "firstBatchId": 15816,
+                    "lastBatchId": 15816,
+                    "events": [
+                        {
+                            "firstBatchId": 15816,
+                            "item": "Branch of Abundance",
+                            "quantity": 87
+                        }
+                    ]
+                },
+                {
+                    "id": "korean-six-nine-control-16524",
+                    "firstBatchId": 16524,
+                    "lastBatchId": 16524,
+                    "events": [
+                        {
+                            "firstBatchId": 16524,
+                            "item": "Branch of Abundance",
+                            "quantity": 24
+                        }
+                    ]
+                },
+                {
+                    "id": "korean-six-nine-control-17390",
+                    "firstBatchId": 17390,
+                    "lastBatchId": 17390,
+                    "events": [
+                        {
+                            "firstBatchId": 17390,
+                            "item": "Black Stone",
+                            "quantity": 12
+                        }
+                    ]
+                },
+                {
+                    "id": "korean-six-nine-control-17393",
+                    "firstBatchId": 17393,
+                    "lastBatchId": 17393,
+                    "events": [
+                        {
+                            "firstBatchId": 17393,
+                            "item": "Branch of Abundance",
+                            "quantity": 273
+                        }
+                    ]
+                },
+                {
+                    "id": "korean-six-nine-control-18539",
+                    "firstBatchId": 18539,
+                    "lastBatchId": 18539,
+                    "events": [
+                        {
+                            "firstBatchId": 18539,
+                            "item": "Branch of Abundance",
+                            "quantity": 39
+                        }
+                    ]
+                },
+                {
+                    "id": "korean-six-nine-control-19428",
+                    "firstBatchId": 19428,
+                    "lastBatchId": 19428,
+                    "events": [
+                        {
+                            "firstBatchId": 19428,
+                            "item": "Branch of Abundance",
+                            "quantity": 30
+                        }
+                    ]
+                },
+                {
+                    "id": "korean-six-nine-control-20483",
+                    "firstBatchId": 20483,
+                    "lastBatchId": 20483,
+                    "events": [
+                        {
+                            "firstBatchId": 20483,
+                            "item": "Branch of Abundance",
+                            "quantity": 81
+                        }
+                    ]
+                },
+                {
+                    "id": "korean-six-nine-control-21304",
+                    "firstBatchId": 21304,
+                    "lastBatchId": 21304,
+                    "events": [
+                        {
+                            "firstBatchId": 21304,
+                            "item": "Branch of Abundance",
+                            "quantity": 39
+                        }
+                    ]
+                },
+                {
+                    "id": "korean-six-nine-control-22191",
+                    "firstBatchId": 22191,
+                    "lastBatchId": 22191,
+                    "events": [
+                        {
+                            "firstBatchId": 22191,
+                            "item": "Branch of Abundance",
+                            "quantity": 24
+                        }
+                    ]
+                },
+                {
+                    "id": "korean-six-nine-control-23306",
+                    "firstBatchId": 23306,
+                    "lastBatchId": 23306,
+                    "events": [
+                        {
+                            "firstBatchId": 23306,
+                            "item": "Branch of Abundance",
+                            "quantity": 30
+                        }
+                    ]
+                },
+                {
+                    "id": "korean-six-nine-control-23737",
+                    "firstBatchId": 23737,
+                    "lastBatchId": 23737,
+                    "events": [
+                        {
+                            "firstBatchId": 23737,
+                            "item": "Branch of Abundance",
+                            "quantity": 21
+                        }
+                    ]
+                },
+                {
+                    "id": "korean-six-nine-control-24556",
+                    "firstBatchId": 24556,
+                    "lastBatchId": 24556,
+                    "events": [
+                        {
+                            "firstBatchId": 24556,
+                            "item": "Branch of Abundance",
+                            "quantity": 24
+                        }
+                    ]
+                },
+                {
+                    "id": "korean-six-nine-control-25725",
+                    "firstBatchId": 25725,
+                    "lastBatchId": 25725,
+                    "events": [
+                        {
+                            "firstBatchId": 25725,
+                            "item": "Branch of Abundance",
+                            "quantity": 24
+                        }
+                    ]
+                },
+                {
+                    "id": "korean-six-nine-control-27415",
+                    "firstBatchId": 27415,
+                    "lastBatchId": 27415,
+                    "events": [
+                        {
+                            "firstBatchId": 27415,
+                            "item": "Branch of Abundance",
+                            "quantity": 90
+                        }
+                    ]
+                },
+                {
+                    "id": "korean-six-nine-validation-28268",
+                    "firstBatchId": 28268,
+                    "lastBatchId": 28268,
+                    "events": [
+                        {
+                            "firstBatchId": 28268,
+                            "item": "Branch of Abundance",
+                            "quantity": 9
+                        }
+                    ]
+                },
+                {
+                    "id": "korean-six-nine-validation-28293",
+                    "firstBatchId": 28293,
+                    "lastBatchId": 28293,
+                    "events": [
+                        {
+                            "firstBatchId": 28293,
+                            "item": "Branch of Abundance",
+                            "quantity": 9
+                        }
+                    ]
+                },
+                {
+                    "id": "korean-six-nine-validation-28297",
+                    "firstBatchId": 28297,
+                    "lastBatchId": 28297,
+                    "events": [
+                        {
+                            "firstBatchId": 28297,
+                            "item": "Branch of Abundance",
+                            "quantity": 6
+                        }
+                    ]
+                },
+                {
+                    "id": "korean-six-nine-validation-28303",
+                    "firstBatchId": 28303,
+                    "lastBatchId": 28303,
+                    "events": [
+                        {
+                            "firstBatchId": 28303,
+                            "item": "Branch of Abundance",
+                            "quantity": 9
+                        }
+                    ]
+                },
+                {
+                    "id": "korean-six-nine-validation-28318",
+                    "firstBatchId": 28318,
+                    "lastBatchId": 28318,
+                    "events": [
+                        {
+                            "firstBatchId": 28318,
+                            "item": "Branch of Abundance",
+                            "quantity": 6
+                        }
+                    ]
+                },
+                {
+                    "id": "korean-six-nine-validation-28321",
+                    "firstBatchId": 28321,
+                    "lastBatchId": 28321,
+                    "events": [
+                        {
+                            "firstBatchId": 28321,
+                            "item": "Branch of Abundance",
+                            "quantity": 6
+                        }
+                    ]
+                },
+                {
+                    "id": "korean-six-nine-validation-28330",
+                    "firstBatchId": 28330,
+                    "lastBatchId": 28330,
+                    "events": [
+                        {
+                            "firstBatchId": 28330,
+                            "item": "Branch of Abundance",
+                            "quantity": 9
+                        }
+                    ]
+                },
+                {
+                    "id": "korean-six-nine-validation-28333",
+                    "firstBatchId": 28333,
+                    "lastBatchId": 28333,
+                    "events": [
+                        {
+                            "firstBatchId": 28333,
+                            "item": "Branch of Abundance",
+                            "quantity": 6
+                        }
+                    ]
+                },
+                {
+                    "id": "korean-six-nine-validation-28371",
+                    "firstBatchId": 28371,
+                    "lastBatchId": 28371,
+                    "events": [
+                        {
+                            "firstBatchId": 28371,
+                            "item": "WON Origin Shard",
+                            "quantity": 1
+                        }
+                    ]
+                },
+                {
+                    "id": "korean-six-nine-validation-28373",
+                    "firstBatchId": 28373,
+                    "lastBatchId": 28373,
+                    "events": [
+                        {
+                            "firstBatchId": 28373,
+                            "item": "Branch of Abundance",
+                            "quantity": 90
+                        }
+                    ]
+                },
+                {
+                    "id": "korean-six-nine-validation-28511",
+                    "firstBatchId": 28511,
+                    "lastBatchId": 28511,
+                    "events": [
+                        {
+                            "firstBatchId": 28511,
+                            "item": "Branch of Abundance",
+                            "quantity": 9
+                        }
+                    ]
+                },
+                {
+                    "id": "korean-six-nine-validation-28530",
+                    "firstBatchId": 28530,
+                    "lastBatchId": 28530,
+                    "events": [
+                        {
+                            "firstBatchId": 28530,
+                            "item": "Branch of Abundance",
+                            "quantity": 9
+                        }
+                    ]
+                },
+                {
+                    "id": "korean-six-nine-validation-28541",
+                    "firstBatchId": 28541,
+                    "lastBatchId": 28541,
+                    "events": [
+                        {
+                            "firstBatchId": 28541,
+                            "item": "Branch of Abundance",
+                            "quantity": 6
+                        }
+                    ]
+                },
+                {
+                    "id": "korean-six-nine-validation-28546",
+                    "firstBatchId": 28546,
+                    "lastBatchId": 28546,
+                    "events": [
+                        {
+                            "firstBatchId": 28546,
+                            "item": "Branch of Abundance",
+                            "quantity": 6
+                        }
+                    ]
+                },
+                {
+                    "id": "korean-six-nine-validation-28547",
+                    "firstBatchId": 28547,
+                    "lastBatchId": 28547,
+                    "events": [
+                        {
+                            "firstBatchId": 28547,
+                            "item": "Branch of Abundance",
+                            "quantity": 9
+                        }
+                    ]
+                },
+                {
+                    "id": "korean-six-nine-validation-28550",
+                    "firstBatchId": 28550,
+                    "lastBatchId": 28550,
+                    "events": [
+                        {
+                            "firstBatchId": 28550,
+                            "item": "Branch of Abundance",
+                            "quantity": 6
+                        }
+                    ]
+                },
+                {
+                    "id": "korean-six-nine-validation-28568",
+                    "firstBatchId": 28568,
+                    "lastBatchId": 28568,
+                    "events": [
+                        {
+                            "firstBatchId": 28568,
+                            "item": "Branch of Abundance",
+                            "quantity": 9
+                        }
+                    ]
+                },
+                {
+                    "id": "korean-six-nine-validation-28581",
+                    "firstBatchId": 28581,
+                    "lastBatchId": 28581,
+                    "events": [
+                        {
+                            "firstBatchId": 28581,
+                            "item": "Branch of Abundance",
+                            "quantity": 9
+                        }
+                    ]
+                },
+                {
+                    "id": "korean-six-nine-validation-28584",
+                    "firstBatchId": 28584,
+                    "lastBatchId": 28584,
+                    "events": [
+                        {
+                            "firstBatchId": 28584,
+                            "item": "Branch of Abundance",
+                            "quantity": 6
+                        }
+                    ]
+                },
+                {
+                    "id": "korean-six-nine-validation-28611",
+                    "firstBatchId": 28611,
+                    "lastBatchId": 28611,
+                    "events": [
+                        {
+                            "firstBatchId": 28611,
+                            "item": "Branch of Abundance",
+                            "quantity": 6
+                        }
+                    ]
+                }
+            ]
+        }
+    ]
+}

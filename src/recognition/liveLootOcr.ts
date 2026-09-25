@@ -21,8 +21,7 @@ export function preprocessLootOcrFrame(
     bounds?: LootOcrBounds,
     textColor: "white" | "gold" = "white",
     scale: 2 | 4 = textColor === "gold" ? 4 : 2,
-    font: LootFont = "korean",
-    region: "line" | "quantity" = "line",
+    antialiased = textColor !== "gold",
 ): LootRoiFrame {
     const { width, height, pixels } = frame;
     if (!Number.isSafeInteger(width) || width <= 0 || !Number.isSafeInteger(height) || height <= 0) {
@@ -68,7 +67,7 @@ export function preprocessLootOcrFrame(
     }
     const output = new Uint8ClampedArray(outputBytes);
     output.fill(255);
-    if ((font === "strong-sword" || region === "quantity") && textColor !== "gold") {
+    if (antialiased) {
         writeAntialiasedLootPixels(frame, { left, right, top, bottom }, threshold, scale, output, outputWidth);
         return { width: outputWidth, height: outputHeight, pixels: output };
     }
@@ -383,8 +382,6 @@ export async function createLiveLootTesseractOcr({
                         region === "quantity" ? source.observation.fingerprint.digits?.bounds : source.bounds,
                         source.textColor,
                         scale,
-                        font,
-                        region,
                     );
                     source = undefined;
 
