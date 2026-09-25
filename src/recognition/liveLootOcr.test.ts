@@ -112,11 +112,11 @@ describe("preprocessLootOcrFrame", () => {
         for (let offset = 3; offset < output.pixels.length; offset += 4) expect(output.pixels[offset]).toBe(255);
     });
 
-    it("expands one accepted source pixel to exactly one 2x2 black block", () => {
+    it("keeps binary masks available for quantity identity comparisons", () => {
         const frame = sourceFrame(8, 24);
         setPixel(frame, 2, 0, 130);
 
-        const output = preprocessLootOcrFrame(frame, 12, 130);
+        const output = preprocessLootOcrFrame(frame, 12, 130, undefined, "white", 2, false);
 
         expect(blackPixelCount(output)).toBe(4);
         for (let y = 10; y < 12; y += 1) {
@@ -130,7 +130,7 @@ describe("preprocessLootOcrFrame", () => {
         setPixel(frame, 2, 0, 149);
         setPixel(frame, 3, 0, 150);
 
-        const output = preprocessLootOcrFrame(frame, 12, 150);
+        const output = preprocessLootOcrFrame(frame, 12, 150, undefined, "white", 2, false);
 
         expect(outputPixel(output, 10, 10)).toEqual([255, 255, 255, 255]);
         expect(outputPixel(output, 12, 10)).toEqual([0, 0, 0, 255]);
@@ -140,8 +140,16 @@ describe("preprocessLootOcrFrame", () => {
         const frame = sourceFrame(20, 30);
         setPixel(frame, 18, 28, 130);
 
-        expect(blackPixelCount(preprocessLootOcrFrame(frame, 15, 130))).toBe(0);
-        const output = preprocessLootOcrFrame(frame, 15, 130, { left: 1, right: 19, top: 2, bottom: 29 });
+        expect(blackPixelCount(preprocessLootOcrFrame(frame, 15, 130, undefined, "white", 2, false))).toBe(0);
+        const output = preprocessLootOcrFrame(
+            frame,
+            15,
+            130,
+            { left: 1, right: 19, top: 2, bottom: 29 },
+            "white",
+            2,
+            false,
+        );
 
         expect(output.width).toBe(18 * 2 + 20);
         expect(output.height).toBe(27 * 2 + 20);
@@ -154,7 +162,7 @@ describe("preprocessLootOcrFrame", () => {
         setPixel(frame, 2, 0, 200, 135, 200);
         setPixel(frame, 3, 0, 201, 135, 200);
 
-        const output = preprocessLootOcrFrame(frame, 12, 130);
+        const output = preprocessLootOcrFrame(frame, 12, 130, undefined, "white", 2, false);
 
         expect(outputPixel(output, 10, 10)).toEqual([0, 0, 0, 255]);
         expect(outputPixel(output, 12, 10)).toEqual([255, 255, 255, 255]);
@@ -178,7 +186,7 @@ describe("preprocessLootOcrFrame", () => {
 
         expect(
             ([130, 150, 170] as const).map((threshold) =>
-                blackPixelCount(preprocessLootOcrFrame(frame, 12, threshold)),
+                blackPixelCount(preprocessLootOcrFrame(frame, 12, threshold, undefined, "white", 2, false)),
             ),
         ).toEqual([12, 8, 4]);
     });
@@ -188,10 +196,10 @@ describe("preprocessLootOcrFrame", () => {
         const output = preprocessLootOcrFrame(frame, 0, 130);
 
         expect(outputPixel(output, 10, 10)).toEqual([255, 255, 255, 255]);
-        expect(outputPixel(output, 10, 33)).toEqual([255, 255, 255, 255]);
-        expect(outputPixel(output, 10, 34)).toEqual([0, 0, 0, 255]);
-        expect(outputPixel(output, 10, 41)).toEqual([0, 0, 0, 255]);
-        expect(outputPixel(output, 10, 42)).toEqual([255, 255, 255, 255]);
+        expect(outputPixel(output, 10, 31)).toEqual([255, 255, 255, 255]);
+        expect(outputPixel(output, 10, 35)).toEqual([0, 0, 0, 255]);
+        expect(outputPixel(output, 10, 40)).toEqual([0, 0, 0, 255]);
+        expect(outputPixel(output, 10, 44)).toEqual([255, 255, 255, 255]);
     });
 
     it("validates dimensions, buffers, centers, and thresholds without mutating the source", () => {
@@ -528,7 +536,10 @@ describe("createLiveLootTesseractOcr", () => {
             const width = 18 * scale + 20;
             const height = 27 * scale + 20;
             expect(pixels).toHaveLength(width * height * 4);
-            expect(blackPixelCount({ width, height, pixels })).toBe(scale * scale);
+            const output = { width, height, pixels };
+            expect(outputPixel(output, 10 + scale, 10 + scale)[0]).toBeLessThan(255);
+            expect(outputPixel(output, 10 + 3 * scale, 10 + scale)).toEqual([255, 255, 255, 255]);
+            expect(pixels.some((value) => value > 0 && value < 255)).toBe(true);
         }
         expect(roi.pixels).toEqual(before);
         expect(canvas.canvas).toMatchObject({ width: 0, height: 0 });
@@ -804,18 +815,15 @@ it("restores full-line OCR parameters after a quantity retry before reading rare
     await reader.terminate();
 });
 
-it("preserves Strong Sword antialiasing without changing Korean or gold preprocessing", () => {
+it.each([2, 4] as const)("preserves gray edges in white OCR at %sx without changing the source", (scale) => {
     const frame = sourceFrame(20, 30);
-    setPixel(frame, 7, 14, 160);
+    setPixel(frame, 7, 14, 120);
     setPixel(frame, 8, 14, 235);
     const original = frame.pixels.slice();
-    const korean = preprocessLootOcrFrame(frame, 15, 150);
-    const strong = preprocessLootOcrFrame(frame, 15, 150, undefined, "white", 4, "strong-sword");
-    expect(strong.pixels.some((value, index) => index % 4 !== 3 && value > 0 && value < 255)).toBe(true);
-    expect(preprocessLootOcrFrame(frame, 15, 150, undefined, "white", 2, "korean")).toEqual(korean);
-    expect(preprocessLootOcrFrame(frame, 15, 150, undefined, "gold", 4, "strong-sword")).toEqual(
-        preprocessLootOcrFrame(frame, 15, 150, undefined, "gold", 4),
-    );
+    const output = preprocessLootOcrFrame(frame, 15, 150, undefined, "white", scale);
+    expect(output.pixels.some((value, index) => index % 4 !== 3 && value > 0 && value < 255)).toBe(true);
+    // A dim edge below the old binary threshold still contributes to the enlarged glyph.
+    expect(outputPixel(output, 10 + 2 * scale, 10 + 11 * scale)[0]).toBeLessThan(255);
     expect(frame.pixels).toEqual(original);
 });
 
@@ -884,21 +892,14 @@ it("requires a located crop and a visible suffix marker for independent Strong S
     }
 });
 
-it("preserves gray digit edges in Korean quantity crops while keeping its full-line image binary", () => {
+it("keeps gold OCR binary while white lines and quantity crops retain gray edges", () => {
     const frame = sourceFrame(20, 30);
     setPixel(frame, 7, 14, 160);
     setPixel(frame, 8, 14, 235);
     const bounds = { left: 5, right: 12, top: 7, bottom: 23 };
-    const line = preprocessLootOcrFrame(frame, 15, 150, bounds, "white", 4, "korean");
-    const digits = preprocessLootOcrFrame(frame, 15, 150, bounds, "white", 4, "korean", "quantity");
-    expect(line.pixels.every((value) => value === 0 || value === 255)).toBe(true);
-    expect(digits.pixels.some((value) => value > 0 && value < 255)).toBe(true);
-    for (const font of ["korean", "strong-sword"] as const) {
-        expect(preprocessLootOcrFrame(frame, 15, 150, bounds, "gold", 4, font, "quantity")).toEqual(
-            preprocessLootOcrFrame(frame, 15, 150, bounds, "gold", 4, font),
-        );
-    }
-    expect(preprocessLootOcrFrame(frame, 15, 150, bounds, "white", 4, "strong-sword", "quantity")).toEqual(
-        preprocessLootOcrFrame(frame, 15, 150, bounds, "white", 4, "strong-sword"),
-    );
+    const white = preprocessLootOcrFrame(frame, 15, 150, bounds, "white", 4);
+    const gold = preprocessLootOcrFrame(frame, 15, 150, bounds, "gold", 4);
+    expect(white.pixels.some((value) => value > 0 && value < 255)).toBe(true);
+    expect(gold.pixels.every((value) => value === 0 || value === 255)).toBe(true);
+    expect(blackPixelCount(gold)).toBe(32);
 });

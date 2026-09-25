@@ -23,11 +23,13 @@ quantity are retained. No item text is synthesized, and no missing quantity is i
 unsupported digit evidence preserves the original line readings. This path takes at most nine OCR passes per frame.
 
 Korean quantity crops now preserve grayscale antialiasing and use bilinear enlargement, reusing the existing pixel
-writer in `lootOcrPixels.ts`. Korean full-line preprocessing stays binary. This quantity preprocessing also applies to
-Korean's existing weak/unparsed-suffix corroboration, whose acceptance rules remain unchanged. Strong Sword retains
+writer in `lootOcrPixels.ts`. [Korean 6/9 recognition](korean-loot-six-nine.md) subsequently extended this preprocessing
+to full lines. This quantity preprocessing also applies to Korean's existing weak/unparsed-suffix corroboration,
+whose acceptance rules remain unchanged. Strong Sword retains
 its previous antialiased preprocessing and acceptance rules; gold preprocessing and OCR are unchanged.
 
-The ordinary ×10 recovery still stops after six line passes. Stable Korean readings keep the original fast path.
+With the original binary full-line preprocessing, the ordinary ×10 recovery stopped after six line passes. Antialiased
+full lines usually resolve these samples in the initial three passes. Stable Korean readings keep the original fast path.
 Temporal item/quantity consensus, including the veto on confidently conflicting frames, remains in force. Quantity
 localization, row detection, and arrival tracking are unchanged. Diagnostics retain every raw pass and separately
 record the selected final readings; the existing nine-pass metadata limit accommodates this fallback.

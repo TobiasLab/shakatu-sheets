@@ -1,7 +1,7 @@
 import type { LootOcrBounds, LootRoiFrame } from "./liveLoot";
 import type { LootOcrThreshold } from "./liveLootOcr";
 
-/** Preserve antialiased digit strokes before enlargement; binary masks can lose small digit shapes. */
+/** Preserve antialiased text strokes before enlargement; binary masks can lose small digit shapes. */
 export function writeAntialiasedLootPixels(
     frame: LootRoiFrame,
     bounds: LootOcrBounds,
