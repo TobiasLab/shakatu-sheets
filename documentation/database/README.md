@@ -90,9 +90,32 @@ to session rows. Preset saving is an explicit operation, separate from the order
   SQLite files are restricted to the current user.
 - Overlay opacity uses the `session_overlay_opacity` setting (integer percent, 25–100; default 100). No migration is needed.
 - Live loot calibration stores only validated normalized rectangle coordinates and source dimensions in `settings`.
-  Preview and region pixels remain in memory and are never written to the database.
+  Preview and region pixels remain in memory. Opt-in quantity learning uses the separate database below.
 - Connect failures that occur before request transmission release the upload reservation for an explicit retry. Any
   potentially transmitted request without a success response remains `unknown` to prevent duplicate entries. Reserved
   and uploaded sessions cannot be reopened. Deletion is serialized with Garmoth operations so it cannot remove a session
   while its upload request is in flight.
-- Screenshots, OCR output, confidence values, and draft thumbnails are never stored in SQLite.
+- Screenshots, OCR output, confidence values, and draft thumbnails are never stored in the session SQLite database.
+
+## Quantity learning database
+
+Opt-in normal-loot quantity learning uses `quantity-learning.sqlite3` alongside `shakatu-sheets.sqlite3`, under the same
+application-data directory (including `SHAKATU_DATA_DIR` overrides). It has independent ordered migrations, currently
+`PRAGMA user_version = 1`. Loading defaults does not create the file; changing learning settings or saving an example
+creates it. No session migration, setting, foreign key, or session-entry change accompanies this feature. Main can
+ignore the learning file and continue using the existing version-4 session database. Switching back to this feature
+branch restores the saved examples and settings.
+
+The separate database stores opt-in and auto-allow settings, a confirmation sequence, and at most 200 examples with
+at most 50 per font/UI-scale/source-resolution setup. Each example contains an event UUID, positive safe-integer
+quantity, original OCR quantity if available, bounded original OCR text, native dimensions, a small RGBA PNG blob,
+capture setup, confirmation time in milliseconds, and a fixed matching/validation role. Crop dimensions are limited
+to 64×32 pixels. Every third new example is reserved for validation. Repeated identical images in the same setup do
+not add support or advance the sequence; conflicting labels require explicit deletion first. Save retries are idempotent.
+
+Commands run on blocking workers; frontend requests are ordered. Writes and pruning use a transaction. SQLite
+foreign keys, busy timeout, WAL mode, and Unix file permissions follow the existing persistence helpers. The learning
+file has no session foreign keys: session edits/deletion cannot modify examples, and learning reset/deletion cannot
+modify sessions. Reset removes examples and turns learning and auto allow off. Disabling learning retains examples.
+A learning error leaves ordinary capture, OCR, and session persistence available. See
+[quantity learning](../design/quantity-learning.md) for matching and automatic acceptance rules.

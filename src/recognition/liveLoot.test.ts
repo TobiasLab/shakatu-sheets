@@ -1499,6 +1499,51 @@ it.each([false, true])("preserves OCR timing and read limits at 16 FPS (unresolv
     expect(results).toEqual([expect.objectContaining({ status: "recognized", quantity: 2 })]);
 });
 
+it.each([false, true])("uses learned recovery only for unresolved results (accepted OCR: %s)", async (accepted) => {
+    let calls = 0;
+    const results: LiveLootRecognitionResult[] = [];
+    const coordinator = new LiveLootCoordinator({
+        profile: streamingProfile,
+        dictionary: ["Black Stone"],
+        ocrSelection: { windowFrames: 6, maximumFrameCount: 5 },
+        readText: async (frames) => frames.map(() => [accepted ? "Black Stone x 8" : "Black Stone x &"]),
+        suggestQuantity: (frames, readings) => {
+            calls++;
+            expect(frames).toHaveLength(5);
+            expect(readings).toHaveLength(5);
+            return { quantity: 6, itemName: "Black Stone", automatic: true };
+        },
+        onResult: (result) => results.push(result),
+    });
+    pushRowSequence(coordinator, [0, 1, 1, 1, 1, 1, 1, 1, 1]);
+    await coordinator.finish();
+    expect(calls).toBe(accepted ? 0 : 1);
+    expect(results).toEqual([expect.objectContaining({ status: "recognized", quantity: accepted ? 8 : 6 })]);
+    expect(results[0]).not.toHaveProperty("capture");
+    if (!accepted) expect(results[0]).toHaveProperty("learnedQuantity", true);
+});
+
+it("retains the original capture and readings when learned recovery needs confirmation", async () => {
+    const results: LiveLootRecognitionResult[] = [];
+    const coordinator = new LiveLootCoordinator({
+        profile: streamingProfile,
+        dictionary: ["Black Stone"],
+        readText: async (frames) => frames.map(() => ["Black Stone x &"]),
+        suggestQuantity: () => ({ quantity: 6, itemName: "Black Stone", automatic: false }),
+        onResult: (result) => results.push(result),
+    });
+    pushRowSequence(coordinator, [0, 1, 1, 1, 1, 0, 0]);
+    await coordinator.finish();
+    expect(results).toEqual([
+        expect.objectContaining({
+            status: "withheld",
+            quantity: null,
+            capture: expect.objectContaining({ originalText: "Black Stone x &" }),
+            quantitySuggestion: { quantity: 6, itemName: "Black Stone", automatic: false },
+        }),
+    ]);
+});
+
 it("checks intervening 16 FPS observations before selecting spaced OCR evidence", () => {
     const track = {
         id: "test",

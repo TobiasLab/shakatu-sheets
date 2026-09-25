@@ -4,6 +4,7 @@ import { Icon } from "../Icon/Icon";
 import { SelectionButton } from "../SelectionButton/SelectionButton";
 import styles from "./LiveLootCapture.module.css";
 import { LootReview } from "./LootReview";
+import { QuantityLearningPanel } from "./QuantityLearningPanel";
 import type { useLiveLootCapture } from "./useLiveLootCapture";
 
 type SourceDimensions = { width: number; height: number };
@@ -764,17 +765,20 @@ export function LiveLootCapture({ controller }: { controller: ReturnType<typeof 
                 {recognitionAnnouncement}
             </div>
             <LootReview controller={controller} />
+            <QuantityLearningPanel learning={controller.learning} />
             <details className={styles.PrivacyNote}>
                 <summary>Privacy & capture details</summary>
                 <p>
-                    During normal operation, capture pixels stay in memory and are never saved or uploaded.{" "}
+                    Capture pixels stay in memory unless you enable quantity learning or explicitly save development
+                    samples. Quantity learning stores only small quantity crops from your Needs attention corrections on
+                    this device; examples stay until deleted or replaced by newer examples. Captures are never uploaded.{" "}
                     {debugSampleCollectionAvailable &&
                         "The explicit development sample action saves only the configured normal and rare crops locally until they are deleted; it never saves the full screen or uploads samples. "}
                     Automatic placement scans only the highlighted search area. Confirmed loot crops are processed by
                     the bundled local OCR worker and recognized results are added automatically.{" "}
                     {debugSampleCollectionAvailable
-                        ? "Outside development sample runs, only final coordinates, rare-area confirmation, source dimensions, and BDO UI scale are stored."
-                        : "Only final coordinates, rare-area confirmation, source dimensions, and BDO UI scale are stored."}
+                        ? "Outside development samples and quantity learning, only final coordinates, rare-area confirmation, source dimensions, and BDO UI scale are stored."
+                        : "Outside quantity learning, only final coordinates, rare-area confirmation, source dimensions, and BDO UI scale are stored."}
                 </p>
             </details>
         </section>

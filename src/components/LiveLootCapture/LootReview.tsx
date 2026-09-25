@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import type { LiveLootReviewEntry } from "../../recognition/liveLootReview";
+import { quantityImage } from "../../recognition/quantityLearning";
 import { CaptureCorrection, type CorrectionDraft } from "./CaptureCorrection";
 import styles from "./LootReview.module.css";
 import type { useLiveLootCapture } from "./useLiveLootCapture";
@@ -16,7 +17,7 @@ type ReviewController = Pick<
     | "itemDictionary"
     | "databaseLoaded"
     | "sessionStatus"
->;
+> & { learning?: ReturnType<typeof useLiveLootCapture>["learning"] };
 
 function reviewTitle(review: LiveLootReviewEntry) {
     const result = review.result;
@@ -69,6 +70,11 @@ export function LootReview({ controller }: { controller: ReviewController }) {
 
     if (!selected) return null;
     const status = selected.result.status;
+    const image = status === "dropped" ? undefined : quantityImage(selected.result.capture);
+    const learned =
+        controller.learning?.state.enabled && selected.source === "normal" && image && selected.learningProfile
+            ? controller.learning.model.current.suggest(image, selected.learningProfile)
+            : undefined;
     return (
         <section
             className={styles.Review}
@@ -203,6 +209,8 @@ export function LootReview({ controller }: { controller: ReviewController }) {
                             draft={drafts[selected.id] ?? { item: "", quantity: "1" }}
                             onDraftChange={(draft) => setDrafts((current) => ({ ...current, [selected.id]: draft }))}
                             onAdd={controller.correctReviewResult}
+                            learnOnAdd={controller.learning?.state.enabled}
+                            learnedQuantity={learned?.quantity}
                         />
                     )}
                     {status === "recognized" && (
@@ -227,7 +235,10 @@ export function LootReview({ controller }: { controller: ReviewController }) {
             </div>
             <footer className={styles.Footer}>
                 <span>Unreviewed drops are not in your totals.</span>
-                <span>Captures are discarded when dismissed, on finish, or when the app closes.</span>
+                <span>
+                    Review captures are discarded when dismissed, on finish, or when the app closes. Quantity examples
+                    you teach are kept locally and remain until deleted or replaced by newer examples.
+                </span>
                 {controller.omittedReviewResults > 0 && (
                     <span role="status">
                         {controller.omittedReviewResults} older results removed. Unresolved item captures are retained.

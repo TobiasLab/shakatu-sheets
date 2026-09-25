@@ -1,8 +1,10 @@
 import { useEffect, useRef, useState } from "react";
 import type { LiveLootReviewEntry } from "../../recognition/liveLootReview";
+import { quantityImage } from "../../recognition/quantityLearning";
 import { retryLootCapture } from "../../recognition/retryLootCapture";
 import { FormField } from "../FormField/FormField";
 import styles from "./LootReview.module.css";
+import { QuantityImage } from "./QuantityLearningPanel";
 
 export type CorrectionDraft = { item: string; quantity: string };
 
@@ -13,6 +15,8 @@ export function CaptureCorrection({
     onAdd,
     draft,
     onDraftChange,
+    learnOnAdd = false,
+    learnedQuantity,
 }: {
     review: LiveLootReviewEntry;
     items: readonly string[];
@@ -20,10 +24,13 @@ export function CaptureCorrection({
     draft: CorrectionDraft;
     onDraftChange: (draft: CorrectionDraft) => void;
     onAdd: (id: number, itemName: string, quantity: number) => void;
+    learnOnAdd?: boolean;
+    learnedQuantity?: number;
 }) {
     const canvas = useRef<HTMLCanvasElement>(null);
     const { item, quantity } = draft;
     const capture = review.result.status === "dropped" ? undefined : review.result.capture;
+    const learningImage = learnOnAdd && review.source === "normal" ? quantityImage(capture) : undefined;
     const retry = useRef<AbortController | null>(null);
     const [retrying, setRetrying] = useState(false);
     const [retryMessage, setRetryMessage] = useState("");
@@ -128,6 +135,31 @@ export function CaptureCorrection({
                             </button>
                         </>
                     )}
+                </div>
+            )}
+            {learnedQuantity !== undefined && (
+                <div className={styles.RetryResult}>
+                    <p>
+                        Saved examples suggest quantity <strong>{learnedQuantity}</strong>. Check the image before
+                        confirming.
+                    </p>
+                    <button
+                        className="button"
+                        type="button"
+                        disabled={disabled}
+                        onClick={() => onDraftChange({ ...draft, quantity: String(learnedQuantity) })}
+                    >
+                        Use learned quantity
+                    </button>
+                </div>
+            )}
+            {learningImage && (
+                <div className={styles.RetryResult}>
+                    <QuantityImage image={learningImage} />
+                    <p>
+                        Adding this correction also saves this quantity image for learning. Confirm that it shows the
+                        complete number you enter.
+                    </p>
                 </div>
             )}
             <div className={styles.CorrectionFields}>
