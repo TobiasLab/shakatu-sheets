@@ -30,13 +30,29 @@ Finishing drains pending OCR and offers a choice to review unresolved drops or f
 excluded from session duration. Review images are discarded when the session finishes; opted-in learning examples
 remain in their separate local database.
 
-Settings → Self-improvement enables learning from successful manual normal-loot corrections. Learned item and quantity
-suggestions prefill untouched drafts for confirmation with Add to session; later suggestions never replace manual edits.
-Learning and automatic recovery are separate opt-ins, both off by default. Automatic recovery only considers unresolved
-OCR and requires validated evidence for both fields. Users can inspect, delete, or reset saved examples. See
-[self-improvement](../architecture/quantity-learning.md) for matching rules and limits.
-
 See [live loot architecture](../architecture/live-loot.md) for capture profiles, OCR policy, diagnostics, and limits.
+
+## Self-learning
+
+Settings → Self-improvement provides **Learn from my corrections** and **Auto allow**, both off by default. With learning
+enabled, successful manual corrections in Needs attention teach normal-loot item names and whole quantities separately.
+Learning Black Stone ×6 can help recognize Black Stone ×9, but learning a quantity of 16 does not teach every number
+containing 6. Rare banners, dismissals, failed insertions, and automatic results do not teach the reader.
+
+Learned suggestions prefill untouched item and quantity fields. Users check the capture and confirm with **Add to session**;
+prefilling alone never inserts loot. Drafts survive switching between captures, and later suggestions never replace manual
+edits. Suggested items must belong to the current session's item dictionary.
+
+**Auto allow** separately enables recovery after ordinary OCR remains unresolved. It requires eligible learned examples,
+agreement across at least three frames, and no conflicting item or quantity evidence. Accepted OCR is never overridden;
+uncertain captures remain available for manual review. Eligibility checks do not guarantee real-game accuracy.
+
+**Saved examples** lets users inspect confirmed labels, small text images, and recognition details, delete individual
+examples, or reset the library and turn both settings off. Disabling learning retains saved examples. Examples stay on
+the user's device in a separate database and survive session deletion; full capture frames are not saved by learning.
+A failed example save does not undo the added loot and can be retried or discarded.
+
+See [self-improvement architecture](../architecture/quantity-learning.md) for matching rules, storage, and validation limits.
 
 ## History and comparisons
 
