@@ -20,13 +20,13 @@ Implemented behavior:
    upload character. Garmoth requires users to provide the final ID segment from each character URL; the approved API
    does not expose an account-level character-list endpoint.
 3. Grind-spot profiles retain the official spot IDs and exact drop keys, including enhancement sub-keys.
-4. History shows a payload summary before an explicit upload. Unsupported custom revenue rows block the action rather
-   than being silently omitted.
+4. History shows a payload summary before an explicit upload. Rows outside the destination spot's export table are
+   listed as omitted; local entries and full session totals are retained.
 5. Uploads include integer minutes, net session and hourly income, all profile drop keys, and the selected character's
-   class and specialization. Global-data sharing remains disabled.
-6. Durable per-session upload state prevents duplicate actions. Connect failures before transmission may be retried
-   explicitly; timed-out, interrupted, or server-failed requests are marked unknown and never retried automatically
-   because Garmoth provides no idempotency contract.
+   class and specialization. Global-data sharing is opt-in and defaults off.
+6. Durable per-session upload state guards retries; successful uploads can be repeated after explicit confirmation.
+   Connect failures before transmission may be retried explicitly; timed-out, interrupted, or server-failed requests are
+   marked unknown and never retried automatically because Garmoth provides no idempotency contract.
 
 The endpoint documentation does not define character-build or upload success response bodies. The client validates the
 documented character fields it consumes and treats any successful upload HTTP status as confirmation. Do not perform a

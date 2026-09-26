@@ -12,7 +12,7 @@ The offline live-loot video benchmark additionally requires FFmpeg. Benchmark vi
 committed. Development builds can write 30-minute normal and rare ROI samples under the ignored
 `dev-samples/live-loot/` directory. Each run also records recognized, withheld, failed, and dropped OCR events in
 `ocr-issues.jsonl`. Version 2 records include native frame IDs, exact row/crop bounds, final item quantities, and individual
-preprocessing passes when available; see the [capture documentation](../design/live-loot-recognition.md).
+preprocessing passes when available; see the [capture documentation](../architecture/live-loot.md#diagnostics-and-pixel-lifetime).
 
 ```sh
 npm ci
@@ -81,7 +81,7 @@ The normal flow is `main` → feature branch → PR into `main`, with no interme
 
 ## Performance and UI verification
 
-See [the performance report and game-impact protocol](../design/performance.md). Enable native aggregate capture
+See [the game-impact protocol](performance.md). Enable native aggregate capture
 measurements by launching the release app with `SHAKATU_CAPTURE_DIAGNOSTICS=1`. Native metrics are emitted at most once
 every five seconds. For frontend analysis/OCR timing, open capture setup and expand Advanced diagnostics. Close the
 panel for normal resource measurements. The debug ROI collector remains opt-in and absent from release builds.
@@ -99,8 +99,8 @@ node scripts/smoke-loot-learning.mjs
 
 The learning smoke uses synthetic crops and a persistence adapter to check opt-in, suggestions, corrections, failure
 retries, auto-allow controls, deletion, and reset. For synthetic matching overhead, run
-`npx vite-node --script scripts/benchmark-loot-learning.mjs`; see [self-improvement](../design/quantity-learning.md)
-for acceptance rules and the separate database's main-branch compatibility.
+`npx vite-node --script scripts/benchmark-loot-learning.mjs`; see [self-improvement](../architecture/quantity-learning.md)
+for acceptance rules and storage compatibility.
 
 The test opens and closes its own tab, uses real browser pointer and keyboard events, and verifies navigation/minimization/
 preview and finish behavior, sidebar collapse/expansion and capture navigation, timer persistence isolation, dialog focus and
@@ -123,7 +123,7 @@ separate from the real-game 30-minute resource/recognition acceptance run.
 
 
 For detection changes, replay developer ROI samples with `npm run benchmark:loot:roi -- /path/to/dev-samples/live-loot --ocr`. Add `--validation` for the reserved split. For the refreshed September 5 corpus, pass
-`--annotations scripts/fixtures/loot-roi-2026-09-05.json` so the sample directory can remain untouched. See the [ROI replay documentation](../design/live-loot-benchmark.md#roi-sample-replay)
+`--annotations scripts/fixtures/loot-roi-2026-09-05.json` so the sample directory can remain untouched. See the [ROI replay documentation](live-loot-benchmark.md#roi-sample-replay)
 for scoring limits and optional JSON reports. Captured PNGs stay outside tracked source.
 
 Use `UI_SMOKE_BACKEND=windows` for the synthetic Windows capability path (in
@@ -132,7 +132,7 @@ change document visibility and correctly suppress previews in the background cas
 
 The ROI replay supports `--sample-step 2 --sample-offset 0|1` for offline sampling sensitivity checks. Reports retain native
 batch IDs and distinguish recorded from replayed frame counts. This does not change gameplay capture settings. See the
-[repeated-arrival evaluation](../design/repeated-loot-arrivals.md) for the reviewed fixture and reproduction commands.
+[benchmark guide](live-loot-benchmark.md#regression-fixtures) for reviewed fixtures and reproduction commands.
 
 ## Grind spot catalog
 

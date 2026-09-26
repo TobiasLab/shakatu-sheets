@@ -31,9 +31,10 @@ written as a new set of price snapshots; failed responses do not change saved da
 
 Garmoth credentials remain in SQLite and are used only by Rust requests. The frontend receives configured state and
 validated character summaries, never the saved key. Character builds are fetched explicitly using the IDs required by
-Garmoth's approved endpoint. Finished-session upload previews map profile drop names to Garmoth keys and reject
-unmatched revenue rows rather than silently omitting them. Backend Garmoth operations are serialized so navigation or
-multiple windows cannot race key replacement, character selection, uploads, and finished-session deletion.
+Garmoth's approved endpoint. Finished-session upload previews map profile drop names to Garmoth keys and list rows
+outside the destination spot's export table as omitted. Local entries and full session totals are retained. Backend
+Garmoth operations are serialized so navigation or multiple windows cannot race key replacement, character selection,
+uploads, and finished-session deletion.
 
 Uploads are explicit and single-shot. Rust reserves a session as `unknown` before sending the create request and changes
 it to `success` only after a successful response. A connect failure known to occur before transmission releases the
@@ -52,7 +53,8 @@ commands and shuts down native capture at app exit.
 
 Live loot capture uses a versioned binary channel for a bounded preview and native-resolution normal/rare or search
 regions. Linux crops the mapped PipeWire buffer; Windows reads back only GPU-cropped regions and GPU-reduced previews;
-browser capture crops its hidden video frame. Pixels remain transient. SQLite stores normalized rectangles, UI scale,
+browser capture crops its hidden video frame. Pixels remain transient except for explicit debug ROI collection and
+opt-in [self-improvement examples](quantity-learning.md). SQLite stores normalized rectangles, UI scale,
 and source dimensions. The capability command chooses the native backend and reports unavailable capture without
 user-agent detection. Windows source replacement requires fresh confirmation of saved placement hints.
 
@@ -74,21 +76,8 @@ time from timestamps. Its clock receives the same elapsed value as its earnings 
 the save queue, and retries its latest failed snapshot before destroying the window. A persistent failure keeps the app
 open with an actionable error.
 
-PipeWire is requested at a maximum of 16 FPS, at native source dimensions. A deadline-based consumer gate also bounds
-processing to 16 FPS while tolerating 3 ms of arrival jitter. Crops validate contiguous rows before
-conversion, retain source stride handling and exact channel/alpha conversion, and preserve the version 3 binary header.
-Normal/rare geometry is selected together by explicit resolution/UI-scale registry entries. The 3440×1440 and
-2560×1440 entries share the same native ROI geometry at 80% UI scale. Manual placement is the default. The selected normal or rare
-area can be adjusted automatically at 80% UI scale for all three supported source resolutions, using actual
-source dimensions for normalization. 1920×1080 OCR remains unavailable pending calibration. Normal row assignment can use
-digit shapes to refine ambiguous matches. It retains the original three OCR observations and reads up to two supplementary
-frames only for unresolved results, preserving the conflict veto. Capture, job, result, and diagnostic queues remain bounded.
-OCR canvases resize only when dimensions change and are cleared and released after each job. Diagnostic JSONL version 2
-includes recognized results and per-pass metadata; there are no database schema migrations.
-
-Normal arrival detection supplements text identity with bounded local-contrast signatures of fading rows. Confirmed
-displacement creates distinct events for repeated drops, and fading top rows preserve surviving bottom-track identities.
-See [repeated loot arrivals](../design/repeated-loot-arrivals.md) for evidence, limits, and performance measurements.
+Capture profiles, bounded OCR consensus, repeated-arrival tracking, font-specific preprocessing, and debug collection
+are described in [live loot recognition](live-loot.md). See that reference for current geometry and validation limits.
 
 ## Session overlay
 

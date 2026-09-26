@@ -6,15 +6,17 @@ Shakatu Sheets is a local-first, open-source silver-per-hour tracker for Black D
 
 - Manual live session tracking
 - Editable completed hours for manually timed sessions
-- History for the 20 most recent completed sessions, with grind-spot filtering and safe session reopening
+- Paginated completed-session history, with region, date, and grind-spot filtering, comparisons, and safe reopening
 - User-triggered EU and NA Central Market price snapshots from Arsha
 - Explicit Garmoth uploads for completed sessions, with local API-key and character settings
-- Six grind-spot profiles covering Sycraia, Star's End, and four Edania zones
+- Bundled grind-spot catalog, including Dehkia variants
 - Light, moss green, and dark theme options
 - Local, user-triggered Marni loot screenshot imports with an editable review step
 - Session-only review of uncertain live loot captures, with item images, single-image OCR retries, and manual item/quantity correction. OCR retry suggestions are added only when confirmed. Images stay in memory until resolved, cleared, the session finishes, or the app closes.
 - English cropped screenshots at 80%, 100%, and 120% BDO UI scale as the first recognition target
 - Local SQLite persistence with startup migrations
+
+See the [documentation index](documentation/README.md) for product behavior and technical references.
 
 ## Development
 
