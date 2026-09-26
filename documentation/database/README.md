@@ -102,12 +102,12 @@ to session rows. Preset saving is an explicit operation, separate from the order
 Opt-in normal-loot self-improvement uses `quantity-learning.sqlite3` alongside `shakatu-sheets.sqlite3`, under the same
 application-data directory (including `SHAKATU_DATA_DIR` overrides). It has independent ordered migrations, currently
 `PRAGMA user_version = 3`. Loading defaults does not create the file; changing learning settings or saving an example
-creates it. No session migration, setting, foreign key, or session-entry change accompanies this feature. Main can
-ignore the learning file and continue using the existing version-4 session database. Switching back to this feature
-branch restores the saved examples and settings. Migration 2 adds nullable `audit_json` without changing migration 1.
+creates it. No session migration, setting, foreign key, or session-entry change accompanies this feature. Builds predating
+self-improvement ignore the learning file and continue using the version-4 session database. Returning to a compatible
+learning build restores the saved examples and settings. Migration 2 adds nullable `audit_json` without changing migration 1.
 Existing examples retain their images and labels with no invented audit history. Migration 3 adds nullable `item_name`, `item_width`, `item_height` and `item_png` columns. Older examples remain
 quantity-only. Auto allow is disabled once on this migration because item recovery expands automatic behavior. Earlier
-feature builds supporting versions 1 or 2 cannot open the upgraded learning file; main still ignores it entirely.
+learning builds supporting versions 1 or 2 cannot open the upgraded learning file.
 
 The separate database stores opt-in and auto-allow settings, a confirmation sequence, and at most 200 examples with
 at most 50 per font/UI-scale/source-resolution setup. Each example contains an event UUID, positive safe-integer
@@ -132,4 +132,4 @@ foreign keys, busy timeout, WAL mode, and Unix file permissions follow the exist
 file has no session foreign keys: session edits/deletion cannot modify examples, and learning reset/deletion cannot
 modify sessions. Reset removes examples and turns learning and auto allow off. Disabling learning retains examples.
 A learning error leaves ordinary capture, OCR, and session persistence available. See
-[self-improvement](../design/quantity-learning.md) for matching and automatic acceptance rules.
+[self-improvement](../architecture/quantity-learning.md) for matching and automatic acceptance rules.

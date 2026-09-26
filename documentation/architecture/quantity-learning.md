@@ -10,8 +10,8 @@ training and cross-device sharing are outside this implementation.
 Settings and examples live in a separate `quantity-learning.sqlite3`. Session storage and its version-4 migrations are
 unchanged. Learning migration 3 adds nullable item labels/images to existing examples. Older examples remain quantity-only;
 item identities are never inferred from old OCR guesses. This migration turns Auto allow off once because automatic item
-recovery expands its scope. Users may enable it again in Settings. Main ignores the learning file; older feature builds
-supporting learning schema versions 1 or 2 cannot open the upgraded file.
+recovery expands its scope. Users may enable it again in Settings. Builds predating self-improvement ignore the learning
+file; earlier learning builds supporting schema versions 1 or 2 cannot open the upgraded file.
 
 ## Corrections and inspection
 
@@ -77,21 +77,10 @@ Automatic recovery uses the existing event insertion/retry path and is labeled s
 prepared library is disabled during settings/example operations, then replaced between recognition callbacks. Capture
 performs no learning database requests and item learning adds no OCR passes.
 
-## Verification and limits
+## Validation limits
 
-Tests cover item recognition across quantities, dictionary/setup isolation, item and numeric conflicts, both-field recovery,
-OCR fallback, ambiguous/missing crops, identical-component validation leakage, clock rollback, raw-pass conflict vetoes, successful corrections only, unchanged
-accepted OCR and audit provenance. Rust tests cover bounded PNG round trips, rejected labels/images/bounds, conflict and
-retry behavior, migrations from learning versions 1 and 2, one-time Auto allow reset, and byte-for-byte preservation of a
-populated session database followed by reopening/updating through unchanged persistence code.
-
-With Chromium listening on port 9222, `node scripts/smoke-loot-learning.mjs` exercises real components with synthetic
-persistence, including item and number suggestions without insertion, audit display, failed-save retry, controls and reset.
-No user database or gameplay images are used. Run the standard frontend and Rust checks for cross-stack changes.
-
-`npx vite-node --script scripts/benchmark-loot-learning.mjs` measures both matchers. A Linux/Node run with 200 examples,
-50 in the active setup, five 48×20 quantity images and five 300×20 name images measured 13.40 ms median and 13.70 ms p95 per
-unresolved event; initial library preparation took 261 ms. Preparation happens on load/mutation, not per capture frame.
-This synchronous work can briefly pause the UI on large-library updates. These are synthetic CPU measurements, not
-end-to-end capture latency, dropped-frame measurements or gameplay accuracy. Real gameplay and Windows hardware
-acceptance remain unmeasured.
+The library is prepared on load and mutation, and matching runs synchronously for unresolved events. Large library
+updates can briefly pause the UI. No additional OCR passes are added. Synthetic tests and benchmarks do not establish
+end-to-end capture latency or real gameplay accuracy; Windows hardware acceptance also remains unmeasured.
+See [development verification](../development/README.md#performance-and-ui-verification) for learning smoke and benchmark
+commands, and [database storage](../database/README.md#self-improvement-database) for migrations and persistence limits.

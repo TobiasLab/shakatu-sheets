@@ -10,8 +10,9 @@ The implementation is ready for native validation, **not verified Windows releas
 build the complete Windows executable and check shared behavior, but cannot run D3D11, WebView2, the picker, or BDO.
 The six requested resolution/scale combinations remain native acceptance targets. Recognition is enabled at
 3440×1440 and 2560×1440 with 80% and 100% BDO UI scale; 1920×1080 remains preview-only. The 80% calibration comes from
-3440×1440, and the 100% geometry is derived from it pending genuine 100% gameplay validation. Rare detection remains
-provisional. See [UI-scale support and evidence](../design/live-loot-ui-scale.md).
+3440×1440, and the 100% geometry is derived from it. Reviewed 3440×1440 normal-loot recordings cover both scales;
+native Windows gameplay validation remains pending. Rare detection remains
+provisional. See [capture profiles and validation limits](../architecture/live-loot.md).
 
 ## Verification in this workspace
 
@@ -232,7 +233,7 @@ npm run benchmark:loot:roi -- 'C:\path with spaces\dev-samples\live-loot' --vali
 Windows writes capture startup/error records to `%LOCALAPPDATA%\io.github.shakatusheets\logs\capture.log`, rotating at
 1 MiB with one previous file. Set `SHAKATU_CAPTURE_DIAGNOSTICS=1` only when measuring to additionally record aggregate
 frame counters. Records contain no pixels or window names. Packing time includes GPU copy/readback wait and CPU packing; it is not an isolated GPU timing.
-See [the game-impact protocol](../design/performance.md) for measurements with diagnostics disabled too.
+See [the game-impact protocol](performance.md) for measurements with diagnostics disabled too.
 
 ## Local builds and optional packaging
 
