@@ -248,7 +248,7 @@ function regionsCaptureSelection(
 
 function resultDescription(result: LiveLootRecognitionResult) {
     if (result.status === "recognized")
-        return `${result.itemName} x ${result.quantity}${result.learnedQuantity ? " (learned quantity)" : ""}`;
+        return `${result.itemName} x ${result.quantity}${result.learnedQuantity ? " (self-improvement)" : ""}`;
     if (result.status === "failed") return "Local OCR failed for this notification.";
     if (result.status === "dropped") {
         const cause =
@@ -777,7 +777,7 @@ export function useLiveLootCapture({
         replaceReviewEntry(corrected);
         if (!review.accepted && corrected.accepted) {
             cancelAutomaticRetry(id);
-            learning.learnCorrection(review, quantity);
+            learning.learnCorrection(review, quantity, itemName);
         }
     }
 

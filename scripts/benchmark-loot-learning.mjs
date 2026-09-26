@@ -12,6 +12,13 @@ for (let y = 2; y < height - 2; y++) {
         pixels[(y * width + x) * 4 + 3] = 255;
     }
 }
+const itemWidth = 300;
+const itemPixels = new Uint8ClampedArray(itemWidth * height * 4);
+for (let y = 2; y < height - 2; y++)
+    for (let x = 2; x < itemWidth - 2; x++) {
+        if (x % 7 < 3 || y % 5 < 2) itemPixels.fill(235, (y * itemWidth + x) * 4, (y * itemWidth + x) * 4 + 3);
+        itemPixels[(y * itemWidth + x) * 4 + 3] = 255;
+    }
 const examples = Array.from({ length: 200 }, (_, index) => ({
     id: `example-${index}`,
     profile: {
@@ -21,7 +28,13 @@ const examples = Array.from({ length: 200 }, (_, index) => ({
     },
     width,
     height,
-    pixels: Array.from(pixels),
+    pixels: Array.from(pixels, (value, offset) => (offset === 0 ? index : value)),
+    itemName: `Item ${index % 5}`,
+    itemImage: {
+        width: itemWidth,
+        height,
+        pixels: Array.from(itemPixels, (value, offset) => (offset === 0 ? index : value)),
+    },
     quantity: 600 + (index % 5),
     originalQuantity: null,
     originalText: "",
@@ -35,7 +48,16 @@ const image = { width, height, pixels };
 const samples = [];
 for (let iteration = 0; iteration < 240; iteration++) {
     const start = performance.now();
-    for (let frame = 0; frame < 5; frame++) model.suggest(image, profile);
+    for (let frame = 0; frame < 5; frame++) {
+        model.suggest(image, profile);
+        model.suggestItem({ width: itemWidth, height, pixels: itemPixels }, profile, [
+            "Item 0",
+            "Item 1",
+            "Item 2",
+            "Item 3",
+            "Item 4",
+        ]);
+    }
     if (iteration >= 40) samples.push(performance.now() - start);
 }
 samples.sort((a, b) => a - b);
@@ -44,7 +66,8 @@ console.info(
         {
             examples: examples.length,
             activeSetupExamples: 50,
-            nativeCrop: `${width}x${height}`,
+            quantityCrop: `${width}x${height}`,
+            itemCrop: `${itemWidth}x${height}`,
             framesPerEvent: 5,
             libraryPreparationMs: +prepareMs.toFixed(3),
             medianEventMs: +samples[Math.floor(samples.length / 2)].toFixed(3),

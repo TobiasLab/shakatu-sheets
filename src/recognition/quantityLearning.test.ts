@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { copyLootReviewCapture, type LiveLootOcrFrame, type LootRoiFrame } from "./liveLoot";
 import {
     correctionQuantityExample,
+    itemImage,
     type LearningProfile,
     prepareQuantityLearning,
     type QuantityExample,
@@ -30,6 +31,8 @@ function pixels(rows: string[], padding = 1, brightness = 255): LootRoiFrame {
 }
 function example(id: string, quantity: number, validation = false): QuantityExample {
     const image = pixels(quantity === 6 ? six : nine, 1, 235 + (id.length % 20));
+    for (let i = 0; i < Math.min(id.length, image.width * 3); i++)
+        image.pixels[Math.floor(i / 3) * 4 + (i % 3)] = id.charCodeAt(i) % 90;
     return {
         ...image,
         pixels: Array.from(image.pixels),
@@ -93,7 +96,7 @@ describe("local quantity examples", () => {
                 capture: copyLootReviewCapture(frame(0)),
             },
         };
-        expect(correctionQuantityExample(review, 6)).toMatchObject({
+        expect(correctionQuantityExample(review, 6, "Black Stone")).toMatchObject({
             quantity: 6,
             audit: {
                 version: 1,
@@ -104,8 +107,8 @@ describe("local quantity examples", () => {
                 frames: [],
             },
         });
-        expect(correctionQuantityExample({ ...review, accepted: true }, 6)).toBeUndefined();
-        expect(correctionQuantityExample({ ...review, source: "rare" }, 6)).toBeUndefined();
+        expect(correctionQuantityExample({ ...review, accepted: true }, 6, "Black Stone")).toBeUndefined();
+        expect(correctionQuantityExample({ ...review, source: "rare" }, 6, "Black Stone")).toBeUndefined();
         expect(
             correctionQuantityExample(
                 {
@@ -119,14 +122,19 @@ describe("local quantity examples", () => {
                     },
                 },
                 6,
+                "Black Stone",
             ),
         ).toBeUndefined();
-        expect(correctionQuantityExample(review, 1.5)).toBeUndefined();
+        expect(correctionQuantityExample(review, 1.5, "Black Stone")).toBeUndefined();
         expect(
-            correctionQuantityExample({ ...review, result: { ...review.result, capture: undefined } }, 6),
+            correctionQuantityExample(
+                { ...review, result: { ...review.result, capture: undefined } },
+                6,
+                "Black Stone",
+            ),
         ).toBeUndefined();
         review.result.capture.pixels.fill(0);
-        expect(correctionQuantityExample(review, 6)).toBeUndefined();
+        expect(correctionQuantityExample(review, 6, "Black Stone")).toBeUndefined();
     });
     it("matches whole shapes despite padding and fading, while isolating font, scale and resolution", () => {
         const reader = model();
@@ -231,5 +239,248 @@ describe("automatic unresolved quantity recovery", () => {
             suggestUnresolvedQuantity(frames, minorityConflict, ["Black Stone", "Caphras Stone"], profile, reader)
                 ?.automatic,
         ).toBe(false);
+    });
+});
+
+function namedExample(id: string, itemName = "Black Stone", quantity = 6, reserved = false): QuantityExample {
+    const number = example(id, quantity, reserved);
+    const name = pixels((itemName === "Black Stone" ? six : nine).map((row) => `${row}..${row}..${row}`));
+    for (let i = 0; i < id.length; i++) name.pixels[i * 4] = id.charCodeAt(i) % 90;
+    return { ...number, itemName, itemImage: { ...name, pixels: Array.from(name.pixels) } };
+}
+function namedFrame(index: number, quantity = 6): LiveLootOcrFrame {
+    const number = frame(index, quantity);
+    const name = pixels(six.map((row) => `${row}..${row}..${row}`));
+    const width = name.width + 4 + number.roi.width;
+    const data = new Uint8ClampedArray(width * name.height * 4);
+    for (let y = 0; y < name.height; y++) {
+        data.set(name.pixels.subarray(y * name.width * 4, (y + 1) * name.width * 4), y * width * 4);
+        data.set(
+            number.roi.pixels.subarray(y * number.roi.width * 4, (y + 1) * number.roi.width * 4),
+            (y * width + name.width + 4) * 4,
+        );
+    }
+    return {
+        ...number,
+        roi: { width, height: name.height, pixels: data },
+        observation: {
+            ...number.observation,
+            fingerprint: {
+                ...number.observation.fingerprint,
+                digits: {
+                    pixels: new Uint8Array(),
+                    bounds: { left: name.width + 4, right: width, top: 0, bottom: name.height },
+                    itemBounds: { left: 0, right: name.width, top: 0, bottom: name.height },
+                },
+            },
+        },
+    };
+}
+function namedModel(autoAllow = true) {
+    return prepareQuantityLearning({
+        enabled: true,
+        autoAllow,
+        examples: [
+            namedExample("train-a"),
+            namedExample("train-b"),
+            namedExample("train-c", "Caphras Stone", 9),
+            namedExample("check-a", "Black Stone", 6, true),
+            namedExample("check-b", "Black Stone", 6, true),
+            namedExample("check-c", "Black Stone", 6, true),
+            namedExample("check-d", "Caphras Stone", 9, true),
+        ],
+    });
+}
+
+describe("learned item names", () => {
+    const dictionary = ["Black Stone", "Caphras Stone"];
+    const frames = [namedFrame(0), namedFrame(1), namedFrame(2)];
+    it("saves the confirmed item and separate image with original frame bounds", () => {
+        const capture = copyLootReviewCapture(frames[0]);
+        const saved = correctionQuantityExample(
+            {
+                id: 1,
+                source: "normal",
+                accepted: false,
+                error: "",
+                learningId: "item-event",
+                learningProfile: profile,
+                result: {
+                    eventId: "1",
+                    firstFrame: 0,
+                    selectedFrames: [0],
+                    status: "withheld",
+                    reason: "item-not-recognized",
+                    itemName: null,
+                    quantity: null,
+                    capture,
+                },
+            },
+            6,
+            "Black Stone",
+        );
+        expect(saved).toMatchObject({
+            itemName: "Black Stone",
+            itemImage: { width: 21, height: 9 },
+            quantity: 6,
+            audit: { cropFrame: { itemBounds: { left: 0, right: 21 } } },
+        });
+        expect(itemImage(capture)?.width).toBe(21);
+        expect(itemImage({ ...capture, itemBounds: { left: -1, right: 21, top: 0, bottom: 9 } })).toBeUndefined();
+    });
+    it("learns the item independently of quantity and the current dictionary limits suggestions", () => {
+        const reader = namedModel(false);
+        const changedQuantity = copyLootReviewCapture(namedFrame(0, 9));
+        const image = itemImage(changedQuantity);
+        if (!image) throw Error("Expected item image");
+        expect(reader.suggestItem(image, profile, dictionary)).toEqual({ itemName: "Black Stone", automatic: false });
+        expect(reader.suggestItem(image, profile, ["Caphras Stone"])).toBeUndefined();
+        expect(reader.suggestItem(image, { ...profile, font: "strong-sword" }, dictionary)).toBeUndefined();
+        expect(reader.evidence.find((entry) => entry.kind === "item" && entry.label === "Black Stone")).toMatchObject({
+            templates: 2,
+            checked: 3,
+            correct: 3,
+            alternativesCorrect: 1,
+            wrong: 0,
+            eligible: true,
+        });
+    });
+    it("recovers both fields when OCR cannot recognize either, but still requires confirmation by default", () => {
+        const readings = frames.map(() => ["Unreadable x &", "Unreadable x ?"]);
+        expect(suggestUnresolvedQuantity(frames, readings, dictionary, profile, namedModel())).toEqual({
+            quantity: 6,
+            itemName: "Black Stone",
+            automatic: true,
+        });
+        expect(suggestUnresolvedQuantity(frames, readings, dictionary, profile, namedModel(false))?.automatic).toBe(
+            false,
+        );
+        expect(
+            suggestUnresolvedQuantity(frames.slice(0, 2), readings.slice(0, 2), dictionary, profile, namedModel())
+                ?.automatic,
+        ).toBe(false);
+    });
+    it("can recover an unreadable item with a clear OCR quantity that has no learned image match", () => {
+        const noNumber = frames.map((value) => ({ ...value, roi: { ...value.roi, pixels: value.roi.pixels.slice() } }));
+        for (const value of noNumber) {
+            const bounds = value.observation.fingerprint.digits?.bounds;
+            if (!bounds) throw Error("Expected quantity bounds");
+            for (let y = 0; y < value.roi.height; y++)
+                value.roi.pixels.fill(
+                    0,
+                    (y * value.roi.width + bounds.left) * 4,
+                    (y * value.roi.width + bounds.right) * 4,
+                );
+        }
+        const readings = frames.map(() => ["Unreadable x 42", "Unreadable x 42", "Unreadable x &"]);
+        expect(suggestUnresolvedQuantity(noNumber, readings, dictionary, profile, namedModel())).toEqual({
+            quantity: 42,
+            itemName: "Black Stone",
+            automatic: true,
+        });
+        expect(
+            suggestUnresolvedQuantity(
+                noNumber,
+                frames.map(() => ["Unreadable x &"]),
+                dictionary,
+                profile,
+                namedModel(),
+            ),
+        ).toEqual({ quantity: null, itemName: "Black Stone", automatic: false });
+    });
+    it("vetoes conflicting OCR, ambiguous item images and missing frame matches", () => {
+        for (const text of ["Caphras Stone x &", "Unreadable x 9"]) {
+            const readings = [["Unreadable x &"], ["Unreadable x &"], ["Unreadable x &", "Unreadable x &", text]];
+            expect(suggestUnresolvedQuantity(frames, readings, dictionary, profile, namedModel())?.automatic).toBe(
+                false,
+            );
+        }
+        const reader = prepareQuantityLearning({
+            enabled: true,
+            autoAllow: true,
+            examples: [namedExample("a"), { ...namedExample("b"), itemName: "Caphras Stone" }],
+        });
+        const image = itemImage(copyLootReviewCapture(frames[0]));
+        if (!image) throw Error("Expected item image");
+        expect(reader.suggestItem(image, profile, dictionary)).toBeUndefined();
+        const digits = frames[2].observation.fingerprint.digits;
+        if (!digits) throw Error("Expected quantity bounds");
+        const missing = {
+            ...frames[2],
+            observation: {
+                ...frames[2].observation,
+                fingerprint: {
+                    ...frames[2].observation.fingerprint,
+                    digits: { ...digits, itemBounds: undefined },
+                },
+            },
+        };
+        expect(
+            suggestUnresolvedQuantity(
+                [frames[0], frames[1], missing],
+                frames.map(() => ["Unreadable x &"]),
+                dictionary,
+                profile,
+                namedModel(),
+            )?.automatic,
+        ).toBe(false);
+    });
+    it("vetoes raw OCR conflicts even when later passes replace the returned readings", () => {
+        const readings = frames.map(() => ["Unreadable x &", "Unreadable x &", "Unreadable x &"]);
+        for (const pass of [
+            { region: "line" as const, text: "Caphras Stone x &" },
+            { region: "line" as const, text: "Unreadable x 9" },
+            { region: "quantity" as const, text: "9" },
+        ]) {
+            const rawConflict = frames.map((frame, index) => ({
+                ...frame,
+                diagnostics: { passes: index === 0 ? [{ ...pass, threshold: 150 as const, scale: 2 as const }] : [] },
+            }));
+            expect(suggestUnresolvedQuantity(rawConflict, readings, dictionary, profile, namedModel())).toEqual({
+                quantity: 6,
+                itemName: "Black Stone",
+                automatic: false,
+            });
+        }
+        const agreeing = frames.map((frame) => ({
+            ...frame,
+            diagnostics: {
+                passes: [{ region: "quantity" as const, text: "6", threshold: 150 as const, scale: 4 as const }],
+            },
+        }));
+        expect(suggestUnresolvedQuantity(agreeing, readings, dictionary, profile, namedModel())?.automatic).toBe(true);
+    });
+    it.each([true, false])("preserves the first component role despite clock changes (reserved: %s)", (reserved) => {
+        const original = { ...namedExample("original", "Black Stone", 6, reserved), confirmedAt: 100 };
+        const copy = {
+            ...namedExample("copy", "Black Stone", 6, !reserved),
+            itemImage: original.itemImage,
+            confirmedAt: 1,
+        };
+        // The database returns descending insertion sequence, regardless of confirmation time.
+        const reader = prepareQuantityLearning({ enabled: true, autoAllow: true, examples: [copy, original] });
+        expect(reader.evidence.find((entry) => entry.kind === "item")).toMatchObject({
+            templates: reserved ? 0 : 1,
+            checked: reserved ? 1 : 0,
+            eligible: false,
+        });
+    });
+    it("does not count repeated component images as support or leak them into validation", () => {
+        const first = { ...namedExample("first"), confirmedAt: 1 };
+        const repeated = [2, 3, 4, 5].map((index) => ({
+            ...namedExample(`copy-${index}`, "Black Stone", 6, index >= 3),
+            itemImage: first.itemImage,
+            confirmedAt: index,
+        }));
+        const reader = prepareQuantityLearning({
+            enabled: true,
+            autoAllow: true,
+            examples: [...repeated.reverse(), first],
+        });
+        expect(reader.evidence.find((entry) => entry.kind === "item")).toMatchObject({
+            templates: 1,
+            checked: 0,
+            eligible: false,
+        });
     });
 });

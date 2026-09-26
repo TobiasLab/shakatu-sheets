@@ -4,6 +4,7 @@ import type { LootFont } from "./lootFont";
 
 export type LootQuantityGlyphs = {
     bounds: LootOcrBounds;
+    itemBounds?: LootOcrBounds;
     pixels: Uint8Array;
 };
 
@@ -20,6 +21,7 @@ export function locateLootQuantity(
     // Try the wider gap first so spaces inside quantities such as 16 and 180 stay together.
     const wordGaps = font === "strong-sword" ? [4, 3] : [4.5];
     let digits: { left: number; right: number } | undefined;
+    let name: { left: number; right: number } | undefined;
     for (const gapSize of wordGaps) {
         const wordGap = Math.ceil(gapSize * scale);
         const words: Array<{ left: number; right: number }> = [];
@@ -45,6 +47,7 @@ export function locateLootQuantity(
         const markerWidth = marker.right - marker.left;
         if (markerWidth < 4 * scale || markerWidth > 8 * scale || candidate.right - candidate.left > 48 * scale)
             continue;
+        name = { left: words[0].left - 1, right: marker.left - 1 };
         digits = candidate;
         break;
     }
@@ -76,7 +79,9 @@ export function locateLootQuantity(
             ink += 1;
         }
     }
-    return ink >= 6 * scale * scale ? { bounds, pixels } : undefined;
+    return ink >= 6 * scale * scale
+        ? { bounds, pixels, itemBounds: name ? { ...bounds, ...name } : undefined }
+        : undefined;
 }
 
 /** Keep all ink in the denominator, including strokes outside the aligned overlap. */

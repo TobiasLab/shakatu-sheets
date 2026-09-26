@@ -90,7 +90,7 @@ to session rows. Preset saving is an explicit operation, separate from the order
   SQLite files are restricted to the current user.
 - Overlay opacity uses the `session_overlay_opacity` setting (integer percent, 25–100; default 100). No migration is needed.
 - Live loot calibration stores only validated normalized rectangle coordinates and source dimensions in `settings`.
-  Preview and region pixels remain in memory. Opt-in quantity learning uses the separate database below.
+  Preview and region pixels remain in memory. Opt-in self-improvement uses the separate database below.
 - Connect failures that occur before request transmission release the upload reservation for an explicit retry. Any
   potentially transmitted request without a success response remains `unknown` to prevent duplicate entries. Reserved
   and uploaded sessions cannot be reopened. Deletion is serialized with Garmoth operations so it cannot remove a session
@@ -99,28 +99,32 @@ to session rows. Preset saving is an explicit operation, separate from the order
 
 ## Self-improvement database
 
-Opt-in normal-loot quantity learning uses `quantity-learning.sqlite3` alongside `shakatu-sheets.sqlite3`, under the same
+Opt-in normal-loot self-improvement uses `quantity-learning.sqlite3` alongside `shakatu-sheets.sqlite3`, under the same
 application-data directory (including `SHAKATU_DATA_DIR` overrides). It has independent ordered migrations, currently
-`PRAGMA user_version = 2`. Loading defaults does not create the file; changing learning settings or saving an example
+`PRAGMA user_version = 3`. Loading defaults does not create the file; changing learning settings or saving an example
 creates it. No session migration, setting, foreign key, or session-entry change accompanies this feature. Main can
 ignore the learning file and continue using the existing version-4 session database. Switching back to this feature
 branch restores the saved examples and settings. Migration 2 adds nullable `audit_json` without changing migration 1.
-Existing examples retain their images and labels with no invented audit history. The earlier feature build that only
-supports version 1 cannot open the upgraded learning file; main still ignores that file entirely.
+Existing examples retain their images and labels with no invented audit history. Migration 3 adds nullable `item_name`, `item_width`, `item_height` and `item_png` columns. Older examples remain
+quantity-only. Auto allow is disabled once on this migration because item recovery expands automatic behavior. Earlier
+feature builds supporting versions 1 or 2 cannot open the upgraded learning file; main still ignores it entirely.
 
 The separate database stores opt-in and auto-allow settings, a confirmation sequence, and at most 200 examples with
 at most 50 per font/UI-scale/source-resolution setup. Each example contains an event UUID, positive safe-integer
 quantity, original OCR quantity if available, bounded original OCR text, native dimensions, a small RGBA PNG blob,
-capture setup, confirmation time in milliseconds, and a fixed matching/validation role. Crop dimensions are limited
-to 64×32 pixels. Every third new example is reserved for validation. Repeated identical images in the same setup do
-not add support or advance the sequence; conflicting labels require explicit deletion first. Save retries are idempotent.
+capture setup, confirmation time in milliseconds, and a fixed matching/validation role. New corrections additionally save
+the confirmed item label and an isolated name PNG when available. Quantity crops are limited to 64×32 pixels, name crops
+to 512×32. Every third new paired example is reserved for validation. Identical paired crops/labels in the same setup do
+not advance the sequence. The matcher deduplicates component images independently to avoid repeated support and
+training/validation leakage when the other component changes; roles follow database insertion order, not wall-clock time. Conflicting component labels require deletion first.
+Save retries are idempotent. Rust validates dimensions, PNG format, readable ink and label lengths.
 
 New examples also store a versioned audit object: session ID and recognition generation when available, original event
-ID, unresolved status/reason, and the saved crop's source frame index, ROI dimensions and quantity bounds. Native capture
+ID, unresolved status/reason, and the saved crop's source frame index, ROI dimensions and quantity/item bounds. Native capture
 token and batch ID are included when available. Up to five selected OCR frames retain up to three consensus readings and
 nine raw passes each, including threshold, scale and region; each text is bounded to 512 characters. These are initial
-recognition readings before manual retries. The confirmed quantity remains the example's label. No full frame or other
-frame images are stored. Identical-image deduplication keeps the original example and its audit, so this is provenance
+recognition readings before manual retries. The confirmed item and quantity are the example's labels. No full frame or other
+frame images are stored. Identical-pair deduplication keeps the original example and its audit, so this is provenance
 for saved examples rather than a log of every correction. Rust validates audit bounds and its link to the saved crop.
 
 Commands run on blocking workers; frontend requests are ordered. Writes and pruning use a transaction. SQLite

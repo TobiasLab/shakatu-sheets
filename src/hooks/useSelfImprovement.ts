@@ -72,7 +72,7 @@ export function useSelfImprovement() {
         }
     }
 
-    function learnCorrection(review: LiveLootReviewEntry, quantity: number) {
+    function learnCorrection(review: LiveLootReviewEntry, quantity: number, itemName: string) {
         if (
             !savingAllowed.current ||
             review.source !== "normal" ||
@@ -82,7 +82,7 @@ export function useSelfImprovement() {
             !review.learningId
         )
             return;
-        const example = correctionQuantityExample(review, quantity);
+        const example = correctionQuantityExample(review, quantity, itemName);
         if (!example) {
             setMessage("Drop added. No clear, complete quantity crop was available to learn from.");
             return;

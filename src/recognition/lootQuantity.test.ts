@@ -57,6 +57,12 @@ it.each([1, 1.25])("locates a multidigit suffix independently of the item name a
     }
     const found = locateLootQuantity({ width, height, pixels }, 40, projection, scale);
     expect(found?.bounds.left).toBe(origin + Math.round(53 * scale) - 1);
+    expect(found?.itemBounds).toEqual({
+        left: origin + Math.round(5 * scale) - 1,
+        right: origin + Math.round(41 * scale) - 1,
+        top: 40 - Math.round(8 * scale),
+        bottom: 40 + Math.round(8 * scale),
+    });
     expect(found?.bounds.right).toBe(origin + Math.round(66 * scale) + 1);
     const cropX = scale === 1 ? 78 : 97;
     const cropWidth = scale === 1 ? 272 : 341;
@@ -67,6 +73,12 @@ it.each([1, 1.25])("locates a multidigit suffix independently of the item name a
     }
     const compact = locateLootQuantity({ width: cropWidth, height, pixels: croppedPixels }, 40, projection, scale);
     expect(compact?.pixels).toEqual(found?.pixels);
+    if (!found?.itemBounds) throw Error("Expected item bounds");
+    expect(compact?.itemBounds).toEqual({
+        ...found?.itemBounds,
+        left: found.itemBounds.left - cropX,
+        right: found.itemBounds.right - cropX,
+    });
     expect(compact?.bounds).toEqual({
         ...found?.bounds,
         left: origin + Math.round(53 * scale) - 1 - cropX,

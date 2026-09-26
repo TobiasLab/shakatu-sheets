@@ -99,7 +99,7 @@ node scripts/smoke-loot-learning.mjs
 
 The learning smoke uses synthetic crops and a persistence adapter to check opt-in, suggestions, corrections, failure
 retries, auto-allow controls, deletion, and reset. For synthetic matching overhead, run
-`npx vite-node --script scripts/benchmark-loot-learning.mjs`; see [quantity learning](../design/quantity-learning.md)
+`npx vite-node --script scripts/benchmark-loot-learning.mjs`; see [self-improvement](../design/quantity-learning.md)
 for acceptance rules and the separate database's main-branch compatibility.
 
 The test opens and closes its own tab, uses real browser pointer and keyboard events, and verifies navigation/minimization/

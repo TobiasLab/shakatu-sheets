@@ -17,14 +17,16 @@ const profile={font:'korean',uiScalePercent:80,sourceWidth:3440,sourceHeight:144
 const rows=['.###.','#....','#....','####.','#...#','#...#','.###.'];
 const pixels=new Uint8ClampedArray(9*11*4);
 for(let y=0;y<7;y++)for(let x=0;x<5;x++)if(rows[y][x]==='#')pixels.fill(255,((y+2)*9+x+2)*4,((y+2)*9+x+2)*4+4);
-const evidence={frame:12,captureToken:123,batchId:456,roiWidth:362,roiHeight:311,quantityBounds:{left:100,top:50,right:109,bottom:61},readings:['Black Stone x 9','Black Stone x &'],passes:[{threshold:150,scale:2,region:'line',text:'Black Stone x 9'}]};
-function entry(id){return {id,source:'normal',font:'korean',learningProfile:profile,learningId:'event-'+id,learningContext:{sessionId:'session-1',generation:3},accepted:false,error:'',result:{eventId:'event-'+id,firstFrame:12,selectedFrames:[12],status:'withheld',reason:'consensus-withheld',itemName:null,quantity:null,capture:{width:9,height:11,pixels,quantityBounds:{left:0,top:0,right:9,bottom:11},originalText:'Black Stone x 9',sourceFrame:evidence,ocrFrames:[evidence]}}};}
+const capturePixels=new Uint8ClampedArray(29*11*4);
+for(let y=0;y<11;y++){const row=pixels.subarray(y*9*4,(y+1)*9*4);capturePixels.set(row,y*29*4);capturePixels.set(row,(y*29+9)*4);capturePixels.set(row,(y*29+20)*4);}
+const evidence={frame:12,captureToken:123,batchId:456,roiWidth:362,roiHeight:311,quantityBounds:{left:120,top:50,right:129,bottom:61},itemBounds:{left:100,top:50,right:118,bottom:61},readings:['Black Stone x 9','Black Stone x &'],passes:[{threshold:150,scale:2,region:'line',text:'Black Stone x 9'}]};
+function entry(id){return {id,source:'normal',font:'korean',learningProfile:profile,learningId:'event-'+id,learningContext:{sessionId:'session-1',generation:3},accepted:false,error:'',result:{eventId:'event-'+id,firstFrame:12,selectedFrames:[12],status:'withheld',reason:'consensus-withheld',itemName:null,quantity:null,capture:{width:29,height:11,pixels:capturePixels,quantityBounds:{left:20,top:0,right:29,bottom:11},itemBounds:{left:0,top:0,right:18,bottom:11},originalText:'Black Stone x 9',sourceFrame:evidence,ocrFrames:[evidence]}}};}
 window.saved={enabled:false,autoAllow:false,examples:[]};window.added=[];window.failSave=false;
 function Harness(){
  const learning=useSelfImprovement();const [reviews,setReviews]=useState([entry(1)]);
  window.addPending=id=>setReviews(current=>[...current,entry(id)]);
  window.learningState=learning.state;
- function correct(id,item,quantity){const original=reviews.find(x=>x.id===id);const corrected=correctLiveLootReviewEntry(original,item,quantity,(item,quantity)=>{if(window.failAdd)return 'Synthetic ledger failure';window.added.push({item,quantity});return null;});setReviews(current=>current.map(x=>x.id===id?corrected:x));if(corrected.accepted&&!original.accepted)learning.learnCorrection(original,quantity);}
+ function correct(id,item,quantity){const original=reviews.find(x=>x.id===id);const corrected=correctLiveLootReviewEntry(original,item,quantity,(item,quantity)=>{if(window.failAdd)return 'Synthetic ledger failure';window.added.push({item,quantity});return null;});setReviews(current=>current.map(x=>x.id===id?corrected:x));if(corrected.accepted&&!original.accepted)learning.learnCorrection(original,quantity,item);}
  return <main style={{maxWidth:900,margin:'20px auto',padding:16}}><h1 id="live-capture-heading" tabIndex={-1}>Learning test</h1>
  <LootReview controller={{reviewResults:reviews,omittedReviewResults:0,databaseLoaded:true,sessionStatus:'paused',itemDictionary:['Black Stone'],resultDescription:()=> 'Check quantity',clearReviewResults:()=>setReviews([]),dismissReviewResult:id=>setReviews(current=>current.filter(x=>x.id!==id)),correctReviewResult:correct,acceptReviewResult:()=>{},learning}}/>
  <div className={settingsStyles.Preferences}><SelfImprovementSettings learning={learning}/></div></main>;
@@ -111,7 +113,7 @@ try {
     await server.listen();
     await send("Page.navigate", { url: server.resolvedUrls.local[0] });
     await until(`document.querySelector('input[type=checkbox]')?.disabled===false`);
-    await evaluate("document.querySelector('details').open=true");
+    await evaluate("document.querySelector('#self-improvement-examples').open=true");
     assert.equal(await evaluate("window.learningState.enabled"), false);
     assert.equal(await evaluate("document.querySelectorAll('input[type=checkbox]')[1].disabled"), true);
     await correct(6);
@@ -126,6 +128,13 @@ try {
     await button("Add to session");
     await until("window.saved.examples.length===1");
     assert.equal(await evaluate("window.saved.examples[0].quantity"), 6);
+    assert.equal(await evaluate("window.saved.examples[0].itemName"), "Black Stone");
+    assert.equal(await evaluate("window.saved.examples[0].itemImage.width"), 18);
+    await evaluate(
+        "[...document.querySelectorAll('summary')].find(el=>el.textContent==='Automatic recovery checks').parentElement.open=true",
+    );
+    assert(await evaluate("document.body.innerText.includes('Item: Black Stone — Confirmation required')"));
+    assert(await evaluate("document.body.innerText.includes('1 templates · 0/0 reserved examples correct')"));
     assert.equal(await evaluate("window.saved.examples[0].audit.cropFrame.frame"), 12);
     assert.equal(await evaluate("window.saved.examples[0].audit.sessionId"), "session-1");
     assert.equal(await evaluate("window.saved.examples[0].audit.frames[0].passes[0].text"), "Black Stone x 9");
@@ -133,7 +142,7 @@ try {
     await evaluate("document.querySelector('details details').open=true");
     assert(await evaluate("document.body.innerText.includes('Frame 12 · Saved quantity image')"));
     assert(await evaluate("document.body.innerText.includes('Black Stone x 9')"));
-    assert(await evaluate("document.body.innerText.includes('Confirmed quantity: 6')"));
+    assert(await evaluate("document.body.innerText.includes('Black Stone × 6')"));
     await evaluate("window.addPending(3)");
     await until("document.body.textContent.includes('Use learned quantity')");
     if (process.env.UI_SMOKE_OUTPUT) {
@@ -141,7 +150,16 @@ try {
         const { data } = await send("Page.captureScreenshot", { format: "png", captureBeyondViewport: true });
         await writeFile(`${process.env.UI_SMOKE_OUTPUT}/learning-review.png`, Buffer.from(data, "base64"));
     }
+    await send("Emulation.setDeviceMetricsOverride", { width: 320, height: 640, deviceScaleFactor: 1, mobile: false });
+    assert(
+        await evaluate("document.documentElement.scrollWidth<=innerWidth"),
+        "Item evidence and saved images fit narrow windows",
+    );
+    await send("Emulation.setDeviceMetricsOverride", { width: 1280, height: 900, deviceScaleFactor: 1, mobile: false });
     const before = await evaluate("window.added.length");
+    await button("Use learned item");
+    assert.equal(await evaluate("document.querySelector('#loot-review-detail select').value"), "Black Stone");
+    assert.equal(await evaluate("window.added.length"), before, "Item suggestion does not insert loot");
     await button("Use learned quantity");
     assert.equal(await evaluate("window.added.length"), before, "Suggestion does not insert loot");
     assert.equal(await evaluate("document.querySelector('#loot-review-detail input[type=number]').value"), "6");

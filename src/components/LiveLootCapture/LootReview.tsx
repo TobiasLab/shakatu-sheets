@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import type { LiveLootReviewEntry } from "../../recognition/liveLootReview";
-import { quantityImage } from "../../recognition/quantityLearning";
+import { itemImage, quantityImage } from "../../recognition/quantityLearning";
 import { CaptureCorrection, type CorrectionDraft } from "./CaptureCorrection";
 import styles from "./LootReview.module.css";
 import type { useLiveLootCapture } from "./useLiveLootCapture";
@@ -74,6 +74,15 @@ export function LootReview({ controller }: { controller: ReviewController }) {
     const learned =
         controller.learning?.state.enabled && selected.source === "normal" && image && selected.learningProfile
             ? controller.learning.model.current.suggest(image, selected.learningProfile)
+            : undefined;
+    const nameImage = status === "dropped" ? undefined : itemImage(selected.result.capture);
+    const learnedItem =
+        controller.learning?.state.enabled && selected.source === "normal" && nameImage && selected.learningProfile
+            ? controller.learning.model.current.suggestItem(
+                  nameImage,
+                  selected.learningProfile,
+                  controller.itemDictionary,
+              )
             : undefined;
     return (
         <section
@@ -211,6 +220,7 @@ export function LootReview({ controller }: { controller: ReviewController }) {
                             onAdd={controller.correctReviewResult}
                             learnOnAdd={controller.learning?.state.enabled}
                             learnedQuantity={learned?.quantity}
+                            learnedItem={learnedItem?.itemName}
                         />
                     )}
                     {status === "recognized" && (

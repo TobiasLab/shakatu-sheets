@@ -1,6 +1,6 @@
 use std::{io::Cursor, path::PathBuf};
 
-use rusqlite::{params, Connection, OptionalExtension, TransactionBehavior};
+use rusqlite::{params, Connection, TransactionBehavior};
 use serde::{Deserialize, Serialize};
 use tauri::State;
 
@@ -26,9 +26,19 @@ pub struct QuantityExampleInput {
     id: String,
     profile: LearningProfile,
     quantity: i64,
+    item_name: Option<String>,
+    item_image: Option<Box<LearningImage>>,
     original_quantity: Option<i64>,
     original_text: String,
     audit: Option<Box<audit::Audit>>,
+    width: u32,
+    height: u32,
+    pixels: Vec<u8>,
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct LearningImage {
     width: u32,
     height: u32,
     pixels: Vec<u8>,
@@ -118,7 +128,7 @@ fn migrate(connection: &mut Connection) -> Result<(), String> {
              PRAGMA user_version = 1;",
             )
             .map_err(|e| e.to_string())?,
-        1 | 2 => {}
+        1..=3 => {}
         _ => {
             return Err(format!(
             "Unsupported quantity learning database version {version}. Session data is unaffected."
@@ -131,12 +141,37 @@ fn migrate(connection: &mut Connection) -> Result<(), String> {
         )
         .map_err(|e| e.to_string())?;
     }
+    if version < 3 {
+        tx.execute_batch(
+            "ALTER TABLE quantity_examples ADD COLUMN item_name TEXT;
+            ALTER TABLE quantity_examples ADD COLUMN item_width INTEGER;
+            ALTER TABLE quantity_examples ADD COLUMN item_height INTEGER;
+            ALTER TABLE quantity_examples ADD COLUMN item_png BLOB;
+            UPDATE learning_settings SET auto_allow = 0;
+            PRAGMA user_version = 3;",
+        )
+        .map_err(|e| e.to_string())?;
+    }
     tx.commit().map_err(|e| e.to_string())
 }
 
 fn validate(example: &QuantityExampleInput) -> Result<(), String> {
     if let Some(audit) = &example.audit {
         audit.validate(example.width, example.height)?;
+        if let Some(image) = &example.item_image {
+            audit.validate_item(image.width, image.height)?;
+        }
+    }
+    if example.item_name.as_ref().is_some_and(|name| {
+        name.trim().is_empty() || name != name.trim() || name.chars().count() > 160
+    }) {
+        return Err("Invalid confirmed item name.".into());
+    }
+    if let Some(image) = &example.item_image {
+        if example.item_name.is_none() {
+            return Err("An item image requires a confirmed item name.".into());
+        }
+        validate_image(image.width, image.height, &image.pixels, 512)?;
     }
     let profile = &example.profile;
     if example.id.is_empty()
@@ -151,14 +186,20 @@ fn validate(example: &QuantityExampleInput) -> Result<(), String> {
         || example
             .original_quantity
             .is_some_and(|value| !(1..=MAX_QUANTITY).contains(&value))
-        || !(1..=64).contains(&example.width)
-        || !(1..=32).contains(&example.height)
-        || example.pixels.len() != (example.width * example.height * 4) as usize
     {
-        return Err("Invalid quantity learning example.".into());
+        return Err("Invalid self-improvement example.".into());
     }
-    let ink: f64 = example
-        .pixels
+    validate_image(example.width, example.height, &example.pixels, 64)
+}
+
+fn validate_image(width: u32, height: u32, pixels: &[u8], max_width: u32) -> Result<(), String> {
+    if !(1..=max_width).contains(&width)
+        || !(1..=32).contains(&height)
+        || pixels.len() != (width * height * 4) as usize
+    {
+        return Err("Invalid self-improvement image dimensions.".into());
+    }
+    let ink: f64 = pixels
         .as_chunks::<4>()
         .0
         .iter()
@@ -174,31 +215,29 @@ fn validate(example: &QuantityExampleInput) -> Result<(), String> {
         })
         .sum();
     if ink < 6.0 {
-        return Err("The quantity image has too little readable text to learn from.".into());
+        return Err("The image has too little readable text to learn from.".into());
     }
     Ok(())
 }
 
-fn encode(example: &QuantityExampleInput) -> Result<Vec<u8>, String> {
+fn encode(width: u32, height: u32, pixels: &[u8]) -> Result<Vec<u8>, String> {
     let mut bytes = Vec::new();
     {
-        let mut encoder = png::Encoder::new(&mut bytes, example.width, example.height);
+        let mut encoder = png::Encoder::new(&mut bytes, width, height);
         encoder.set_color(png::ColorType::Rgba);
         encoder.set_depth(png::BitDepth::Eight);
         let mut writer = encoder.write_header().map_err(|e| e.to_string())?;
-        writer
-            .write_image_data(&example.pixels)
-            .map_err(|e| e.to_string())?;
+        writer.write_image_data(pixels).map_err(|e| e.to_string())?;
     }
     Ok(bytes)
 }
 
-fn decode(bytes: &[u8], width: u32, height: u32) -> Result<Vec<u8>, String> {
-    if !(1..=64).contains(&width) || !(1..=32).contains(&height) || bytes.len() > 16_384 {
+fn decode(bytes: &[u8], width: u32, height: u32, max_width: u32) -> Result<Vec<u8>, String> {
+    if !(1..=max_width).contains(&width) || !(1..=32).contains(&height) || bytes.len() > 131_072 {
         return Err("Invalid saved quantity image size.".into());
     }
     let mut decoder = png::Decoder::new(Cursor::new(bytes));
-    decoder.set_limits(png::Limits { bytes: 65_536 });
+    decoder.set_limits(png::Limits { bytes: 262_144 });
     let mut reader = decoder.read_info().map_err(|e| e.to_string())?;
     let info = reader.info();
     if info.width != width
@@ -222,7 +261,7 @@ fn load(connection: &Connection) -> Result<QuantityLearning, String> {
         )
         .map_err(|e| e.to_string())?;
     let mut statement = connection.prepare(
-        "SELECT id, profile, quantity, original_quantity, width, height, png, confirmed_at, validation, original_text, audit_json
+        "SELECT id, profile, quantity, original_quantity, width, height, png, confirmed_at, validation, original_text, audit_json, item_name, item_width, item_height, item_png
          FROM quantity_examples ORDER BY sequence DESC LIMIT ?1",
     ).map_err(|e| e.to_string())?;
     let rows = statement
@@ -239,6 +278,10 @@ fn load(connection: &Connection) -> Result<QuantityLearning, String> {
                 row.get::<_, bool>(8)?,
                 row.get::<_, String>(9)?,
                 row.get::<_, Option<String>>(10)?,
+                row.get::<_, Option<String>>(11)?,
+                row.get::<_, Option<u32>>(12)?,
+                row.get::<_, Option<u32>>(13)?,
+                row.get::<_, Option<Vec<u8>>>(14)?,
             ))
         })
         .map_err(|e| e.to_string())?;
@@ -256,11 +299,25 @@ fn load(connection: &Connection) -> Result<QuantityLearning, String> {
             validation,
             original_text,
             audit_json,
+            item_name,
+            item_width,
+            item_height,
+            item_png,
         ) = row.map_err(|e| e.to_string())?;
         let input = QuantityExampleInput {
             id,
             profile: serde_json::from_str(&profile).map_err(|e| e.to_string())?,
             quantity,
+            item_name,
+            item_image: match (item_width, item_height, item_png) {
+                (Some(width), Some(height), Some(png)) => Some(Box::new(LearningImage {
+                    width,
+                    height,
+                    pixels: decode(&png, width, height, 512)?,
+                })),
+                (None, None, None) => None,
+                _ => return Err("Invalid saved item image.".into()),
+            },
             original_quantity,
             original_text,
             audit: audit_json
@@ -270,7 +327,7 @@ fn load(connection: &Connection) -> Result<QuantityLearning, String> {
                 .map_err(|e| e.to_string())?,
             width,
             height,
-            pixels: decode(&png, width, height)?,
+            pixels: decode(&png, width, height, 64)?,
         };
         validate(&input)?;
         examples.push(QuantityExample {
@@ -321,16 +378,38 @@ fn operate(path: &PathBuf, operation: LearningOperation) -> Result<QuantityLearn
             if !enabled {
                 return Err("Enable quantity learning before saving examples.".into());
             }
-            let png = encode(&example)?;
+            let png = encode(example.width, example.height, &example.pixels)?;
+            let item_png = example
+                .item_image
+                .as_ref()
+                .map(|image| encode(image.width, image.height, &image.pixels))
+                .transpose()?;
             let profile = serde_json::to_string(&example.profile).map_err(|e| e.to_string())?;
-            let existing: Option<i64> = tx.query_row(
-                "SELECT quantity FROM quantity_examples WHERE id = ?1 OR (profile = ?2 AND png = ?3) LIMIT 1",
-                params![example.id, profile, png], |row| row.get(0),
-            ).optional().map_err(|e| e.to_string())?;
-            if let Some(quantity) = existing {
-                if quantity != example.quantity {
-                    return Err("This capture is saved with a different quantity. Delete its example before teaching it again.".into());
-                }
+            let conflicting: bool = tx
+                .query_row(
+                    "SELECT EXISTS(SELECT 1 FROM quantity_examples WHERE
+                    (id = ?1 AND (quantity != ?4 OR item_name IS NOT ?5)) OR
+                    (profile = ?2 AND ((png = ?3 AND quantity != ?4) OR
+                    (?6 IS NOT NULL AND item_png = ?6 AND item_name IS NOT ?5))))",
+                    params![
+                        example.id,
+                        profile,
+                        png,
+                        example.quantity,
+                        example.item_name,
+                        item_png
+                    ],
+                    |row| row.get(0),
+                )
+                .map_err(|e| e.to_string())?;
+            if conflicting {
+                return Err("This image is saved with a different item or quantity. Delete its example before teaching it again.".into());
+            }
+            let existing: bool = tx.query_row(
+                "SELECT EXISTS(SELECT 1 FROM quantity_examples WHERE id = ?1 OR (profile = ?2 AND png = ?3 AND item_png IS ?4 AND item_name IS ?5))",
+                params![example.id, profile, png, item_png, example.item_name], |row| row.get(0)
+            ).map_err(|e| e.to_string())?;
+            if existing {
                 let result = load(&tx)?;
                 tx.commit().map_err(|e| e.to_string())?;
                 return Ok(result);
@@ -348,9 +427,9 @@ fn operate(path: &PathBuf, operation: LearningOperation) -> Result<QuantityLearn
                 )
                 .map_err(|e| e.to_string())?;
             tx.execute(
-                "INSERT INTO quantity_examples(id, profile, quantity, original_quantity, width, height, png, confirmed_at, sequence, validation, original_text, audit_json)
-                 VALUES(?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12)",
-                params![example.id, profile, example.quantity, example.original_quantity, example.width, example.height, png, timestamp_ms(), sequence, sequence % 3 == 0, example.original_text, example.audit.as_ref().map(serde_json::to_string).transpose().map_err(|e| e.to_string())?],
+                "INSERT INTO quantity_examples(id, profile, quantity, original_quantity, width, height, png, confirmed_at, sequence, validation, original_text, audit_json, item_name, item_width, item_height, item_png)
+                 VALUES(?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16)",
+                params![example.id, profile, example.quantity, example.original_quantity, example.width, example.height, png, timestamp_ms(), sequence, sequence % 3 == 0, example.original_text, example.audit.as_ref().map(serde_json::to_string).transpose().map_err(|e| e.to_string())?, example.item_name, example.item_image.as_ref().map(|image| image.width), example.item_image.as_ref().map(|image| image.height), item_png],
             ).map_err(|e| e.to_string())?;
             tx.execute("DELETE FROM quantity_examples WHERE profile = ?1 AND id NOT IN (SELECT id FROM quantity_examples WHERE profile = ?1 ORDER BY sequence DESC LIMIT ?2)", params![profile, MAX_PROFILE_EXAMPLES]).map_err(|e| e.to_string())?;
             tx.execute("DELETE FROM quantity_examples WHERE id NOT IN (SELECT id FROM quantity_examples ORDER BY sequence DESC LIMIT ?1)", [MAX_EXAMPLES]).map_err(|e| e.to_string())?;
