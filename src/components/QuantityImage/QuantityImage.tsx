@@ -4,7 +4,9 @@ import styles from "./QuantityImage.module.css";
 
 export function QuantityImage({
     image,
+    label = "Quantity image for self-improvement",
 }: {
+    label?: string;
     image: Pick<LootRoiFrame, "width" | "height"> & { pixels: ArrayLike<number> };
 }) {
     const canvas = useRef<HTMLCanvasElement>(null);
@@ -16,12 +18,6 @@ export function QuantityImage({
         context.putImageData(data, 0, 0);
     }, [image]);
     return (
-        <canvas
-            className={styles.Image}
-            ref={canvas}
-            width={image.width}
-            height={image.height}
-            aria-label="Quantity image for self-improvement"
-        />
+        <canvas className={styles.Image} ref={canvas} width={image.width} height={image.height} aria-label={label} />
     );
 }

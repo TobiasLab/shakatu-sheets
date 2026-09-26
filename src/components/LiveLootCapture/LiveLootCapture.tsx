@@ -784,8 +784,9 @@ export function LiveLootCapture({ controller }: { controller: ReturnType<typeof 
                 <summary>Privacy & capture details</summary>
                 <p>
                     Capture pixels stay in memory unless you enable self-improvement or explicitly save development
-                    samples. Self-improvement stores only small quantity crops from your Needs attention corrections on
-                    this device; examples stay until deleted or replaced by newer examples. Captures are never uploaded.{" "}
+                    samples. Self-improvement stores small item-name and quantity crops from your Needs attention
+                    corrections on this device; examples stay until deleted or replaced by newer examples. Captures are
+                    never uploaded.{" "}
                     {debugSampleCollectionAvailable &&
                         "The explicit development sample action saves only the configured normal and rare crops locally until they are deleted; it never saves the full screen or uploads samples. "}
                     Automatic placement scans only the highlighted search area. Confirmed loot crops are processed by

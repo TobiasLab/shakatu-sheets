@@ -1,101 +1,95 @@
-# Self-improvement for loot quantities
+# Self-improvement for loot items and quantities
 
-## Implemented design
+## Scope and compatibility
 
-1. Keep the existing session database and migrations unchanged. Store opt-in settings and explicitly confirmed quantity
-   examples in a sibling `quantity-learning.sqlite3`, with its own ordered schema versions. Test that learning operations
-   leave a populated version-4 session database usable by the unchanged persistence code.
-2. Preserve native quantity crops and capture-time font, UI scale, and source dimensions. Only explicit corrections in
-   Needs attention teach the reader. Do not retain accepted OCR captures or add a recent-capture teaching view.
-3. Compare whole quantity images against a bounded in-memory library for the same display setup. Keep antialiased
-   edges, reject blank/invalid crops and ambiguous matches, and never use automatic readings as confirmed labels.
-4. Default to suggestions requiring confirmation. A separately enabled auto-allow mode may recover unresolved normal
-   quantities only: require clear item evidence, agreement across at least three frames, no conflicting parsed quantities,
-   and success on reserved validation examples. Never override accepted OCR or train from automatic acceptance.
-5. Provide example inspection, individual deletion and reset, ordered background persistence, useful failure messages,
-   and explicit disclosure that opt-in learning retains small crops locally. Capture/OCR must continue if learning fails.
-6. Test crop geometry, setup isolation, conflicting examples, automatic acceptance boundaries, bounded storage,
-   persistence errors and main-branch compatibility. Run frontend checks/build/tests and Rust formatting/tests/Clippy.
+Normal-loot corrections in Needs attention teach item names and whole quantities independently. Teaching Black Stone × 6
+can help recognize Black Stone × 9: the name matcher excludes the quantity marker and digits. Whole-number matching does
+not generalize a confirmed `16` into all numbers containing `6`. Rare banners, accepted-capture teaching, neural model
+training and cross-device sharing are outside this implementation.
 
-## First-version boundaries
+Settings and examples live in a separate `quantity-learning.sqlite3`. Session storage and its version-4 migrations are
+unchanged. Learning migration 3 adds nullable item labels/images to existing examples. Older examples remain quantity-only;
+item identities are never inferred from old OCR guesses. This migration turns Auto allow off once because automatic item
+recovery expands its scope. Users may enable it again in Settings. Main ignores the learning file; older feature builds
+supporting learning schema versions 1 or 2 cannot open the upgraded file.
 
-Normal loot quantities only. Whole-quantity matching does not generalize a confirmed `16` into all numbers containing
-`6`. Rare banners, model training, cross-device sharing, and changes to capture/tracking are outside this version.
-Numerical matching thresholds are conservative engineering defaults, not a measured real-game accuracy guarantee.
-Real gameplay validation is required before claiming improved accuracy or recommending automatic recovery.
+## Corrections and inspection
 
-## Using the feature
+Open **Settings → Self-improvement** and enable **Learn from my corrections**. The app-level controller shares settings,
+examples and the failed-save queue with Needs attention. Both settings default to off. The correction editor shows the
+quantity image and, when available, the isolated item-name image. Check that both images contain the complete text,
+select the correct item and quantity, and add the drop. Only a successful manual insertion teaches the reader. Dismissals,
+failed insertions, rare banners, accepted OCR, and learned automatic recoveries never become training examples.
 
-Open **Settings → Self-improvement** and enable **Learn from my corrections**. Self-improvement has its own Settings
-section and navigation link. Its controller lives at the app level so Settings and Needs attention share the same
-state, saved examples, and failed-save queue. Changing views does not create a second reader or discard pending saves.
-Learning and auto allow both default to off. For a normal-loot capture, the correction form shows the exact quantity crop
-that will be saved. Enter the item and whole quantity, check that the crop contains the full number, then add the drop.
-Only a successful manual insertion teaches the reader. Dismissals, failed insertions, rare banners, automatically
-accepted OCR, and learned automatic recoveries never save an example. A missing, clipped, or blank quantity crop is
-skipped; the manual drop still adds normally. No accepted-capture gallery or ledger-total learning is included.
+Segmentation reuses the existing row projection and isolated `x` marker. The name crop ends before that marker; quantity
+pixels never enter the name matcher. A missing, clipped or blank quantity crop skips the example. If the quantity crop is
+usable but the item name cannot be isolated or is blank, the confirmed item label is saved but only the quantity image
+teaches recognition. The manual drop still adds normally. There is no accepted-capture gallery or ledger-total learning.
 
-Matching examples suggest a quantity with a **Use learned quantity** button. This only fills the quantity field;
-the user still selects/checks the item and submits the correction. Corrections made before opting in are not recovered
-retroactively. Only whole quantities already represented by suitable examples can be suggested.
+**Use learned item** and **Use learned quantity** fill their respective fields without inserting a drop. Users still check
+both fields and submit. Suggestions only use item labels present in the current session's item dictionary. Corrections
+made before opt-in are not recovered retroactively.
 
-Expand **Saved examples** in Settings to inspect crop images, quantities, font/scale/resolution, confirmation time,
-and recognition details. Details distinguish your confirmed number from the accepted OCR quantity, which is absent for
-unresolved captures. New examples preserve the source frame index, ROI dimensions and quantity bounds, session/event/run
-identifiers, native capture token/batch when available, and the unresolved reason. Up to five selected frames retain their
-consensus readings and raw OCR passes (threshold, scale, region and text), before any manual retry. Text is capped at
-512 characters per reading/pass, with up to three readings and nine passes per frame. OCR failures preserve completed
-evidence; insufficient-observation captures have no OCR history. Only the quantity crop image is saved, not full frames.
-Older examples remain usable and explicitly show that detailed history is unavailable. Identical-image deduplication
-keeps the original example and its provenance rather than logging another correction. Delete an individual mislabeled
-example, or reset all examples and turn both settings off.
-Disabling learning keeps the library for later. Session deletion and branch switching do not erase it. Learning writes
-run independently from session writes: failure does not undo or re-add the corrected drop. Up to 50 pending/failed examples
-are retained in memory for retry or discard; a full queue explicitly reports that a new correction could not be learned.
-Unsaved examples are lost on app close. Save retries never insert a second loot entry.
+**Saved examples** displays confirmed item/quantity labels, images, setup, time, and recognition details. Each new example
+preserves its source frame, ROI dimensions, quantity/item bounds, session/event/run IDs, native token/batch when available,
+and the original unresolved reason. Up to five selected frames retain initial consensus readings and raw OCR passes
+(threshold, scale, region and text), before manual retries. Text is capped at 512 characters per reading/pass, with at most
+three readings and nine passes per frame. OCR failures preserve completed passes; insufficient-observation captures have
+no OCR history. Only the source frame's small text crops are saved, never full frames. Older missing history is shown as
+unavailable. Identical paired examples retain their original provenance instead of creating a correction log.
+
+Delete mislabeled examples individually, or reset all examples and turn both settings off. Disabling learning retains the
+library. Session deletion and branch switching do not erase it. Learning writes run independently from session writes:
+failure does not undo or re-add a drop. Up to 50 pending/failed saves are retained in memory for retry/discard; a full queue
+reports that the new correction could not be learned. Unsaved examples are lost on app close.
 
 ## Matching and automatic recovery
 
-The matcher preserves grayscale text edges, suppresses colored/dark background pixels, trims padding, and compares shapes
-with cosine distance over ±1 native pixel alignment in each direction. It rejects dimension differences over two pixels,
-distance above 0.12, or a competing quantity within 0.06 distance of the best match. These values are engineering defaults,
-not calibrated probabilities. Examples must have the same font, UI scale and original source resolution. Libraries are
-prepared on load or mutation completion and reused in memory; recognition performs no database requests.
+Item and quantity matchers have separate labels, templates and validation results for each font/UI-scale/source-resolution
+setup. They preserve grayscale text edges, suppress colored/dark background pixels, trim padding, and compare cosine
+distance over ±1 native pixel alignment. Dimension differences over two pixels, distance above 0.12, or a competing label
+within 0.06 of the best distance cause abstention. These are engineering defaults, not calibrated accuracy probabilities.
+Only labels represented by saved image examples can be suggested.
 
-Every third unique saved image is reserved for validation and never used as a matching template. An automatic candidate
-needs two supporting matching examples. Its setup must also have at least three reserved examples of that quantity,
-all correctly suggested, and at least one correctly suggested reserved example of another quantity. Any incorrectly
-suggested reserved example blocks automatic recovery for the setup. Deleting or replacing examples recomputes eligibility.
-This is a small local validation gate, not an independent gameplay accuracy estimate: examples may come from the same
-session, and users can repeatedly inspect validation outcomes.
+Every third unique paired example is reserved for validation. Within each component, byte-identical images retain only
+their earliest retained role in database insertion order (independent of clock changes): pairing the same number with a new item, or the same item with a new number, cannot add support or
+leak the repeated component into validation. Conflicting labels for an identical component image are rejected on save.
 
-With **Auto allow** enabled, the normal coordinator consults the prepared library only after
-the existing OCR and supplementary-frame policy fails to reach consensus. Automatic recovery requires all selected
-quantity crops (at least three) to agree and be eligible. In every frame, a majority of passes must read the same exact
-dictionary item before an explicit `x` marker. Any parsed numeric disagreement or recognized competing item blocks
-recovery, even in a minority pass. Existing accepted OCR is never overridden. Insufficient-observation events and OCR
-failures can receive manual suggestions in review but cannot be automatically recovered. Rare processing is unchanged.
+For a learned label to become eligible for automatic use, its setup needs at least two templates, at least three reserved
+examples of that label all recognized correctly, and at least one correctly recognized reserved example of a different
+label. Any wrong reserved prediction blocks that component's automatic eligibility for the setup. Each new image also
+needs two matching templates. Settings exposes template counts, correct/total reserved predictions, alternative-label
+successes, wrong predictions and eligibility per label/setup. Similar captures can share errors; these checks do not
+establish independent real-game accuracy. Deleting examples recomputes the evidence.
 
-Automatic recovery uses the existing event ID and insertion/retry path and is labeled as a learned quantity in recognition
-announcements. The library is disabled while a settings/example operation is pending, then atomically replaced between
-recognition callbacks. Corrections can therefore help later unresolved events in the same session without restarting OCR.
+The coordinator consults learning only after ordinary OCR and supplementary-frame consensus fail. Automatic recovery needs
+at least three frames, agreement for both item and quantity, and no conflicting parsed number or exact dictionary item in
+any consensus reading or raw OCR pass, including minority readings and earlier passes discarded by OCR refinement. A learned field must be eligible and agree in every selected frame.
+When no learned match exists for a field, a strict per-frame majority of OCR readings may establish that field: exact
+normalized dictionary item names before an explicit `x`, or parsed positive quantities. At least one field must have a
+learned match. This permits learned item recovery with a clear OCR number, learned numbers with a clear OCR item, or both
+learned fields together. Missing/ambiguous evidence and excluded dictionary items cannot be automatically recorded.
+Accepted OCR is never overridden. OCR failures and insufficient-observation captures remain manual review only.
 
-## Verification
+Automatic recovery uses the existing event insertion/retry path and is labeled self-improvement in announcements. The
+prepared library is disabled during settings/example operations, then replaced between recognition callbacks. Capture
+performs no learning database requests and item learning adds no OCR passes.
 
-Unit tests cover setup isolation, six/nine separation, whole-quantity limits, blanks and invalid crops, conflicting labels,
-reserved-example exclusion and eligibility, frame/item/numeric vetoes, successful manual corrections only, unchanged accepted
-OCR, multi-pass integration, and ordered IPC failures. Rust tests exercise PNG round trips, input validation, idempotency,
-limits and reset, audit round trips and validation, version-1 learning migration, future-version rejection, and
-byte-for-byte preservation of a populated version-4 session database.
-The latter is then reopened and updated by the unchanged main-branch migration and session functions.
+## Verification and limits
 
-With Chromium listening on port 9222, run `node scripts/smoke-loot-learning.mjs` for the real components/hook using a
-synthetic persistence adapter. It checks opt-in, failed/successful corrections, suggestions without insertion, save failure
-and retry after another save, auto toggle, deletion, reset, and narrow layout. The existing review smoke also passes.
-These browser checks use no user database or gameplay images.
+Tests cover item recognition across quantities, dictionary/setup isolation, item and numeric conflicts, both-field recovery,
+OCR fallback, ambiguous/missing crops, identical-component validation leakage, clock rollback, raw-pass conflict vetoes, successful corrections only, unchanged
+accepted OCR and audit provenance. Rust tests cover bounded PNG round trips, rejected labels/images/bounds, conflict and
+retry behavior, migrations from learning versions 1 and 2, one-time Auto allow reset, and byte-for-byte preservation of a
+populated session database followed by reopening/updating through unchanged persistence code.
 
-Run `npx vite-node --script scripts/benchmark-loot-learning.mjs` for synthetic matching overhead. A Linux/Node run with
-200 saved examples, 50 in the active setup, and five 48×20 crops per unresolved event measured 1.90 ms median and 2.09 ms
-95th percentile matching time; initial library preparation took 33.8 ms. This is not end-to-end capture latency or a
-dropped-frame measurement. Library preparation happens after explicit learning operations, not per frame. Real gameplay
-and Windows hardware acceptance remain unmeasured.
+With Chromium listening on port 9222, `node scripts/smoke-loot-learning.mjs` exercises real components with synthetic
+persistence, including item and number suggestions without insertion, audit display, failed-save retry, controls and reset.
+No user database or gameplay images are used. Run the standard frontend and Rust checks for cross-stack changes.
+
+`npx vite-node --script scripts/benchmark-loot-learning.mjs` measures both matchers. A Linux/Node run with 200 examples,
+50 in the active setup, five 48×20 quantity images and five 300×20 name images measured 13.40 ms median and 13.70 ms p95 per
+unresolved event; initial library preparation took 261 ms. Preparation happens on load/mutation, not per capture frame.
+This synchronous work can briefly pause the UI on large-library updates. These are synthetic CPU measurements, not
+end-to-end capture latency, dropped-frame measurements or gameplay accuracy. Real gameplay and Windows hardware
+acceptance remain unmeasured.

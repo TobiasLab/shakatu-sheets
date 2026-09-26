@@ -27,6 +27,8 @@ pub(super) struct Frame {
     roi_width: u32,
     roi_height: u32,
     quantity_bounds: Option<Bounds>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    item_bounds: Option<Bounds>,
     readings: Vec<String>,
     passes: Vec<Pass>,
 }
@@ -61,6 +63,15 @@ impl Frame {
                     && b.right <= self.roi_width
                     && b.bottom <= self.roi_height
             })
+            && self.item_bounds.as_ref().is_none_or(|b| {
+                b.left < b.right
+                    && b.top < b.bottom
+                    && b.right <= self.roi_width
+                    && b.bottom <= self.roi_height
+                    && self.quantity_bounds.as_ref().is_some_and(|q| {
+                        b.right <= q.left && b.top == q.top && b.bottom == q.bottom
+                    })
+            })
             && self.readings.len() <= 3
             && self.readings.iter().all(|text| text.chars().count() <= 512)
             && self.passes.len() <= 9
@@ -74,6 +85,18 @@ impl Frame {
 }
 
 impl Audit {
+    pub(super) fn validate_item(&self, width: u32, height: u32) -> Result<(), String> {
+        if !self
+            .crop_frame
+            .item_bounds
+            .as_ref()
+            .is_some_and(|b| b.right - b.left == width && b.bottom - b.top == height)
+        {
+            return Err("Item image does not match its source frame bounds.".into());
+        }
+        Ok(())
+    }
+
     pub(super) fn validate(&self, width: u32, height: u32) -> Result<(), String> {
         let reason_valid = match self.status.as_str() {
             "withheld" => matches!(

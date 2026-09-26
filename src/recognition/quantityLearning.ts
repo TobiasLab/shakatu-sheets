@@ -18,6 +18,8 @@ export type LearningProfile = {
 export type QuantityExampleInput = LearningProfileImage & {
     id: string;
     quantity: number;
+    itemName?: string | null;
+    itemImage?: LearningImage | null;
     originalQuantity: number | null;
     originalText: string;
     audit?: QuantityLearningAudit | null;
@@ -32,8 +34,8 @@ export type QuantityLearningAudit = {
     cropFrame: LootFrameEvidence;
     frames: LootFrameEvidence[];
 };
-export type LearningProfileImage = {
-    profile: LearningProfile;
+export type LearningProfileImage = LearningImage & { profile: LearningProfile };
+export type LearningImage = {
     width: number;
     height: number;
     pixels: number[];
@@ -47,7 +49,18 @@ function profileKey(profile: LearningProfile) {
 }
 
 export function quantityImage(capture: LootReviewCapture | undefined): LootRoiFrame | undefined {
-    const bounds = capture?.quantityBounds;
+    return cropImage(capture, capture?.quantityBounds, 64);
+}
+
+export function itemImage(capture: LootReviewCapture | undefined): LootRoiFrame | undefined {
+    return cropImage(capture, capture?.itemBounds, 512);
+}
+
+function cropImage(
+    capture: LootReviewCapture | undefined,
+    bounds: LootReviewCapture["quantityBounds"],
+    maxWidth: number,
+): LootRoiFrame | undefined {
     if (!capture || !bounds) return undefined;
     const { left, right, top, bottom } = bounds;
     if (
@@ -58,7 +71,7 @@ export function quantityImage(capture: LootReviewCapture | undefined): LootRoiFr
         bottom > capture.height ||
         right <= left ||
         bottom <= top ||
-        right - left > 64 ||
+        right - left > maxWidth ||
         bottom - top > 32
     )
         return undefined;
@@ -73,14 +86,14 @@ export function quantityImage(capture: LootReviewCapture | undefined): LootRoiFr
 }
 
 type Shape = { width: number; height: number; ink: Float32Array; norm: number };
-function shape(image: { width: number; height: number; pixels: ArrayLike<number> }): Shape | undefined {
+function shape(image: { width: number; height: number; pixels: ArrayLike<number> }, maxWidth = 64): Shape | undefined {
     const { width, height, pixels } = image;
     if (
         !Number.isInteger(width) ||
         !Number.isInteger(height) ||
         width < 1 ||
         height < 1 ||
-        width > 64 ||
+        width > maxWidth ||
         height > 32 ||
         pixels.length !== width * height * 4
     )
@@ -142,11 +155,28 @@ function distance(a: Shape, b: Shape) {
     return Math.max(0, 1 - best);
 }
 
-type PreparedExample = { example: QuantityExample; shape: Shape; key: string };
+type PreparedExample = {
+    label: string;
+    shape: Shape;
+    key: string;
+    validation: boolean;
+};
+export type LearningEvidence = {
+    profile: LearningProfile;
+    kind: "item" | "quantity";
+    label: string;
+    templates: number;
+    checked: number;
+    correct: number;
+    alternativesCorrect: number;
+    wrong: number;
+    eligible: boolean;
+};
 
 export function correctionQuantityExample(
     review: LiveLootReviewEntry,
     quantity: number,
+    itemName: string,
 ): QuantityExampleInput | undefined {
     if (
         review.accepted ||
@@ -155,17 +185,22 @@ export function correctionQuantityExample(
         !review.learningId ||
         !review.learningProfile ||
         !Number.isSafeInteger(quantity) ||
-        quantity <= 0
+        quantity <= 0 ||
+        !itemName.trim() ||
+        itemName.trim().length > 160
     )
         return undefined;
     const image = quantityImage(review.result.capture);
     if (!image || !shape(image)) return undefined;
+    const nameImage = itemImage(review.result.capture);
     return {
         ...image,
         pixels: Array.from(image.pixels),
         profile: review.learningProfile,
         id: review.learningId,
         quantity,
+        itemName: itemName.trim(),
+        itemImage: nameImage && shape(nameImage, 512) ? { ...nameImage, pixels: Array.from(nameImage.pixels) } : null,
         originalQuantity: review.result.quantity,
         originalText: review.result.capture?.originalText ?? "",
         audit: review.result.capture?.sourceFrame
@@ -185,60 +220,119 @@ export function correctionQuantityExample(
 
 function matchShape(target: Shape, key: string, examples: PreparedExample[]) {
     const ranked = examples
-        .filter((entry) => entry.key === key && !entry.example.validation)
-        .map((entry) => ({ quantity: entry.example.quantity, distance: distance(target, entry.shape) }))
+        .filter((entry) => entry.key === key && !entry.validation)
+        .map((entry) => ({ label: entry.label, distance: distance(target, entry.shape) }))
         .sort((a, b) => a.distance - b.distance);
     const best = ranked[0];
     if (!best || best.distance > 0.12) return undefined;
-    const competitor = ranked.find((entry) => entry.quantity !== best.quantity);
+    const competitor = ranked.find((entry) => entry.label !== best.label);
     if (competitor && competitor.distance - best.distance < 0.06) return undefined;
     return {
-        quantity: best.quantity,
-        support: ranked.filter((entry) => entry.quantity === best.quantity && entry.distance <= 0.12).length,
+        label: best.label,
+        support: ranked.filter((entry) => entry.label === best.label && entry.distance <= 0.12).length,
     };
 }
 
 export function prepareQuantityLearning(state: QuantityLearning) {
-    const examples: PreparedExample[] = [];
-    for (const example of state.enabled ? state.examples.slice(0, 200) : []) {
-        const prepared = shape(example);
-        if (prepared) examples.push({ example, shape: prepared, key: profileKey(example.profile) });
-    }
-    const eligible = new Set<string>();
-    const keys = new Set(examples.map((entry) => entry.key));
-    for (const key of keys) {
-        const validation = examples.filter((entry) => entry.key === key && entry.example.validation);
-        const checked = validation.map((entry) => ({
-            actual: entry.example.quantity,
-            predicted: matchShape(entry.shape, key, examples)?.quantity,
-        }));
-        // Reserved examples never enter the matcher. Any wrong prediction blocks this setup's automatic mode.
-        if (checked.some((entry) => entry.predicted !== undefined && entry.predicted !== entry.actual)) continue;
-        for (const quantity of new Set(checked.map((entry) => entry.actual))) {
-            const own = checked.filter((entry) => entry.actual === quantity);
-            if (
-                own.length >= 3 &&
-                own.every((entry) => entry.predicted === quantity) &&
-                checked.some((entry) => entry.actual !== quantity && entry.predicted === entry.actual)
-            )
-                eligible.add(`${key}/${quantity}`);
+    const evidence: LearningEvidence[] = [];
+    function prepare(kind: "item" | "quantity") {
+        const examples: PreparedExample[] = [];
+        const profiles = new Map<string, LearningProfile>();
+        // A repeated component image cannot become both a template and a validation example,
+        // or count as additional support just because the other component changed.
+        const images = new Map<string, PreparedExample>();
+        // Persistence returns newest insertion first. Wall-clock changes must not change a component
+        // from a template into a validation example (or the reverse).
+        for (const example of [...(state.enabled ? state.examples.slice(0, 200) : [])].reverse()) {
+            const image = kind === "item" ? example.itemImage : example;
+            const label = kind === "item" ? example.itemName : String(example.quantity);
+            if (!image || !label) continue;
+            const prepared = shape(image, kind === "item" ? 512 : 64);
+            if (!prepared) continue;
+            const key = profileKey(example.profile);
+            profiles.set(key, example.profile);
+            const imageKey = `${key}/${image.width}/${image.height}/${image.pixels.join(",")}`;
+            const previous = images.get(imageKey);
+            if (previous) {
+                // Preserve contradictory labels so matching abstains, including malformed imported libraries.
+                if (previous.label !== label) examples.push({ ...previous, label, validation: false });
+                continue;
+            }
+            const entry = {
+                label,
+                shape: prepared,
+                key,
+                validation: example.validation,
+            };
+            images.set(imageKey, entry);
+            examples.push(entry);
         }
-    }
-    return {
-        enabled: state.enabled,
-        eligibleCount: eligible.size,
-        suggest(image: LootRoiFrame, profile: LearningProfile) {
+        const eligible = new Set<string>();
+        for (const [key, profile] of profiles) {
+            const checked = examples
+                .filter((entry) => entry.key === key && entry.validation)
+                .map((entry) => ({ actual: entry.label, predicted: matchShape(entry.shape, key, examples)?.label }));
+            const wrong = checked.filter(
+                (entry) => entry.predicted !== undefined && entry.predicted !== entry.actual,
+            ).length;
+            for (const label of new Set(examples.filter((entry) => entry.key === key).map((entry) => entry.label))) {
+                const own = checked.filter((entry) => entry.actual === label);
+                const templates = examples.filter(
+                    (entry) => entry.key === key && entry.label === label && !entry.validation,
+                ).length;
+                const correct = own.filter((entry) => entry.predicted === label).length;
+                const alternativesCorrect = checked.filter(
+                    (entry) => entry.actual !== label && entry.predicted === entry.actual,
+                ).length;
+                const qualifies =
+                    templates >= 2 &&
+                    own.length >= 3 &&
+                    correct === own.length &&
+                    alternativesCorrect >= 1 &&
+                    wrong === 0;
+                if (qualifies) eligible.add(`${key}/${label}`);
+                evidence.push({
+                    profile,
+                    kind,
+                    label,
+                    templates,
+                    checked: own.length,
+                    correct,
+                    alternativesCorrect,
+                    wrong,
+                    eligible: qualifies,
+                });
+            }
+        }
+        return (image: LootRoiFrame, profile: LearningProfile) => {
             if (!state.enabled) return undefined;
-            const target = shape(image);
+            const target = shape(image, kind === "item" ? 512 : 64);
             if (!target) return undefined;
             const key = profileKey(profile);
             const match = matchShape(target, key, examples);
             return (
                 match && {
-                    quantity: match.quantity,
-                    automatic: state.autoAllow && match.support >= 2 && eligible.has(`${key}/${match.quantity}`),
+                    label: match.label,
+                    automatic: state.autoAllow && match.support >= 2 && eligible.has(`${key}/${match.label}`),
                 }
             );
+        };
+    }
+    const quantity = prepare("quantity");
+    const item = prepare("item");
+    return {
+        enabled: state.enabled,
+        evidence,
+        eligibleCount: evidence.filter((entry) => entry.eligible).length,
+        suggest(image: LootRoiFrame, profile: LearningProfile) {
+            const match = quantity(image, profile);
+            return match && { quantity: Number(match.label), automatic: match.automatic };
+        },
+        suggestItem(image: LootRoiFrame, profile: LearningProfile, dictionary: readonly string[]) {
+            const match = item(image, profile);
+            return match && dictionary.includes(match.label)
+                ? { itemName: match.label, automatic: match.automatic }
+                : undefined;
         },
     };
 }
@@ -261,34 +355,65 @@ export function suggestUnresolvedQuantity(
 ): LootQuantitySuggestion | undefined {
     if (!model.enabled) return undefined;
     const matches = frames.map((frame) => {
-        const bounds = frame.observation.fingerprint.digits?.bounds;
-        const image = quantityImage({ ...frame.roi, quantityBounds: bounds });
-        return image ? model.suggest(image, profile) : undefined;
+        const digits = frame.observation.fingerprint.digits;
+        const capture = { ...frame.roi, quantityBounds: digits?.bounds, itemBounds: digits?.itemBounds };
+        const number = quantityImage(capture);
+        const name = itemImage(capture);
+        return {
+            quantity: number ? model.suggest(number, profile) : undefined,
+            item: name ? model.suggestItem(name, profile, dictionary) : undefined,
+        };
     });
-    const first = matches.find((match) => match !== undefined);
-    if (!first || matches.some((match) => match && match.quantity !== first.quantity)) return undefined;
-    const items = readings.map((passes) => {
-        const parsed = passes.map((text) => clearItem(text, dictionary));
-        const firstItem = parsed.find((item) => item !== undefined);
-        return firstItem && parsed.filter((item) => item === firstItem).length > passes.length / 2
-            ? firstItem
-            : undefined;
-    });
-    const itemName = items[0];
-    const conflict = readings.flat().some((text) => {
-        const quantity = parseLootQuantity(text);
+    const firstQuantity = matches.find((match) => match.quantity)?.quantity;
+    const firstItem = matches.find((match) => match.item)?.item;
+    if (!firstQuantity && !firstItem) return undefined;
+    if (
+        matches.some(
+            (match) =>
+                (match.quantity && firstQuantity && match.quantity.quantity !== firstQuantity.quantity) ||
+                (match.item && firstItem && match.item.itemName !== firstItem.itemName),
+        )
+    )
+        return undefined;
+    function majority<T>(values: (T | null | undefined)[]): T | undefined {
+        return (
+            values.find(
+                (value) => value != null && values.filter((other) => other === value).length > values.length / 2,
+            ) ?? undefined
+        );
+    }
+    const ocrItems = readings.map((passes) => majority(passes.map((text) => clearItem(text, dictionary))));
+    const ocrQuantities = readings.map((passes) => majority(passes.map(parseLootQuantity)));
+    const itemName = firstItem?.itemName ?? ocrItems[0] ?? null;
+    const quantity = firstQuantity?.quantity ?? ocrQuantities[0] ?? null;
+    const allReadings = [
+        ...readings.flat(),
+        ...frames.flatMap((frame) =>
+            (frame.diagnostics?.passes ?? []).map((pass) =>
+                pass.region === "quantity" ? `x ${pass.text}` : pass.text,
+            ),
+        ),
+    ];
+    const conflict = allReadings.some((text) => {
+        const number = parseLootQuantity(text);
         const item = clearItem(text, dictionary);
         return (
-            (quantity !== null && quantity !== first.quantity) ||
-            (item !== undefined && itemName !== undefined && item !== itemName)
+            (number !== null && quantity !== null && number !== quantity) ||
+            (item !== undefined && itemName !== null && item !== itemName)
         );
     });
     const automatic =
         frames.length >= 3 &&
         readings.length === frames.length &&
-        matches.every((match) => match?.automatic && match.quantity === first.quantity) &&
         !!itemName &&
-        items.every((item) => item === itemName) &&
-        !conflict;
-    return { quantity: first.quantity, itemName: itemName ?? null, automatic };
+        quantity !== null &&
+        !conflict &&
+        matches.every(
+            (match, index) =>
+                (firstQuantity
+                    ? match.quantity?.automatic && match.quantity.quantity === quantity
+                    : ocrQuantities[index] === quantity) &&
+                (firstItem ? match.item?.automatic && match.item.itemName === itemName : ocrItems[index] === itemName),
+        );
+    return { quantity, itemName, automatic };
 }

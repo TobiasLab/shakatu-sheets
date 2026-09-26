@@ -135,10 +135,11 @@ export type LiveLootOcrFrame = {
     diagnostics?: { passes: LootOcrPass[] };
 };
 
-export type LootQuantitySuggestion = { quantity: number; itemName: string | null; automatic: boolean };
+export type LootQuantitySuggestion = { quantity: number | null; itemName: string | null; automatic: boolean };
 export type LootReviewCapture = LootRoiFrame & {
     bounds?: LootOcrBounds;
     quantityBounds?: LootOcrBounds;
+    itemBounds?: LootOcrBounds;
     originalText?: string;
     sourceFrame?: LootFrameEvidence;
     ocrFrames?: LootFrameEvidence[];
@@ -151,6 +152,7 @@ export type LootFrameEvidence = {
     roiWidth: number;
     roiHeight: number;
     quantityBounds: LootOcrBounds | null;
+    itemBounds?: LootOcrBounds | null;
     readings: string[];
     passes: LootOcrPass[];
 };
@@ -166,6 +168,9 @@ function frameEvidence(frame: LiveLootOcrFrame, readings: readonly string[] = []
         quantityBounds: frame.observation.fingerprint.digits
             ? { ...frame.observation.fingerprint.digits.bounds }
             : null,
+        ...(frame.observation.fingerprint.digits?.itemBounds
+            ? { itemBounds: { ...frame.observation.fingerprint.digits.itemBounds } }
+            : {}),
         readings: readings.slice(0, 3).map((text) => text.slice(0, 512)),
         passes: (frame.diagnostics?.passes ?? [])
             .slice(0, 9)
@@ -180,6 +185,7 @@ export function copyLootReviewCapture(frame: LiveLootOcrFrame): LootReviewCaptur
     const bottom = Math.min(roi.height, Math.ceil(frame.bounds?.bottom ?? observation.centerY + 24));
     const height = Math.max(1, bottom - top);
     const digits = observation.fingerprint.digits?.bounds;
+    const item = observation.fingerprint.digits?.itemBounds;
     return {
         width: roi.width,
         height,
@@ -188,6 +194,9 @@ export function copyLootReviewCapture(frame: LiveLootOcrFrame): LootReviewCaptur
             digits && digits.top >= top && digits.bottom <= bottom
                 ? { ...digits, top: digits.top - top, bottom: digits.bottom - top }
                 : undefined,
+        ...(item && item.top >= top && item.bottom <= bottom
+            ? { itemBounds: { ...item, top: item.top - top, bottom: item.bottom - top } }
+            : {}),
         pixels: roi.pixels.slice(top * roi.width * 4, (top + height) * roi.width * 4),
         bounds: {
             left: frame.bounds?.left ?? normalLootColumn(roi.width, 0.25),
@@ -1497,7 +1506,7 @@ export class LiveLootCoordinator {
                                 rawReadings,
                             );
                             result.quantitySuggestion = suggestion;
-                            if (suggestion?.automatic && suggestion.itemName) {
+                            if (suggestion?.automatic && suggestion.itemName && suggestion.quantity !== null) {
                                 result = {
                                     ...result,
                                     status: "recognized",

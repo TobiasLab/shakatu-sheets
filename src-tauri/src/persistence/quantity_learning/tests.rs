@@ -35,6 +35,8 @@ fn example(index: u32) -> QuantityExampleInput {
             source_height: 1440,
         },
         quantity: 6,
+        item_name: None,
+        item_image: None,
         original_quantity: None,
         original_text: "Black Stone x &".into(),
         audit: None,
@@ -122,7 +124,7 @@ fn audit_migration_preserves_version_one_examples_and_settings() {
     {
         let db = open_database(&path).unwrap();
         db.execute_batch(
-            "ALTER TABLE quantity_examples DROP COLUMN audit_json; PRAGMA user_version = 1;",
+            "ALTER TABLE quantity_examples DROP COLUMN audit_json; ALTER TABLE quantity_examples DROP COLUMN item_name; ALTER TABLE quantity_examples DROP COLUMN item_width; ALTER TABLE quantity_examples DROP COLUMN item_height; ALTER TABLE quantity_examples DROP COLUMN item_png; PRAGMA user_version = 1;",
         )
         .unwrap();
     }
@@ -136,7 +138,7 @@ fn audit_migration_preserves_version_one_examples_and_settings() {
     assert_eq!(
         db.query_row("PRAGMA user_version", [], |r| r.get::<_, i64>(0))
             .unwrap(),
-        2
+        3
     );
 }
 
@@ -298,10 +300,10 @@ fn invalid_input_duplicate_images_and_future_schemas_are_rejected() {
     duplicate.quantity = 9;
     assert!(operate(&path, LearningOperation::Save { example: duplicate }).is_err());
     let db = open_database(&path).unwrap();
-    db.execute_batch("PRAGMA user_version = 3").unwrap();
+    db.execute_batch("PRAGMA user_version = 4").unwrap();
     assert!(operate(&path, LearningOperation::Reset)
         .unwrap_err()
-        .contains("version 3"));
+        .contains("version 4"));
     assert_eq!(
         db.query_row("SELECT COUNT(*) FROM quantity_examples", [], |r| r
             .get::<_, i64>(0))
@@ -349,4 +351,157 @@ fn storage_is_bounded_per_profile_and_globally() {
             .id,
         "event-259"
     );
+}
+
+fn named_example(index: u32, name: &str) -> QuantityExampleInput {
+    let mut input = example(index);
+    input.item_name = Some(name.into());
+    input.item_image = Some(Box::new(LearningImage {
+        width: 80,
+        height: 16,
+        pixels: vec![255; 80 * 16 * 4],
+    }));
+    let mut audit = audit_value();
+    let bounds = serde_json::json!({"left":20,"right":100,"top":50,"bottom":66});
+    audit["cropFrame"]["itemBounds"] = bounds.clone();
+    audit["frames"][0]["itemBounds"] = bounds;
+    input.audit = Some(serde_json::from_value(audit).unwrap());
+    input
+}
+
+#[test]
+fn item_images_round_trip_and_conflicting_item_labels_are_rejected() {
+    let dir = TestDirectory::new();
+    let path = dir.learning();
+    enable(&path);
+    let first = named_example(1, "Black Stone");
+    let saved = operate(
+        &path,
+        LearningOperation::Save {
+            example: first.clone(),
+        },
+    )
+    .unwrap();
+    assert_eq!(
+        saved.examples[0].input.item_name.as_deref(),
+        Some("Black Stone")
+    );
+    assert_eq!(
+        saved.examples[0].input.item_image.as_ref().unwrap().pixels,
+        first.item_image.as_ref().unwrap().pixels
+    );
+    let repeated = operate(&path, LearningOperation::Save { example: first }).unwrap();
+    assert_eq!(repeated.examples.len(), 1);
+    // The same item with a different quantity is valid; its repeated name crop is deduplicated by the matcher.
+    let mut different_quantity = named_example(2, "Black Stone");
+    different_quantity.quantity = 9;
+    assert_eq!(
+        operate(
+            &path,
+            LearningOperation::Save {
+                example: different_quantity
+            }
+        )
+        .unwrap()
+        .examples
+        .len(),
+        2
+    );
+    assert!(operate(
+        &path,
+        LearningOperation::Save {
+            example: named_example(3, "Caphras Stone")
+        }
+    )
+    .is_err());
+    // A repeated number crop must not discard a newly confirmed item image.
+    let mut different_item = named_example(1, "Caphras Stone");
+    different_item.id = "new-item".into();
+    different_item.item_image.as_mut().unwrap().pixels[0] = 0;
+    let saved = operate(
+        &path,
+        LearningOperation::Save {
+            example: different_item,
+        },
+    )
+    .unwrap();
+    assert_eq!(saved.examples.len(), 3);
+    assert_eq!(
+        operate(&path, LearningOperation::Load)
+            .unwrap()
+            .examples
+            .len(),
+        3
+    );
+}
+
+#[test]
+fn malformed_item_images_labels_and_source_bounds_are_rejected() {
+    let dir = TestDirectory::new();
+    let path = dir.learning();
+    enable(&path);
+    for case in 0..7 {
+        let mut input = named_example(case + 1, "Black Stone");
+        match case {
+            0 => input.item_name = None,
+            1 => input.item_name = Some(" ".into()),
+            2 => input.item_name = Some("x".repeat(161)),
+            3 => input.item_image.as_mut().unwrap().width = 513,
+            4 => {
+                input.item_image.as_mut().unwrap().pixels.pop();
+            }
+            5 => input.item_image.as_mut().unwrap().pixels.fill(0),
+            _ => {
+                let mut audit = serde_json::to_value(&input.audit).unwrap();
+                audit["cropFrame"]["itemBounds"]["right"] = serde_json::json!(99);
+                input.audit = Some(serde_json::from_value(audit).unwrap());
+            }
+        }
+        assert!(operate(&path, LearningOperation::Save { example: input }).is_err());
+    }
+    assert!(operate(&path, LearningOperation::Load)
+        .unwrap()
+        .examples
+        .is_empty());
+}
+
+#[test]
+fn item_migration_preserves_old_audits_and_disables_previously_enabled_auto_allow() {
+    let dir = TestDirectory::new();
+    let path = dir.learning();
+    enable(&path);
+    let mut input = example(1);
+    input.audit = Some(serde_json::from_value(audit_value()).unwrap());
+    operate(&path, LearningOperation::Save { example: input }).unwrap();
+    {
+        let db = open_database(&path).unwrap();
+        db.execute_batch(
+            "ALTER TABLE quantity_examples DROP COLUMN item_name;
+            ALTER TABLE quantity_examples DROP COLUMN item_width;
+            ALTER TABLE quantity_examples DROP COLUMN item_height;
+            ALTER TABLE quantity_examples DROP COLUMN item_png;
+            UPDATE learning_settings SET auto_allow = 1;
+            PRAGMA user_version = 2;",
+        )
+        .unwrap();
+    }
+    let loaded = operate(&path, LearningOperation::Load).unwrap();
+    assert!(loaded.enabled);
+    assert!(!loaded.auto_allow);
+    assert_eq!(loaded.examples[0].input.pixels, example(1).pixels);
+    assert_eq!(
+        serde_json::to_value(&loaded.examples[0].input.audit).unwrap(),
+        audit_value()
+    );
+    assert!(loaded.examples[0].input.item_name.is_none());
+    assert!(loaded.examples[0].input.item_image.is_none());
+    operate(
+        &path,
+        LearningOperation::Settings {
+            enabled: true,
+            auto_allow: true,
+        },
+    )
+    .unwrap();
+    assert!(operate(&path, LearningOperation::Load).unwrap().auto_allow);
 }
