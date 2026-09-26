@@ -9,6 +9,7 @@ export type LootRoiFrame = {
     height: number;
     pixels: Uint8ClampedArray;
     sample?: { captureToken: number; collectionPath: string; batchId: number };
+    captureBatch?: { captureToken: number; batchId: number };
 };
 
 export type LootDetectionProfile = {
@@ -139,7 +140,38 @@ export type LootReviewCapture = LootRoiFrame & {
     bounds?: LootOcrBounds;
     quantityBounds?: LootOcrBounds;
     originalText?: string;
+    sourceFrame?: LootFrameEvidence;
+    ocrFrames?: LootFrameEvidence[];
 };
+
+export type LootFrameEvidence = {
+    frame: number;
+    captureToken: number | null;
+    batchId: number | null;
+    roiWidth: number;
+    roiHeight: number;
+    quantityBounds: LootOcrBounds | null;
+    readings: string[];
+    passes: LootOcrPass[];
+};
+
+function frameEvidence(frame: LiveLootOcrFrame, readings: readonly string[] = []): LootFrameEvidence {
+    const batch = frame.roi.captureBatch ?? frame.roi.sample;
+    return {
+        frame: frame.frame,
+        captureToken: batch?.captureToken ?? null,
+        batchId: batch?.batchId ?? null,
+        roiWidth: frame.roi.width,
+        roiHeight: frame.roi.height,
+        quantityBounds: frame.observation.fingerprint.digits
+            ? { ...frame.observation.fingerprint.digits.bounds }
+            : null,
+        readings: readings.slice(0, 3).map((text) => text.slice(0, 512)),
+        passes: (frame.diagnostics?.passes ?? [])
+            .slice(0, 9)
+            .map((pass) => ({ ...pass, text: pass.text.slice(0, 512) })),
+    };
+}
 
 /** Copy only the item row; never retain the full capture buffer for review. */
 export function copyLootReviewCapture(frame: LiveLootOcrFrame): LootReviewCapture {
@@ -151,6 +183,7 @@ export function copyLootReviewCapture(frame: LiveLootOcrFrame): LootReviewCaptur
     return {
         width: roi.width,
         height,
+        sourceFrame: frameEvidence(frame),
         quantityBounds:
             digits && digits.top >= top && digits.bottom <= bottom
                 ? { ...digits, top: digits.top - top, bottom: digits.bottom - top }
@@ -1405,12 +1438,17 @@ export class LiveLootCoordinator {
 
                 let result: LiveLootEventResult | undefined;
                 let originalText = "";
+                const readingsByFrame = new Map<number, readonly string[]>();
                 this.activeOcrDelivery = delivery;
                 try {
                     const primaryFrames = delivery.frames.slice(0, this.ocrFrameCount);
                     delivery.activeFrames = primaryFrames;
                     delivery.selectedFrames = primaryFrames.map(({ frame }) => frame);
+                    for (const frame of primaryFrames) frame.diagnostics ??= { passes: [] };
                     let rawReadings = await this.options.readText(primaryFrames, this.abortController.signal);
+                    primaryFrames.forEach((frame, index) => {
+                        readingsByFrame.set(frame.frame, rawReadings[index] ?? []);
+                    });
                     originalText = rawReadings[0]?.join("\n").slice(0, 3200) ?? "";
                     if (rawReadings.length !== primaryFrames.length) {
                         throw new Error("Loot OCR readings must match the selected frame count.");
@@ -1425,12 +1463,16 @@ export class LiveLootCoordinator {
                         delivery.activeFrames = additionalFrames;
                         primaryFrames.length = 0;
                         delivery.selectedFrames.push(...additionalFrames.map(({ frame }) => frame));
+                        for (const frame of additionalFrames) frame.diagnostics ??= { passes: [] };
                         const additionalReadings = await this.options.readText(
                             additionalFrames,
                             this.abortController.signal,
                         );
                         if (additionalReadings.length !== additionalFrames.length)
                             throw new Error("Loot OCR readings must match the selected frame count.");
+                        additionalFrames.forEach((frame, index) => {
+                            readingsByFrame.set(frame.frame, additionalReadings[index] ?? []);
+                        });
                         rawReadings = [...rawReadings, ...additionalReadings];
                         analysis = analyzeLootReadings(rawReadings, this.options.dictionary);
                     }
@@ -1477,6 +1519,14 @@ export class LiveLootCoordinator {
                     if (result && result.status !== "recognized" && delivery.frames[0]) {
                         result.capture = copyLootReviewCapture(delivery.frames[0]);
                         result.capture.originalText = originalText;
+                        result.capture.sourceFrame = frameEvidence(
+                            delivery.frames[0],
+                            readingsByFrame.get(delivery.frames[0].frame),
+                        );
+                        result.capture.ocrFrames = delivery.frames
+                            .filter((frame) => delivery.selectedFrames.includes(frame.frame))
+                            .slice(0, 5)
+                            .map((frame) => frameEvidence(frame, readingsByFrame.get(frame.frame)));
                     }
                     this.releaseOcrDelivery(delivery);
                     if (this.activeOcrDelivery === delivery) this.activeOcrDelivery = undefined;

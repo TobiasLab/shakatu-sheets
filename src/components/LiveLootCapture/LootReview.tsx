@@ -17,7 +17,7 @@ type ReviewController = Pick<
     | "itemDictionary"
     | "databaseLoaded"
     | "sessionStatus"
-> & { learning?: ReturnType<typeof useLiveLootCapture>["learning"] };
+> & { learning?: ReturnType<typeof useLiveLootCapture>["learning"]; onOpenSelfImprovement?: () => void };
 
 function reviewTitle(review: LiveLootReviewEntry) {
     const result = review.result;
@@ -235,6 +235,11 @@ export function LootReview({ controller }: { controller: ReviewController }) {
             </div>
             <footer className={styles.Footer}>
                 <span>Unreviewed drops are not in your totals.</span>
+                {controller.onOpenSelfImprovement && (
+                    <button className="button subtle" type="button" onClick={controller.onOpenSelfImprovement}>
+                        Self-improvement settings
+                    </button>
+                )}
                 <span>
                     Review captures are discarded when dismissed, on finish, or when the app closes. Quantity examples
                     you teach are kept locally and remain until deleted or replaced by newer examples.

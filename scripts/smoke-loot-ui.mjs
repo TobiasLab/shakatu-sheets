@@ -122,6 +122,11 @@ await send("Page.addScriptToEvaluateOnNewDocument", {
                 }
                 return null;
             }
+            if (command === "quantity_learning") {
+                window.__selfImprovement ??= {enabled:false,autoAllow:false,examples:[]};
+                if (args.operation.kind === "settings") Object.assign(window.__selfImprovement, {enabled:args.operation.enabled,autoAllow:args.operation.enabled && args.operation.autoAllow});
+                return structuredClone(window.__selfImprovement);
+            }
             if (command === "load_loot_font") return window.__savedLootFont ?? "korean";
             if (command === "save_loot_font") {
                 if (window.__failLootFont) throw Error("Synthetic font save failure");
@@ -959,6 +964,29 @@ try {
             "strong-sword",
             "Font selection survives settings navigation",
         );
+        await until("document.querySelector('#self-improvement-enabled')?.disabled === false");
+        assert(
+            await evaluate(
+                '!!document.querySelector(\'[aria-label="Settings sections"] a[href="#self-improvement"]\')',
+            ),
+        );
+        assert.equal(await evaluate("document.querySelector('#self-improvement-enabled').checked"), false);
+        await evaluate("document.querySelector('#self-improvement-enabled').click()");
+        await until(
+            "window.__selfImprovement.enabled === true && !document.querySelector('#self-improvement-enabled').disabled",
+        );
+        await click("Grind desk");
+        assert.equal(
+            await evaluate("document.querySelectorAll('#self-improvement').length"),
+            0,
+            "Controls live only in Settings",
+        );
+        await click("Settings");
+        await until("document.querySelector('#self-improvement-enabled')?.checked === true");
+        await evaluate("document.querySelector('#self-improvement-enabled').click()");
+        await until("window.__selfImprovement.enabled === false");
+        await evaluate("document.getElementById('self-improvement').scrollIntoView({block:'start'})");
+        await screenshot("self-improvement-settings");
         await screenshot("settings");
         await click("Capture setup");
         await until("document.activeElement.textContent.includes('Close setup')");

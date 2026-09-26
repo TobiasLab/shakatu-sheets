@@ -1,10 +1,10 @@
 import type { LootAlignmentGuide, LootUiScale } from "../../recognition/displayCapture";
+import { Feedback } from "../Feedback/Feedback";
 import { FormField } from "../FormField/FormField";
 import { Icon } from "../Icon/Icon";
 import { SelectionButton } from "../SelectionButton/SelectionButton";
 import styles from "./LiveLootCapture.module.css";
 import { LootReview } from "./LootReview";
-import { QuantityLearningPanel } from "./QuantityLearningPanel";
 import type { useLiveLootCapture } from "./useLiveLootCapture";
 
 type SourceDimensions = { width: number; height: number };
@@ -765,20 +765,34 @@ export function LiveLootCapture({ controller }: { controller: ReturnType<typeof 
                 {recognitionAnnouncement}
             </div>
             <LootReview controller={controller} />
-            <QuantityLearningPanel learning={controller.learning} />
+            {(controller.learning.error || controller.learning.failedExample || controller.learning.message) && (
+                <Feedback
+                    tone={controller.learning.error || controller.learning.failedExample ? "error" : "success"}
+                    action={
+                        <button className="button subtle" type="button" onClick={controller.onOpenSelfImprovement}>
+                            Self-improvement settings
+                        </button>
+                    }
+                >
+                    {controller.learning.error ||
+                        (controller.learning.failedExample
+                            ? "Your drop was added, but an example is waiting to be saved. Open Self-improvement in Settings to retry."
+                            : controller.learning.message)}
+                </Feedback>
+            )}
             <details className={styles.PrivacyNote}>
                 <summary>Privacy & capture details</summary>
                 <p>
-                    Capture pixels stay in memory unless you enable quantity learning or explicitly save development
-                    samples. Quantity learning stores only small quantity crops from your Needs attention corrections on
+                    Capture pixels stay in memory unless you enable self-improvement or explicitly save development
+                    samples. Self-improvement stores only small quantity crops from your Needs attention corrections on
                     this device; examples stay until deleted or replaced by newer examples. Captures are never uploaded.{" "}
                     {debugSampleCollectionAvailable &&
                         "The explicit development sample action saves only the configured normal and rare crops locally until they are deleted; it never saves the full screen or uploads samples. "}
                     Automatic placement scans only the highlighted search area. Confirmed loot crops are processed by
                     the bundled local OCR worker and recognized results are added automatically.{" "}
                     {debugSampleCollectionAvailable
-                        ? "Outside development samples and quantity learning, only final coordinates, rare-area confirmation, source dimensions, and BDO UI scale are stored."
-                        : "Outside quantity learning, only final coordinates, rare-area confirmation, source dimensions, and BDO UI scale are stored."}
+                        ? "Outside development samples and self-improvement, only final coordinates, rare-area confirmation, source dimensions, and BDO UI scale are stored."
+                        : "Outside self-improvement, only final coordinates, rare-area confirmation, source dimensions, and BDO UI scale are stored."}
                 </p>
             </details>
         </section>

@@ -1,0 +1,173 @@
+.Option {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 20px;
+    padding: 16px 0;
+    border-bottom: 1px solid var(--line);
+    cursor: pointer;
+}
+.Option:first-of-type {
+    padding-top: 0;
+}
+.Option strong,
+.Note strong {
+    color: var(--text-strong);
+    font-size: 12px;
+    font-weight: 550;
+}
+.Option small {
+    display: block;
+    margin-top: 6px;
+    color: var(--muted);
+    font-size: 12px;
+    line-height: 1.65;
+}
+.Option input {
+    appearance: none;
+    position: relative;
+    flex-shrink: 0;
+    width: 34px;
+    height: 20px;
+    margin: 0;
+    padding: 0;
+    border: 1px solid var(--line-strong);
+    border-radius: 12px;
+    background: var(--surface-raised);
+    cursor: pointer;
+}
+.Option input::before {
+    content: "";
+    position: absolute;
+    left: 2px;
+    top: 2px;
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    background: var(--muted);
+}
+.Option input:checked {
+    border-color: var(--gold);
+    background: var(--accent-surface);
+}
+.Option input:checked::before {
+    transform: translateX(14px);
+    background: var(--gold);
+}
+.Option input:focus-visible {
+    outline: 2px solid var(--focus-border);
+    outline-offset: 3px;
+}
+.Option input:disabled {
+    opacity: 0.45;
+    cursor: default;
+}
+.Option:has(input:disabled) {
+    cursor: default;
+}
+.Note {
+    display: grid;
+    gap: 8px;
+    padding: 14px 16px;
+    border: 1px solid var(--line);
+    border-radius: var(--control-radius);
+    background: var(--surface-raised);
+}
+.Actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+.Library {
+    padding-top: 6px;
+    border-top: 1px solid var(--line);
+}
+.Library > summary {
+    padding: 12px 0;
+    cursor: pointer;
+    color: var(--text-soft);
+    font-size: 12px;
+}
+.Library > summary > span {
+    margin-left: 8px;
+    padding: 2px 6px;
+    border-radius: var(--control-radius);
+    background: var(--surface-raised);
+    font-variant-numeric: tabular-nums;
+}
+.LibraryBody {
+    display: grid;
+    gap: 16px;
+}
+.Examples {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    max-height: 440px;
+    overflow-y: auto;
+}
+.Example {
+    padding: 14px 0;
+    border-bottom: 1px solid var(--line);
+}
+.ExampleRow {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 12px;
+}
+.ExampleLabel {
+    flex: 1;
+    min-width: 140px;
+}
+.ExampleLabel strong {
+    display: block;
+    color: var(--text-soft);
+    font-size: 12px;
+    font-weight: 550;
+}
+.ExampleLabel span {
+    display: block;
+    margin-top: 5px;
+    color: var(--muted);
+    font-size: 11px;
+}
+.ExampleDetails {
+    margin-top: 12px;
+    color: var(--muted);
+    font-size: 11px;
+}
+.ExampleDetails summary {
+    cursor: pointer;
+    padding: 4px 0;
+}
+.ExampleDetails dl {
+    display: grid;
+    gap: 8px;
+}
+.ExampleDetails dl > div {
+    display: flex;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+.ExampleDetails dd {
+    margin: 0;
+    color: var(--text-soft);
+    overflow-wrap: anywhere;
+    min-width: 0;
+}
+.FrameEvidence {
+    padding-top: 12px;
+    border-top: 1px solid var(--line);
+}
+.ExampleDetails pre {
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+    padding: 10px;
+    border-radius: var(--control-radius);
+    background: var(--surface-raised);
+    color: var(--text-soft);
+    max-height: 150px;
+    overflow-y: auto;
+}

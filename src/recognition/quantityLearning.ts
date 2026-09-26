@@ -1,5 +1,6 @@
 import {
     type LiveLootOcrFrame,
+    type LootFrameEvidence,
     type LootQuantitySuggestion,
     type LootReviewCapture,
     type LootRoiFrame,
@@ -19,6 +20,17 @@ export type QuantityExampleInput = LearningProfileImage & {
     quantity: number;
     originalQuantity: number | null;
     originalText: string;
+    audit?: QuantityLearningAudit | null;
+};
+export type QuantityLearningAudit = {
+    version: 1;
+    sessionId: string | null;
+    generation: number | null;
+    eventId: string;
+    status: "withheld" | "failed";
+    reason: string;
+    cropFrame: LootFrameEvidence;
+    frames: LootFrameEvidence[];
 };
 export type LearningProfileImage = {
     profile: LearningProfile;
@@ -156,6 +168,18 @@ export function correctionQuantityExample(
         quantity,
         originalQuantity: review.result.quantity,
         originalText: review.result.capture?.originalText ?? "",
+        audit: review.result.capture?.sourceFrame
+            ? {
+                  version: 1,
+                  sessionId: review.learningContext?.sessionId ?? null,
+                  generation: review.learningContext?.generation ?? null,
+                  eventId: review.result.eventId,
+                  status: review.result.status,
+                  reason: review.result.reason,
+                  cropFrame: review.result.capture.sourceFrame,
+                  frames: review.result.capture.ocrFrames ?? [],
+              }
+            : null,
     };
 }
 

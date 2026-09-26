@@ -1544,6 +1544,64 @@ it("retains the original capture and readings when learned recovery needs confir
     ]);
 });
 
+it("keeps the crop and every selected frame's readings and raw passes together across supplementary OCR", async () => {
+    const results: LiveLootRecognitionResult[] = [];
+    const coordinator = new LiveLootCoordinator({
+        profile: streamingProfile,
+        dictionary: ["Black Stone"],
+        ocrSelection: { windowFrames: 6, maximumFrameCount: 5 },
+        readText: async (frames) =>
+            frames.map((frame) => {
+                frame.diagnostics?.passes.push({
+                    threshold: 150,
+                    scale: 2,
+                    region: "line",
+                    text: `frame ${frame.frame}: Black Stone x &`,
+                });
+                return [`Black Stone x ? (${frame.frame})`];
+            }),
+        onResult: (result) => results.push(result),
+    });
+    const frames = [0, 1, 1, 1, 1, 1, 1, 1, 1].map(packedFrame);
+    frames.forEach((frame, index) => {
+        coordinator.pushFrame({ ...frame, captureBatch: { captureToken: 123, batchId: 100 + index } });
+    });
+    await coordinator.finish();
+    const result = results[0];
+    if (result.status === "dropped") throw Error("Expected an event");
+    expect(result.capture?.ocrFrames).toHaveLength(5);
+    expect(result.capture?.sourceFrame).toEqual(result.capture?.ocrFrames?.[0]);
+    expect(result.capture?.sourceFrame).toMatchObject({
+        frame: 2,
+        captureToken: 123,
+        batchId: 102,
+        readings: ["Black Stone x ? (2)"],
+        passes: [{ threshold: 150, scale: 2, region: "line", text: "frame 2: Black Stone x &" }],
+    });
+    expect(result.capture?.ocrFrames?.map((frame) => frame.frame)).toEqual(result.selectedFrames);
+    expect(result.capture?.ocrFrames?.[4].readings).toEqual([`Black Stone x ? (${result.selectedFrames[4]})`]);
+    expect(coordinator.retainedFrameCount).toBe(0);
+});
+
+it("preserves completed raw passes on OCR failure without inventing consensus readings", async () => {
+    const results: LiveLootRecognitionResult[] = [];
+    const coordinator = new LiveLootCoordinator({
+        profile: streamingProfile,
+        dictionary: ["Black Stone"],
+        readText: async (frames) => {
+            frames[0].diagnostics?.passes.push({ threshold: 130, scale: 2, region: "line", text: "Black Stone x 9" });
+            throw Error("OCR stopped midway");
+        },
+        onResult: (result) => results.push(result),
+    });
+    pushRowSequence(coordinator, [0, 1, 1, 1, 1, 0, 0]);
+    await coordinator.finish();
+    expect(results[0]).toMatchObject({
+        status: "failed",
+        capture: { sourceFrame: { readings: [], passes: [{ text: "Black Stone x 9" }] } },
+    });
+});
+
 it("checks intervening 16 FPS observations before selecting spaced OCR evidence", () => {
     const track = {
         id: "test",

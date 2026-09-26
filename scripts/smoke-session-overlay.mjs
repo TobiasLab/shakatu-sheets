@@ -11,6 +11,7 @@ import ReactDOM from "react-dom/client";
 import { useSessionOverlay } from "./hooks/useSessionOverlay";
 import { usePersistedSession } from "./hooks/usePersistedSession";
 import { useLootFont } from "./hooks/useLootFont";
+import { useSelfImprovement } from "./hooks/useSelfImprovement";
 import { useMarketPrices } from "./hooks/useMarketPrices";
 import { getGrindSpot, getMarketItemIds } from "./data/grindSpots";
 import { useOverlayOpacity } from "./hooks/useOverlayOpacity";
@@ -26,6 +27,7 @@ function Harness() {
     const [settingsVisible, setSettingsVisible] = useState(true);
     const opacity = useOverlayOpacity();
     const lootFont = useLootFont();
+    const selfImprovement = useSelfImprovement();
     const persisted = usePersistedSession(opacity.flush);
     const spot = getGrindSpot(persisted.session.grindSpotId);
     const market = useMarketPrices(persisted.databaseLoaded, persisted.session.region, spot.id);
@@ -56,7 +58,7 @@ function Harness() {
     window.showSettings = setSettingsVisible;
     window.openOverlay = overlay.openOverlay;
     return <><p id="publisher-error">{overlay.error}</p>
-        {settingsVisible && <SettingsView marketController={marketController} lootFont={lootFont} theme={theme} onThemeChange={setTheme} onOpenCapture={() => {}} overlayOpacity={opacity} />}
+        {settingsVisible && <SettingsView selfImprovement={selfImprovement} marketController={marketController} lootFont={lootFont} theme={theme} onThemeChange={setTheme} onOpenCapture={() => {}} overlayOpacity={opacity} />}
         <SessionOverlay /></>;
 }
 ReactDOM.createRoot(document.getElementById("root")).render(<React.StrictMode><Harness /></React.StrictMode>);
@@ -118,6 +120,8 @@ function installTauriMock() {
                     return [];
                 case "load_garmoth_settings":
                     return { apiKeyConfigured: false, characterIds: [], characters: [], selectedCharacterId: null };
+                case "quantity_learning":
+                    return { enabled: false, autoAllow: false, examples: [] };
                 case "load_loot_font":
                     return window.__savedLootFont ?? "korean";
                 case "save_loot_font":

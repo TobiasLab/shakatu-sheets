@@ -20,6 +20,7 @@ import {
     supportsTauriApi,
 } from "../../api/tauri";
 import { isActiveSessionStatus, type SessionStatus } from "../../domain/session";
+import type { useSelfImprovement } from "../../hooks/useSelfImprovement";
 import { useWindowVisible } from "../../hooks/useWindowVisible";
 import {
     DISPLAY_CAPTURE_OPTIONS,
@@ -70,7 +71,6 @@ import { suggestUnresolvedQuantity } from "../../recognition/quantityLearning";
 import { RARE_LOOT_OCR_SELECTION, RareLootFrameAnalyzer, rareLootDetectionProfile } from "../../recognition/rareLoot";
 import { RareLootLocalizer } from "../../recognition/rareLootLocalization";
 import { RoiOcrDiagnostics, type RoiOcrIssue, roiOcrFailure } from "../../recognition/roiOcrDiagnostics";
-import { useQuantityLearning } from "./useQuantityLearning";
 
 type CaptureStatus = "idle" | "requesting" | "connecting" | "capturing";
 type RecognitionStatus = "idle" | "starting" | "active" | "unavailable" | "error";
@@ -99,6 +99,8 @@ type OcrDiagnostics = Record<OcrSource, OcrPipelineDiagnostics> & {
     analysis: OcrWorkerDiagnostics;
 };
 export type LiveLootCaptureProps = {
+    learning: ReturnType<typeof useSelfImprovement>;
+    onOpenSelfImprovement: () => void;
     lootFont: LootFont;
     lootFontReady: boolean;
     setupRequest: number;
@@ -301,8 +303,9 @@ export function useLiveLootCapture({
     grindSpotName,
     itemDictionary,
     onAcceptRecognition,
+    learning,
+    onOpenSelfImprovement,
 }: LiveLootCaptureProps) {
-    const learning = useQuantityLearning();
     const closingRecognition = useRef(false);
     const [captureFont, setCaptureFont] = useState<LootFont>("korean");
     const windowVisible = useWindowVisible();
@@ -1207,6 +1210,7 @@ export function useLiveLootCapture({
                                     height: frame.height,
                                     pixels: frame.pixels,
                                     sample: sampleReference(frame.batchId),
+                                    captureBatch: { captureToken, batchId: frame.batchId },
                                 });
                             }
                         } else {
@@ -1225,6 +1229,7 @@ export function useLiveLootCapture({
                                     height: frame.height,
                                     pixels: frame.pixels,
                                     sample: sampleReference(frame.batchId),
+                                    captureBatch: { captureToken, batchId: frame.batchId },
                                 });
                             }
                         }
@@ -1597,6 +1602,7 @@ export function useLiveLootCapture({
                         source,
                         font: captureFont,
                         learningId: crypto.randomUUID(),
+                        learningContext: { sessionId, generation },
                         learningProfile: sourceDimensions
                             ? {
                                   font: captureFont,
@@ -2233,6 +2239,7 @@ export function useLiveLootCapture({
 
     return {
         learning,
+        onOpenSelfImprovement,
         setupButton,
         setupOpen,
         diagnosticsOpen,

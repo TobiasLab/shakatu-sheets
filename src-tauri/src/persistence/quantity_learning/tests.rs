@@ -37,6 +37,7 @@ fn example(index: u32) -> QuantityExampleInput {
         quantity: 6,
         original_quantity: None,
         original_text: "Black Stone x &".into(),
+        audit: None,
         width: 8,
         height: 16,
         pixels,
@@ -52,6 +53,91 @@ fn enable(path: &PathBuf) {
         },
     )
     .unwrap();
+}
+
+fn audit_value() -> serde_json::Value {
+    let frame = serde_json::json!({
+        "frame": 12, "captureToken": 123, "batchId": 456, "roiWidth": 362, "roiHeight": 311,
+        "quantityBounds": {"left": 120, "right": 128, "top": 50, "bottom": 66},
+        "readings": ["Black Stone x 9", "Black Stone x &"],
+        "passes": [{"threshold": 150, "scale": 2, "region": "line", "text": "Black Stone x 9"}]
+    });
+    serde_json::json!({"version":1,"sessionId":"session-1","generation":3,"eventId":"normal-12",
+        "status":"withheld","reason":"consensus-withheld","cropFrame":frame,"frames":[frame]})
+}
+
+#[test]
+fn audit_round_trips_exact_frame_evidence_and_rejects_mismatched_or_oversized_history() {
+    let dir = TestDirectory::new();
+    let path = dir.learning();
+    enable(&path);
+    let audit = audit_value();
+    let mut input = example(1);
+    input.audit = Some(serde_json::from_value(audit.clone()).unwrap());
+    let result = operate(&path, LearningOperation::Save { example: input }).unwrap();
+    assert_eq!(
+        serde_json::to_value(&result.examples[0].input.audit).unwrap(),
+        audit
+    );
+    assert_eq!(result.examples[0].input.quantity, 6);
+    let result = operate(&path, LearningOperation::Load).unwrap();
+    assert_eq!(
+        serde_json::to_value(&result.examples[0].input.audit).unwrap(),
+        audit
+    );
+    for kind in 0..5 {
+        let mut invalid = audit.clone();
+        match kind {
+            0 => invalid["cropFrame"]["quantityBounds"]["right"] = serde_json::json!(129),
+            1 => invalid["frames"][0]["frame"] = serde_json::json!(99),
+            2 => invalid["frames"] = serde_json::json!(vec![audit["cropFrame"].clone(); 6]),
+            3 => invalid["cropFrame"]["passes"][0]["text"] = serde_json::json!("x".repeat(513)),
+            _ => invalid["status"] = serde_json::json!("recognized"),
+        }
+        let mut input = example(kind + 2);
+        input.audit = Some(serde_json::from_value(invalid).unwrap());
+        assert!(operate(&path, LearningOperation::Save { example: input }).is_err());
+    }
+    assert_eq!(
+        operate(&path, LearningOperation::Load)
+            .unwrap()
+            .examples
+            .len(),
+        1
+    );
+}
+
+#[test]
+fn audit_migration_preserves_version_one_examples_and_settings() {
+    let dir = TestDirectory::new();
+    let path = dir.learning();
+    enable(&path);
+    operate(
+        &path,
+        LearningOperation::Save {
+            example: example(1),
+        },
+    )
+    .unwrap();
+    {
+        let db = open_database(&path).unwrap();
+        db.execute_batch(
+            "ALTER TABLE quantity_examples DROP COLUMN audit_json; PRAGMA user_version = 1;",
+        )
+        .unwrap();
+    }
+    let upgraded = operate(&path, LearningOperation::Load).unwrap();
+    assert!(upgraded.enabled);
+    assert_eq!(upgraded.examples.len(), 1);
+    assert_eq!(upgraded.examples[0].input.pixels, example(1).pixels);
+    assert_eq!(upgraded.examples[0].input.quantity, 6);
+    assert!(upgraded.examples[0].input.audit.is_none());
+    let db = open_database(&path).unwrap();
+    assert_eq!(
+        db.query_row("PRAGMA user_version", [], |r| r.get::<_, i64>(0))
+            .unwrap(),
+        2
+    );
 }
 
 #[test]
@@ -212,10 +298,10 @@ fn invalid_input_duplicate_images_and_future_schemas_are_rejected() {
     duplicate.quantity = 9;
     assert!(operate(&path, LearningOperation::Save { example: duplicate }).is_err());
     let db = open_database(&path).unwrap();
-    db.execute_batch("PRAGMA user_version = 2").unwrap();
+    db.execute_batch("PRAGMA user_version = 3").unwrap();
     assert!(operate(&path, LearningOperation::Reset)
         .unwrap_err()
-        .contains("version 2"));
+        .contains("version 3"));
     assert_eq!(
         db.query_row("SELECT COUNT(*) FROM quantity_examples", [], |r| r
             .get::<_, i64>(0))

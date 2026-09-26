@@ -11,6 +11,7 @@ export type LiveLootReviewEntry = {
     font?: LootFont;
     learningProfile?: LearningProfile;
     learningId?: string;
+    learningContext?: { sessionId: string; generation: number };
     result: LiveLootRecognitionResult;
     accepted: boolean;
     error: string;
