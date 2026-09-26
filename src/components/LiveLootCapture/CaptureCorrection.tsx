@@ -6,7 +6,12 @@ import { FormField } from "../FormField/FormField";
 import { QuantityImage } from "../QuantityImage/QuantityImage";
 import styles from "./LootReview.module.css";
 
-export type CorrectionDraft = { item: string; quantity: string };
+export type CorrectionDraft = {
+    item: string;
+    quantity: string;
+    learnedItem?: string;
+    learnedQuantity?: number;
+};
 
 export function CaptureCorrection({
     review,
@@ -16,8 +21,6 @@ export function CaptureCorrection({
     draft,
     onDraftChange,
     learnOnAdd = false,
-    learnedQuantity,
-    learnedItem,
 }: {
     review: LiveLootReviewEntry;
     items: readonly string[];
@@ -26,11 +29,9 @@ export function CaptureCorrection({
     onDraftChange: (draft: CorrectionDraft) => void;
     onAdd: (id: number, itemName: string, quantity: number) => void;
     learnOnAdd?: boolean;
-    learnedQuantity?: number;
-    learnedItem?: string;
 }) {
     const canvas = useRef<HTMLCanvasElement>(null);
-    const { item, quantity } = draft;
+    const { item, quantity, learnedItem, learnedQuantity } = draft;
     const capture = review.result.status === "dropped" ? undefined : review.result.capture;
     const learningImage = learnOnAdd && review.source === "normal" ? quantityImage(capture) : undefined;
     const learningItemImage = learningImage ? itemImage(capture) : undefined;
@@ -140,35 +141,25 @@ export function CaptureCorrection({
                     )}
                 </div>
             )}
-            {learnedItem !== undefined && (
+            {(learnedItem !== undefined || learnedQuantity !== undefined) && (
                 <div className={styles.RetryResult}>
                     <p>
-                        Saved examples suggest <strong>{learnedItem}</strong>. Check the item name against the capture.
+                        Saved examples suggested
+                        {learnedItem !== undefined && (
+                            <>
+                                {" "}
+                                <strong>{learnedItem}</strong>
+                            </>
+                        )}
+                        {learnedQuantity !== undefined && (
+                            <>
+                                {" "}
+                                {learnedItem !== undefined ? "× " : "quantity "}
+                                <strong>{learnedQuantity}</strong>
+                            </>
+                        )}
+                        . Check the fields against the capture, then add to session.
                     </p>
-                    <button
-                        className="button"
-                        type="button"
-                        disabled={disabled}
-                        onClick={() => onDraftChange({ ...draft, item: learnedItem })}
-                    >
-                        Use learned item
-                    </button>
-                </div>
-            )}
-            {learnedQuantity !== undefined && (
-                <div className={styles.RetryResult}>
-                    <p>
-                        Saved examples suggest quantity <strong>{learnedQuantity}</strong>. Check the image before
-                        confirming.
-                    </p>
-                    <button
-                        className="button"
-                        type="button"
-                        disabled={disabled}
-                        onClick={() => onDraftChange({ ...draft, quantity: String(learnedQuantity) })}
-                    >
-                        Use learned quantity
-                    </button>
                 </div>
             )}
             {learningImage && (

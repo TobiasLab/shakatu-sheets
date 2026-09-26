@@ -24,11 +24,12 @@ function entry(id){return {id,source:'normal',font:'korean',learningProfile:prof
 window.saved={enabled:false,autoAllow:false,examples:[]};window.added=[];window.failSave=false;
 function Harness(){
  const learning=useSelfImprovement();const [reviews,setReviews]=useState([entry(1)]);
- window.addPending=id=>setReviews(current=>[...current,entry(id)]);
+ window.addPending=(id,cropOverrides={})=>setReviews(current=>{const next=entry(id);Object.assign(next.result.capture,cropOverrides);return [...current,next];});
+ window.reloadLearning=learning.reload;
  window.learningState=learning.state;
  function correct(id,item,quantity){const original=reviews.find(x=>x.id===id);const corrected=correctLiveLootReviewEntry(original,item,quantity,(item,quantity)=>{if(window.failAdd)return 'Synthetic ledger failure';window.added.push({item,quantity});return null;});setReviews(current=>current.map(x=>x.id===id?corrected:x));if(corrected.accepted&&!original.accepted)learning.learnCorrection(original,quantity,item);}
  return <main style={{maxWidth:900,margin:'20px auto',padding:16}}><h1 id="live-capture-heading" tabIndex={-1}>Learning test</h1>
- <LootReview controller={{reviewResults:reviews,omittedReviewResults:0,databaseLoaded:true,sessionStatus:'paused',itemDictionary:['Black Stone'],resultDescription:()=> 'Check quantity',clearReviewResults:()=>setReviews([]),dismissReviewResult:id=>setReviews(current=>current.filter(x=>x.id!==id)),correctReviewResult:correct,acceptReviewResult:()=>{},learning}}/>
+ <LootReview controller={{reviewResults:reviews,omittedReviewResults:0,databaseLoaded:true,sessionStatus:'paused',itemDictionary:['Black Stone','Caphras Stone'],resultDescription:()=> 'Check quantity',clearReviewResults:()=>setReviews([]),dismissReviewResult:id=>setReviews(current=>current.filter(x=>x.id!==id)),correctReviewResult:correct,acceptReviewResult:()=>{},learning}}/>
  <div className={settingsStyles.Preferences}><SelfImprovementSettings learning={learning}/></div></main>;
 }
 ReactDOM.createRoot(document.getElementById('root')).render(<React.StrictMode><Harness/></React.StrictMode>);`;
@@ -143,8 +144,10 @@ try {
     assert(await evaluate("document.body.innerText.includes('Frame 12 · Saved quantity image')"));
     assert(await evaluate("document.body.innerText.includes('Black Stone x 9')"));
     assert(await evaluate("document.body.innerText.includes('Black Stone × 6')"));
+    const before = await evaluate("window.added.length");
+    const savedBefore = await evaluate("window.saved.examples.length");
     await evaluate("window.addPending(3)");
-    await until("document.body.textContent.includes('Use learned quantity')");
+    await until("document.querySelector('#loot-review-detail input[type=number]')?.value==='6'");
     if (process.env.UI_SMOKE_OUTPUT) {
         await mkdir(process.env.UI_SMOKE_OUTPUT, { recursive: true });
         const { data } = await send("Page.captureScreenshot", { format: "png", captureBeyondViewport: true });
@@ -156,17 +159,63 @@ try {
         "Item evidence and saved images fit narrow windows",
     );
     await send("Emulation.setDeviceMetricsOverride", { width: 1280, height: 900, deviceScaleFactor: 1, mobile: false });
-    const before = await evaluate("window.added.length");
-    await button("Use learned item");
     assert.equal(await evaluate("document.querySelector('#loot-review-detail select').value"), "Black Stone");
-    assert.equal(await evaluate("window.added.length"), before, "Item suggestion does not insert loot");
-    await button("Use learned quantity");
     assert.equal(await evaluate("window.added.length"), before, "Suggestion does not insert loot");
     assert.equal(await evaluate("document.querySelector('#loot-review-detail input[type=number]').value"), "6");
+    assert.equal(await evaluate("window.saved.examples.length"), savedBefore, "Prefill does not teach");
+    for (const [entryId, overrides, expectedItem, expectedQuantity] of [
+        [30, { itemBounds: null }, "", "6"],
+        [31, { quantityBounds: null }, "Black Stone", "1"],
+        [32, { itemBounds: null, quantityBounds: null }, "", "1"],
+    ]) {
+        await evaluate(`window.addPending(${entryId},${JSON.stringify(overrides)})`);
+        await until(`!!document.querySelector('#review-select-${entryId}')`);
+        await evaluate(`document.querySelector('#review-select-${entryId}').click()`);
+        assert.equal(await evaluate("document.querySelector('#loot-review-detail select').value"), expectedItem);
+        assert.equal(
+            await evaluate("document.querySelector('#loot-review-detail input[type=number]').value"),
+            expectedQuantity,
+        );
+        await evaluate(`document.querySelector('[aria-label="Dismiss review entry ${entryId + 1}"]').click()`);
+    }
+    await evaluate("window.addPending(33)");
+    await until("!!document.querySelector('#review-select-33')");
+    await evaluate("document.querySelector('#review-select-33').click()");
+    await field("#loot-review-detail select", "Caphras Stone");
+    await field('#loot-review-detail input[type="number"]', "7");
+    // A changed library must preserve both the untouched prefill and the manually edited draft.
+    await evaluate(
+        "window.saved.examples[0].quantity=9;window.saved.examples[0].itemName='Caphras Stone';window.reloadLearning()",
+    );
+    await evaluate("document.querySelector('#review-select-3').click()");
+    assert.equal(await evaluate("document.querySelector('#loot-review-detail select').value"), "Black Stone");
+    assert.equal(await evaluate("document.querySelector('#loot-review-detail input[type=number]').value"), "6");
+    assert(
+        await evaluate("document.querySelector('#loot-review-detail').textContent.includes('Black Stone × 6')"),
+        "The suggestion note stays with the original prefill when the library changes",
+    );
+    assert(
+        !(await evaluate("document.querySelector('#loot-review-detail').textContent.includes('Caphras Stone × 9')")),
+        "The suggestion note must not show an unapplied replacement",
+    );
+    await evaluate("document.querySelector('#review-select-33').click()");
+    assert.equal(await evaluate("document.querySelector('#loot-review-detail select').value"), "Caphras Stone");
+    assert.equal(await evaluate("document.querySelector('#loot-review-detail input[type=number]').value"), "7");
+    await evaluate("document.querySelector('[aria-label=\"Dismiss review entry 34\"]').click()");
+    assert.equal(await evaluate("window.added.length"), before, "Prefill and edits require explicit confirmation");
+    assert.equal(await evaluate("window.saved.examples.length"), savedBefore, "Prefill and edits do not teach");
+    await evaluate(
+        "window.saved.examples[0].quantity=6;window.saved.examples[0].itemName='Black Stone';window.reloadLearning()",
+    );
     await evaluate("window.failSave=true");
-    await correct(6);
+    await button("Add to session");
     await until("document.body.textContent.includes('Synthetic storage failure')");
     assert.equal(await evaluate("window.added.length"), before + 1, "Storage failure does not undo the drop");
+    assert.deepEqual(
+        await evaluate("window.added.at(-1)"),
+        { item: "Black Stone", quantity: 6 },
+        "One Add click confirms both prefilled fields",
+    );
     await evaluate("window.failSave=false;window.addPending(4)");
     await until("!!document.querySelector('#review-select-4')");
     await correct(6);

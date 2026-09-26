@@ -26,9 +26,11 @@ pixels never enter the name matcher. A missing, clipped or blank quantity crop s
 usable but the item name cannot be isolated or is blank, the confirmed item label is saved but only the quantity image
 teaches recognition. The manual drop still adds normally. There is no accepted-capture gallery or ledger-total learning.
 
-**Use learned item** and **Use learned quantity** fill their respective fields without inserting a drop. Users still check
-both fields and submit. Suggestions only use item labels present in the current session's item dictionary. Corrections
-made before opt-in are not recovered retroactively.
+Available learned item and quantity suggestions prefill an untouched correction draft. Users check the editable fields
+against the capture and click **Add to session** once to confirm. Prefilling does not insert a drop or teach the reader.
+The first suggested draft and its suggestion note stay stable across example saves and capture switches. Matching runs
+only until a draft is populated; later suggestions never overwrite a manual edit. Suggestions only use item labels present in the current session's item dictionary. Corrections made before
+opt-in are not recovered retroactively.
 
 **Saved examples** displays confirmed item/quantity labels, images, setup, time, and recognition details. Each new example
 preserves its source frame, ROI dimensions, quantity/item bounds, session/event/run IDs, native token/batch when available,

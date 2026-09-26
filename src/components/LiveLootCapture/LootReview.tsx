@@ -70,20 +70,32 @@ export function LootReview({ controller }: { controller: ReviewController }) {
 
     if (!selected) return null;
     const status = selected.result.status;
-    const image = status === "dropped" ? undefined : quantityImage(selected.result.capture);
-    const learned =
-        controller.learning?.state.enabled && selected.source === "normal" && image && selected.learningProfile
-            ? controller.learning.model.current.suggest(image, selected.learningProfile)
-            : undefined;
-    const nameImage = status === "dropped" ? undefined : itemImage(selected.result.capture);
-    const learnedItem =
-        controller.learning?.state.enabled && selected.source === "normal" && nameImage && selected.learningProfile
-            ? controller.learning.model.current.suggestItem(
-                  nameImage,
-                  selected.learningProfile,
-                  controller.itemDictionary,
-              )
-            : undefined;
+    let draft = drafts[selected.id];
+    if (!draft) {
+        const image = status === "dropped" ? undefined : quantityImage(selected.result.capture);
+        const learned =
+            controller.learning?.state.enabled && selected.source === "normal" && image && selected.learningProfile
+                ? controller.learning.model.current.suggest(image, selected.learningProfile)
+                : undefined;
+        const nameImage = status === "dropped" ? undefined : itemImage(selected.result.capture);
+        const learnedItem =
+            controller.learning?.state.enabled && selected.source === "normal" && nameImage && selected.learningProfile
+                ? controller.learning.model.current.suggestItem(
+                      nameImage,
+                      selected.learningProfile,
+                      controller.itemDictionary,
+                  )
+                : undefined;
+        draft = {
+            item: learnedItem?.itemName ?? "",
+            quantity: String(learned?.quantity ?? 1),
+            learnedItem: learnedItem?.itemName,
+            learnedQuantity: learned?.quantity,
+        };
+        if (learned || learnedItem) {
+            setDrafts({ ...drafts, [selected.id]: draft });
+        }
+    }
     return (
         <section
             className={styles.Review}
@@ -215,12 +227,10 @@ export function LootReview({ controller }: { controller: ReviewController }) {
                             review={selected}
                             items={controller.itemDictionary}
                             disabled={disabled}
-                            draft={drafts[selected.id] ?? { item: "", quantity: "1" }}
+                            draft={draft}
                             onDraftChange={(draft) => setDrafts((current) => ({ ...current, [selected.id]: draft }))}
                             onAdd={controller.correctReviewResult}
                             learnOnAdd={controller.learning?.state.enabled}
-                            learnedQuantity={learned?.quantity}
-                            learnedItem={learnedItem?.itemName}
                         />
                     )}
                     {status === "recognized" && (
@@ -251,7 +261,7 @@ export function LootReview({ controller }: { controller: ReviewController }) {
                     </button>
                 )}
                 <span>
-                    Review captures are discarded when dismissed, on finish, or when the app closes. Quantity examples
+                    Review captures are discarded when dismissed, on finish, or when the app closes. Correction examples
                     you teach are kept locally and remain until deleted or replaced by newer examples.
                 </span>
                 {controller.omittedReviewResults > 0 && (
