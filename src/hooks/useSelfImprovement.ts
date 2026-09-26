@@ -1,15 +1,15 @@
 import { useEffect, useRef, useState } from "react";
-import { type LearningOperation, quantityLearning } from "../../api/quantityLearning";
-import { supportsTauriApi } from "../../api/tauri";
-import type { LiveLootReviewEntry } from "../../recognition/liveLootReview";
+import { type LearningOperation, quantityLearning } from "../api/quantityLearning";
+import { supportsTauriApi } from "../api/tauri";
+import type { LiveLootReviewEntry } from "../recognition/liveLootReview";
 import {
     correctionQuantityExample,
     emptyQuantityLearning,
     prepareQuantityLearning,
     type QuantityExampleInput,
-} from "../../recognition/quantityLearning";
+} from "../recognition/quantityLearning";
 
-export function useQuantityLearning() {
+export function useSelfImprovement() {
     const [state, setState] = useState(emptyQuantityLearning);
     const [ready, setReady] = useState(false);
     const [busy, setBusy] = useState(false);
@@ -40,7 +40,7 @@ export function useQuantityLearning() {
             return true;
         } catch (failure) {
             if (alive.current)
-                setError(`Quantity learning: ${String(failure)}. Capture and session data are unaffected.`);
+                setError(`Self-improvement: ${String(failure)}. Capture and session data are unaffected.`);
             return false;
         } finally {
             pending.current -= 1;
@@ -64,7 +64,7 @@ export function useQuantityLearning() {
         if (await run({ kind: "save", example })) {
             queuedExamples.current -= 1;
             setFailedExamples((current) => current.filter((saved) => saved.id !== example.id));
-            setMessage("Correction saved for quantity learning.");
+            setMessage("Correction saved for self-improvement.");
         } else if (alive.current) {
             setFailedExamples((current) =>
                 current.some((saved) => saved.id === example.id) ? current : [...current, example],
@@ -115,7 +115,7 @@ export function useQuantityLearning() {
             if (await run({ kind: "reset" })) {
                 setFailedExamples([]);
                 queuedExamples.current = 0;
-                setMessage("Saved examples cleared. Quantity learning is off.");
+                setMessage("Saved examples cleared. Self-improvement is off.");
             }
         },
         retrySave: () => {

@@ -8,24 +8,26 @@ const harness = `
 import React,{useState} from 'react';
 import ReactDOM from 'react-dom/client';
 import {LootReview} from '/src/components/LiveLootCapture/LootReview.tsx';
-import {QuantityLearningPanel} from '/src/components/LiveLootCapture/QuantityLearningPanel.tsx';
-import {useQuantityLearning} from '/src/components/LiveLootCapture/useQuantityLearning.ts';
+import {SelfImprovementSettings} from '/src/views/Settings/SelfImprovementSettings.tsx';
+import settingsStyles from '/src/views/Settings/Settings.module.css';
+import {useSelfImprovement} from '/src/hooks/useSelfImprovement.ts';
 import {correctLiveLootReviewEntry} from '/src/recognition/liveLootReview.ts';
 import '/src/index.css';
 const profile={font:'korean',uiScalePercent:80,sourceWidth:3440,sourceHeight:1440};
 const rows=['.###.','#....','#....','####.','#...#','#...#','.###.'];
 const pixels=new Uint8ClampedArray(9*11*4);
 for(let y=0;y<7;y++)for(let x=0;x<5;x++)if(rows[y][x]==='#')pixels.fill(255,((y+2)*9+x+2)*4,((y+2)*9+x+2)*4+4);
-function entry(id){return {id,source:'normal',font:'korean',learningProfile:profile,learningId:'event-'+id,accepted:false,error:'',result:{eventId:'event-'+id,firstFrame:0,selectedFrames:[0,1,2],status:'withheld',reason:'quantity-not-recognized',itemName:null,quantity:null,capture:{width:9,height:11,pixels,quantityBounds:{left:0,top:0,right:9,bottom:11},originalText:'Black Stone x &'}}};}
+const evidence={frame:12,captureToken:123,batchId:456,roiWidth:362,roiHeight:311,quantityBounds:{left:100,top:50,right:109,bottom:61},readings:['Black Stone x 9','Black Stone x &'],passes:[{threshold:150,scale:2,region:'line',text:'Black Stone x 9'}]};
+function entry(id){return {id,source:'normal',font:'korean',learningProfile:profile,learningId:'event-'+id,learningContext:{sessionId:'session-1',generation:3},accepted:false,error:'',result:{eventId:'event-'+id,firstFrame:12,selectedFrames:[12],status:'withheld',reason:'consensus-withheld',itemName:null,quantity:null,capture:{width:9,height:11,pixels,quantityBounds:{left:0,top:0,right:9,bottom:11},originalText:'Black Stone x 9',sourceFrame:evidence,ocrFrames:[evidence]}}};}
 window.saved={enabled:false,autoAllow:false,examples:[]};window.added=[];window.failSave=false;
 function Harness(){
- const learning=useQuantityLearning();const [reviews,setReviews]=useState([entry(1)]);
+ const learning=useSelfImprovement();const [reviews,setReviews]=useState([entry(1)]);
  window.addPending=id=>setReviews(current=>[...current,entry(id)]);
  window.learningState=learning.state;
  function correct(id,item,quantity){const original=reviews.find(x=>x.id===id);const corrected=correctLiveLootReviewEntry(original,item,quantity,(item,quantity)=>{if(window.failAdd)return 'Synthetic ledger failure';window.added.push({item,quantity});return null;});setReviews(current=>current.map(x=>x.id===id?corrected:x));if(corrected.accepted&&!original.accepted)learning.learnCorrection(original,quantity);}
  return <main style={{maxWidth:900,margin:'20px auto',padding:16}}><h1 id="live-capture-heading" tabIndex={-1}>Learning test</h1>
  <LootReview controller={{reviewResults:reviews,omittedReviewResults:0,databaseLoaded:true,sessionStatus:'paused',itemDictionary:['Black Stone'],resultDescription:()=> 'Check quantity',clearReviewResults:()=>setReviews([]),dismissReviewResult:id=>setReviews(current=>current.filter(x=>x.id!==id)),correctReviewResult:correct,acceptReviewResult:()=>{},learning}}/>
- <QuantityLearningPanel learning={learning}/></main>;
+ <div className={settingsStyles.Preferences}><SelfImprovementSettings learning={learning}/></div></main>;
 }
 ReactDOM.createRoot(document.getElementById('root')).render(<React.StrictMode><Harness/></React.StrictMode>);`;
 const mockApi = `export async function quantityLearning(operation){
@@ -124,6 +126,14 @@ try {
     await button("Add to session");
     await until("window.saved.examples.length===1");
     assert.equal(await evaluate("window.saved.examples[0].quantity"), 6);
+    assert.equal(await evaluate("window.saved.examples[0].audit.cropFrame.frame"), 12);
+    assert.equal(await evaluate("window.saved.examples[0].audit.sessionId"), "session-1");
+    assert.equal(await evaluate("window.saved.examples[0].audit.frames[0].passes[0].text"), "Black Stone x 9");
+    await until("!!document.querySelector('details details')");
+    await evaluate("document.querySelector('details details').open=true");
+    assert(await evaluate("document.body.innerText.includes('Frame 12 · Saved quantity image')"));
+    assert(await evaluate("document.body.innerText.includes('Black Stone x 9')"));
+    assert(await evaluate("document.body.innerText.includes('Confirmed quantity: 6')"));
     await evaluate("window.addPending(3)");
     await until("document.body.textContent.includes('Use learned quantity')");
     if (process.env.UI_SMOKE_OUTPUT) {
@@ -152,13 +162,13 @@ try {
     assert.equal(await evaluate("window.added.length"), before + 2, "Retry only saves the example");
     await evaluate("document.querySelectorAll('input[type=checkbox]')[1].click()");
     await until("window.learningState.autoAllow===true");
-    assert(await evaluate("document.body.textContent.includes('0 quantity/setup combinations')"));
+    assert(await evaluate("document.body.textContent.includes('Waiting for more confirmed examples')"));
     await button("Delete");
     await until("window.saved.examples.length===2");
-    await button("Reset quantity learning");
+    await button("Reset self-improvement");
     await button("Keep examples");
     assert.equal(await evaluate("window.saved.examples.length"), 2);
-    await button("Reset quantity learning");
+    await button("Reset self-improvement");
     await button("Delete all examples");
     await until(
         "window.learningState.examples.length===0&&!window.learningState.enabled&&!window.learningState.autoAllow",
@@ -166,7 +176,9 @@ try {
     await send("Emulation.setDeviceMetricsOverride", { width: 320, height: 640, deviceScaleFactor: 1, mobile: false });
     assert(await evaluate("document.documentElement.scrollWidth<=innerWidth"), "Learning controls fit narrow windows");
     assert.deepEqual(errors, []);
-    console.info("Learning opt-in, corrections, suggestions, failure retry, auto toggle, deletion and reset passed");
+    console.info(
+        "Learning opt-in, corrections, audit provenance, suggestions, failure retry, auto toggle, deletion and reset passed",
+    );
 } finally {
     ws.close();
     await Promise.allSettled([fetch(`http://127.0.0.1:9222/json/close/${page.id}`), server.close()]);

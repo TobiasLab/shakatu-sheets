@@ -93,7 +93,17 @@ describe("local quantity examples", () => {
                 capture: copyLootReviewCapture(frame(0)),
             },
         };
-        expect(correctionQuantityExample(review, 6)?.quantity).toBe(6);
+        expect(correctionQuantityExample(review, 6)).toMatchObject({
+            quantity: 6,
+            audit: {
+                version: 1,
+                eventId: "1",
+                status: "withheld",
+                reason: "quantity-not-recognized",
+                cropFrame: { frame: 0 },
+                frames: [],
+            },
+        });
         expect(correctionQuantityExample({ ...review, accepted: true }, 6)).toBeUndefined();
         expect(correctionQuantityExample({ ...review, source: "rare" }, 6)).toBeUndefined();
         expect(

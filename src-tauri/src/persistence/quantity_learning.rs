@@ -5,6 +5,7 @@ use serde::{Deserialize, Serialize};
 use tauri::State;
 
 use super::{loot_font::LootFont, open_database, timestamp_ms, DatabasePath};
+mod audit;
 
 const MAX_EXAMPLES: i64 = 200;
 const MAX_PROFILE_EXAMPLES: i64 = 50;
@@ -27,6 +28,7 @@ pub struct QuantityExampleInput {
     quantity: i64,
     original_quantity: Option<i64>,
     original_text: String,
+    audit: Option<Box<audit::Audit>>,
     width: u32,
     height: u32,
     pixels: Vec<u8>,
@@ -116,17 +118,26 @@ fn migrate(connection: &mut Connection) -> Result<(), String> {
              PRAGMA user_version = 1;",
             )
             .map_err(|e| e.to_string())?,
-        1 => {}
+        1 | 2 => {}
         _ => {
             return Err(format!(
             "Unsupported quantity learning database version {version}. Session data is unaffected."
         ))
         }
     }
+    if version < 2 {
+        tx.execute_batch(
+            "ALTER TABLE quantity_examples ADD COLUMN audit_json TEXT; PRAGMA user_version = 2;",
+        )
+        .map_err(|e| e.to_string())?;
+    }
     tx.commit().map_err(|e| e.to_string())
 }
 
 fn validate(example: &QuantityExampleInput) -> Result<(), String> {
+    if let Some(audit) = &example.audit {
+        audit.validate(example.width, example.height)?;
+    }
     let profile = &example.profile;
     if example.id.is_empty()
         || example.id.len() > 160
@@ -211,7 +222,7 @@ fn load(connection: &Connection) -> Result<QuantityLearning, String> {
         )
         .map_err(|e| e.to_string())?;
     let mut statement = connection.prepare(
-        "SELECT id, profile, quantity, original_quantity, width, height, png, confirmed_at, validation, original_text
+        "SELECT id, profile, quantity, original_quantity, width, height, png, confirmed_at, validation, original_text, audit_json
          FROM quantity_examples ORDER BY sequence DESC LIMIT ?1",
     ).map_err(|e| e.to_string())?;
     let rows = statement
@@ -227,6 +238,7 @@ fn load(connection: &Connection) -> Result<QuantityLearning, String> {
                 row.get::<_, i64>(7)?,
                 row.get::<_, bool>(8)?,
                 row.get::<_, String>(9)?,
+                row.get::<_, Option<String>>(10)?,
             ))
         })
         .map_err(|e| e.to_string())?;
@@ -243,6 +255,7 @@ fn load(connection: &Connection) -> Result<QuantityLearning, String> {
             confirmed_at,
             validation,
             original_text,
+            audit_json,
         ) = row.map_err(|e| e.to_string())?;
         let input = QuantityExampleInput {
             id,
@@ -250,6 +263,11 @@ fn load(connection: &Connection) -> Result<QuantityLearning, String> {
             quantity,
             original_quantity,
             original_text,
+            audit: audit_json
+                .as_deref()
+                .map(serde_json::from_str)
+                .transpose()
+                .map_err(|e| e.to_string())?,
             width,
             height,
             pixels: decode(&png, width, height)?,
@@ -330,9 +348,9 @@ fn operate(path: &PathBuf, operation: LearningOperation) -> Result<QuantityLearn
                 )
                 .map_err(|e| e.to_string())?;
             tx.execute(
-                "INSERT INTO quantity_examples(id, profile, quantity, original_quantity, width, height, png, confirmed_at, sequence, validation, original_text)
-                 VALUES(?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11)",
-                params![example.id, profile, example.quantity, example.original_quantity, example.width, example.height, png, timestamp_ms(), sequence, sequence % 3 == 0, example.original_text],
+                "INSERT INTO quantity_examples(id, profile, quantity, original_quantity, width, height, png, confirmed_at, sequence, validation, original_text, audit_json)
+                 VALUES(?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12)",
+                params![example.id, profile, example.quantity, example.original_quantity, example.width, example.height, png, timestamp_ms(), sequence, sequence % 3 == 0, example.original_text, example.audit.as_ref().map(serde_json::to_string).transpose().map_err(|e| e.to_string())?],
             ).map_err(|e| e.to_string())?;
             tx.execute("DELETE FROM quantity_examples WHERE profile = ?1 AND id NOT IN (SELECT id FROM quantity_examples WHERE profile = ?1 ORDER BY sequence DESC LIMIT ?2)", params![profile, MAX_PROFILE_EXAMPLES]).map_err(|e| e.to_string())?;
             tx.execute("DELETE FROM quantity_examples WHERE id NOT IN (SELECT id FROM quantity_examples ORDER BY sequence DESC LIMIT ?1)", [MAX_EXAMPLES]).map_err(|e| e.to_string())?;

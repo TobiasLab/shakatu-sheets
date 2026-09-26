@@ -1,0 +1,8 @@
+.Image {
+    width: auto;
+    height: 48px;
+    max-width: 100%;
+    object-fit: contain;
+    image-rendering: pixelated;
+    background: #101010;
+}

@@ -5,6 +5,7 @@ import { useLiveSession } from "./hooks/useLiveSession";
 import { useLootFont } from "./hooks/useLootFont";
 import { useOverlayOpacity } from "./hooks/useOverlayOpacity";
 import { usePersistedSession } from "./hooks/usePersistedSession";
+import { useSelfImprovement } from "./hooks/useSelfImprovement";
 import { useSessionOverlay } from "./hooks/useSessionOverlay";
 import { useTheme } from "./hooks/useTheme";
 import { HistoryView } from "./views/History/History";
@@ -21,6 +22,8 @@ export function App() {
     }, [view]);
     const overlayOpacity = useOverlayOpacity();
     const lootFont = useLootFont();
+    const selfImprovement = useSelfImprovement();
+    const [showSelfImprovement, setShowSelfImprovement] = useState(false);
     const persistedSession = usePersistedSession(async () => {
         await Promise.all([overlayOpacity.flush(), lootFont.flush()]);
     });
@@ -55,7 +58,10 @@ export function App() {
         <div inert={persistedSession.closing}>
             <AppShell
                 view={view}
-                onViewChange={setView}
+                onViewChange={(next) => {
+                    setShowSelfImprovement(false);
+                    setView(next);
+                }}
                 databaseStatus={persistedSession.databaseStatus}
                 databaseError={persistedSession.databaseError}
                 sessionStatus={persistedSession.session.status}
@@ -66,6 +72,11 @@ export function App() {
                 <div hidden={view !== "live"}>
                     <LiveSessionView
                         controller={liveSession}
+                        selfImprovement={selfImprovement}
+                        onOpenSelfImprovement={() => {
+                            setShowSelfImprovement(true);
+                            setView("settings");
+                        }}
                         lootFont={lootFont.font}
                         lootFontReady={lootFont.loaded && !lootFont.saving && !lootFont.error}
                         overlay={overlay}
@@ -99,6 +110,8 @@ export function App() {
                         onOpenCapture={openCaptureSetup}
                         overlayOpacity={overlayOpacity}
                         lootFont={lootFont}
+                        selfImprovement={selfImprovement}
+                        showSelfImprovement={showSelfImprovement}
                     />
                 ) : null}
             </AppShell>

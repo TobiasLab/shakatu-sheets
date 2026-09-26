@@ -3,8 +3,8 @@ import type { LiveLootReviewEntry } from "../../recognition/liveLootReview";
 import { quantityImage } from "../../recognition/quantityLearning";
 import { retryLootCapture } from "../../recognition/retryLootCapture";
 import { FormField } from "../FormField/FormField";
+import { QuantityImage } from "../QuantityImage/QuantityImage";
 import styles from "./LootReview.module.css";
-import { QuantityImage } from "./QuantityLearningPanel";
 
 export type CorrectionDraft = { item: string; quantity: string };
 
@@ -157,8 +157,8 @@ export function CaptureCorrection({
                 <div className={styles.RetryResult}>
                     <QuantityImage image={learningImage} />
                     <p>
-                        Adding this correction also saves this quantity image for learning. Confirm that it shows the
-                        complete number you enter.
+                        Self-improvement is on. Adding this drop saves the number shown here with your correction. Check
+                        that the image contains the complete quantity.
                     </p>
                 </div>
             )}

@@ -16,8 +16,10 @@ import { formatTimestamp } from "../../format";
 import type { LiveSessionController } from "../../hooks/useLiveSession";
 import type { useLootFont } from "../../hooks/useLootFont";
 import type { useOverlayOpacity } from "../../hooks/useOverlayOpacity";
+import type { useSelfImprovement } from "../../hooks/useSelfImprovement";
 import type { Theme } from "../../hooks/useTheme";
 import { isLootFont } from "../../recognition/lootFont";
+import { SelfImprovementSettings } from "./SelfImprovementSettings";
 import styles from "./Settings.module.css";
 
 export function SettingsView({
@@ -27,6 +29,8 @@ export function SettingsView({
     onOpenCapture,
     overlayOpacity,
     lootFont,
+    selfImprovement,
+    showSelfImprovement = false,
 }: {
     marketController: Pick<
         LiveSessionController,
@@ -45,6 +49,8 @@ export function SettingsView({
     onOpenCapture: () => void;
     overlayOpacity: ReturnType<typeof useOverlayOpacity>;
     lootFont: ReturnType<typeof useLootFont>;
+    selfImprovement: ReturnType<typeof useSelfImprovement>;
+    showSelfImprovement?: boolean;
 }) {
     const {
         session,
@@ -91,6 +97,12 @@ export function SettingsView({
     useEffect(() => {
         void readSettings();
     }, []);
+    useEffect(() => {
+        if (showSelfImprovement) {
+            document.getElementById("self-improvement")?.scrollIntoView({ block: "start" });
+            document.getElementById("self-improvement-title")?.focus({ preventScroll: true });
+        }
+    }, [showSelfImprovement]);
 
     async function saveApiKey(event: FormEvent<HTMLFormElement>) {
         setFeedbackTarget("key");
@@ -185,6 +197,7 @@ export function SettingsView({
                 <a href="#market">Market</a>
                 <a href="#appearance">Appearance</a>
                 <a href="#capture-preferences">Capture</a>
+                <a href="#self-improvement">Self-improvement</a>
                 <a href="#integrations">Integrations</a>
                 <a href="#consumables">Consumable presets</a>
             </nav>
@@ -379,6 +392,7 @@ export function SettingsView({
                         </button>
                     </div>
                 </section>
+                <SelfImprovementSettings learning={selfImprovement} />
             </div>
             <h2 id="integrations" className={styles.SectionTitle}>
                 Integrations <span>Optional</span>

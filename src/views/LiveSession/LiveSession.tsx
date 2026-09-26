@@ -7,6 +7,7 @@ import { useLiveLootCapture } from "../../components/LiveLootCapture/useLiveLoot
 import { LootLedger } from "../../components/LootLedger/LootLedger";
 import { createEntry } from "../../domain/session";
 import type { LiveSessionController } from "../../hooks/useLiveSession";
+import type { useSelfImprovement } from "../../hooks/useSelfImprovement";
 import type { LootFont } from "../../recognition/lootFont";
 import { FinishReviewDialog } from "./FinishReviewDialog";
 import styles from "./LiveSession.module.css";
@@ -22,9 +23,13 @@ export function LiveSessionView({
     onCaptureStatusChange,
     captureSetupRequest,
     onOpenHistory,
+    selfImprovement,
+    onOpenSelfImprovement,
 }: {
     overlay: { openOverlay: () => Promise<void>; error: string; available: boolean };
     onOpenHistory: () => void;
+    selfImprovement: ReturnType<typeof useSelfImprovement>;
+    onOpenSelfImprovement: () => void;
     controller: LiveSessionController;
     lootFont: LootFont;
     lootFontReady: boolean;
@@ -64,6 +69,8 @@ export function LiveSessionView({
     }
 
     const capture = useLiveLootCapture({
+        learning: selfImprovement,
+        onOpenSelfImprovement,
         lootFont,
         lootFontReady,
         visible,

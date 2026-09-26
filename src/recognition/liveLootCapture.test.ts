@@ -18,6 +18,16 @@ it("copies the uncertain row independently without retaining the full ROI or dia
     expect(capture).toEqual({
         width: 4,
         height: 2,
+        sourceFrame: {
+            frame: 1,
+            captureToken: 1,
+            batchId: 1,
+            roiWidth: 4,
+            roiHeight: 6,
+            quantityBounds: null,
+            readings: [],
+            passes: [],
+        },
         pixels: pixels.slice(32, 64),
         bounds: { left: 1, right: 3, top: 0, bottom: 2 },
     });

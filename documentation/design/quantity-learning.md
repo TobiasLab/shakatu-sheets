@@ -1,4 +1,4 @@
-# Local quantity learning
+# Self-improvement for loot quantities
 
 ## Implemented design
 
@@ -26,7 +26,9 @@ Real gameplay validation is required before claiming improved accuracy or recomm
 
 ## Using the feature
 
-Open **Quantity learning** below the capture review area and enable **Learn from Needs attention corrections**.
+Open **Settings → Self-improvement** and enable **Learn from my corrections**. Self-improvement has its own Settings
+section and navigation link. Its controller lives at the app level so Settings and Needs attention share the same
+state, saved examples, and failed-save queue. Changing views does not create a second reader or discard pending saves.
 Learning and auto allow both default to off. For a normal-loot capture, the correction form shows the exact quantity crop
 that will be saved. Enter the item and whole quantity, check that the crop contains the full number, then add the drop.
 Only a successful manual insertion teaches the reader. Dismissals, failed insertions, rare banners, automatically
@@ -37,8 +39,16 @@ Matching examples suggest a quantity with a **Use learned quantity** button. Thi
 the user still selects/checks the item and submits the correction. Corrections made before opting in are not recovered
 retroactively. Only whole quantities already represented by suitable examples can be suggested.
 
-The learning panel shows saved crop images, quantities, font/scale/resolution, confirmation time, and whether each image
-is reserved for validation. Delete an individual mislabeled example, or reset all examples and turn both settings off.
+Expand **Saved examples** in Settings to inspect crop images, quantities, font/scale/resolution, confirmation time,
+and recognition details. Details distinguish your confirmed number from the accepted OCR quantity, which is absent for
+unresolved captures. New examples preserve the source frame index, ROI dimensions and quantity bounds, session/event/run
+identifiers, native capture token/batch when available, and the unresolved reason. Up to five selected frames retain their
+consensus readings and raw OCR passes (threshold, scale, region and text), before any manual retry. Text is capped at
+512 characters per reading/pass, with up to three readings and nine passes per frame. OCR failures preserve completed
+evidence; insufficient-observation captures have no OCR history. Only the quantity crop image is saved, not full frames.
+Older examples remain usable and explicitly show that detailed history is unavailable. Identical-image deduplication
+keeps the original example and its provenance rather than logging another correction. Delete an individual mislabeled
+example, or reset all examples and turn both settings off.
 Disabling learning keeps the library for later. Session deletion and branch switching do not erase it. Learning writes
 run independently from session writes: failure does not undo or re-add the corrected drop. Up to 50 pending/failed examples
 are retained in memory for retry or discard; a full queue explicitly reports that a new correction could not be learned.
@@ -59,7 +69,7 @@ suggested reserved example blocks automatic recovery for the setup. Deleting or 
 This is a small local validation gate, not an independent gameplay accuracy estimate: examples may come from the same
 session, and users can repeatedly inspect validation outcomes.
 
-With **Auto allow validated quantity matches** enabled, the normal coordinator consults the prepared library only after
+With **Auto allow** enabled, the normal coordinator consults the prepared library only after
 the existing OCR and supplementary-frame policy fails to reach consensus. Automatic recovery requires all selected
 quantity crops (at least three) to agree and be eligible. In every frame, a majority of passes must read the same exact
 dictionary item before an explicit `x` marker. Any parsed numeric disagreement or recognized competing item blocks
@@ -75,7 +85,8 @@ recognition callbacks. Corrections can therefore help later unresolved events in
 Unit tests cover setup isolation, six/nine separation, whole-quantity limits, blanks and invalid crops, conflicting labels,
 reserved-example exclusion and eligibility, frame/item/numeric vetoes, successful manual corrections only, unchanged accepted
 OCR, multi-pass integration, and ordered IPC failures. Rust tests exercise PNG round trips, input validation, idempotency,
-limits and reset, future-version rejection, and byte-for-byte preservation of a populated version-4 session database.
+limits and reset, audit round trips and validation, version-1 learning migration, future-version rejection, and
+byte-for-byte preservation of a populated version-4 session database.
 The latter is then reopened and updated by the unchanged main-branch migration and session functions.
 
 With Chromium listening on port 9222, run `node scripts/smoke-loot-learning.mjs` for the real components/hook using a
