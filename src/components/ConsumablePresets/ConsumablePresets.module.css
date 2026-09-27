@@ -20,16 +20,16 @@
 }
 .Import {
     min-width: 0;
-    border: 1px solid var(--line);
-    border-radius: var(--control-radius);
-    background: var(--surface-raised);
+    border-block: 1px solid var(--line);
 }
 .Import summary {
-    padding: 12px 14px;
+    padding: 10px 0;
     color: var(--text-soft);
-    font-size: 12px;
+    font-size: 13px;
     font-weight: 500;
-    cursor: pointer;
+}
+.Import summary:hover {
+    color: var(--text-strong);
 }
 .Import summary:focus-visible {
     outline-offset: -3px;
@@ -37,7 +37,7 @@
 .ImportForm {
     display: grid;
     gap: 12px;
-    padding: 0 14px 14px;
+    padding: 0 0 14px;
 }
 .ImportForm > button {
     justify-self: start;
@@ -46,8 +46,7 @@
     max-width: 100%;
     overflow-x: auto;
     overscroll-behavior-x: contain;
-    border: 1px solid var(--line);
-    border-radius: var(--control-radius);
+    border-top: 1px solid var(--line);
 }
 .TableScroll:focus-visible {
     outline-offset: -3px;
@@ -61,13 +60,13 @@
 }
 .TableScroll th,
 .TableScroll td {
-    padding: 12px;
+    padding: 6px 8px;
     text-align: left;
     border-bottom: 1px solid var(--row-line);
 }
 .TableScroll th {
-    padding-block: 10px;
-    background: var(--surface-raised);
+    padding-block: 8px;
+    border-bottom-color: var(--line);
     color: var(--muted);
     font-size: 11px;
     font-weight: 500;
@@ -88,8 +87,8 @@
     width: 100%;
     min-width: 80px;
     min-height: var(--control-height);
-    padding: 7px 8px;
-    font-size: 12px;
+    padding: 5px 8px;
+    font-size: 13px;
 }
 .TableScroll input[type="number"] {
     text-align: right;
@@ -97,9 +96,9 @@
 }
 .TableScroll small {
     display: block;
-    margin: 5px 0 0 8px;
+    margin: 3px 0 0 8px;
     color: var(--muted);
-    font-size: 10px;
+    font-size: 11px;
 }
 .Actions {
     display: flex;
@@ -117,12 +116,12 @@
 }
 .ExpenseTotal > span {
     color: var(--muted);
-    font-size: 11px;
+    font-size: 12px;
 }
 .ExpenseTotal > strong {
     color: var(--text-strong);
-    font-size: 19px;
-    font-weight: 550;
+    font-size: 20px;
+    font-weight: 600;
     overflow-wrap: anywhere;
     font-variant-numeric: tabular-nums;
 }

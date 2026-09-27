@@ -13,15 +13,15 @@
 .Option strong,
 .Note strong {
     color: var(--text-strong);
-    font-size: 12px;
-    font-weight: 550;
+    font-size: 13px;
+    font-weight: 600;
 }
 .Option small {
     display: block;
-    margin-top: 6px;
+    margin-top: 2px;
     color: var(--muted);
-    font-size: 12px;
-    line-height: 1.65;
+    font-size: 13px;
+    line-height: 1.5;
 }
 .Option input {
     appearance: none;
@@ -35,6 +35,9 @@
     border-radius: 12px;
     background: var(--surface-raised);
     cursor: pointer;
+    transition:
+        background-color var(--motion-fast) var(--ease-out),
+        border-color var(--motion-fast) var(--ease-out);
 }
 .Option input::before {
     content: "";
@@ -45,14 +48,17 @@
     height: 14px;
     border-radius: 50%;
     background: var(--muted);
+    transition:
+        transform var(--motion-fast) var(--ease-out),
+        background-color var(--motion-fast) var(--ease-out);
 }
 .Option input:checked {
     border-color: var(--gold);
-    background: var(--accent-surface);
+    background: var(--gold);
 }
 .Option input:checked::before {
     transform: translateX(14px);
-    background: var(--gold);
+    background: var(--accent-contrast);
 }
 .Option input:focus-visible {
     outline: 2px solid var(--focus-border);
@@ -67,11 +73,11 @@
 }
 .Note {
     display: grid;
-    gap: 8px;
-    padding: 14px 16px;
-    border: 1px solid var(--line);
-    border-radius: var(--control-radius);
-    background: var(--surface-raised);
+    gap: 2px;
+    padding: 8px 12px;
+    border-left: 2px solid var(--line-strong);
+    border-radius: 0 var(--control-radius) var(--control-radius) 0;
+    background: color-mix(in srgb, var(--line-strong) 9%, transparent);
 }
 .Actions {
     display: flex;
