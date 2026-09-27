@@ -1,9 +1,13 @@
 .CapturePanel {
     min-width: 0;
-    padding: 16px 20px;
+    margin-bottom: 28px;
+    padding: 8px 8px 8px 14px;
     border: 1px solid var(--line);
     border-radius: var(--panel-radius);
     background: var(--surface);
+}
+.CapturePanel[data-setup-open="true"] {
+    padding: 14px 16px 16px;
 }
 
 .Intro {
@@ -20,9 +24,23 @@
     font-size: 12px;
 }
 
-.Intro span {
-    display: block;
-    margin-top: 5px;
+.Intro > div:first-child {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    column-gap: 14px;
+}
+.Intro span[role="status"] {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+}
+.Intro span[role="status"]::before {
+    content: "";
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: currentColor;
 }
 
 .Actions {
@@ -533,7 +551,8 @@
 
 .Intro {
     flex-wrap: wrap;
-    gap: 18px;
+    gap: 12px;
+    min-height: var(--control-height);
 }
 .Intro > div:first-child {
     min-width: 0;
@@ -541,8 +560,8 @@
 .Intro h2 {
     display: flex;
     align-items: center;
-    gap: 9px;
-    font-size: 15px;
+    gap: 8px;
+    font-size: 13px;
 }
 .Intro h2 svg {
     color: var(--muted);
@@ -550,7 +569,7 @@
 .Intro span,
 .Note,
 .PrivacyNote {
-    line-height: 1.65;
+    line-height: 1.5;
 }
 .Actions {
     flex-wrap: wrap;
@@ -562,8 +581,8 @@
 .SetupProgress {
     display: flex;
     flex-wrap: wrap;
-    gap: 8px;
-    margin-top: 18px;
+    gap: 6px;
+    margin-top: 14px;
     border-top: 1px solid var(--line);
     padding-top: 14px;
     font-size: 11px;
@@ -579,19 +598,22 @@
     border-color: var(--accent-border);
     background: var(--accent-surface);
 }
-.PrivacyNote {
-    border-top: 1px solid var(--line);
-    padding-top: 13px;
+.CapturePanel[data-setup-open="false"] > .Note,
+.CapturePanel[data-setup-open="false"] > .Error {
+    margin: 4px 0 6px;
+    max-width: 720px;
 }
-.CapturePanel[data-setup-open="false"] > .Note {
-    font-size: 11px;
-    max-width: 650px;
-}
-.CapturePanel[data-setup-open="false"] > .PrivacyNote {
+.Intro .PrivacyNote {
+    margin: 0;
+    padding: 0;
     border: 0;
-    padding-top: 0;
-    margin-top: 10px;
-    font-size: 11px;
+}
+.Intro .PrivacyNote summary:hover {
+    color: var(--text);
+}
+.Intro .PrivacyNote[open] {
+    flex-basis: 100%;
+    padding-bottom: 4px;
 }
 .CapturePanel[data-setup-open="false"] > .SetupProgress {
     display: none;

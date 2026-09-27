@@ -1,65 +1,65 @@
+.Layout {
+    display: grid;
+    grid-template-columns: 180px minmax(0, 1fr);
+    gap: 40px;
+    align-items: start;
+}
 .SectionNavigation {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 6px;
-    margin-bottom: 24px;
-    padding: 6px;
-    border: 1px solid var(--line);
-    border-radius: var(--panel-radius);
-    background: var(--surface);
+    position: sticky;
+    top: 68px;
+    display: grid;
+    gap: 1px;
 }
 .SectionNavigation a {
-    padding: 8px 12px;
+    padding: 6px 10px;
     border-radius: var(--control-radius);
-    color: var(--text-soft);
-    font-size: 12px;
+    color: var(--muted);
+    font-size: 13px;
     text-decoration: none;
     transition:
         background-color var(--motion-fast) var(--ease-out),
         color var(--motion-fast) var(--ease-out);
 }
 .SectionNavigation a:hover {
-    color: var(--gold);
-    background: var(--accent-surface);
+    color: var(--text-strong);
+    background: var(--hover);
+}
+.Content {
+    min-width: 0;
+    max-width: 960px;
 }
 .Preferences,
 .SettingsGrid {
     display: grid;
-    gap: 16px;
 }
 .Preferences > section,
 .SettingsGrid > section {
     display: grid;
-    grid-template-columns: minmax(150px, 0.55fr) minmax(0, 1.45fr);
+    grid-template-columns: minmax(140px, 200px) minmax(0, 1fr);
     gap: 32px;
-    padding: 28px;
-    border: 1px solid var(--line);
-    border-radius: var(--panel-radius);
-    background: var(--surface);
-    scroll-margin-top: 24px;
+    padding: 28px 0;
+    border-top: 1px solid var(--line);
+    scroll-margin-top: 64px;
+}
+.Preferences > section:first-child {
+    padding-top: 4px;
+    border-top: 0;
 }
 .Preferences :global(.panel-heading),
 .SettingsGrid :global(.panel-heading) {
     display: flex;
     flex-direction: column;
-    gap: 12px;
-    padding: 2px 0 0;
+    gap: 10px;
+    padding: 0;
     align-items: start;
     justify-content: start;
 }
-.Preferences :global(.panel-heading) h2,
-.SettingsGrid :global(.panel-heading) h2 {
-    font-size: 15px;
-    font-weight: 550;
-    letter-spacing: -0.2px;
-}
 .SettingsGrid > .ConsumablesSection {
     grid-template-columns: minmax(0, 1fr);
-    gap: 20px;
+    gap: 16px;
 }
 .ConsumablesSection :global(.panel-heading) {
-    padding: 0 0 16px;
-    border-bottom: 1px solid var(--line);
+    padding: 0;
 }
 .SettingsForm {
     display: grid;
@@ -73,8 +73,8 @@
     margin: 0;
     overflow-wrap: anywhere;
     color: var(--muted);
-    font-size: 12px;
-    line-height: 1.65;
+    font-size: 13px;
+    line-height: 1.55;
 }
 .SettingsForm code {
     padding: 2px 4px;
@@ -87,8 +87,9 @@
     justify-self: start;
 }
 .SettingsForm > label[for] {
-    margin-top: 6px;
+    margin-top: 4px;
     font-size: 12px;
+    font-weight: 500;
     color: var(--text-soft);
 }
 .OpacitySlider {
@@ -103,13 +104,10 @@
     accent-color: var(--gold);
 }
 .OpacitySlider output {
-    min-width: 52px;
-    padding: 5px 8px;
-    border: 1px solid var(--line);
-    border-radius: var(--control-radius);
-    text-align: center;
-    color: var(--text-soft);
-    background: var(--surface-raised);
+    min-width: 44px;
+    padding: 0;
+    text-align: right;
+    color: var(--text-strong);
     font-size: 12px;
     font-variant-numeric: tabular-nums;
 }
@@ -127,11 +125,14 @@
 .SectionTitle {
     display: flex;
     align-items: center;
-    gap: 12px;
-    margin: 36px 0 16px;
-    font-size: 16px;
-    font-weight: 550;
-    scroll-margin-top: 24px;
+    gap: 10px;
+    margin: 0;
+    padding: 36px 0 12px;
+    border-top: 1px solid var(--line-strong);
+    color: var(--muted);
+    font-size: 12px;
+    font-weight: 500;
+    scroll-margin-top: 64px;
 }
 .SectionTitle span {
     padding: 3px 8px;
@@ -145,12 +146,8 @@
     display: inline-flex;
     align-items: center;
     gap: 7px;
-    padding: 4px 8px;
-    border: 1px solid var(--line);
-    border-radius: 5px;
-    background: var(--surface-raised);
     color: var(--muted);
-    font-size: 11px;
+    font-size: 12px;
 }
 .ConnectionStatus::before {
     content: "";
@@ -176,10 +173,10 @@
 .ThemeOption {
     position: relative;
     display: grid;
-    gap: 10px;
+    gap: 8px;
     min-width: 0;
-    padding: 7px 7px 11px;
-    border: 1px solid var(--line-strong);
+    padding: 6px 6px 9px;
+    border: 1px solid var(--line);
     border-radius: var(--control-radius);
     cursor: pointer;
     color: var(--text-soft);
@@ -193,15 +190,14 @@
 }
 .ThemeOption:has(input:checked) {
     border-color: var(--gold);
-    background: var(--accent-surface);
-    color: var(--text);
+    color: var(--text-strong);
 }
 .ThemeOption input {
     position: absolute;
     width: 13px;
     height: 13px;
-    bottom: 14px;
-    right: 11px;
+    bottom: 12px;
+    right: 10px;
     margin: 0;
     accent-color: var(--gold);
 }
@@ -211,101 +207,101 @@
 }
 .ThemePreview {
     display: flex;
-    height: 82px;
-    background: #201f24;
-    border: 1px solid #403e46;
-    border-radius: 5px;
+    flex-direction: column;
+    height: 76px;
+    background: #1a1a1d;
+    border: 1px solid #2e2e34;
+    border-radius: 4px;
     overflow: hidden;
 }
 .ThemePreview > i {
     display: block;
-    width: 23%;
-    height: 100%;
-    border-right: 1px solid #403e46;
-    background: #242328;
+    height: 12px;
+    flex-shrink: 0;
+    border-bottom: 1px solid #2e2e34;
+    background: #1f1f23;
 }
 .ThemePreview > span {
     display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
     align-content: center;
-    gap: 6px;
+    gap: 5px;
     flex: 1;
-    padding: 12px;
+    padding: 10px;
 }
 .ThemePreview b {
-    height: 8px;
+    height: 14px;
     border-radius: 2px;
-    background: #323138;
+    background: #26262b;
+    box-shadow: 0 0 0 1px #2e2e34;
 }
 .ThemePreview b:first-child {
-    width: 55%;
-    height: 4px;
-    margin-bottom: 3px;
-    background: #d2bb7e;
-}
-.ThemePreview b:last-child {
-    width: 85%;
+    grid-column: 1 / -1;
+    width: 40%;
+    height: 6px;
+    background: #d6be83;
+    box-shadow: none;
 }
 .light .ThemePreview {
-    background: #f3f2ee;
-    border-color: #dcdedb;
+    background: #f5f4f1;
+    border-color: #e1dfd9;
 }
 .light .ThemePreview > i {
-    background: #eae9e4;
-    border-color: #d4d4cd;
+    background: #efeeea;
+    border-color: #e1dfd9;
 }
 .light .ThemePreview b {
-    background: #fff;
-    box-shadow: 0 0 0 1px #e3e1db;
+    background: #ffffff;
+    box-shadow: 0 0 0 1px #e1dfd9;
 }
 .light .ThemePreview b:first-child {
-    background: #80602b;
+    background: #80611f;
     box-shadow: none;
 }
 .moss .ThemePreview {
-    background: #18221e;
-    border-color: #35473b;
+    background: #151c19;
+    border-color: #28342e;
 }
 .moss .ThemePreview > i {
-    background: #121b17;
-    border-color: #35473b;
+    background: #19221e;
+    border-color: #28342e;
 }
 .moss .ThemePreview b {
-    background: #2e4035;
+    background: #202b25;
+    box-shadow: 0 0 0 1px #28342e;
 }
 .moss .ThemePreview b:first-child {
-    background: #ddc897;
+    background: #dac68f;
+    box-shadow: none;
 }
 .SettingsForm .SetupHint {
     color: var(--muted);
-    padding: 12px 14px;
-    border: 1px solid var(--line);
-    border-radius: var(--control-radius);
-    background: var(--surface-raised);
+    padding: 10px 12px;
+    border-left: 2px solid var(--line-strong);
 }
 .MarketDetails {
     min-width: 0;
     overflow-wrap: anywhere;
     display: grid;
-    gap: 16px;
-    padding: 16px;
+    gap: 12px;
+    padding: 14px 16px;
     border: 1px solid var(--line);
-    border-radius: var(--control-radius);
-    background: var(--surface-raised);
+    border-radius: var(--panel-radius);
+    background: var(--surface);
 }
 .MarketDetails :global(.eyebrow) {
-    margin-bottom: 7px;
-    font-size: 10px;
+    margin-bottom: 2px;
 }
 .MarketDetails strong {
-    font-size: 12px;
-    font-weight: 550;
+    font-size: 13px;
+    font-weight: 600;
 }
 .MarketDetails span {
     display: block;
-    margin-top: 6px;
+    margin-top: 2px;
     color: var(--muted);
     font-size: 12px;
-    line-height: 1.6;
+    line-height: 1.5;
 }
 .MarketDetails .Error {
     color: var(--danger);
@@ -322,7 +318,7 @@
     min-width: 0;
     margin: 0;
     overflow-wrap: anywhere;
-    font-size: 12px;
+    font-size: 13px;
     font-weight: 500;
 }
 .Diagnostics {
@@ -365,52 +361,37 @@
     margin: 0;
 }
 @media (max-width: 1000px) {
+    .Layout {
+        grid-template-columns: minmax(0, 1fr);
+        gap: 16px;
+    }
+    .SectionNavigation {
+        position: static;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 2px;
+    }
     .Preferences > section,
     .SettingsGrid > section {
         gap: 24px;
-        padding: 24px;
-        grid-template-columns: minmax(130px, 0.5fr) minmax(0, 1.5fr);
+        grid-template-columns: minmax(120px, 160px) minmax(0, 1fr);
     }
 }
 @media (max-width: 760px) {
     .Preferences > section,
     .SettingsGrid > section {
         grid-template-columns: 1fr;
-        gap: 20px;
-        padding: 22px;
-    }
-    .Preferences :global(.panel-heading),
-    .SettingsGrid :global(.panel-heading) {
-        flex-direction: row;
-        align-items: center;
-        justify-content: space-between;
-        flex-wrap: wrap;
-        padding: 0 0 16px;
-        border-bottom: 1px solid var(--line);
+        gap: 16px;
     }
     .SettingsForm {
         max-width: none;
     }
 }
 @media (max-width: 480px) {
-    .Preferences > section,
-    .SettingsGrid > section {
-        padding: 18px;
-    }
-    .SectionNavigation {
-        gap: 2px;
-    }
-    .SectionNavigation a {
-        padding: 7px 8px;
-        font-size: 11px;
-    }
     .ThemePicker {
         gap: 8px;
     }
     .ThemePreview {
-        height: 64px;
-    }
-    .ThemePreview > span {
-        padding: 7px;
+        height: 60px;
     }
 }

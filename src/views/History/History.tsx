@@ -282,6 +282,7 @@ export function HistoryView({
         }
     }
 
+    const bestRate = Math.max(0, ...comparisonSpots.map((spot) => netPerHour(spot) ?? 0));
     return (
         <>
             <header className="topbar">
@@ -487,10 +488,7 @@ export function HistoryView({
                             Recorded net · {historyTotals.sessionCount}{" "}
                             {historyTotals.sessionCount === 1 ? "session" : "sessions"}
                         </span>
-                        <strong>
-                            {formatSilver(historyTotals.net, true)}
-                            <small> silver</small>
-                        </strong>
+                        <strong>{formatSilver(historyTotals.net, true)}</strong>
                     </div>
                     <div>
                         <span>Time tracked</span>
@@ -498,10 +496,7 @@ export function HistoryView({
                     </div>
                     <div>
                         <span>Net / hour</span>
-                        <strong>
-                            {historyRate === null ? "—" : formatSilver(historyRate, true)}
-                            <small> silver</small>
-                        </strong>
+                        <strong>{historyRate === null ? "—" : formatSilver(historyRate, true)}</strong>
                         {historyTotals.zeroDurationCount > 0 && (
                             <span className={styles.TimedCount}>
                                 {historyTotals.sessionCount - historyTotals.zeroDurationCount} timed sessions
@@ -546,7 +541,17 @@ export function HistoryView({
                                                     {spotName(spot.grindSpotId)}
                                                 </button>
                                             </th>
-                                            <td>{rate === null ? "—" : `${formatSilver(rate, true)}/h`}</td>
+                                            <td>
+                                                <span className={styles.Rate}>
+                                                    {rate !== null && rate > 0 && bestRate > 0 && (
+                                                        <i
+                                                            aria-hidden="true"
+                                                            style={{ width: `${(rate / bestRate) * 100}%` }}
+                                                        />
+                                                    )}
+                                                    {rate === null ? "—" : `${formatSilver(rate, true)}/h`}
+                                                </span>
+                                            </td>
                                             <td>
                                                 {spot.sessionCount}
                                                 {spot.zeroDurationCount > 0 && (
@@ -749,23 +754,25 @@ export function HistoryView({
                                                         className={styles.ItemIcon}
                                                         src={icon}
                                                         alt=""
-                                                        width={30}
-                                                        height={30}
+                                                        width={28}
+                                                        height={28}
                                                     />
                                                 ) : (
                                                     <div className={`item-swatch ${entry.valuation}`}>
                                                         {entry.valuation === "expense" ? "−" : "+"}
                                                     </div>
                                                 )}
-                                                <span>
-                                                    <strong>{entry.name}</strong>
-                                                    <small>
-                                                        x{formatSilver(entry.quantity)} ·{" "}
-                                                        {formatSilver(entry.unitPrice)} each
-                                                    </small>
+                                                <strong className={styles.EntryName}>{entry.name}</strong>
+                                                <span className={styles.EntryQuantity}>
+                                                    {formatSilver(entry.quantity)}
                                                 </span>
-                                                <strong className={entry.valuation === "expense" ? "negative" : ""}>
-                                                    {entry.valuation === "expense" ? "-" : ""}
+                                                <span className={styles.EntryPrice}>
+                                                    × {formatSilver(entry.unitPrice)}
+                                                </span>
+                                                <strong
+                                                    className={`${styles.EntryValue} ${entry.valuation === "expense" ? "negative" : ""}`}
+                                                >
+                                                    {entry.valuation === "expense" ? "−" : ""}
                                                     {formatSilver(entry.quantity * entry.unitPrice, true)}
                                                 </strong>
                                             </div>

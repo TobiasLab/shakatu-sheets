@@ -64,10 +64,9 @@ export function App() {
                 }}
                 databaseStatus={persistedSession.databaseStatus}
                 databaseError={persistedSession.databaseError}
-                sessionStatus={persistedSession.session.status}
+                session={persistedSession.session}
                 captureStatus={captureStatus}
                 spotName={liveSession.spot.name}
-                onOpenCapture={openCaptureSetup}
             >
                 <div hidden={view !== "live"}>
                     <LiveSessionView

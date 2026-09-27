@@ -88,6 +88,7 @@ export function LiveSessionView({
     const finishRequest = useRef(0);
     const [preparingReview, setPreparingReview] = useState(false);
     const [finishError, setFinishError] = useState("");
+    const [dropView, setDropView] = useState<"inventory" | "ledger">("inventory");
     const unresolvedCount = capture.reviewResults.filter((entry) => !entry.accepted).length;
     useEffect(() => {
         finishDialog.current?.close();
@@ -130,13 +131,17 @@ export function LiveSessionView({
 
     return (
         <>
-            <header className="topbar">
-                <div>
-                    <h1>Grind desk</h1>
-                </div>
+            <header className={styles.DeskHeader}>
+                <h1 className="sr-only">Grind desk</h1>
+                <GrindSpotPicker
+                    spot={spot}
+                    locked={!spotEditable}
+                    disabled={!spotEditable || !databaseLoaded || market.fetchingPrices || !visible}
+                    onSelect={changeGrindSpot}
+                />
                 <button
                     type="button"
-                    className="button"
+                    className="button subtle"
                     disabled={!databaseLoaded || !overlay.available}
                     title={
                         overlay.available
@@ -145,7 +150,7 @@ export function LiveSessionView({
                     }
                     onClick={overlay.openOverlay}
                 >
-                    <Icon name="popout" size={16} />
+                    <Icon name="popout" size={15} />
                     Pop out session
                 </button>
             </header>
@@ -154,12 +159,6 @@ export function LiveSessionView({
                     <Feedback tone="error">{overlay.error}</Feedback>
                 </div>
             )}
-            <GrindSpotPicker
-                spot={spot}
-                locked={!spotEditable}
-                disabled={!spotEditable || !databaseLoaded || market.fetchingPrices || !visible}
-                onSelect={changeGrindSpot}
-            />
             <SessionMetrics controller={controller} visible={visible} onFinish={() => void requestFinish()} />
             <FinishReviewDialog
                 dialogRef={finishDialog}
@@ -190,23 +189,34 @@ export function LiveSessionView({
                     </button>
                 </section>
             )}
-            <div className={styles.DeskBody}>
-                <LiveLootCapture controller={capture} />
-                <div className={styles.ContentGrid}>
-                    <LootLedger
-                        key={session.id}
-                        tools={<SessionTools controller={controller} visible={visible} />}
-                        loading={!databaseLoaded}
-                        session={session}
-                        visible={visible}
-                        editingDisabled={editingDisabled}
-                        onRemove={(id) => dispatch({ type: "remove-entry", id })}
-                        onUpdate={(id, quantity, unitPrice) =>
-                            dispatch({ type: "update-entry", id, quantity, unitPrice })
-                        }
-                    />
-                </div>
-            </div>
+            <LiveLootCapture controller={capture} />
+            <LootLedger
+                key={session.id}
+                title="Drops"
+                mode={dropView}
+                switcher={
+                    <fieldset className={styles.ViewSwitch}>
+                        <legend className="sr-only">Drop view</legend>
+                        {(["inventory", "ledger"] as const).map((mode) => (
+                            <button
+                                key={mode}
+                                type="button"
+                                aria-pressed={dropView === mode}
+                                onClick={() => setDropView(mode)}
+                            >
+                                {mode === "inventory" ? "Inventory" : "Ledger"}
+                            </button>
+                        ))}
+                    </fieldset>
+                }
+                tools={<SessionTools controller={controller} visible={visible} />}
+                loading={!databaseLoaded}
+                session={session}
+                visible={visible}
+                editingDisabled={editingDisabled}
+                onRemove={(id) => dispatch({ type: "remove-entry", id })}
+                onUpdate={(id, quantity, unitPrice) => dispatch({ type: "update-entry", id, quantity, unitPrice })}
+            />
         </>
     );
 }
