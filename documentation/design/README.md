@@ -8,16 +8,31 @@ The main window usually sits on a second monitor during a grind and is read at a
 reference for the rest of the app: numbers carry the screen, labels are small and muted, item icons are the only
 imagery, and structure comes from alignment and hairlines rather than nested panels.
 
-- **Type and color.** Inter with tabular figures for every number. Graphite neutrals with one value accent (gold) for
-  silver per hour and primary actions. Dark is the default; light uses the same token names in `src/index.css`.
+- **Type and color.** Inter with tabular figures for numbers that align or update live. Graphite neutrals with one
+  value accent (gold) for silver per hour and primary actions. Dark is the default; light uses the same token names in
+  `src/index.css`. The retired moss preference falls back to dark. Text tokens meet 4.5:1 contrast on every surface.
+- **Shared controls.** Selects and disclosures draw their own chevrons. A shared `.segmented` control switches between
+  closely related views or values (drop view, entry type, region, recent ranges, spot sort). Feedback is a tinted
+  note with a tone edge; empty states are dashed regions.
 - **Shell.** A 44px top bar holds the Grind desk, History, and Settings tabs, capture status, and save state. Away from
-  the desk, it also shows the running session's spot, time, and silver per hour; clicking it returns to the desk.
-- **Grind desk.** The grind spot is the heading (with shortcuts and Browse all spots while selectable). A single readout
-  row shows net silver/hour, session net, and session time beside the timer controls. Loot capture is a one-line
-  status strip that expands for setup and holds Needs attention when captures need review. Drops default to an
-  inventory of item tiles (quantity, value after market tax, name, quantity/hour) aggregated by item. The Ledger view is the
-  editable table; its quantity and price inputs look like plain grouped numbers until they are focused.
-- **History.** The filtered totals use the desk's readout style. Grind-spot comparisons are an open table with a bar
+  the desk, it also shows the running session's spot, time, and silver per hour; clicking it returns to the desk. While
+  captures await review, a warning pill shows their count everywhere and opens the Needs attention queue.
+- **Grind desk.** The grind spot is the heading, with variant prefixes such as `[Dehkia 2]` shown as tags. One readout
+  row shows net silver/hour, session net, a net-over-time trend, and session time beside the timer controls. A paused
+  timer shows a Paused badge and muted time. The trend plots persisted net samples against elapsed time with a hairline
+  chord for the average pace, the last 30 minutes' rate once available, and a hover or focus readout.
+- **Capture.** Loot capture is a one-line status strip. Setup expands it into a connected stepper, the live preview with
+  both crop previews beneath, and a narrow control column (area switch, UI scale, position pad, layout import,
+  confirmation, diagnostics). Needs attention sits flush inside the strip.
+- **Drops.** Drops default to an inventory of item tiles (quantity, value after market tax, name, quantity/hour)
+  aggregated by item; a tile flashes briefly when its quantity rises or a new item appears. The Ledger view is the
+  editable table; its quantity and price inputs look like plain grouped numbers until focused.
+- **Dialogs.** Add loot or expense switches between a dense loot catalog with a price column and an expense form, and
+  previews the entry's value before adding. Browse all spots is one dense list with variants grouped beside their base
+  spot, arrow-key navigation, and the player's recorded silver/hour, session count, and last session per spot in the
+  current region, optionally sorted by that rate.
+- **History.** Filters sit in an always-visible bar: region switch, grind spot, completion date range, 7/30-day
+  shortcuts, and Clear filters. Totals use the desk's readout style. Grind-spot comparisons are an open table with a bar
   proportional to each spot's rate. The session list sits beside a single receipt panel for the selected session.
 - **Settings.** A sticky section index sits beside open sections. Each section has a label column and a form column.
 - **Density.** 32px controls, 13px body text, 11–12px labels, 4px control and 6px panel radii. Row actions such as

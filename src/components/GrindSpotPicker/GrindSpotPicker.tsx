@@ -88,7 +88,12 @@ export function GrindSpotPicker({
     };
     const results =
         sort === "rate"
-            ? [...filtered].sort((a, b) => (rateOf(b.id) ?? -Infinity) - (rateOf(a.id) ?? -Infinity))
+            ? [...filtered].sort((a, b) => {
+                  const first = rateOf(a.id);
+                  const second = rateOf(b.id);
+                  if (first === null || second === null) return first === second ? 0 : first === null ? 1 : -1;
+                  return second - first;
+              })
             : filtered;
 
     async function loadStats() {

@@ -7,6 +7,7 @@ Shakatu Sheets is a local-first, open-source silver-per-hour tracker for Black D
 - Manual live session tracking
 - Editable completed hours for manually timed sessions
 - Paginated completed-session history, with region, date, and grind-spot filtering, comparisons, and safe reopening
+- A persisted net-over-time trend for the active session, and personal per-spot rates in the spot browser
 - User-triggered EU and NA Central Market price snapshots from Arsha
 - Explicit Garmoth uploads for completed sessions, with local API-key and character settings
 - Bundled grind-spot catalog, including Dehkia variants
