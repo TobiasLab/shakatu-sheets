@@ -37,7 +37,7 @@
     --text: #dedcd6;
     --text-strong: #f4f2ed;
     --text-soft: #b3b0a8;
-    --muted: #8e8b84;
+    --muted: #98958e;
     --gold: #d6be83;
     --mint: var(--gold);
     --success: #8ec79b;
@@ -62,9 +62,9 @@
     --quick-item-selected: #34312a;
     --item-swatch: #2d2d33;
     --expense-swatch: #3a2c2c;
-    --note-text: #8e8b84;
+    --note-text: #98958e;
     --tile-background: #26262b;
-    --select-chevron: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' fill='none' stroke='%238e8b84' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m1 1 4 4 4-4'/%3E%3C/svg%3E");
+    --select-chevron: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' fill='none' stroke='%2398958e' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m1 1 4 4 4-4'/%3E%3C/svg%3E");
 }
 :root[data-theme="light"] {
     color-scheme: light;
