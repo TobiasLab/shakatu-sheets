@@ -73,16 +73,24 @@
 
 .CaptureWorkspace {
     display: grid;
-    grid-template-columns: minmax(0, 1fr) 260px;
+    grid-template-columns: minmax(0, 1fr) 320px;
+    align-items: start;
     gap: 16px;
-    margin-top: 16px;
+    margin-top: 14px;
+}
+
+.PreviewColumn,
+.ControlColumn {
+    display: grid;
+    gap: 12px;
+    min-width: 0;
 }
 
 .Preview {
-    border-radius: var(--control-radius);
+    border-radius: var(--panel-radius);
     min-height: 180px;
     border: 1px solid var(--line);
-    background: #020404;
+    background: #0b0b0d;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -104,7 +112,7 @@
 .PreviewStage canvas {
     display: block;
     max-width: 100%;
-    max-height: 360px;
+    max-height: 440px;
 }
 
 .PreviewsPaused canvas {
@@ -223,13 +231,13 @@
 
 .CalibrationPanel {
     display: grid;
-    gap: 16px;
+    gap: 14px;
     min-width: 0;
-    margin: 12px 0 0;
-    padding: 16px;
+    margin: 0;
+    padding: 14px;
     border: 1px solid var(--line);
     border-radius: var(--panel-radius);
-    background: var(--clock-background);
+    background: var(--canvas);
 }
 
 .CalibrationPanel:disabled {
@@ -242,13 +250,13 @@
 .CalibrationBar {
     display: flex;
     align-items: center;
-    gap: 12px;
+    gap: 10px;
     flex-wrap: wrap;
 }
 
 .CalibrationHeader {
-    justify-content: space-between;
     align-items: flex-end;
+    justify-content: space-between;
 }
 
 .AreaSelector {
@@ -259,24 +267,35 @@
 }
 
 .AreaSelector > legend {
-    margin-bottom: 8px;
+    margin-bottom: 6px;
     padding: 0;
-    color: var(--muted);
-    font-size: 11px;
+    color: var(--text-soft);
+    font-size: 12px;
+    font-weight: 500;
 }
 
 .AreaSelectorButtons {
-    gap: 4px;
-    padding: 4px;
+    gap: 2px;
+    padding: 2px;
     border: 1px solid var(--line);
-    border-radius: var(--panel-radius);
+    border-radius: calc(var(--control-radius) + 2px);
     background: var(--surface);
 }
 
 .AreaSelectorButtons :global(.button) {
+    min-height: 28px;
+    padding: 3px 10px;
     border-color: transparent;
-    padding: 8px 14px;
+    background: transparent;
+    color: var(--muted);
     font-size: 12px;
+}
+
+.AreaSelectorButtons :global(.button)[aria-pressed="true"] {
+    border-color: transparent;
+    background: var(--surface-raised);
+    color: var(--text-strong);
+    box-shadow: 0 0 0 1px var(--line-strong);
 }
 
 .CalibrationInstruction,
@@ -284,42 +303,46 @@
     margin: 0;
     color: var(--muted);
     font-size: 12px;
-    line-height: 1.65;
+    line-height: 1.55;
     overflow-wrap: anywhere;
 }
 
 .PrecisionControls {
-    padding: 14px 0;
+    justify-content: space-between;
+    row-gap: 4px;
+    padding: 12px 0;
     border-block: 1px solid var(--line);
-    gap: 16px;
 }
 
 .PositionLabel {
     display: grid;
-    gap: 5px;
-    flex: 1 1 160px;
+    gap: 2px;
+    flex: 1 1 100px;
     font-size: 12px;
+}
+
+.PositionLabel strong {
+    font-weight: 500;
 }
 
 .PositionLabel span {
     color: var(--muted);
-    font-size: 11px;
+    font-size: 12px;
 }
 
 .DirectionPad {
     display: grid;
-    grid-template-columns: repeat(3, 36px);
+    grid-template-columns: repeat(3, 28px);
     grid-template-areas: ". up ." "left . right" ". down .";
-    gap: 4px;
+    gap: 2px;
     margin: 0;
     padding: 0;
     border: 0;
 }
 
 .DirectionPad :global(.button) {
+    min-height: 28px;
     padding: 0;
-    min-height: 36px;
-    font-size: 20px;
     line-height: 1;
 }
 
@@ -346,82 +369,93 @@
     transform: rotate(90deg);
 }
 
-.ResetArea {
-    font-size: 11px;
+.PrecisionControls .ResetArea {
+    margin: 0 auto 0 -8px;
+    font-size: 12px;
 }
 
 .LayoutImport summary {
     color: var(--muted);
     font-size: 12px;
-    cursor: pointer;
+}
+
+.LayoutImport summary:hover {
+    color: var(--text);
 }
 
 .LayoutImport > div {
     display: grid;
     justify-items: start;
-    gap: 12px;
-    padding-top: 12px;
+    gap: 10px;
+    padding-top: 10px;
 }
 
 .CalibrationBar {
-    padding-top: 14px;
+    padding-top: 12px;
     border-top: 1px solid var(--line);
     color: var(--muted);
-    font-size: 11px;
+    font-size: 12px;
 }
 
 .CalibrationBar > span {
-    flex: 1 1 160px;
+    flex: 1 1 100%;
 }
 
 .CalibrationBar :global(.button) {
-    font-size: 12px;
+    flex: 1 1 auto;
 }
 
 .ScaleControl {
     display: grid;
-    gap: 8px;
+    gap: 6px;
 }
 
 .ScaleControl select {
-    min-width: 90px;
+    min-width: 88px;
 }
 
 .CalibrationError {
-    margin: 10px 0 0;
+    margin: 0;
     color: var(--danger);
-    font-size: 11px;
+    font-size: 12px;
 }
 
-.CaptureSidebar {
-    min-width: 0;
+.ControlColumn > details > summary {
+    padding: 4px 0;
+    color: var(--muted);
+    font-size: 12px;
+}
+
+.ControlColumn > details > summary:hover {
+    color: var(--text);
 }
 
 .Diagnostics {
-    border-radius: var(--control-radius);
-    margin: 0;
-    border: 1px solid var(--line);
-    background: var(--clock-background);
+    display: grid;
+    margin: 8px 0 0;
+    border-top: 1px solid var(--line);
 }
 
 .Diagnostics div {
-    padding: 13px 14px;
-    border-bottom: 1px solid var(--line);
-}
-
-.Diagnostics div:last-child {
-    border-bottom: 0;
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 6px 0;
+    border-bottom: 1px solid var(--row-line);
 }
 
 .Diagnostics dt {
+    flex-shrink: 0;
     color: var(--muted);
     font-size: 12px;
 }
 
 .Diagnostics dd {
-    margin: 5px 0 0;
-    font-family: ui-monospace, monospace;
+    margin: 0;
     font-size: 12px;
+    font-variant-numeric: tabular-nums;
+    text-align: right;
+    overflow-wrap: anywhere;
 }
 
 .Diagnostics .Active {
@@ -460,21 +494,26 @@
     color: var(--danger);
 }
 
+.RegionPreviews {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px;
+}
+
 .RegionPreview {
-    border-radius: var(--control-radius);
-    margin-top: 12px;
+    min-width: 0;
     padding: 10px;
     border: 1px solid var(--line);
-    background: #020404;
+    border-radius: var(--panel-radius);
+    background: var(--canvas);
 }
 
 .RegionPreview > span {
     display: block;
     margin-bottom: 8px;
-    color: #aab4c1;
-    font-size: 11px;
-    letter-spacing: 0.03em;
-    text-transform: uppercase;
+    color: var(--text-soft);
+    font-size: 12px;
+    font-weight: 500;
 }
 
 .RegionPreviewStage {
@@ -487,9 +526,9 @@
 
 .RegionPreview p {
     margin: 8px 0 0;
-    color: #65cde5;
-    font-size: 11px;
-    line-height: 1.4;
+    color: var(--muted);
+    font-size: 12px;
+    line-height: 1.45;
 }
 
 .RegionPreviewStage canvas {
@@ -498,10 +537,6 @@
     height: auto;
     min-height: 80px;
     background: var(--clock-background);
-}
-
-.RareRegionPreview {
-    border-color: color-mix(in srgb, #65cde5 45%, var(--line));
 }
 
 .RareRegionPreview canvas {
@@ -532,6 +567,10 @@
     }
 
     .CaptureWorkspace {
+        grid-template-columns: 1fr;
+    }
+
+    .RegionPreviews {
         grid-template-columns: 1fr;
     }
 
@@ -591,22 +630,32 @@
 .SetupProgress {
     display: flex;
     flex-wrap: wrap;
-    gap: 6px;
-    margin-top: 14px;
+    align-items: center;
+    gap: 6px 10px;
+    margin-top: 12px;
+    padding-top: 12px;
     border-top: 1px solid var(--line);
-    padding-top: 14px;
-    font-size: 11px;
     color: var(--muted);
+    font-size: 12px;
 }
 .SetupProgress span {
-    border: 1px solid var(--line);
-    padding: 5px 8px;
-    border-radius: var(--control-radius);
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
 }
-.SetupProgress .CurrentStep {
-    color: var(--mint);
-    border-color: var(--accent-border);
-    background: var(--accent-surface);
+.SetupProgress span + span::before {
+    content: "";
+    width: 24px;
+    height: 1px;
+    margin-right: 3px;
+    background: var(--line-strong);
+}
+.SetupProgress [data-step="done"] {
+    color: var(--success);
+}
+.SetupProgress [data-step="current"] {
+    color: var(--text-strong);
+    font-weight: 600;
 }
 .CapturePanel[data-setup-open="false"] > .Note,
 .CapturePanel[data-setup-open="false"] > .Error {
