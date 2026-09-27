@@ -21,6 +21,7 @@ export function LiveSessionView({
     overlay,
     visible,
     onCaptureStatusChange,
+    onReviewCountChange,
     captureSetupRequest,
     onOpenHistory,
     selfImprovement,
@@ -36,6 +37,7 @@ export function LiveSessionView({
     visible: boolean;
     captureSetupRequest: number;
     onCaptureStatusChange: (status: string) => void;
+    onReviewCountChange: (count: number) => void;
 }) {
     const { session, dispatch, databaseLoaded, editingDisabled, spotEditable, spot, drops, changeGrindSpot, market } =
         controller;
@@ -90,6 +92,7 @@ export function LiveSessionView({
     const [finishError, setFinishError] = useState("");
     const [dropView, setDropView] = useState<"inventory" | "ledger">("inventory");
     const unresolvedCount = capture.reviewResults.filter((entry) => !entry.accepted).length;
+    useEffect(() => onReviewCountChange(unresolvedCount), [unresolvedCount, onReviewCountChange]);
     useEffect(() => {
         finishDialog.current?.close();
         setPreparingReview(false);

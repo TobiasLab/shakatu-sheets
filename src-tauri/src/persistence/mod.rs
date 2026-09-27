@@ -22,7 +22,7 @@ pub(crate) use market_prices::{save_market_price_records, MarketPriceSnapshot, R
 pub(crate) use sessions::{load_session_for_upload, SessionEntry, SessionStatus, Valuation};
 pub(crate) use settings::{load_setting, save_settings, save_settings_if_unchanged};
 
-const DATABASE_VERSION: i64 = 4;
+const DATABASE_VERSION: i64 = 5;
 
 pub struct DatabasePath(pub PathBuf);
 
@@ -237,6 +237,27 @@ fn migrate(connection: &mut Connection) -> Result<(), String> {
         ).map_err(|error| error.to_string())?;
         transaction.commit().map_err(|error| error.to_string())?;
         current_version = 4;
+    }
+
+    if current_version < 5 {
+        let transaction = connection
+            .transaction()
+            .map_err(|error| error.to_string())?;
+        // Net silver over elapsed session time, recorded whenever an active session's net changes.
+        transaction
+            .execute_batch(
+                "CREATE TABLE session_net_samples (
+                    session_id TEXT NOT NULL REFERENCES sessions(id) ON DELETE CASCADE,
+                    elapsed_ms INTEGER NOT NULL CHECK (elapsed_ms >= 0),
+                    net INTEGER NOT NULL,
+                    PRIMARY KEY (session_id, elapsed_ms)
+                ) WITHOUT ROWID;
+             INSERT INTO schema_migrations (version, applied_at)
+                VALUES (5, unixepoch('subsec') * 1000);",
+            )
+            .map_err(|error| error.to_string())?;
+        transaction.commit().map_err(|error| error.to_string())?;
+        current_version = 5;
     }
 
     if current_version != DATABASE_VERSION {

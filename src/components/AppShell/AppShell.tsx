@@ -20,6 +20,8 @@ export function AppShell({
     session,
     spotName,
     captureStatus,
+    reviewCount,
+    onOpenReview,
     databaseStatus,
     databaseError,
     children,
@@ -29,6 +31,8 @@ export function AppShell({
     session: SessionState;
     spotName: string;
     captureStatus: string;
+    reviewCount: number;
+    onOpenReview: () => void;
     databaseStatus: DatabaseStatus;
     databaseError: string;
     children: ReactNode;
@@ -57,6 +61,17 @@ export function AppShell({
                     ))}
                 </nav>
                 <div className={styles.Status}>
+                    {reviewCount > 0 && (
+                        <button
+                            type="button"
+                            className={styles.Review}
+                            aria-label={`${reviewCount} ${reviewCount === 1 ? "drop needs" : "drops need"} attention`}
+                            onClick={onOpenReview}
+                        >
+                            <span>{reviewCount}</span>
+                            <small>{reviewCount === 1 ? "drop needs attention" : "drops need attention"}</small>
+                        </button>
+                    )}
                     <span className={styles.Capture}>
                         <i
                             className={styles.StatusDot}
