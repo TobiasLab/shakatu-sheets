@@ -527,7 +527,7 @@ fn loot_font_defaults_persists_and_rejects_unknown_values() {
 
 fn history_query() -> HistoryQuery {
     HistoryQuery {
-        region: Region::Eu,
+        region: Some(Region::Eu),
         grind_spot_id: None,
         finished_from_ms: None,
         finished_before_ms: None,
@@ -637,13 +637,19 @@ fn history_pages_all_sessions_and_filters_before_paging() {
         2
     );
     query = history_query();
-    query.region = Region::Na;
+    query.region = Some(Region::Na);
     assert_eq!(
         list_finished_session_records(&connection, &query)
             .unwrap()
             .total_count,
         1
     );
+    query.region = None;
+    let all_regions = list_finished_session_records(&connection, &query).unwrap();
+    assert_eq!(all_regions.total_count, 46);
+    assert_eq!(all_regions.records[0].session.id, "na");
+    assert_eq!(all_regions.spot_summaries.len(), 3);
+    query.region = Some(Region::Na);
     query.grind_spot_id = Some("missing".into());
     let empty = list_finished_session_records(&connection, &query).unwrap();
     assert_eq!(empty.total_count, 0);

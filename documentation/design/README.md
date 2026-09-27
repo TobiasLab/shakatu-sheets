@@ -31,8 +31,8 @@ imagery, and structure comes from alignment and hairlines rather than nested pan
   previews the entry's value before adding. Browse all spots is one dense list with variants grouped beside their base
   spot, arrow-key navigation, and the player's recorded silver/hour, session count, and last session per spot in the
   current region, optionally sorted by that rate.
-- **History.** Filters sit in an always-visible bar: region switch, grind spot, completion date range, 7/30-day
-  shortcuts, and Clear filters. Totals use the desk's readout style. Grind-spot comparisons are an open table with a bar
+- **History.** Filters sit in an always-visible bar: region switch (All, EU, NA), grind spot, completion date range,
+  7/30-day shortcuts, and Clear filters. Totals use the desk's readout style. Grind-spot comparisons are an open table with a bar
   proportional to each spot's rate. The session list sits beside a single receipt panel for the selected session.
 - **Settings.** A sticky section index sits beside open sections. Each section has a label column and a form column.
 - **Density.** 32px controls, 13px body text, 11–12px labels, 4px control and 6px panel radii. Row actions such as

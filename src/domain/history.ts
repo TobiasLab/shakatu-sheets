@@ -1,7 +1,8 @@
 import type { SessionState } from "./session";
 
 export type HistoryQuery = {
-    region: SessionState["region"];
+    /** `null` lists finished sessions from every region. */
+    region: SessionState["region"] | null;
     grindSpotId: string | null;
     finishedFromMs: number | null;
     finishedBeforeMs: number | null;

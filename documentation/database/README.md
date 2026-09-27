@@ -66,8 +66,8 @@ their session. No existing rows are backfilled; sessions recorded before this mi
 - The latest unfinished session is loaded at startup.
 - The desk reads a session's net samples for its net-over-time trend; the live session supplies the current end point.
   History spot summaries also report each spot's latest effective completion time.
-- History loads pages of 20 finished sessions and their entries, filtered in SQLite by recorded region, optional spot,
-  and completion date. Sorting is effective completion time descending, then ID ascending. Older rows without
+- History loads pages of 20 finished sessions and their entries, filtered in SQLite by recorded region (or all
+  regions), optional spot, and completion date. Sorting is effective completion time descending, then ID ascending. Older rows without
   `finished_at` use `updated_at` for both sorting and date filtering.
 - Date bounds are inclusive start/exclusive end timestamps derived from local calendar dates. Query validation rejects
   invalid ranges and negative offsets; page limits must be 1–100. Offsets beyond the final page are clamped.

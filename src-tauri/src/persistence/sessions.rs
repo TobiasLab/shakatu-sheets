@@ -447,7 +447,8 @@ pub(super) fn load_active_session_record(
 #[derive(Clone, Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct HistoryQuery {
-    pub region: Region,
+    /// `None` lists finished sessions from every region.
+    pub region: Option<Region>,
     pub grind_spot_id: Option<String>,
     pub finished_from_ms: Option<i64>,
     pub finished_before_ms: Option<i64>,
@@ -501,10 +502,18 @@ pub(super) fn list_finished_session_records(
     let transaction = connection
         .unchecked_transaction()
         .map_err(|error| error.to_string())?;
-    let region = region_to_str(&query.region);
+    let region = query.region.as_ref().map(region_to_str);
+    // A literal predicate keeps sessions_finished_region_time_idx usable; `?1 IS NULL OR` would not.
+    let region_filter = |column: &str| {
+        if region.is_some() {
+            format!("{column} = ?1")
+        } else {
+            "?1 IS NULL".into()
+        }
+    };
     // Aggregate entries per session first: entry joins must not multiply tracked time.
     let mut statement = transaction
-        .prepare(
+        .prepare(&format!(
             "WITH session_values AS (
             SELECT s.id, s.grind_spot_id, s.elapsed_ms,
                 COALESCE(s.finished_at, s.updated_at) AS finished_at,
@@ -512,7 +521,7 @@ pub(super) fn list_finished_session_records(
                     THEN -e.quantity * e.unit_price
                     ELSE e.quantity * e.unit_price * e.sale_multiplier END), 0.0) AS net
             FROM sessions s LEFT JOIN session_entries e ON e.session_id = s.id
-            WHERE s.status = 'finished' AND s.region = ?1
+            WHERE s.status = 'finished' AND {}
                 AND (?2 IS NULL OR COALESCE(s.finished_at, s.updated_at) >= ?2)
                 AND (?3 IS NULL OR COALESCE(s.finished_at, s.updated_at) < ?3)
             GROUP BY s.id
@@ -522,7 +531,8 @@ pub(super) fn list_finished_session_records(
             SUM(CASE WHEN elapsed_ms = 0 THEN 1 ELSE 0 END),
             MAX(finished_at)
         FROM session_values GROUP BY grind_spot_id ORDER BY grind_spot_id",
-        )
+            region_filter("s.region")
+        ))
         .map_err(|error| error.to_string())?;
     let spot_summaries = statement
         .query_map(
@@ -557,14 +567,15 @@ pub(super) fn list_finished_session_records(
         .offset
         .min(((total_count - 1).max(0) / query.limit) * query.limit);
     let mut statement = transaction
-        .prepare(
+        .prepare(&format!(
             "SELECT id, COALESCE(finished_at, updated_at) FROM sessions
-         WHERE status = 'finished' AND region = ?1
+         WHERE status = 'finished' AND {}
             AND (?2 IS NULL OR COALESCE(finished_at, updated_at) >= ?2)
             AND (?3 IS NULL OR COALESCE(finished_at, updated_at) < ?3)
             AND (?4 IS NULL OR grind_spot_id = ?4)
          ORDER BY COALESCE(finished_at, updated_at) DESC, id ASC LIMIT ?5 OFFSET ?6",
-        )
+            region_filter("region")
+        ))
         .map_err(|error| error.to_string())?;
     let ids = statement
         .query_map(

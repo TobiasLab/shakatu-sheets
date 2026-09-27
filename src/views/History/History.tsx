@@ -45,7 +45,8 @@ export function HistoryView({
 }) {
     const [records, setRecords] = useState<FinishedSessionRecord[] | null>(null);
     const [history, setHistory] = useState<HistoryResult | null>(null);
-    const [selectedRegion, setRegion] = useState<"eu" | "na" | null>(null);
+    // null follows the live session's region; "all" lists every region together.
+    const [selectedRegion, setRegion] = useState<"eu" | "na" | "all" | null>(null);
     const region = selectedRegion ?? initialRegion;
     const [fromDate, setFromDate] = useState("");
     const [toDate, setToDate] = useState("");
@@ -96,7 +97,7 @@ export function HistoryView({
                 throw new Error("The From date must be on or before the To date.");
             }
             const result = await listFinishedSessions({
-                region,
+                region: region === "all" ? null : region,
                 grindSpotId: grindSpotFilter === "all" ? null : grindSpotFilter,
                 finishedFromMs,
                 finishedBeforeMs,
@@ -296,7 +297,7 @@ export function HistoryView({
             </header>
             <fieldset className={styles.FilterBar} aria-label="Filters" disabled={!databaseLoaded || actionBusy}>
                 <fieldset className="segmented" aria-label="Recorded region">
-                    {(["eu", "na"] as const).map((value) => (
+                    {(["all", "eu", "na"] as const).map((value) => (
                         <button
                             key={value}
                             type="button"
@@ -306,7 +307,7 @@ export function HistoryView({
                                 setRegion(value);
                             }}
                         >
-                            {value.toUpperCase()}
+                            {value === "all" ? "All" : value.toUpperCase()}
                         </button>
                     ))}
                 </fieldset>
