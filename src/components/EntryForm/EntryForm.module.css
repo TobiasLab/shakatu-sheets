@@ -1,52 +1,56 @@
 .EntryPanel {
     overflow: hidden;
 }
-.EntryPanel > :global(.panel-heading) {
+.Toolbar {
+    display: flex;
+    align-items: center;
     flex-wrap: wrap;
-    gap: var(--space-2);
-    padding: var(--space-4) var(--space-6);
+    gap: 8px 16px;
+    padding: 10px var(--space-6);
     border-bottom: 1px solid var(--line);
+}
+.Toolbar > span {
+    color: var(--muted);
+    font-size: 12px;
 }
 .EntryWorkspace {
     display: grid;
-    grid-template-columns: minmax(280px, 1.08fr) minmax(260px, 0.92fr);
+    grid-template-columns: minmax(300px, 1.1fr) minmax(280px, 0.9fr);
     min-width: 0;
+}
+.EntryPanel[data-mode="expense"] .EntryWorkspace {
+    grid-template-columns: minmax(0, 1fr);
 }
 .ItemPicker {
     min-width: 0;
     border-right: 1px solid var(--line);
-    background: var(--canvas);
 }
 .SearchField {
     display: block;
-    padding: var(--space-4);
-    border-bottom: 1px solid var(--line);
-    color: var(--text-soft);
-    font-size: 12px;
+    padding: 12px 12px 8px;
 }
 .SearchField input {
     display: block;
-    min-height: 40px;
-    margin-top: 8px;
-    padding: 10px 12px;
-    font-size: 12px;
+    min-height: var(--control-height);
+    padding: 5px 10px;
 }
 .ItemList {
-    max-height: 450px;
+    max-height: 420px;
+    padding: 0 6px 8px;
     overflow-y: auto;
     scrollbar-width: thin;
     overscroll-behavior: contain;
 }
 .ItemList > button {
     display: grid;
-    grid-template-columns: 36px minmax(0, 1fr) 48px;
-    gap: 12px;
+    grid-template-columns: 30px minmax(0, 1fr) auto 64px;
+    gap: 10px;
     align-items: center;
     width: 100%;
-    padding: 10px 16px;
+    min-height: 42px;
+    padding: 5px 8px 5px 6px;
     border: 0;
-    border-bottom: 1px solid var(--row-line);
-    border-radius: 0;
+    border-radius: var(--control-radius);
     background: transparent;
     color: var(--text);
     text-align: left;
@@ -55,12 +59,14 @@
 .ItemList > button:enabled:not([aria-pressed="true"]):hover {
     background: var(--hover);
 }
-.ItemList > button[aria-pressed="true"] {
-    background: var(--accent-surface);
+.ItemList > button[aria-pressed="true"],
+.ItemList > button[aria-pressed="true"]:enabled:hover {
+    border: 0;
+    background: var(--surface-raised);
     box-shadow: inset 2px 0 var(--gold);
 }
 .ItemList > button:focus-visible {
-    outline-offset: -3px;
+    outline-offset: -2px;
 }
 .ItemList > button:disabled {
     cursor: not-allowed;
@@ -73,49 +79,37 @@
     place-items: center;
     border: 1px solid var(--line-strong);
     border-radius: var(--control-radius);
-    background: var(--input-background);
+    background: var(--tile-background);
 }
 .ItemIcon {
-    width: 36px;
-    height: 36px;
+    width: 30px;
+    height: 30px;
 }
 .ItemIcon img,
 .SelectedIcon img {
     display: block;
     width: 100%;
     height: 100%;
-    object-fit: cover;
+    object-fit: contain;
 }
-.ItemCopy {
+.ItemName {
     min-width: 0;
-}
-.ItemCopy strong,
-.ItemCopy small {
-    display: block;
-    overflow-wrap: anywhere;
-}
-.ItemCopy strong {
-    font-size: 12px;
+    overflow: hidden;
+    color: var(--text-strong);
+    font-size: 13px;
     font-weight: 500;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 }
-.ItemCopy small {
-    margin-top: 4px;
+.ItemKind {
     color: var(--muted);
     font-size: 11px;
 }
-.SelectItem {
-    color: var(--muted);
-    font-size: 11px;
+.ItemPrice {
+    color: var(--text-soft);
+    font-size: 13px;
+    font-variant-numeric: tabular-nums;
     text-align: right;
-    opacity: 0;
-}
-.ItemList > button:focus-visible .SelectItem,
-.ItemList > button:hover .SelectItem,
-.ItemList > button.Selected .SelectItem {
-    opacity: 1;
-}
-.ItemList > button.Selected .SelectItem {
-    color: var(--gold);
 }
 .NoResults {
     display: grid;
@@ -133,37 +127,50 @@
 .Form {
     display: grid;
     align-content: start;
-    gap: var(--space-4);
-    padding: var(--space-6);
-    background: var(--surface);
+    gap: 14px;
+    padding: 16px var(--space-6) 20px;
+}
+.EntryPanel[data-mode="expense"] .Form {
+    width: 100%;
+    max-width: 520px;
+    margin: 0 auto;
+    padding-block: 20px 24px;
 }
 .SelectedDrop {
     display: flex;
     gap: 12px;
     align-items: center;
     min-width: 0;
-    padding-bottom: var(--space-4);
+    padding-bottom: 14px;
     border-bottom: 1px solid var(--line);
 }
 .SelectedDrop > div {
     min-width: 0;
 }
-.SelectedDrop strong {
+.SelectedDrop strong,
+.SelectedDrop small {
     display: block;
-    margin-top: 4px;
-    font-size: 14px;
-    font-weight: 550;
-    color: var(--text-strong);
     overflow-wrap: anywhere;
 }
+.SelectedDrop strong {
+    color: var(--text-strong);
+    font-size: 15px;
+    font-weight: 600;
+    line-height: 1.3;
+}
+.SelectedDrop small {
+    margin-top: 2px;
+    color: var(--muted);
+    font-size: 12px;
+}
 .SelectedIcon {
-    flex: 0 0 48px;
-    width: 48px;
-    height: 48px;
+    flex: 0 0 40px;
+    width: 40px;
+    height: 40px;
 }
 .FormRow {
     display: grid;
-    grid-template-columns: minmax(80px, 0.8fr) minmax(120px, 1.2fr);
+    grid-template-columns: minmax(96px, 0.8fr) minmax(120px, 1.2fr);
     gap: var(--space-3);
     align-items: start;
 }
@@ -171,10 +178,9 @@
     min-width: 0;
 }
 .QuantitySteps {
-    display: grid;
-    grid-template-columns: repeat(4, 1fr);
-    gap: 4px;
-    margin: 6px 0 0;
+    display: flex;
+    gap: 2px;
+    margin: 4px 0 0;
     padding: 0;
     border: 0;
 }
@@ -187,40 +193,48 @@
     white-space: nowrap;
 }
 .QuantitySteps button {
+    flex: 1;
     min-width: 0;
-    padding: 5px 2px;
-    border: 1px solid var(--line);
+    min-height: 22px;
+    padding: 1px 2px;
+    border: 0;
     border-radius: var(--control-radius);
-    background: var(--surface-raised);
-    color: var(--text-soft);
-    font-size: 10px;
+    background: transparent;
+    color: var(--muted);
+    font-size: 11px;
+    font-variant-numeric: tabular-nums;
     cursor: pointer;
 }
 .QuantitySteps button:hover:not(:disabled) {
-    border-color: var(--accent-border);
-    color: var(--gold);
+    background: var(--hover);
+    color: var(--text-strong);
 }
 .QuantitySteps button:disabled {
     cursor: not-allowed;
     opacity: 0.45;
 }
-.AddButton {
+.Submit {
     display: flex;
     align-items: center;
-    justify-self: end;
-    gap: var(--space-4);
-    margin-top: 4px;
+    justify-content: space-between;
+    gap: 12px;
+    padding-top: 4px;
 }
-.AddButton kbd {
-    padding: 2px 5px;
-    border: 1px solid currentColor;
-    border-radius: 3px;
-    font-family: inherit;
-    font-size: 10px;
-    opacity: 0.65;
+.LineValue {
+    color: var(--text-soft);
+    font-size: 13px;
+    font-variant-numeric: tabular-nums;
+}
+.Submit :global(.button) {
+    gap: 10px;
+}
+.Submit kbd {
+    border-color: currentColor;
+    color: inherit;
+    opacity: 0.6;
 }
 @media (max-width: 760px) {
-    .EntryPanel > :global(.panel-heading) {
+    .Toolbar {
         padding-inline: var(--space-4);
     }
     .EntryWorkspace {

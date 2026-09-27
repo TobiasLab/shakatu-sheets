@@ -76,7 +76,7 @@ export function ConsumablePresetSelection({
                 {presets.map((preset) => (
                     <SelectionButton
                         key={preset.id}
-                        className="button"
+                        className={styles.PresetRow}
                         selected={selectedId === preset.id}
                         disabled={loading || busy || disabled}
                         onClick={() => void apply(preset)}
@@ -89,10 +89,11 @@ export function ConsumablePresetSelection({
                         </span>
                         <span className={styles.PresetCost}>
                             <strong>
+                                −
                                 {formatSilver(
                                     preset.items.reduce((sum, item) => sum + item.quantity * item.unitPrice, 0),
-                                )}{" "}
-                                silver
+                                    true,
+                                )}
                             </strong>
                             {selectedId === preset.id && <small>Applied</small>}
                         </span>

@@ -16,6 +16,7 @@ export type SpotSummary = {
     net: number;
     timedNet: number;
     zeroDurationCount: number;
+    lastFinishedAt: number;
 };
 
 export function netPerHour(summary: Pick<SpotSummary, "elapsedMs" | "timedNet">): number | null {

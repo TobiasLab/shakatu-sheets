@@ -7,15 +7,18 @@
     align-items: center;
     justify-content: space-between;
     gap: var(--space-5);
-    padding: var(--space-6);
+    padding: 16px var(--space-6);
 }
 .ImportIntro > div {
     min-width: 0;
 }
+.ImportIntro h2 {
+    font-size: 15px;
+}
 .ImportIntro span {
     display: block;
-    max-width: 440px;
-    margin-top: var(--space-2);
+    max-width: 460px;
+    margin-top: 2px;
     color: var(--muted);
     font-size: var(--text-control);
     line-height: 1.5;
@@ -34,7 +37,7 @@
 }
 .FileButton:focus-within {
     outline: 2px solid var(--focus-border);
-    outline-offset: 3px;
+    outline-offset: 2px;
 }
 .FileButton input {
     position: absolute;
@@ -46,19 +49,19 @@
 }
 .Note {
     margin: 0;
-    padding: 0 var(--space-6) var(--space-5);
+    padding: 0 var(--space-6) 16px;
     color: var(--muted);
     font-size: var(--text-control);
 }
 .ImportPanel > [data-tone] {
-    margin: 0 var(--space-6) var(--space-5);
+    margin: 0 var(--space-6) 16px;
 }
 .Progress {
     display: grid;
     grid-template-columns: minmax(100px, 240px) minmax(0, 1fr);
     align-items: center;
     gap: var(--space-3);
-    padding: 0 var(--space-6) var(--space-5);
+    padding: 0 var(--space-6) 16px;
     color: var(--text-soft);
     font-size: var(--text-control);
 }
@@ -68,7 +71,7 @@
     accent-color: var(--gold);
 }
 .Draft {
-    padding: var(--space-5) var(--space-6) var(--space-6);
+    padding: 16px var(--space-6) 20px;
     border-top: 1px solid var(--line);
 }
 .DraftMeta {
@@ -77,24 +80,34 @@
     gap: var(--space-4);
 }
 .ReviewNote {
-    margin: var(--space-4) 0 var(--space-3);
+    margin: 14px 0 10px;
     color: var(--muted);
     font-size: var(--text-control);
     line-height: 1.5;
 }
 .Items {
-    overflow: hidden;
-    border: 1px solid var(--line);
-    border-radius: var(--control-radius);
-    background: var(--canvas);
+    border-top: 1px solid var(--line);
 }
+.ItemsHeader,
 .Item {
     display: grid;
-    grid-template-columns: 40px minmax(180px, 1fr) 110px 48px;
-    align-items: end;
+    grid-template-columns: 40px minmax(180px, 1fr) 110px 64px;
+    align-items: center;
     gap: var(--space-3);
     min-width: 0;
-    padding: var(--space-3);
+}
+.ItemsHeader {
+    padding: 6px 4px;
+    border-bottom: 1px solid var(--line);
+    color: var(--muted);
+    font-size: 11px;
+    font-weight: 500;
+}
+.ItemsHeader > span:last-child {
+    text-align: right;
+}
+.Item {
+    padding: 6px 4px;
     border-bottom: 1px solid var(--row-line);
 }
 .Item:last-child {
@@ -110,17 +123,30 @@
     border-radius: var(--control-radius);
     object-fit: cover;
 }
+.RowField > span {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+}
 .Ready,
 .Check {
-    align-self: center;
     justify-self: end;
-    font-size: var(--text-label);
+    padding: 0 7px;
+    border-radius: 10px;
+    font-size: 11px;
+    font-weight: 600;
+    line-height: 18px;
 }
 .Ready {
     color: var(--success);
+    background: color-mix(in srgb, var(--success) 12%, transparent);
 }
 .Check {
     color: var(--warning);
+    background: color-mix(in srgb, var(--warning) 14%, transparent);
 }
 .Actions {
     display: flex;
@@ -149,11 +175,15 @@
     .DraftMeta {
         grid-template-columns: minmax(0, 1fr);
     }
+    .ItemsHeader {
+        display: none;
+    }
     .Item {
         grid-template-columns: 40px minmax(0, 1fr) 88px;
     }
     .Item > span {
         grid-column: 2 / -1;
+        justify-self: start;
     }
 }
 @media (max-width: 420px) {

@@ -15,6 +15,24 @@ export function formatDuration(milliseconds: number) {
     return [hours, minutes, seconds % 60].map((part) => String(part).padStart(2, "0")).join(":");
 }
 
+const relativeDayFormatter = new Intl.RelativeTimeFormat("en", { numeric: "auto" });
+const shortDateFormatter = new Intl.DateTimeFormat("en", { month: "short", day: "numeric" });
+const longDateFormatter = new Intl.DateTimeFormat("en", { dateStyle: "medium" });
+
+function startOfDay(timestamp: number) {
+    const date = new Date(timestamp);
+    date.setHours(0, 0, 0, 0);
+    return date.getTime();
+}
+
+export function formatRelativeDay(timestamp: number, now = Date.now()) {
+    const days = Math.round((startOfDay(now) - startOfDay(timestamp)) / 86_400_000);
+    if (days >= 0 && days < 7) return relativeDayFormatter.format(-days, "day");
+    return new Date(timestamp).getFullYear() === new Date(now).getFullYear()
+        ? shortDateFormatter.format(timestamp)
+        : longDateFormatter.format(timestamp);
+}
+
 export function formatTimestamp(timestamp: number) {
     return new Intl.DateTimeFormat("en", { dateStyle: "medium", timeStyle: "short" }).format(timestamp);
 }

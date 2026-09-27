@@ -599,6 +599,16 @@ fn history_pages_all_sessions_and_filters_before_paging() {
     assert_eq!(older.total_count, 4);
     assert_eq!(older.records.len(), 4);
     assert_eq!(older.spot_summaries.len(), 2);
+    let latest = |spot: &str| {
+        older
+            .spot_summaries
+            .iter()
+            .find(|summary| summary.grind_spot_id == spot)
+            .unwrap()
+            .last_finished_at
+    };
+    assert_eq!(latest("older"), 1001);
+    assert_eq!(latest("newer"), 1022);
     query.finished_from_ms = Some(1001);
     query.finished_before_ms = Some(1002);
     let dated = list_finished_session_records(&connection, &query).unwrap();

@@ -380,6 +380,7 @@ pub struct SpotSummary {
     pub net: f64,
     pub timed_net: f64,
     pub zero_duration_count: i64,
+    pub last_finished_at: i64,
 }
 
 #[derive(Debug, Serialize)]
@@ -422,6 +423,7 @@ pub(super) fn list_finished_session_records(
         .prepare(
             "WITH session_values AS (
             SELECT s.id, s.grind_spot_id, s.elapsed_ms,
+                COALESCE(s.finished_at, s.updated_at) AS finished_at,
                 COALESCE(SUM(CASE WHEN e.valuation = 'expense'
                     THEN -e.quantity * e.unit_price
                     ELSE e.quantity * e.unit_price * e.sale_multiplier END), 0.0) AS net
@@ -433,7 +435,8 @@ pub(super) fn list_finished_session_records(
         )
         SELECT grind_spot_id, COUNT(*), SUM(elapsed_ms), SUM(net),
             SUM(CASE WHEN elapsed_ms > 0 THEN net ELSE 0.0 END),
-            SUM(CASE WHEN elapsed_ms = 0 THEN 1 ELSE 0 END)
+            SUM(CASE WHEN elapsed_ms = 0 THEN 1 ELSE 0 END),
+            MAX(finished_at)
         FROM session_values GROUP BY grind_spot_id ORDER BY grind_spot_id",
         )
         .map_err(|error| error.to_string())?;
@@ -448,6 +451,7 @@ pub(super) fn list_finished_session_records(
                     net: row.get(3)?,
                     timed_net: row.get(4)?,
                     zero_duration_count: row.get(5)?,
+                    last_finished_at: row.get(6)?,
                 })
             },
         )

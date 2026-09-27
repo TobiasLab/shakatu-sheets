@@ -1,11 +1,8 @@
 .Review {
-    margin: 8px -8px -8px -14px;
-    border-top: 1px solid var(--line);
-    border-radius: 0 0 var(--panel-radius) var(--panel-radius);
+    margin-top: 16px;
+    border: 1px solid var(--line);
+    border-radius: var(--panel-radius);
     overflow: hidden;
-}
-[data-setup-open="true"] > .Review {
-    margin: 16px -16px -16px;
 }
 .Header,
 .DetailHeader {

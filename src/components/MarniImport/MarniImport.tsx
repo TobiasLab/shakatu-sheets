@@ -174,6 +174,12 @@ export function MarniImport({ controller }: { controller: LiveSessionController 
                         are ignored until corrected.
                     </p>
                     <div className={styles.Items}>
+                        <div className={styles.ItemsHeader} aria-hidden="true">
+                            <span>Slot</span>
+                            <span>Item</span>
+                            <span>Quantity</span>
+                            <span>Status</span>
+                        </div>
                         {draft.items.map((item) => {
                             const quantity = Number(item.quantity);
                             const needsReview =
@@ -186,7 +192,7 @@ export function MarniImport({ controller }: { controller: LiveSessionController 
                             return (
                                 <div className={styles.Item} key={item.slot} data-needs-review={needsReview}>
                                     <img src={item.thumbnail} alt={`Screenshot loot slot ${item.slot + 1}`} />
-                                    <FormField label="Item">
+                                    <FormField label="Item" className={styles.RowField}>
                                         <select
                                             value={item.suggestedDropName}
                                             onChange={(event) =>
@@ -201,7 +207,7 @@ export function MarniImport({ controller }: { controller: LiveSessionController 
                                             ))}
                                         </select>
                                     </FormField>
-                                    <FormField label="Quantity">
+                                    <FormField label="Quantity" className={styles.RowField}>
                                         <input
                                             type="number"
                                             min="1"

@@ -26,6 +26,17 @@ export function quickSpotIds(preferences: SpotPreferences): string[] {
     return [...new Set([...preferences.favorites, ...preferences.recent])].slice(0, 4);
 }
 
+export function splitSpotName(name: string): { base: string; tag: string | null } {
+    const match = /^\[([^\]]+)\]\s*(.+)$/.exec(name);
+    return match ? { base: match[2], tag: match[1] } : { base: name, tag: null };
+}
+
+function compareSpotNames(first: string, second: string) {
+    const a = splitSpotName(first);
+    const b = splitSpotName(second);
+    return a.base.localeCompare(b.base, "en") || (a.tag ?? "").localeCompare(b.tag ?? "", "en");
+}
+
 function normalize(value: string): string {
     return value.toLocaleLowerCase("en").replace(/[^\p{L}\p{N}\s]/gu, "");
 }
@@ -35,7 +46,7 @@ export function filterSpots(preferences: SpotPreferences, filter: SpotFilter, qu
     const ids = filter === "Favorites" ? preferences.favorites : preferences.recent;
     const spots =
         filter === "All"
-            ? [...grindSpots].sort((a, b) => a.name.localeCompare(b.name, "en"))
+            ? [...grindSpots].sort((a, b) => compareSpotNames(a.name, b.name))
             : ids.flatMap((id) => grindSpots.find((spot) => spot.id === id) ?? []);
     return spots.filter((spot) => words.every((word) => normalize(spot.name).includes(word)));
 }

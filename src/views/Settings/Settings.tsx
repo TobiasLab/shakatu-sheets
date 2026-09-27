@@ -229,6 +229,7 @@ export function SettingsView({
                                     <GrindSpotPicker
                                         compact
                                         spot={spot}
+                                        region={session.region}
                                         disabled={!spotEditable || !databaseLoaded || market.fetchingPrices}
                                         onSelect={changeGrindSpot}
                                     />
