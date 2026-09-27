@@ -98,6 +98,7 @@ export function LootReview({ controller }: { controller: ReviewController }) {
     }
     return (
         <section
+            data-review
             className={styles.Review}
             aria-labelledby="loot-review-heading"
             onFocusCapture={() => {

@@ -24,6 +24,7 @@ type EntryFormProps = Pick<
     | "setUnitPrice"
     | "valuation"
     | "setValuation"
+    | "market"
 >;
 
 export function EntryForm({
@@ -41,6 +42,7 @@ export function EntryForm({
     setUnitPrice,
     valuation,
     setValuation,
+    market,
 }: EntryFormProps) {
     const [query, setQuery] = useState("");
     const [feedback, setFeedback] = useState<{ text: string; error: boolean } | null>(null);
@@ -49,6 +51,27 @@ export function EntryForm({
     const quantityInput = useRef<HTMLInputElement>(null);
     const normalizedQuery = query.trim().toLocaleLowerCase();
     const visibleDrops = drops.filter((drop) => drop.name.toLocaleLowerCase().includes(normalizedQuery));
+    const expenseMode = valuation === "expense";
+    const parsedQuantity = Number(quantity);
+    const parsedPrice = Number(unitPrice);
+    const lineValue =
+        quantity.trim() && unitPrice.trim() && Number.isFinite(parsedQuantity) && Number.isFinite(parsedPrice)
+            ? parsedQuantity * parsedPrice * (valuation === "market" ? 0.845 : 1)
+            : null;
+
+    function listedPrice(drop: DropTemplate) {
+        const marketPrice = market.marketPrices?.find((price) => price.itemId === drop.marketItemId)?.basePrice;
+        return marketPrice ?? drop.unitPrice;
+    }
+
+    function recordExpense() {
+        setValuation("expense");
+        setCustomName("");
+        setQuantity("1");
+        setUnitPrice("");
+        setFeedback(null);
+        nameInput.current?.focus();
+    }
 
     function selectDrop(drop: DropTemplate) {
         chooseDrop(drop);
@@ -81,64 +104,67 @@ export function EntryForm({
     }
 
     return (
-        <aside className={`panel ${styles.EntryPanel}`}>
-            <div className="panel-heading">
-                <h3>Loot catalog</h3>
-                <button
-                    className="button subtle"
-                    type="button"
-                    disabled={editingDisabled}
-                    onClick={() => {
-                        setValuation("expense");
-                        setCustomName("");
-                        setQuantity("1");
-                        setUnitPrice("");
-                        setFeedback(null);
-                        nameInput.current?.focus();
-                    }}
-                >
-                    Record an expense
-                </button>
+        <aside className={`panel ${styles.EntryPanel}`} data-mode={expenseMode ? "expense" : "loot"}>
+            <div className={styles.Toolbar}>
+                <fieldset className="segmented">
+                    <legend className="sr-only">Entry type</legend>
+                    <button
+                        type="button"
+                        aria-pressed={!expenseMode}
+                        disabled={editingDisabled}
+                        onClick={() => {
+                            chooseDrop(selectedDrop);
+                            setFeedback(null);
+                            searchInput.current?.focus();
+                        }}
+                    >
+                        Loot
+                    </button>
+                    <button type="button" aria-pressed={expenseMode} disabled={editingDisabled} onClick={recordExpense}>
+                        Expense
+                    </button>
+                </fieldset>
+                <span>
+                    {expenseMode ? "Costs subtract from session net." : `${drops.length} items from ${spot.name}`}
+                </span>
             </div>
             <div className={styles.EntryWorkspace}>
-                <section className={styles.ItemPicker} aria-label={`${spot.name} loot items`}>
+                <section className={styles.ItemPicker} aria-label={`${spot.name} loot items`} hidden={expenseMode}>
                     <label className={styles.SearchField}>
-                        Find an item
+                        <span className="sr-only">Find an item</span>
                         <input
                             ref={searchInput}
                             type="search"
                             value={query}
                             disabled={editingDisabled}
-                            placeholder={`Search ${spot.name} loot...`}
+                            placeholder={`Search ${spot.name} loot…`}
                             onChange={(event) => setQuery(event.target.value)}
                         />
                     </label>
                     <div className={styles.ItemList}>
-                        {visibleDrops.map((drop) => (
-                            <SelectionButton
-                                key={drop.name}
-                                className={
-                                    valuation !== "expense" && selectedDrop.name === drop.name ? styles.Selected : ""
-                                }
-                                disabled={editingDisabled}
-                                selected={valuation !== "expense" && selectedDrop.name === drop.name}
-                                onClick={() => selectDrop(drop)}
-                            >
-                                <span className={styles.ItemIcon}>
-                                    <img src={drop.icon} alt="" />
-                                </span>
-                                <span className={styles.ItemCopy}>
-                                    <strong>{drop.name}</strong>
-                                    <small>
-                                        {drop.valuation}
-                                        {drop.unitPrice !== null && ` / ${formatSilver(drop.unitPrice, true)}`}
-                                    </small>
-                                </span>
-                                <span className={styles.SelectItem} aria-hidden="true">
-                                    {valuation !== "expense" && selectedDrop.name === drop.name ? "Selected" : "Select"}
-                                </span>
-                            </SelectionButton>
-                        ))}
+                        {visibleDrops.map((drop) => {
+                            const price = listedPrice(drop);
+                            const selected = !expenseMode && selectedDrop.name === drop.name;
+                            return (
+                                <SelectionButton
+                                    key={drop.name}
+                                    disabled={editingDisabled}
+                                    selected={selected}
+                                    onClick={() => selectDrop(drop)}
+                                >
+                                    <span className={styles.ItemIcon}>
+                                        <img src={drop.icon} alt="" />
+                                    </span>
+                                    <strong className={styles.ItemName}>{drop.name}</strong>
+                                    <span className={styles.ItemKind}>
+                                        {drop.valuation === "market" ? "Market" : "Vendor"}
+                                    </span>
+                                    <span className={styles.ItemPrice}>
+                                        {price === null ? "—" : formatSilver(price, true)}
+                                    </span>
+                                </SelectionButton>
+                            );
+                        })}
                         {visibleDrops.length === 0 && (
                             <div className={styles.NoResults}>
                                 <strong>No matching loot</strong>
@@ -157,17 +183,26 @@ export function EntryForm({
                     </div>
                 </section>
                 <form className={styles.Form} onSubmit={submitEntry} onChange={() => setFeedback(null)}>
-                    <div className={styles.SelectedDrop}>
-                        {valuation !== "expense" && (
+                    {expenseMode ? (
+                        <div className={styles.SelectedDrop}>
+                            <div>
+                                <strong>Record a cost</strong>
+                                <small>Food, elixirs, repairs, or anything else spent on this session.</small>
+                            </div>
+                        </div>
+                    ) : (
+                        <div className={styles.SelectedDrop}>
                             <span className={styles.SelectedIcon}>
                                 <img src={selectedDrop.icon} alt="" />
                             </span>
-                        )}
-                        <div>
-                            <p className="eyebrow">{valuation === "expense" ? "Session expense" : "Selected drop"}</p>
-                            <strong>{valuation === "expense" ? "Record a cost" : selectedDrop.name}</strong>
+                            <div>
+                                <strong>{selectedDrop.name}</strong>
+                                <small>
+                                    {valuation === "market" ? "Market · 84.5% after tax" : "Vendor · full value"}
+                                </small>
+                            </div>
                         </div>
-                    </div>
+                    )}
                     <FormField label="Entry name">
                         <input
                             ref={nameInput}
@@ -221,25 +256,32 @@ export function EntryForm({
                             />
                         </FormField>
                     </div>
-                    <FormField label="Valuation">
-                        <select
-                            value={valuation}
-                            disabled={editingDisabled}
-                            onChange={(event) => setValuation(event.target.value as Valuation)}
-                        >
-                            <option value="market">Market (84.5%)</option>
-                            <option value="vendor">Vendor (100%)</option>
-                            <option value="expense">Expense</option>
-                        </select>
-                    </FormField>
-                    <button
-                        className={`button primary-button ${styles.AddButton}`}
-                        type="submit"
-                        disabled={editingDisabled}
-                    >
-                        <span>Add to ledger</span>
-                        <kbd>Enter</kbd>
-                    </button>
+                    {!expenseMode && (
+                        <FormField label="Valuation">
+                            <select
+                                value={valuation}
+                                disabled={editingDisabled}
+                                onChange={(event) => setValuation(event.target.value as Valuation)}
+                            >
+                                <option value="market">Market (84.5%)</option>
+                                <option value="vendor">Vendor (100%)</option>
+                                <option value="expense">Expense</option>
+                            </select>
+                        </FormField>
+                    )}
+                    <div className={styles.Submit}>
+                        <span className={styles.LineValue} aria-live="polite">
+                            {lineValue === null
+                                ? ""
+                                : expenseMode
+                                  ? `Costs ${formatSilver(lineValue, true)}`
+                                  : `Adds ${formatSilver(lineValue, true)}${valuation === "market" ? " after tax" : ""}`}
+                        </span>
+                        <button className="button primary-button" type="submit" disabled={editingDisabled}>
+                            <span>Add to ledger</span>
+                            <kbd>Enter</kbd>
+                        </button>
+                    </div>
                     {feedback && <Feedback tone={feedback.error ? "error" : "success"}>{feedback.text}</Feedback>}
                 </form>
             </div>

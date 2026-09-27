@@ -152,9 +152,9 @@ await send("Page.addScriptToEvaluateOnNewDocument", {
                 const groups = new Map();
                 for (const r of scope) {
                     const key = r.session.grindSpotId;
-                    const group = groups.get(key) ?? { grindSpotId:key, sessionCount:0, elapsedMs:0, net:0, timedNet:0, zeroDurationCount:0 };
+                    const group = groups.get(key) ?? { grindSpotId:key, sessionCount:0, elapsedMs:0, net:0, timedNet:0, zeroDurationCount:0, lastFinishedAt:0 };
                     const net = r.session.entries.reduce((sum,e) => sum + e.quantity*e.unitPrice*(e.valuation === "expense" ? -1 : e.saleMultiplier),0);
-                    group.sessionCount++; group.elapsedMs += r.session.elapsedMs; group.net += net;
+                    group.sessionCount++; group.elapsedMs += r.session.elapsedMs; group.net += net; group.lastFinishedAt = Math.max(group.lastFinishedAt, r.finishedAt);
                     if (r.session.elapsedMs > 0) group.timedNet += net; else group.zeroDurationCount++;
                     groups.set(key,group);
                 }
@@ -1107,7 +1107,7 @@ try {
         await evaluate(
             "[...document.querySelectorAll('dialog[open] button[aria-pressed]')].find(b => b.querySelector('strong')?.textContent === 'Black Stone').click()",
         );
-        await click("Record an expense");
+        await click("Expense");
         await setField('dialog[open] input[placeholder="e.g. Elixir rotation"]', "Elixir rotation");
         await setField('dialog[open] input[placeholder="Required"]', "5000");
         await evaluate("document.querySelector('dialog[open] form').requestSubmit()");
@@ -1459,8 +1459,12 @@ try {
         const supplementalNames = ["Laila's Petal", "Pure Forest Breath", "[Event] Bountiful Autumn Lunchbox"];
         for (const [index, name] of supplementalNames.entries()) {
             await setField('dialog[open] input[type="search"]', name);
-            await until("document.querySelectorAll('dialog[open] button[aria-pressed]').length === 1");
-            await evaluate("document.querySelector('dialog[open] button[aria-pressed]').click()");
+            await until(
+                "document.querySelectorAll('dialog[open] [aria-label$=\"loot items\"] button[aria-pressed]').length === 1",
+            );
+            await evaluate(
+                "document.querySelector('dialog[open] [aria-label$=\"loot items\"] button[aria-pressed]').click()",
+            );
             await setField('dialog[open] input[min="1"]', "2");
             await evaluate("document.querySelector('dialog[open] form').requestSubmit()");
             await until(`window.__session.entries.length === ${index + 1}`);

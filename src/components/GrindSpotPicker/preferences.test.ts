@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { grindSpots } from "../../data/grindSpots";
-import { filterSpots, parseSpotPreferences, quickSpotIds, rememberSpot } from "./preferences";
+import { filterSpots, parseSpotPreferences, quickSpotIds, rememberSpot, splitSpotName } from "./preferences";
 
 const ids = grindSpots.slice(0, 10).map((spot) => spot.id);
 
@@ -45,7 +45,13 @@ describe("spot search", () => {
         expect(filterSpots(preferences, "Recent", "").map((spot) => spot.id)).toEqual(preferences.recent);
         expect(filterSpots(preferences, "Favorites", "sycraia").map((spot) => spot.id)).toEqual([ids[0]]);
         expect(filterSpots(preferences, "All", "no-such-spot")).toEqual([]);
-        const names = filterSpots(preferences, "All", "").map((spot) => spot.name);
-        expect(names).toEqual([...names].sort((a, b) => a.localeCompare(b, "en")));
+        const bases = filterSpots(preferences, "All", "").map((spot) => splitSpotName(spot.name).base);
+        expect(bases).toEqual([...bases].sort((a, b) => a.localeCompare(b, "en")));
+    });
+    it("groups region variants beside their base spot", () => {
+        const names = filterSpots(preferences, "All", "ash forest").map((spot) => spot.name);
+        expect(names).toEqual(["Ash Forest", "[Dehkia] Ash Forest", "[Dehkia 2] Ash Forest"]);
+        expect(splitSpotName("[Dehkia 2] Ash Forest")).toEqual({ base: "Ash Forest", tag: "Dehkia 2" });
+        expect(splitSpotName("Star's End")).toEqual({ base: "Star's End", tag: null });
     });
 });

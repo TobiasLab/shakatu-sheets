@@ -9,6 +9,16 @@
 .CapturePanel[data-setup-open="true"] {
     padding: 14px 16px 16px;
 }
+/* The review queue sits flush with the strip's edges instead of nesting a second box. */
+.CapturePanel > [data-review] {
+    margin: 8px -8px -8px -14px;
+    border: 0;
+    border-top: 1px solid var(--line);
+    border-radius: 0 0 var(--panel-radius) var(--panel-radius);
+}
+.CapturePanel[data-setup-open="true"] > [data-review] {
+    margin: 16px -16px -16px;
+}
 
 .Intro {
     display: flex;

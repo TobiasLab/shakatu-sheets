@@ -9,6 +9,7 @@ const spot: SpotSummary = {
     net: 250_000_000,
     timedNet: 250_000_000,
     zeroDurationCount: 0,
+    lastFinishedAt: 1_000,
 };
 
 describe("history comparisons", () => {

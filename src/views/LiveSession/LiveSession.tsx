@@ -135,6 +135,7 @@ export function LiveSessionView({
                 <h1 className="sr-only">Grind desk</h1>
                 <GrindSpotPicker
                     spot={spot}
+                    region={session.region}
                     locked={!spotEditable}
                     disabled={!spotEditable || !databaseLoaded || market.fetchingPrices || !visible}
                     onSelect={changeGrindSpot}
@@ -195,7 +196,7 @@ export function LiveSessionView({
                 title="Drops"
                 mode={dropView}
                 switcher={
-                    <fieldset className={styles.ViewSwitch}>
+                    <fieldset className="segmented">
                         <legend className="sr-only">Drop view</legend>
                         {(["inventory", "ledger"] as const).map((mode) => (
                             <button

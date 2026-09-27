@@ -34,7 +34,7 @@ export function ConsumablePresetPicker({
             </button>
             <dialog
                 ref={dialog}
-                className={dialogStyles.ToolDialog}
+                className={`${dialogStyles.ToolDialog} ${dialogStyles.NarrowDialog}`}
                 aria-labelledby={titleId}
                 onClose={() => setTarget(null)}
             >

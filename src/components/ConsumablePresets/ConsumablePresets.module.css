@@ -1,5 +1,5 @@
 .Root {
-    padding: 20px 24px;
+    padding: 16px 20px 20px;
 }
 .Editor {
     display: grid;
@@ -141,26 +141,40 @@
 .PresetList {
     display: grid;
     min-width: 0;
-    gap: 8px;
+    gap: 2px;
 }
-.PresetList button {
+.PresetRow:global(.button),
+.PresetRow {
     display: flex;
-    align-items: start;
+    align-items: center;
     justify-content: space-between;
     flex-wrap: wrap;
-    gap: 12px 20px;
-    padding: 14px 16px;
+    gap: 8px 20px;
+    min-height: 52px;
+    padding: 8px 12px;
+    border: 0;
+    border-radius: var(--control-radius);
+    background: transparent;
     text-align: left;
 }
-.PresetList button:focus-visible {
-    outline-offset: -3px;
+.PresetRow:enabled:hover {
+    background: var(--hover);
+}
+.PresetRow[aria-pressed="true"],
+.PresetRow[aria-pressed="true"]:enabled:hover {
+    border: 0;
+    background: var(--surface-raised);
+    box-shadow: inset 2px 0 var(--gold);
+}
+.PresetRow:focus-visible {
+    outline-offset: -2px;
 }
 .PresetIdentity,
 .PresetCost {
     display: grid;
     min-width: 0;
     max-width: 100%;
-    gap: 6px;
+    gap: 1px;
 }
 .PresetIdentity {
     flex: 1 1 180px;
@@ -168,14 +182,19 @@
 .PresetIdentity strong,
 .PresetCost strong {
     overflow-wrap: anywhere;
-    font-size: 12px;
-    font-weight: 550;
-    line-height: 1.5;
+    color: var(--text-strong);
+    font-size: 13px;
+    font-weight: 500;
+    line-height: 1.4;
+}
+.PresetCost strong {
+    color: var(--negative);
+    font-weight: 600;
 }
 .PresetIdentity small,
 .PresetCost small {
     color: var(--muted);
-    font-size: 11px;
+    font-size: 12px;
 }
 .PresetCost {
     margin-left: auto;

@@ -141,34 +141,6 @@
     font-size: 13px;
     font-variant-numeric: tabular-nums;
 }
-.ViewSwitch {
-    display: inline-flex;
-    gap: 2px;
-    margin: 0;
-    padding: 2px;
-    border: 1px solid var(--line);
-    border-radius: calc(var(--control-radius) + 2px);
-    background: var(--surface);
-}
-.ViewSwitch button {
-    min-height: 26px;
-    padding: 2px 10px;
-    border: 0;
-    border-radius: var(--control-radius);
-    background: transparent;
-    color: var(--muted);
-    font-size: 12px;
-    font-weight: 500;
-    cursor: pointer;
-}
-.ViewSwitch button:hover {
-    color: var(--text-strong);
-}
-.ViewSwitch button[aria-pressed="true"] {
-    background: var(--surface-raised);
-    color: var(--text-strong);
-    box-shadow: 0 0 0 1px var(--line-strong);
-}
 .EntryTools {
     display: flex;
     align-items: center;
@@ -179,6 +151,9 @@
 }
 .ToolDialog {
     composes: Surface from "../../components/Dialog/Dialog.module.css";
+}
+.ToolDialog.NarrowDialog {
+    width: min(560px, calc(100vw - 40px));
 }
 .ToolDialog :global(.panel) {
     border: 0;

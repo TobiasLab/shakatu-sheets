@@ -293,6 +293,41 @@ h3 {
     border-color: transparent;
     color: var(--text-strong);
 }
+.segmented {
+    display: inline-flex;
+    flex-shrink: 0;
+    gap: 2px;
+    min-width: 0;
+    margin: 0;
+    padding: 2px;
+    border: 1px solid var(--line);
+    border-radius: calc(var(--control-radius) + 2px);
+    background: var(--surface);
+}
+.segmented > button {
+    min-height: 26px;
+    padding: 2px 10px;
+    border: 0;
+    border-radius: var(--control-radius);
+    background: transparent;
+    color: var(--muted);
+    font-size: 12px;
+    font-weight: 500;
+    white-space: nowrap;
+    cursor: pointer;
+}
+.segmented > button:hover:enabled {
+    color: var(--text-strong);
+}
+.segmented > button[aria-pressed="true"] {
+    background: var(--surface-raised);
+    color: var(--text-strong);
+    box-shadow: 0 0 0 1px var(--line-strong);
+}
+.segmented > button:disabled {
+    cursor: not-allowed;
+    opacity: 0.5;
+}
 .panel {
     min-width: 0;
 }
@@ -390,8 +425,7 @@ select:not([multiple]) {
 select:disabled {
     cursor: not-allowed;
 }
-input[type="checkbox"],
-input[type="radio"] {
+:where(input[type="checkbox"], input[type="radio"]) {
     width: auto;
     margin: 0;
     accent-color: var(--gold);
