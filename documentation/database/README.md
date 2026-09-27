@@ -89,8 +89,9 @@ being reopened or while running across the upgrade, because those samples cover 
   expenses, and their price snapshots. Unknown upload outcomes block correction. A success marker allows adding missing consumables only and remains
   unchanged; existing consumables on uploaded sessions cannot be replaced. The Garmoth mutex covers this correction,
   upload reservation, and HTTP, and serializes them with deletion. Saved expense changes survive failed requests;
-  the result returns the saved snapshot for retry and UI refresh. Global/Agris/drop-rate options are transient upload
-  metadata. This workflow needs no additional migration or index.
+  the result returns the saved snapshot for retry and UI refresh. Global and Agris options are transient upload
+  metadata; the last drop-buff selection is a JSON array of Garmoth buff IDs under the `garmoth.buffs` setting. This
+  workflow needs no additional migration or index.
 - The explicit delete command removes only finished sessions. Their entries, session-linked price snapshots, and Garmoth
   upload marker are deleted through foreign-key cascades; unfinished sessions cannot be deleted through this path.
 - Money is stored as integer silver values and time as integer milliseconds.

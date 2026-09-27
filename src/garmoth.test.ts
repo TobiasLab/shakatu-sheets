@@ -2,7 +2,15 @@ import { describe, expect, it } from "vitest";
 import mappings from "./data/garmothMappings.json";
 import { getGrindSpotDrops, grindSpots, supplementalDrops } from "./data/grindSpots";
 import type { SessionState } from "./domain/session";
-import { buildGarmothUpload, getGarmothUploadNotice, parseGarmothOptions } from "./garmoth";
+import {
+    buildGarmothUpload,
+    chooseBuff,
+    dropAmount,
+    type GarmothBuff,
+    garmothBuffs,
+    getGarmothUploadNotice,
+    parseGarmothOptions,
+} from "./garmoth";
 
 function finishedSession(): SessionState {
     return {
@@ -200,17 +208,42 @@ it("previews saved consumable expenses without treating them as loot", () => {
 });
 
 describe("upload options", () => {
-    it("omits unspecified Agris and drop rate without enabling global contribution", () => {
-        expect(JSON.parse(JSON.stringify(parseGarmothOptions(false, false, "900", "")))).toEqual({ global: false });
+    it("omits unspecified Agris without enabling global contribution", () => {
+        expect(JSON.parse(JSON.stringify(parseGarmothOptions(false, false, "900")))).toEqual({ global: false });
     });
-    it("maps unknown and known Agris and sends percentages directly", () => {
-        expect(parseGarmothOptions(true, true, "", "250.25")).toEqual({ global: true, agris: -1, rate: 250.25 });
-        expect(parseGarmothOptions(false, true, "20000", "0")).toEqual({ global: false, agris: 20000, rate: 0 });
+    it("maps unknown and known Agris", () => {
+        expect(parseGarmothOptions(true, true, "")).toEqual({ global: true, agris: -1 });
+        expect(parseGarmothOptions(false, true, "20000")).toEqual({ global: false, agris: 20000 });
     });
     it.each(["0", "-1", "1.5", "1e3", "Infinity", "9007199254740992"])("rejects invalid Agris amount %s", (value) => {
-        expect(() => parseGarmothOptions(false, true, value, "")).toThrow();
+        expect(() => parseGarmothOptions(false, true, value)).toThrow();
     });
-    it.each(["-1", "1.001", "Infinity", "NaN", "1e3", "9007199254740992"])("rejects invalid drop rate %s", (value) => {
-        expect(() => parseGarmothOptions(false, false, "", value)).toThrow();
+});
+
+describe("drop buffs", () => {
+    const buff = (id: number) => garmothBuffs.find((candidate) => candidate.id === id) as GarmothBuff;
+
+    it("keeps one tier of each buff and toggles buffs off", () => {
+        // Loot scroll Lv. 1 and Lv. 2, Adventurer's Luck I and V, Eye of Arsha.
+        let selected = chooseBuff([], buff(1), true);
+        selected = chooseBuff(selected, buff(36), true);
+        selected = chooseBuff(selected, buff(2), true);
+        expect(selected).toEqual([36, 2]);
+        selected = chooseBuff(chooseBuff(selected, buff(12), true), buff(8), true);
+        expect(selected).toEqual([36, 2, 8]);
+        expect(chooseBuff(selected, buff(36), false)).toEqual([2, 8]);
+    });
+
+    it("sums drop amounts of the chosen buffs", () => {
+        expect(dropAmount([])).toBe(0);
+        // Loot scroll Lv. 2, Adventurer's Luck V, Blessing of Old Moon Scroll.
+        expect(dropAmount([2, 8, 138])).toBe(200);
+    });
+
+    it("bundles only known tier groups with unique IDs", () => {
+        expect(new Set(garmothBuffs.map((candidate) => candidate.id)).size).toBe(garmothBuffs.length);
+        expect(new Set(garmothBuffs.flatMap((candidate) => candidate.group ?? []))).toEqual(
+            new Set(["loot-scroll", "adventurers-luck", "node-war-benefit", "fortuna"]),
+        );
     });
 });

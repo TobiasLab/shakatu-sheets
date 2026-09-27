@@ -13,6 +13,7 @@
             "scripts/smoke-session-overlay.mjs",
             "scripts/benchmark-session-format.mjs",
             "scripts/sync-grind-spots.mjs",
+            "scripts/sync-grind-buffs.mjs",
             "scripts/grind-spots.test.mjs"
         ]
     },

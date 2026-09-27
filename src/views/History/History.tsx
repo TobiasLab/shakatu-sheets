@@ -816,6 +816,9 @@ export function HistoryView({
                 <GarmothUploadDialog
                     record={uploadReview}
                     characterName={uploadCharacter.name}
+                    initialBuffIds={garmothSettings?.buffIds ?? []}
+                    // Submitting saves the selection as the default for the next review.
+                    onBuffsSubmitted={(buffIds) => setGarmothSettings((current) => current && { ...current, buffIds })}
                     onBusy={setUploading}
                     onClose={() => {
                         setUploadReview(null);

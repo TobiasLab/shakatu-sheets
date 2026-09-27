@@ -14,17 +14,22 @@ import {
     parseGarmothOptions,
 } from "../../garmoth";
 import dialogStyles from "../LiveSession/LiveSession.module.css";
+import { GarmothBuffPicker } from "./GarmothBuffPicker";
 import styles from "./GarmothUploadDialog.module.css";
 
 export function GarmothUploadDialog({
     record,
     characterName,
+    initialBuffIds,
+    onBuffsSubmitted,
     onClose,
     onBusy,
     onResult,
 }: {
     record: FinishedSessionRecord;
     characterName: string;
+    initialBuffIds: number[];
+    onBuffsSubmitted: (buffIds: number[]) => void;
     onClose: () => void;
     onBusy: (busy: boolean) => void;
     onResult: (result: GarmothUploadResult) => void;
@@ -39,7 +44,7 @@ export function GarmothUploadDialog({
     const [global, setGlobal] = useState(false);
     const [usedAgris, setUsedAgris] = useState(false);
     const [agrisAmount, setAgrisAmount] = useState("");
-    const [dropRate, setDropRate] = useState("");
+    const [buffIds, setBuffIds] = useState(initialBuffIds);
     const [busy, setBusy] = useState(false);
     const [blocked, setBlocked] = useState(record.garmothUploadStatus === "unknown");
     const [error, setError] = useState("");
@@ -69,15 +74,17 @@ export function GarmothUploadDialog({
         if (sending.current || blocked || !preview || previewError) return;
         setError("");
         try {
-            const options = parseGarmothOptions(global, usedAgris, agrisAmount, dropRate);
+            const options = parseGarmothOptions(global, usedAgris, agrisAmount);
             if (repeat && !window.confirm("Upload this session again? This creates another session on Garmoth."))
                 return;
             sending.current = true;
             setBusy(true);
             onBusy(true);
+            onBuffsSubmitted(buffIds);
             const result = await uploadGarmothSession({
                 ...preview.input,
                 ...options,
+                buffs: buffIds,
                 repeatUpload: repeat,
                 expectedSession: snapshot,
                 consumableEntries: consumables ?? undefined,
@@ -201,6 +208,7 @@ export function GarmothUploadDialog({
                         )
                     }
                 />
+                <GarmothBuffPicker selected={buffIds} disabled={busy || blocked} onChange={setBuffIds} />
                 <fieldset className={styles.Options} disabled={busy || blocked}>
                     <legend className="sr-only">Upload options</legend>
                     <label className={styles.Checkbox}>
@@ -228,17 +236,6 @@ export function GarmothUploadDialog({
                             />
                         )}
                     </div>
-                    <label className={styles.Rate}>
-                        Drop rate %
-                        <input
-                            type="number"
-                            min="0"
-                            step="0.01"
-                            placeholder="—"
-                            value={dropRate}
-                            onChange={(event) => setDropRate(event.target.value)}
-                        />
-                    </label>
                 </fieldset>
                 {preview && preview.omittedEntries.length > 0 && <Feedback>{getGarmothUploadNotice(preview)}</Feedback>}
                 {(error || previewError) && <Feedback tone="error">{error || previewError}</Feedback>}

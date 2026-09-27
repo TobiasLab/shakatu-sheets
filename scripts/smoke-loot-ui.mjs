@@ -190,7 +190,7 @@ await send("Page.addScriptToEvaluateOnNewDocument", {
             if (command === "load_loot_capture_settings") return null;
             if (command === "load_garmoth_settings") {
                 if (new URLSearchParams(location.search).has("supplemental-drops")) {
-                    return { apiKeyConfigured: true, characterIds: [1], characters: [{id:1,name:"Fixture character"}], selectedCharacterId: 1 };
+                    return { apiKeyConfigured: true, characterIds: [1], characters: [{id:1,name:"Fixture character"}], selectedCharacterId: 1, buffIds: [2, 8] };
                 }
                 if (window.__failSettings) throw Error("Synthetic settings read failure");
                 return { apiKeyConfigured: window.__keyConfigured ?? false, characterIds: [], characters: [], selectedCharacterId: null };
@@ -1565,6 +1565,26 @@ try {
             "document.querySelector('dialog[open]')?.innerText.includes('Session totals still include these items.')",
         );
         await screenshot("supplemental-upload-review");
+        const buffHeading =
+            "[...document.querySelectorAll('dialog[open] h2')].find(h => h.textContent === 'Drop buffs')";
+        const pressedBuffs = `[...${buffHeading}.closest('section').querySelectorAll('button[aria-pressed="true"]')].map(b => b.textContent.trim()).join(',')`;
+        const buffAmount = `${buffHeading}.nextElementSibling.textContent`;
+        assert.equal(
+            await evaluate(pressedBuffs),
+            "Lv. 2,[Camp] Adventurer's Luck V",
+            "The last used buffs are preselected",
+        );
+        assert.equal(await evaluate(buffAmount), "Drop amount +100%");
+        await click("[Camp] Adventurer's Luck III");
+        await click("None");
+        await click("Lv. 1");
+        await click("Blessing of Old Moon Scroll");
+        assert.equal(
+            await evaluate(pressedBuffs),
+            "Lv. 1,[Camp] Adventurer's Luck III,Blessing of Old Moon Scroll",
+            "One tier of each buff stays selected",
+        );
+        assert.equal(await evaluate(buffAmount), "Drop amount +150%");
         await click("Upload to Garmoth");
         await until("window.__calls.some(c => c.command === 'upload_garmoth_session')");
         const upload = await evaluate("window.__calls.find(c => c.command === 'upload_garmoth_session').args.input");
@@ -1573,6 +1593,11 @@ try {
         assert.equal(upload.total, Math.round(21_000_000 + 5 * 12_345 * 0.845));
         assert.equal(upload.hourly, upload.total);
         assert.equal(JSON.stringify(upload.expectedSession.entries), supplementalEntries);
+        assert.deepEqual(
+            [...upload.buffs].sort((a, b) => a - b),
+            [1, 10, 138],
+        );
+        assert.equal("rate" in upload, false);
         await until("!document.querySelector('dialog[open]')");
         assert.equal(await evaluate("JSON.stringify(window.__session.entries)"), supplementalEntries);
         assert.equal(errors.length, 0, JSON.stringify(errors));
