@@ -190,6 +190,10 @@ a {
 :focus-visible {
     outline: 2px solid var(--focus-border);
 }
+/* After a pointer press the ring stays hidden until the keyboard moves focus (see main.tsx). */
+:root[data-input="pointer"] :focus-visible {
+    outline: none;
+}
 select:focus,
 input:focus {
     border-color: var(--focus-border);
