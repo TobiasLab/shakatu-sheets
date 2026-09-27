@@ -79,6 +79,19 @@
 .Metrics > div:first-child strong {
     color: var(--gold);
 }
+.Pending {
+    flex-shrink: 0;
+    min-width: 18px;
+    padding: 0 5px;
+    border-radius: 9px;
+    background: var(--warning);
+    color: var(--accent-contrast);
+    font-size: 11px;
+    font-weight: 700;
+    line-height: 18px;
+    text-align: center;
+    font-variant-numeric: tabular-nums;
+}
 .Clock {
     display: grid;
     flex-shrink: 0;

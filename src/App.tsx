@@ -45,6 +45,7 @@ export function App() {
             theme,
             opacity: overlayOpacity.opacity,
             timerEnabled: persistedSession.databaseLoaded && !persistedSession.closing,
+            pendingReviews: captureStatus.pendingReviews,
         },
         persistedSession.requestOverlayTimer,
     );
