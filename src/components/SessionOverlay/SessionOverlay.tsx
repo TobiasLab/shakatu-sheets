@@ -102,6 +102,7 @@ export function SessionOverlay() {
                 >
                     <span aria-hidden="true">⠿</span> {spotName}
                 </button>
+                {snapshot && snapshot.pendingReviews > 0 && <OverlayPending count={snapshot.pendingReviews} />}
                 {snapshot && <OverlayClock snapshot={snapshot} visible={visible} />}
                 {layerShell && (
                     <button
@@ -192,6 +193,16 @@ function OverlaySilver({ value, label }: { value: number | null; label: string }
             <span className="sr-only">{`${label}: ${fullAmount}`}</span>
             <span aria-hidden="true">{value === null ? "—" : formatOverlaySilver(value)}</span>
         </strong>
+    );
+}
+
+function OverlayPending({ count }: { count: number }) {
+    const label = `${count} ${count === 1 ? "drop needs" : "drops need"} attention`;
+    return (
+        <span className={styles.Pending} title={label}>
+            <span className="sr-only">{label}</span>
+            <span aria-hidden="true">{count}</span>
+        </span>
     );
 }
 

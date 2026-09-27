@@ -10,7 +10,8 @@ dark.
 
 - **Shell.** A 44px top bar holds the Grind desk, History, and Settings tabs, capture status, and save state. Away from
   the desk, it also shows the running session's spot, time, and silver per hour; clicking it returns to the desk. While
-  captures await review, a warning pill shows their count everywhere and opens the Needs attention queue.
+  captures await review, a warning pill shows their count everywhere and opens the Needs attention queue; the session
+  overlay shows the same count in its header.
 - **Grind desk.** The grind spot is the heading, with variant prefixes such as `[Dehkia 2]` shown as tags. One readout
   row shows net silver/hour, session net, a net-over-time trend, and session time beside the timer controls. A paused
   timer shows a Paused badge and muted time. The trend plots persisted net samples against elapsed time with a hairline

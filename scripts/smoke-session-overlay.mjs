@@ -25,6 +25,7 @@ document.documentElement.dataset.window = "session-overlay";
 function Harness() {
     const [theme, setTheme] = useState("dark");
     const [settingsVisible, setSettingsVisible] = useState(true);
+    const [pendingReviews, setPendingReviews] = useState(0);
     const opacity = useOverlayOpacity();
     const lootFont = useLootFont();
     const selfImprovement = useSelfImprovement();
@@ -38,7 +39,7 @@ function Harness() {
     };
     const overlay = useSessionOverlay({
         session: persisted.session, theme, opacity: opacity.opacity,
-        timerEnabled: persisted.databaseLoaded && !persisted.closing,
+        timerEnabled: persisted.databaseLoaded && !persisted.closing, pendingReviews,
     }, persisted.requestOverlayTimer);
     window.currentSession = persisted.session;
     window.overlayLootNames = [spot.trash, ...spot.drops].map(drop => drop.name);
@@ -55,6 +56,7 @@ function Harness() {
         },
     });
     window.updateTheme = setTheme;
+    window.setPendingReviews = setPendingReviews;
     window.showSettings = setSettingsVisible;
     window.openOverlay = overlay.openOverlay;
     return <><p id="publisher-error">{overlay.error}</p>
@@ -306,6 +308,17 @@ try {
         await evaluate("window.__failShow=false;window.openOverlay()");
         await until('document.querySelector("#publisher-error").textContent === ""');
         console.info("Overlay lifecycle smoke passed");
+        const pending = `document.querySelector('main header [title$="attention"]')`;
+        assert.equal(await evaluate(`${pending} === null`), true, "No review count while nothing is pending");
+        await evaluate("window.setPendingReviews(3)");
+        await until(
+            `${pending}?.title === "3 drops need attention" && ${pending}.querySelector('[aria-hidden]').textContent === "3"`,
+        );
+        await evaluate("window.setPendingReviews(1)");
+        await until(`${pending}?.title === "1 drop needs attention"`);
+        await evaluate("window.setPendingReviews(0)");
+        await until(`${pending} === null`);
+        console.info("Overlay pending review count passed");
         await evaluate("window.__calls=[];window.openOverlay()");
         await sleep(100);
         const focused = await evaluate('window.__calls.some(c => c.command === "plugin:window|set_focus")');
@@ -333,7 +346,7 @@ try {
                             entries:Array.from({length:30},(_,i)=>({id:String(i),name:window.overlayLootNames[i] ?? "Loot "+i,quantity:1,
                                 unitPrice:i===0?Math.abs(${amount}):0,valuation:${amount}<0?"expense":"vendor",
                                 saleMultiplier:1,source:"manual",createdAt:1})).map((entry,i)=>i?{...entry,valuation:"vendor"}:entry)},
-                        theme:"${theme}",timerEnabled:true,opacity:100
+                        theme:"${theme}",timerEnabled:true,opacity:100,pendingReviews:${amount === 999999999 ? 128 : 0}
                     })`);
                     await until(
                         `[...document.querySelectorAll('[aria-label="Session earnings"] strong:first-of-type [aria-hidden]')].find(el=>getComputedStyle(el).display!=="none")?.textContent.trim() === '${expected}'`,
@@ -351,7 +364,7 @@ try {
                                 const r=value.getBoundingClientRect(), label=el.previousElementSibling.getBoundingClientRect();
                                 return r.left>=label.right+3 && r.right<=main.right-8 && r.height<=21;
                             }),
-                            controls:[...document.querySelectorAll('main header button,main time')].every(el=>{
+                            controls:[...document.querySelectorAll('main header button,main header > span,main time')].every(el=>{
                                 const r=el.getBoundingClientRect();return r.left>=main.left && r.right<=main.right && r.top>=main.top && r.bottom<=main.top+34;
                             })};
                     })()`);
@@ -379,7 +392,7 @@ try {
         await evaluate("window.showSettings(true)");
         await until('!!document.querySelector("#overlay-opacity")');
         await evaluate(
-            'window.__event("session-overlay-state",{session:window.currentSession,theme:"light",timerEnabled:true,opacity:65})',
+            'window.__event("session-overlay-state",{session:window.currentSession,theme:"light",timerEnabled:true,opacity:65,pendingReviews:0})',
         );
         await until(`!!document.querySelector('[aria-label="Pause timer"]')`);
         if (process.env.OVERLAY_LAYER_SHELL) {

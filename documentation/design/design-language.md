@@ -139,7 +139,8 @@ Reuse these before creating anything new. Class names refer to global classes in
   region with one line of guidance and at most one action.
 - **Disclosures:** native `<details>`; the global `summary` style draws the chevron. Use them for rarely needed detail
   (diagnostics, privacy notes, value breakdown).
-- **Status:** 6px status dots (`StatusDot`) next to a word; counts in warning pills (`Needs attention`, the top-bar pill).
+- **Status:** 6px status dots (`StatusDot`) next to a word; counts in warning pills (`Needs attention`, the top-bar pill,
+  the overlay header).
 - **Tags:** small outlined pills for qualifiers such as region variants (`[Dehkia 2]` renders as a "Dehkia 2" tag).
 
 ## Numbers and copy
@@ -171,6 +172,8 @@ default, or whatever the container sets as `--trend-ring` (the History receipt u
 
 The overlay (`SessionOverlay`) is the reference design and changes only on request. It shares the theme tokens but keeps
 its own compact rules: 8px padding, 10–14px text, 48px icon tiles with a dark quantity badge, and no extra labels.
+While captures wait in Needs attention, a small warning pill with their count sits in the header before the session
+time, so the user sees it while playing fullscreen; it is hidden when nothing is pending.
 
 ## Reviewing a UI change
 

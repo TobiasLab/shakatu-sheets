@@ -9,7 +9,13 @@ export const OVERLAY_TIMER_RESULT = "session-overlay-timer-result";
 export type OverlayTimerAction = "start" | "pause" | "resume";
 export type OverlayTimerRequest = { requestId: string; sessionId: string; action: OverlayTimerAction };
 export type OverlayTimerResult = { requestId: string; error: string | null };
-export type OverlaySnapshot = { session: SessionState; theme: Theme; timerEnabled: boolean; opacity: number };
+export type OverlaySnapshot = {
+    session: SessionState;
+    theme: Theme;
+    timerEnabled: boolean;
+    opacity: number;
+    pendingReviews: number;
+};
 
 export function aggregateDrops(entries: SessionEntry[]) {
     const quantities = new Map<string, number>();

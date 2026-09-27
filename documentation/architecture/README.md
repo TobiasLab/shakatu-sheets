@@ -92,7 +92,7 @@ handle applies the gesture on release, avoiding surface-local pointer feedback w
 handle move/resize in 16-pixel steps (64 with Shift); Escape cancels an active drag. A display button cycles outputs.
 Placement is clamped to the current output, and the usual show/hide, snapshots, timer requests and opacity stay shared.
 Drag its header to move it; the close button hides it, preserving its position until the app exits.
-The main window sends session, theme, opacity, and timer-availability snapshots through targeted Tauri events only while the overlay is shown.
+The main window sends session, theme, opacity, timer-availability, and pending-review-count snapshots through targeted Tauri events only while the overlay is shown.
 A ready handshake and show/hide lifecycle events synchronize the latest snapshot on opening or reloading.
 Both close paths publish the visibility event; listeners confirm native visibility without polling. The overlay renders these snapshots without loading or saving sessions or fetching prices,
 and does not start capture. Its timer derives elapsed time from session timestamps independently of main-window visibility.

@@ -17,7 +17,7 @@ export function useSessionOverlay(
     snapshot: OverlaySnapshot,
     onTimerRequest: (request: OverlayTimerRequest) => string | null,
 ) {
-    const { session, theme, timerEnabled, opacity } = snapshot;
+    const { session, theme, timerEnabled, opacity, pendingReviews } = snapshot;
     const timerHandler = useRef(onTimerRequest);
     const latest = useRef(snapshot);
     const visible = useRef(false);
@@ -26,13 +26,11 @@ export function useSessionOverlay(
         timerHandler.current = onTimerRequest;
     }, [onTimerRequest]);
     useEffect(() => {
-        latest.current = { session, theme, timerEnabled, opacity };
+        latest.current = { session, theme, timerEnabled, opacity, pendingReviews };
         if (isTauri() && visible.current) {
-            void emitTo("session-overlay", OVERLAY_STATE, { session, theme, timerEnabled, opacity }).catch((error) =>
-                setError(String(error)),
-            );
+            void emitTo("session-overlay", OVERLAY_STATE, latest.current).catch((error) => setError(String(error)));
         }
-    }, [session, theme, timerEnabled, opacity]);
+    }, [session, theme, timerEnabled, opacity, pendingReviews]);
     useEffect(() => {
         if (!isTauri()) return;
         let disposed = false;
