@@ -214,9 +214,9 @@ export function LiveLootCapture({ controller }: { controller: ReturnType<typeof 
 
             {status === "capturing" && (
                 <section className={styles.SetupProgress} aria-label="Capture setup progress">
-                    <span>1 · Source selected</span>
-                    <span className={!regionConfirmed ? styles.CurrentStep : ""}>2 · Align areas</span>
-                    <span className={regionConfirmed ? styles.CurrentStep : ""}>
+                    <span data-step="done">1 · Source selected</span>
+                    <span data-step={regionConfirmed ? "done" : "current"}>2 · Align areas</span>
+                    <span data-step={regionConfirmed ? "done" : "todo"}>
                         3 ·{" "}
                         {regionConfirmed ? "Areas confirmed" : calibratedProfile ? "Confirm & track" : "Confirm areas"}
                     </span>
@@ -269,7 +269,7 @@ export function LiveLootCapture({ controller }: { controller: ReturnType<typeof 
                     hidden={!setupOpen}
                     className={`${styles.CaptureWorkspace} ${previewsEnabled ? "" : styles.PreviewsPaused}`}
                 >
-                    <div>
+                    <div className={styles.PreviewColumn}>
                         <div className={styles.Preview}>
                             <div
                                 className={styles.PreviewStage}
@@ -388,6 +388,47 @@ export function LiveLootCapture({ controller }: { controller: ReturnType<typeof 
                                 )}
                             </div>
                         </div>
+                        <div className={styles.RegionPreviews}>
+                            <div className={styles.RegionPreview}>
+                                <span>{normalRecognitionReady ? "Normal recognition preview" : "Normal preview"}</span>
+                                <div className={styles.RegionPreviewStage}>
+                                    <canvas
+                                        ref={normalRegionCanvas}
+                                        aria-label={
+                                            normalRecognitionReady
+                                                ? "Loot stack recognition crop"
+                                                : "Loot stack preview"
+                                        }
+                                    />
+                                    {placementMode !== "localizing" && normalRegionFrameSize && (
+                                        <AlignmentGuide frameSize={normalGuideFrameSize} guide={normalAlignmentGuide} />
+                                    )}
+                                </div>
+                            </div>
+                            <div className={`${styles.RegionPreview} ${styles.RareRegionPreview}`}>
+                                <span>{rareRecognitionReady ? "Rare recognition preview" : "Rare preview"}</span>
+                                <div className={styles.RegionPreviewStage}>
+                                    <canvas
+                                        ref={rareRegionCanvas}
+                                        aria-label={
+                                            rareRecognitionReady ? "Rare recognition crop" : "Rare alignment preview"
+                                        }
+                                    />
+                                    {rareRegionFrameSize && (
+                                        <AlignmentGuide frameSize={rareGuideFrameSize} guide={rareAlignmentGuide} />
+                                    )}
+                                </div>
+                                <p>
+                                    {!calibratedProfile
+                                        ? "Preview only - no calibrated recognition profile"
+                                        : rareRecognitionReady
+                                          ? "Provisional recognition - recognized banners are added automatically"
+                                          : "Align and confirm the rare area to enable provisional recognition"}
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                    <aside className={styles.ControlColumn}>
                         {sourceDimensions && !sourceSupported ? (
                             <p className={styles.CalibrationError} role="status">
                                 Supported sources are 3440 x 1440, 2560 x 1440, and 1920 x 1080.
@@ -555,8 +596,6 @@ export function LiveLootCapture({ controller }: { controller: ReturnType<typeof 
                                 </div>
                             </fieldset>
                         )}
-                    </div>
-                    <aside className={styles.CaptureSidebar}>
                         <details
                             open={diagnosticsOpen}
                             onToggle={(event) => setDiagnosticsOpen(event.currentTarget.open)}
@@ -739,41 +778,6 @@ export function LiveLootCapture({ controller }: { controller: ReturnType<typeof 
                                 </div>
                             )}
                         </details>
-                        <div className={styles.RegionPreview}>
-                            <span>{normalRecognitionReady ? "Normal recognition preview" : "Normal preview"}</span>
-                            <div className={styles.RegionPreviewStage}>
-                                <canvas
-                                    ref={normalRegionCanvas}
-                                    aria-label={
-                                        normalRecognitionReady ? "Loot stack recognition crop" : "Loot stack preview"
-                                    }
-                                />
-                                {placementMode !== "localizing" && normalRegionFrameSize && (
-                                    <AlignmentGuide frameSize={normalGuideFrameSize} guide={normalAlignmentGuide} />
-                                )}
-                            </div>
-                        </div>
-                        <div className={`${styles.RegionPreview} ${styles.RareRegionPreview}`}>
-                            <span>{rareRecognitionReady ? "Rare recognition preview" : "Rare preview"}</span>
-                            <div className={styles.RegionPreviewStage}>
-                                <canvas
-                                    ref={rareRegionCanvas}
-                                    aria-label={
-                                        rareRecognitionReady ? "Rare recognition crop" : "Rare alignment preview"
-                                    }
-                                />
-                                {rareRegionFrameSize && (
-                                    <AlignmentGuide frameSize={rareGuideFrameSize} guide={rareAlignmentGuide} />
-                                )}
-                            </div>
-                            <p>
-                                {!calibratedProfile
-                                    ? "Preview only - no calibrated recognition profile"
-                                    : rareRecognitionReady
-                                      ? "Provisional recognition - recognized banners are added automatically"
-                                      : "Align and confirm the rare area to enable provisional recognition"}
-                            </p>
-                        </div>
                     </aside>
                 </div>
             )}
