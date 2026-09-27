@@ -326,10 +326,18 @@ pub(super) fn load_session_trend_records(
     connection: &Connection,
     session_id: &str,
 ) -> Result<Vec<NetSample>, String> {
+    // Sessions created before migration 5 gain samples only once reopened or saved after the upgrade. Those samples
+    // cover part of the session, so such sessions have no trend.
     let mut statement = connection
         .prepare(
-            "SELECT elapsed_ms, net FROM session_net_samples
-             WHERE session_id = ?1 ORDER BY elapsed_ms",
+            "SELECT samples.elapsed_ms, samples.net
+             FROM session_net_samples AS samples
+             JOIN sessions ON sessions.id = samples.session_id
+             WHERE samples.session_id = ?1
+                AND sessions.created_at >= (
+                    SELECT CAST(applied_at AS INTEGER) FROM schema_migrations WHERE version = 5
+                )
+             ORDER BY samples.elapsed_ms",
         )
         .map_err(|error| error.to_string())?;
     let samples = statement

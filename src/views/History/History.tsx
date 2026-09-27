@@ -6,15 +6,18 @@ import {
     type HistoryResult,
     listFinishedSessions,
     loadGarmothSettings,
+    loadSessionTrend,
 } from "../../api/tauri";
 import { EmptyState, Feedback } from "../../components/Feedback/Feedback";
 import { SelectionButton } from "../../components/SelectionButton/SelectionButton";
 import { getDropIcon, grindSpots } from "../../data/grindSpots";
 import { historyDateBoundary, netPerHour, rankSpots, summarizeHistory } from "../../domain/history";
 import { calculateTotals, type SessionState } from "../../domain/session";
+import { hasRecordedTrend, type TrendSample } from "../../domain/trend";
 import { formatDuration, formatSilver, formatTimestamp } from "../../format";
 import { buildGarmothUpload, type GarmothUploadPreview, getGarmothUploadNotice } from "../../garmoth";
 import type { DatabaseStatus } from "../../hooks/usePersistedSession";
+import { SessionTrend } from "../LiveSession/SessionTrend";
 import { GarmothUploadDialog } from "./GarmothUploadDialog";
 import styles from "./History.module.css";
 
@@ -72,6 +75,7 @@ export function HistoryView({
     const [uploadError, setUploadError] = useState("");
     const [settingsError, setSettingsError] = useState("");
     const [garmothSettingsLoaded, setGarmothSettingsLoaded] = useState(false);
+    const [trend, setTrend] = useState<{ sessionId: string; samples: TrendSample[] } | null>(null);
     const reloadButton = useRef<HTMLButtonElement>(null);
     const historySelectButtons = useRef(new Map<string, HTMLButtonElement>());
     const historyDeleteButtons = useRef(new Map<string, HTMLButtonElement>());
@@ -157,6 +161,8 @@ export function HistoryView({
     const comparisonSpots = rankSpots(history?.spotSummaries ?? []);
     const selected = pageRecords.find((record) => record.session.id === selectedId) ?? pageRecords[0];
     const selectedTotals = selected ? calculateTotals(selected.session.entries, selected.session.elapsedMs) : null;
+    const selectedSessionId = selected?.session.id;
+    const selectedSamples = trend !== null && trend.sessionId === selectedSessionId ? trend.samples : [];
     let uploadPreview: GarmothUploadPreview | null = null;
     let uploadPreviewError = "";
     if (selected) {
@@ -204,6 +210,22 @@ export function HistoryView({
         setUploadMessage("");
         setUploadError("");
     }
+
+    // Finished sessions are immutable, so samples load once per selection; a slower earlier request is ignored.
+    useEffect(() => {
+        if (!selectedSessionId) return;
+        let current = true;
+        loadSessionTrend(selectedSessionId)
+            .then((samples) => {
+                if (current) setTrend({ sessionId: selectedSessionId, samples });
+            })
+            .catch(() => {
+                if (current) setTrend({ sessionId: selectedSessionId, samples: [] });
+            });
+        return () => {
+            current = false;
+        };
+    }, [selectedSessionId]);
 
     useEffect(() => {
         if (!pageFocus.current || loading || records === null) return;
@@ -645,6 +667,13 @@ export function HistoryView({
                                             : "—"}
                                     </strong>
                                 </div>
+                                {hasRecordedTrend(selectedSamples, selected.session.elapsedMs) && (
+                                    <SessionTrend
+                                        samples={selectedSamples}
+                                        elapsedMs={selected.session.elapsedMs}
+                                        net={selectedTotals.net}
+                                    />
+                                )}
                             </div>
                             {selected.session.entries.length === 0 ? (
                                 <div className={`empty-state ${styles.HistoryEntriesEmpty}`}>

@@ -112,6 +112,7 @@ Two themes, dark (default) and light, share the same token names. Every new toke
   controls), capture strip, drops. The readout, strip, and first row of drops must fit a 1440×900 window, and the layout
   must stay usable at half of a 1920px screen.
 - **History:** title, filter bar, overview figures, comparison table, then the session list beside one receipt panel.
+  The receipt's figures row ends with the session's net-over-time trend when net samples exist.
 - **Settings:** a sticky section index beside open sections; each section has a label column (up to 200px) and a form
   column (up to 570px).
 
@@ -156,7 +157,8 @@ Reuse these before creating anything new. Class names refer to global classes in
 Follow the dataviz rules: one series per chart, a 2px line in the accent over a 10% wash, an end dot with a surface ring,
 solid hairline reference lines (never dashed), no legend for a single series, and a readout that works with pointer
 and keyboard alike. A chart title names the series; the one extra number shown next to it must be meaningful on its
-own (for example, "Last 30 min 527.55M/h").
+own (for example, "Last 30 min 527.55M/h"). The end dot's ring matches the background behind the chart: `--canvas` by
+default, or whatever the container sets as `--trend-ring` (the History receipt uses `--surface`).
 
 ## Accessibility
 

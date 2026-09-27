@@ -1,5 +1,5 @@
 import { type KeyboardEvent, type PointerEvent, useState } from "react";
-import { netAt, recentRate, type TrendSample, trendPoints } from "../../domain/trend";
+import { MIN_TREND_MS, netAt, recentRate, type TrendSample, trendPoints } from "../../domain/trend";
 import { formatDuration, formatSilver } from "../../format";
 import styles from "./LiveSession.module.css";
 
@@ -10,7 +10,7 @@ const RECENT_WINDOW_MS = 30 * 60_000;
 export function SessionTrend({ samples, elapsedMs, net }: { samples: TrendSample[]; elapsedMs: number; net: number }) {
     const [hoverMs, setHoverMs] = useState<number | null>(null);
     const points = trendPoints(samples, elapsedMs, net);
-    if (elapsedMs < 60_000 || points.length < 2) return <div className={styles.Trend} aria-hidden="true" />;
+    if (elapsedMs < MIN_TREND_MS || points.length < 2) return <div className={styles.Trend} aria-hidden="true" />;
 
     const low = Math.min(0, ...points.map((point) => point.net));
     const high = Math.max(1, ...points.map((point) => point.net));

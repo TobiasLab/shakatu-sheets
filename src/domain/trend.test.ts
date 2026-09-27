@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { netAt, recentRate, trendPoints } from "./trend";
+import { hasRecordedTrend, netAt, recentRate, trendPoints } from "./trend";
 
 describe("session trend", () => {
     const samples = [
@@ -30,5 +30,12 @@ describe("session trend", () => {
         const points = trendPoints(samples, 3_600_000, 700);
         expect(recentRate(points, 1_800_000)).toBe(600);
         expect(recentRate(trendPoints([], 900_000, 10), 1_800_000)).toBeNull();
+    });
+
+    it("shows a finished session's trend only when it has samples and lasted a minute", () => {
+        expect(hasRecordedTrend(samples, 3_600_000)).toBe(true);
+        expect(hasRecordedTrend([], 3_600_000)).toBe(false);
+        expect(hasRecordedTrend(samples, 59_999)).toBe(false);
+        expect(hasRecordedTrend([{ elapsedMs: 0, net: 500 }], 0)).toBe(false);
     });
 });

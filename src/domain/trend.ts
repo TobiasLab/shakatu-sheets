@@ -1,5 +1,13 @@
 export type TrendSample = { elapsedMs: number; net: number };
 
+// Shorter sessions have too little elapsed time to draw a line.
+export const MIN_TREND_MS = 60_000;
+
+// Sessions created before net samples were recorded have none, and a straight line to the final net would mislead.
+export function hasRecordedTrend(samples: TrendSample[], elapsedMs: number): boolean {
+    return samples.length > 0 && elapsedMs >= MIN_TREND_MS;
+}
+
 // Persisted samples record net whenever it changed; the live session supplies the current end point.
 export function trendPoints(samples: TrendSample[], elapsedMs: number, net: number): TrendSample[] {
     const start = samples.find((sample) => sample.elapsedMs === 0) ?? { elapsedMs: 0, net: 0 };

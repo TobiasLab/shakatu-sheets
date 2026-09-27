@@ -1259,6 +1259,23 @@ fn records_net_samples_only_when_net_changes() {
 }
 
 #[test]
+fn sessions_created_before_net_samples_existed_have_no_trend() {
+    let mut connection = database();
+    let record = session(SessionStatus::Paused);
+    save_session_record(&mut connection, &record).unwrap();
+    assert_eq!(trend(&connection), vec![(5_000, 1_079_000)]);
+
+    // Created before migration 5, like a session reopened or still running after the upgrade.
+    connection
+        .execute(
+            "UPDATE sessions SET created_at = created_at - 86400000 WHERE id = 'session-1'",
+            [],
+        )
+        .unwrap();
+    assert!(trend(&connection).is_empty());
+}
+
+#[test]
 fn running_samples_include_the_current_segment_and_cascade_on_delete() {
     let mut connection = database();
     let mut record = session(SessionStatus::Running);
