@@ -1,54 +1,63 @@
 .Feedback {
-    display: grid;
-    gap: var(--space-2);
-    padding: var(--space-3) var(--space-4);
-    border: 1px solid var(--line);
-    border-left: 2px solid var(--line-strong);
-    border-radius: var(--control-radius);
-    background: var(--surface-raised);
+    --tone: var(--line-strong);
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--space-2) var(--space-4);
     min-width: 0;
+    padding: 8px 12px;
+    border-left: 2px solid var(--tone);
+    border-radius: 0 var(--control-radius) var(--control-radius) 0;
+    background: color-mix(in srgb, var(--tone) 9%, transparent);
     overflow-wrap: anywhere;
 }
 .Feedback > p {
+    flex: 1 1 280px;
+    min-width: 0;
     margin: 0;
+    color: var(--text-soft);
     font-size: var(--text-control);
     line-height: 1.5;
-    color: var(--text-soft);
 }
 .Feedback[data-tone="error"] {
-    border-left-color: var(--danger);
+    --tone: var(--danger);
 }
 .Feedback[data-tone="error"] > p {
     color: var(--danger);
 }
 .Feedback[data-tone="success"] {
-    border-left-color: var(--success);
+    --tone: var(--success);
 }
 .Feedback[data-tone="success"] > p {
     color: var(--success);
 }
 .Feedback > button {
-    justify-self: start;
+    flex-shrink: 0;
 }
 .Empty {
     display: grid;
     justify-items: center;
     align-content: center;
-    gap: var(--space-2);
-    min-height: 140px;
+    gap: 4px;
+    min-height: 160px;
     padding: var(--space-6);
+    border: 1px dashed var(--line);
+    border-radius: var(--panel-radius);
     text-align: center;
 }
 .Empty strong {
-    color: var(--text-soft);
+    color: var(--text-strong);
     font-size: 14px;
-    font-weight: 500;
+    font-weight: 600;
     line-height: 1.4;
 }
 .Empty p {
-    max-width: 360px;
+    max-width: 380px;
     margin: 0;
     color: var(--muted);
     font-size: var(--text-control);
     line-height: 1.5;
+}
+.Empty > :global(.button) {
+    margin-top: 8px;
 }

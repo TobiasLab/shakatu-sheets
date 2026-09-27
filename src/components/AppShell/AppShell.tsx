@@ -40,7 +40,7 @@ export function AppShell({
             </a>
             <header className={styles.Bar}>
                 <span className={styles.Brand}>
-                    <Icon name="brand" size={16} />
+                    <Icon name="brand" size={14} />
                     Shakatu Sheets
                 </span>
                 <nav className={styles.Tabs} aria-label="Application views">
