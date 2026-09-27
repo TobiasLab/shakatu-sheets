@@ -59,12 +59,16 @@ session (including the save that finishes it) computes the session's net in whol
 using the same after-tax values as history, and inserts a sample at the current elapsed time when net differs from the
 latest sample. A running session's elapsed time includes the segment since `started_at`. Samples beyond the saved
 elapsed time are removed first, so manually entered hours never leave samples from a discarded span. Rows cascade with
-their session. No existing rows are backfilled; sessions recorded before this migration simply have no trend.
+their session. No existing rows are backfilled; sessions recorded before this migration simply have no trend. Loading
+a trend returns no samples for a session created before the migration was applied, even if it gained samples after
+being reopened or while running across the upgrade, because those samples cover only part of the session.
 
 ## Persistence
 
 - The latest unfinished session is loaded at startup.
 - The desk reads a session's net samples for its net-over-time trend; the live session supplies the current end point.
+  History reads them for the selected finished session, whose saved elapsed time and net supply the end point, and
+  shows no trend for sessions without samples.
   History spot summaries also report each spot's latest effective completion time.
 - History loads pages of 20 finished sessions and their entries, filtered in SQLite by recorded region (or all
   regions), optional spot, and completion date. Sorting is effective completion time descending, then ID ascending. Older rows without

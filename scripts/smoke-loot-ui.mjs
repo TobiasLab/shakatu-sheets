@@ -168,6 +168,13 @@ await send("Page.addScriptToEvaluateOnNewDocument", {
                 }
                 return result;
             }
+            if (command === "load_session_trend") {
+                if (window.__holdTrend === args.sessionId) {
+                    window.__holdTrend = null;
+                    await new Promise(resolve => { window.__releaseTrend = resolve; });
+                }
+                return window.__trendSamples?.[args.sessionId] ?? [];
+            }
             if (command === "delete_finished_session") {
                 window.__historyRecords = window.__historyRecords.filter(r => r.session.id !== args.id);
                 if (window.__failHistoryAfterDelete) window.__failHistory = true;
@@ -778,6 +785,9 @@ try {
             savesBeforeWait,
             "Timer ticks must not write session snapshots",
         );
+        await evaluate(
+            `window.__trendSamples = {"fixture-finished": [{elapsedMs: 900000, net: 12000000}, {elapsedMs: 2700000, net: 36000000}]}`,
+        );
         await click("History");
         assert.equal(
             await evaluate("window.__calls.filter(c => c.command === 'stop_native_display_capture').length"),
@@ -795,6 +805,28 @@ try {
             `window.__calls.filter(c => c.command === 'acknowledge_native_display_frame').length > ${ackCount}`,
         );
         await screenshot("history");
+        const historyTrend =
+            "[...document.querySelectorAll('figure')].find(f => f.getClientRects().length && f.textContent.includes('Net over time'))";
+        await until(`${historyTrend} !== undefined`);
+        assert.match(
+            await evaluate(`${historyTrend}.querySelector('[role="img"]').getAttribute('aria-label')`),
+            /after 01:00:00/,
+            "The receipt trend covers the whole session",
+        );
+        await evaluate(`${historyTrend}.querySelector('[role="img"]').focus()`);
+        await press("Home", "Home", 36);
+        await until(`${historyTrend}.querySelector('figcaption').textContent.includes('at 00:00:00')`);
+        await press("End", "End", 35);
+        await until(`${historyTrend}.querySelector('figcaption').textContent.includes('at 01:00:00')`);
+        await press("Escape", "Escape", 27);
+        await until(`!${historyTrend}.querySelector('figcaption').textContent.includes(' at ')`);
+        const trendMiddle = await evaluate(`(() => {
+            const rect = ${historyTrend}.querySelector('[role="img"]').getBoundingClientRect();
+            return {x: rect.x + rect.width / 2, y: rect.y + rect.height / 2};
+        })()`);
+        await send("Input.dispatchMouseEvent", { type: "mouseMoved", ...trendMiddle });
+        await until(`${historyTrend}.querySelector('figcaption').textContent.includes('at 00:30:00')`);
+        await send("Input.dispatchMouseEvent", { type: "mouseMoved", x: 1, y: 1 });
         assert.equal(
             await evaluate(
                 'document.querySelector(\'[aria-label="Recorded region"] button[aria-pressed="true"]\')?.textContent',
@@ -829,6 +861,28 @@ try {
         })); window.confirm = () => true;`);
         await click("Reload");
         await until('document.body.innerText.includes("1–20 of 41 sessions")');
+        const selectHistoryRow = (index) =>
+            evaluate(
+                `[...document.querySelectorAll('button[aria-label^="Delete "]')][${index}].parentElement.querySelector('button[aria-pressed]').click()`,
+            );
+        await evaluate(
+            `window.__trendSamples = {"history-39": [{elapsedMs: 1200000, net: 40000000}]}; window.__holdTrend = "history-39"`,
+        );
+        await selectHistoryRow(1);
+        await until('typeof window.__releaseTrend === "function"');
+        await selectHistoryRow(2);
+        await until(
+            "window.__calls.filter(c => c.command === 'load_session_trend' && c.args.sessionId === 'history-38').length > 0",
+        );
+        await evaluate("window.__releaseTrend()");
+        await delay(100);
+        assert.equal(
+            await evaluate(`${historyTrend} === undefined`),
+            true,
+            "A late trend response must not draw another session's trend, and sessions without samples show none",
+        );
+        await selectHistoryRow(1);
+        await until(`${historyTrend} !== undefined`);
         await setHistoryFilter('select[aria-label="Grind spot"]', "stars-end-revamp");
         await until('document.body.innerText.includes("1–1 of 1 sessions")');
         await setHistoryFilter('select[aria-label="Grind spot"]', "all");

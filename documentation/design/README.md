@@ -27,7 +27,9 @@ dark.
   current region, optionally sorted by that rate.
 - **History.** Filters sit in an always-visible bar: region switch (All, EU, NA), grind spot, completion date range,
   7/30-day shortcuts, and Clear filters. Totals use the desk's readout style. Grind-spot comparisons are an open table with a bar
-  proportional to each spot's rate. The session list sits beside a single receipt panel for the selected session.
+  proportional to each spot's rate. The session list sits beside a single receipt panel for the selected session. The
+  receipt shows the session's net-over-time trend beside its figures, with the same readout as the desk; sessions
+  created before net samples were recorded (migration 5) show no trend rather than a straight line.
 - **Settings.** A sticky section index sits beside open sections. Each section has a label column and a form column.
 
 ## Sessions and prices

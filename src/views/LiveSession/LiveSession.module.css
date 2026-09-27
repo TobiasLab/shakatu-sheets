@@ -116,7 +116,7 @@
     margin: -4px 0 0 -4px;
     border-radius: 50%;
     background: var(--gold);
-    box-shadow: 0 0 0 2px var(--canvas);
+    box-shadow: 0 0 0 2px var(--trend-ring, var(--canvas));
     pointer-events: none;
 }
 .TrendCrosshair {
