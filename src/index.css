@@ -30,7 +30,6 @@
     --surface: #212125;
     --surface-raised: #29292e;
     --hover: #2d2d33;
-    --selected: #34312a;
     --line: #2e2e34;
     --line-strong: #43434b;
     --row-line: #27272c;
@@ -39,7 +38,6 @@
     --text-soft: #b3b0a8;
     --muted: #98958e;
     --gold: #d6be83;
-    --mint: var(--gold);
     --success: #8ec79b;
     --danger: #ee9f92;
     --warning: #e2be74;
@@ -54,15 +52,11 @@
     --primary-border: #d6be83;
     --primary-hover: #e3cc94;
     --accent-contrast: #1a1a1d;
-    --accent-hover: #e3cc94;
     --accent-border: #7d6d49;
     --accent-surface: #2f2b23;
     --clock-background: #1f1f23;
-    --quick-item-background: #29292e;
-    --quick-item-selected: #34312a;
     --item-swatch: #2d2d33;
     --expense-swatch: #3a2c2c;
-    --note-text: #98958e;
     --tile-background: #26262b;
     --select-chevron: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' fill='none' stroke='%2398958e' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m1 1 4 4 4-4'/%3E%3C/svg%3E");
 }
@@ -73,7 +67,6 @@
     --surface: #ffffff;
     --surface-raised: #f0efeb;
     --hover: #e8e7e2;
-    --selected: #f1e9d7;
     --line: #e1dfd9;
     --line-strong: #c9c6be;
     --row-line: #ebe9e4;
@@ -82,7 +75,6 @@
     --text-soft: #54524d;
     --muted: #6d6a63;
     --gold: #80611f;
-    --mint: #80611f;
     --success: #2f7048;
     --warning: #80601c;
     --negative: #9c4a40;
@@ -97,15 +89,11 @@
     --button-border: #d3d0c8;
     --button-hover-border: #a9a59c;
     --accent-contrast: #ffffff;
-    --accent-hover: #664c15;
     --accent-border: #c3a770;
     --accent-surface: #f6efdf;
     --clock-background: #efeeea;
-    --quick-item-background: #f0efeb;
-    --quick-item-selected: #f1e9d7;
     --item-swatch: #ebeae5;
     --expense-swatch: #f6e6e2;
-    --note-text: #6d6a63;
     --tile-background: #eeede8;
     --select-chevron: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' fill='none' stroke='%236d6a63' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m1 1 4 4 4-4'/%3E%3C/svg%3E");
 }
