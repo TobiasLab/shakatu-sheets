@@ -395,6 +395,18 @@ export function SettingsView({
                                 <button type="button" className="button" onClick={onOpenCapture}>
                                     Go to capture setup
                                 </button>
+                                <details className={styles.Diagnostics}>
+                                    <summary>Privacy & capture details</summary>
+                                    <p>
+                                        Capture pixels stay in memory and are never uploaded. Self-improvement, when
+                                        enabled, stores small item-name and quantity crops from your Needs attention
+                                        corrections on this device; examples stay until deleted or replaced by newer
+                                        examples. Automatic placement scans only the highlighted search area. Confirmed
+                                        loot crops are processed by the bundled local OCR worker and recognized results
+                                        are added automatically. Otherwise only final coordinates, rare-area
+                                        confirmation, source dimensions, and BDO UI scale are stored.
+                                    </p>
+                                </details>
                             </div>
                         </section>
                         <SelfImprovementSettings learning={selfImprovement} />
