@@ -26,7 +26,11 @@
     white-space: nowrap;
 }
 .Brand svg {
-    color: var(--gold);
+    box-sizing: content-box;
+    padding: 3px;
+    border-radius: var(--control-radius);
+    background: var(--gold);
+    color: var(--accent-contrast);
 }
 .Tabs {
     display: flex;

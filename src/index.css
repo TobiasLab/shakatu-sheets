@@ -64,6 +64,7 @@
     --expense-swatch: #3a2c2c;
     --note-text: #8e8b84;
     --tile-background: #26262b;
+    --select-chevron: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' fill='none' stroke='%238e8b84' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m1 1 4 4 4-4'/%3E%3C/svg%3E");
 }
 :root[data-theme="light"] {
     color-scheme: light;
@@ -106,6 +107,7 @@
     --expense-swatch: #f6e6e2;
     --note-text: #6d6a63;
     --tile-background: #eeede8;
+    --select-chevron: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' fill='none' stroke='%236d6a63' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m1 1 4 4 4-4'/%3E%3C/svg%3E");
 }
 * {
     box-sizing: border-box;
@@ -351,8 +353,67 @@ h3 {
     color: var(--negative);
 }
 summary {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    width: fit-content;
+    list-style: none;
     cursor: pointer;
     line-height: 1.5;
+}
+summary::-webkit-details-marker {
+    display: none;
+}
+summary::before {
+    content: "";
+    flex-shrink: 0;
+    width: 5px;
+    height: 5px;
+    margin: 0 1px 0 -1px;
+    border-right: 1.5px solid currentColor;
+    border-bottom: 1.5px solid currentColor;
+    opacity: 0.8;
+    transform: rotate(-45deg);
+    transition: transform var(--motion-fast) var(--ease-out);
+}
+details[open] > summary::before {
+    transform: translateY(-2px) rotate(45deg);
+}
+select:not([multiple]) {
+    appearance: none;
+    padding-right: 30px;
+    background-image: var(--select-chevron);
+    background-repeat: no-repeat;
+    background-position: right 11px center;
+    cursor: pointer;
+}
+select:disabled {
+    cursor: not-allowed;
+}
+input[type="checkbox"],
+input[type="radio"] {
+    width: auto;
+    margin: 0;
+    accent-color: var(--gold);
+    cursor: pointer;
+}
+input[type="date"]::-webkit-calendar-picker-indicator {
+    opacity: 0.6;
+    cursor: pointer;
+}
+input[type="date"]::-webkit-calendar-picker-indicator:hover {
+    opacity: 1;
+}
+kbd {
+    padding: 1px 5px;
+    border: 1px solid var(--line-strong);
+    border-bottom-width: 2px;
+    border-radius: 3px;
+    color: var(--muted);
+    font-family: inherit;
+    font-size: 10px;
+    font-weight: 500;
+    line-height: 1.4;
 }
 [hidden] {
     display: none !important;

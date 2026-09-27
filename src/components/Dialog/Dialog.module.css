@@ -45,14 +45,6 @@
     flex-shrink: 0;
     white-space: nowrap;
 }
-.Header kbd {
-    padding: 2px 5px;
-    border: 1px solid var(--line-strong);
-    border-radius: 3px;
-    font-size: 10px;
-    color: var(--muted);
-    font-family: inherit;
-}
 @keyframes appear {
     from {
         opacity: 0;
