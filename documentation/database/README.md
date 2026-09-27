@@ -55,8 +55,8 @@ to session rows. Preset saving is an explicit operation, separate from the order
 ## Migration 5
 
 Migration 5 creates `session_net_samples`, keyed by session ID and elapsed milliseconds. Each save of an unfinished
-session (including the save that finishes it) computes the session's net in whole silver from its stored entries,
-using the same after-tax formula as history, and inserts a sample at the current elapsed time when net differs from the
+session (including the save that finishes it) computes the session's net in whole silver from the saved entries,
+using the same after-tax values as history, and inserts a sample at the current elapsed time when net differs from the
 latest sample. A running session's elapsed time includes the segment since `started_at`. Samples beyond the saved
 elapsed time are removed first, so manually entered hours never leave samples from a discarded span. Rows cascade with
 their session. No existing rows are backfilled; sessions recorded before this migration simply have no trend.

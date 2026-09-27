@@ -1,9 +1,10 @@
 import type { ReactNode } from "react";
-import { calculateEntryTotals, type SessionState } from "../../domain/session";
+import { calculateTotals, type SessionState } from "../../domain/session";
 import { formatDuration, formatSilver } from "../../format";
 import { useElapsedTime } from "../../hooks/useElapsedTime";
 import type { DatabaseStatus } from "../../hooks/usePersistedSession";
 import { Icon } from "../Icon/Icon";
+import type { CaptureSummary } from "../LiveLootCapture/useLiveLootCapture";
 import styles from "./AppShell.module.css";
 
 export type AppView = "live" | "history" | "settings";
@@ -20,7 +21,6 @@ export function AppShell({
     session,
     spotName,
     captureStatus,
-    reviewCount,
     onOpenReview,
     databaseStatus,
     databaseError,
@@ -30,8 +30,7 @@ export function AppShell({
     onViewChange: (view: AppView) => void;
     session: SessionState;
     spotName: string;
-    captureStatus: string;
-    reviewCount: number;
+    captureStatus: CaptureSummary;
     onOpenReview: () => void;
     databaseStatus: DatabaseStatus;
     databaseError: string;
@@ -61,29 +60,22 @@ export function AppShell({
                     ))}
                 </nav>
                 <div className={styles.Status}>
-                    {reviewCount > 0 && (
+                    {captureStatus.pendingReviews > 0 && (
                         <button
                             type="button"
                             className={styles.Review}
-                            aria-label={`${reviewCount} ${reviewCount === 1 ? "drop needs" : "drops need"} attention`}
+                            aria-label={`${captureStatus.pendingReviews} ${captureStatus.pendingReviews === 1 ? "drop needs" : "drops need"} attention`}
                             onClick={onOpenReview}
                         >
-                            <span>{reviewCount}</span>
-                            <small>{reviewCount === 1 ? "drop needs attention" : "drops need attention"}</small>
+                            <span>{captureStatus.pendingReviews}</span>
+                            <small>
+                                {captureStatus.pendingReviews === 1 ? "drop needs attention" : "drops need attention"}
+                            </small>
                         </button>
                     )}
                     <span className={styles.Capture}>
-                        <i
-                            className={styles.StatusDot}
-                            data-tone={
-                                captureStatus === "Tracking loot"
-                                    ? "capture"
-                                    : captureStatus === "Capture needs attention"
-                                      ? "error"
-                                      : undefined
-                            }
-                        />
-                        {captureStatus}
+                        <i className={styles.StatusDot} data-tone={captureStatus.tone} />
+                        {captureStatus.label}
                     </span>
                     {view !== "live" && session.status !== "idle" && (
                         <SessionPresence session={session} spotName={spotName} onOpen={() => onViewChange("live")} />
@@ -122,7 +114,7 @@ function SessionPresence({
     onOpen: () => void;
 }) {
     const elapsedMs = useElapsedTime(session, true);
-    const net = calculateEntryTotals(session.entries).net;
+    const { netPerHour } = calculateTotals(session.entries, elapsedMs);
     const status =
         session.status === "running" ? "Timer running" : session.status === "paused" ? "Timer paused" : "Finished";
     return (
@@ -136,7 +128,7 @@ function SessionPresence({
             <i className={styles.StatusDot} data-tone={session.status} />
             <span className={styles.PresenceSpot}>{spotName}</span>
             <time>{formatDuration(elapsedMs)}</time>
-            {elapsedMs > 0 && <strong>{formatSilver(net / (elapsedMs / 3_600_000), true)}/h</strong>}
+            {elapsedMs > 0 && <strong>{formatSilver(netPerHour, true)}/h</strong>}
         </button>
     );
 }

@@ -11,10 +11,12 @@ import { SessionTrend } from "./SessionTrend";
 
 export function SessionMetrics({
     controller,
+    saved,
     visible,
     onFinish,
 }: {
     controller: LiveSessionController;
+    saved: boolean;
     visible: boolean;
     onFinish: () => void;
 }) {
@@ -25,21 +27,18 @@ export function SessionMetrics({
     const { session, databaseLoaded } = controller;
     const [trend, setTrend] = useState<{ sessionId: string; samples: TrendSample[] }>({ sessionId: "", samples: [] });
     const trendRequest = useRef(0);
+    // Every save that changes net records a sample, so reload once each save has finished.
     useEffect(() => {
-        if (!databaseLoaded || !visible) return;
+        if (!databaseLoaded || !visible || !saved) return;
         const request = ++trendRequest.current;
-        // Give the ordered session save a moment to record the latest net change first.
-        const timer = window.setTimeout(() => {
-            loadSessionTrend(session.id)
-                .then((samples) => {
-                    if (request === trendRequest.current) setTrend({ sessionId: session.id, samples });
-                })
-                .catch(() => {
-                    if (request === trendRequest.current) setTrend({ sessionId: session.id, samples: [] });
-                });
-        }, 500);
-        return () => window.clearTimeout(timer);
-    }, [databaseLoaded, visible, session.id, session.elapsedMs, totals.net]);
+        loadSessionTrend(session.id)
+            .then((samples) => {
+                if (request === trendRequest.current) setTrend({ sessionId: session.id, samples });
+            })
+            .catch(() => {
+                if (request === trendRequest.current) setTrend({ sessionId: session.id, samples: [] });
+            });
+    }, [databaseLoaded, visible, saved, session.id]);
     return (
         <section
             className={styles.Readout}

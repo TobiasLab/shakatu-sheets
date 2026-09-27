@@ -246,6 +246,10 @@ export function calculateTotals(entries: SessionEntry[], elapsedMs: number) {
     return { ...totals, netPerHour: hours > 0 ? totals.net / hours : 0 };
 }
 
+export function saleMultiplier(valuation: Valuation) {
+    return valuation === "market" ? 0.845 : 1;
+}
+
 export function createEntry(name: string, quantity: number, unitPrice: number, valuation: Valuation): SessionEntry {
     return {
         id: crypto.randomUUID(),
@@ -253,7 +257,7 @@ export function createEntry(name: string, quantity: number, unitPrice: number, v
         quantity,
         unitPrice,
         valuation,
-        saleMultiplier: valuation === "market" ? 0.845 : 1,
+        saleMultiplier: saleMultiplier(valuation),
         source: "manual",
         createdAt: Date.now(),
     };

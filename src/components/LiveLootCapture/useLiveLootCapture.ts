@@ -98,6 +98,8 @@ type OcrDiagnostics = Record<OcrSource, OcrPipelineDiagnostics> & {
     worker: OcrWorkerDiagnostics;
     analysis: OcrWorkerDiagnostics;
 };
+export type CaptureSummary = { label: string; tone: "active" | "error" | "idle"; pendingReviews: number };
+
 export type LiveLootCaptureProps = {
     learning: ReturnType<typeof useSelfImprovement>;
     onOpenSelfImprovement: () => void;
@@ -105,7 +107,7 @@ export type LiveLootCaptureProps = {
     lootFontReady: boolean;
     setupRequest: number;
     visible: boolean;
-    onStatusChange: (status: string) => void;
+    onStatusChange: (status: CaptureSummary) => void;
     databaseLoaded: boolean;
     sessionId: string;
     sessionStatus: SessionStatus;
@@ -1522,9 +1524,11 @@ export function useLiveLootCapture({
         ? findLiveLootProfile(sourceDimensions.width, sourceDimensions.height, uiScalePercent)
         : null;
     const displayedRecognitionStatus = sourceDimensions && !calibratedProfile ? "unavailable" : recognitionStatus;
+    const pendingReviews = reviewResults.filter((entry) => !entry.accepted).length;
     useEffect(() => {
-        onStatusChange(
-            error || recognitionError
+        const failed = Boolean(error || recognitionError);
+        onStatusChange({
+            label: failed
                 ? "Capture needs attention"
                 : status === "capturing"
                   ? displayedRecognitionStatus === "active"
@@ -1537,8 +1541,14 @@ export function useLiveLootCapture({
                   : status === "idle"
                     ? "Capture off"
                     : "Connecting capture",
-        );
-    }, [error, recognitionError, displayedRecognitionStatus, status, onStatusChange]);
+            tone: failed
+                ? "error"
+                : status === "capturing" && displayedRecognitionStatus === "active"
+                  ? "active"
+                  : "idle",
+            pendingReviews,
+        });
+    }, [error, recognitionError, displayedRecognitionStatus, status, pendingReviews, onStatusChange]);
 
     const rareGeometry = sourceDimensions
         ? findRareLootGeometry(sourceDimensions.width, sourceDimensions.height, uiScalePercent)
