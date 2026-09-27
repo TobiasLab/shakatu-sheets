@@ -2,11 +2,7 @@ type IconName =
     | "star"
     | "lock"
     | "brand"
-    | "sidebar"
     | "capture"
-    | "desk"
-    | "history"
-    | "settings"
     | "plus"
     | "upload"
     | "arrow"
@@ -24,11 +20,7 @@ const paths: Record<IconName, string> = {
     star: "m12 3 2.8 5.7 6.2.9-4.5 4.4 1.1 6.2L12 17.3l-5.6 2.9 1.1-6.2L3 9.6l6.2-.9z",
     lock: "M6 10h12v11H6z M8 10V7a4 4 0 0 1 8 0v3",
     brand: "M4 18h16 M5 14l4.5-4.5 3.5 3.5L19 7 M15 7h4v4",
-    sidebar: "M3 4h18v16H3z M9 4v16",
     capture: "M8 3H3v5 M16 3h5v5 M21 16v5h-5 M8 21H3v-5 M8 8h8v8H8z",
-    desk: "M4 5h16v14H4z M4 9h16 M9 9v10",
-    history: "M3 11a9 9 0 1 1 2.5 7 M3 4v7h7 M12 7v5l3 2",
-    settings: "M4 7h16 M4 17h16 M8 4v6 M16 14v6",
     plus: "M12 5v14 M5 12h14",
     play: "M8 5l11 7-11 7z",
     pause: "M7 5h3v14H7z M14 5h3v14h-3z",

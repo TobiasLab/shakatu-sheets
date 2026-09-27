@@ -1,6 +1,6 @@
 import { type FormEvent, useRef, useState } from "react";
 import type { DropTemplate } from "../../data/grindSpots";
-import type { Valuation } from "../../domain/session";
+import { saleMultiplier, type Valuation } from "../../domain/session";
 import { formatSilver } from "../../format";
 import type { LiveSessionController } from "../../hooks/useLiveSession";
 import { Feedback } from "../Feedback/Feedback";
@@ -24,7 +24,7 @@ type EntryFormProps = Pick<
     | "setUnitPrice"
     | "valuation"
     | "setValuation"
-    | "market"
+    | "dropPrice"
 >;
 
 export function EntryForm({
@@ -42,7 +42,7 @@ export function EntryForm({
     setUnitPrice,
     valuation,
     setValuation,
-    market,
+    dropPrice,
 }: EntryFormProps) {
     const [query, setQuery] = useState("");
     const [feedback, setFeedback] = useState<{ text: string; error: boolean } | null>(null);
@@ -56,13 +56,8 @@ export function EntryForm({
     const parsedPrice = Number(unitPrice);
     const lineValue =
         quantity.trim() && unitPrice.trim() && Number.isFinite(parsedQuantity) && Number.isFinite(parsedPrice)
-            ? parsedQuantity * parsedPrice * (valuation === "market" ? 0.845 : 1)
+            ? parsedQuantity * parsedPrice * saleMultiplier(valuation)
             : null;
-
-    function listedPrice(drop: DropTemplate) {
-        const marketPrice = market.marketPrices?.find((price) => price.itemId === drop.marketItemId)?.basePrice;
-        return marketPrice ?? drop.unitPrice;
-    }
 
     function recordExpense() {
         setValuation("expense");
@@ -113,8 +108,10 @@ export function EntryForm({
                         aria-pressed={!expenseMode}
                         disabled={editingDisabled}
                         onClick={() => {
-                            chooseDrop(selectedDrop);
-                            setFeedback(null);
+                            if (expenseMode) {
+                                chooseDrop(selectedDrop);
+                                setFeedback(null);
+                            }
                             searchInput.current?.focus();
                         }}
                     >
@@ -143,7 +140,7 @@ export function EntryForm({
                     </label>
                     <div className={styles.ItemList}>
                         {visibleDrops.map((drop) => {
-                            const price = listedPrice(drop);
+                            const price = dropPrice(drop);
                             const selected = !expenseMode && selectedDrop.name === drop.name;
                             return (
                                 <SelectionButton

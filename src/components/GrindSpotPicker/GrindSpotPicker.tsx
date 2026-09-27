@@ -34,7 +34,9 @@ function moveFocus(event: KeyboardEvent<HTMLElement>, list: HTMLElement | null) 
     const buttons = [...list.querySelectorAll<HTMLButtonElement>("button[data-spot-choose]:enabled")];
     if (buttons.length === 0) return;
     event.preventDefault();
-    const current = buttons.indexOf(document.activeElement as HTMLButtonElement);
+    // Measure from the focused row so arrows also work from a row's star button.
+    const row = (event.target as HTMLElement).closest("li");
+    const current = buttons.findIndex((button) => button.closest("li") === row);
     const next =
         event.key === "Home"
             ? 0

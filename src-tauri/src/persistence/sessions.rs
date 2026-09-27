@@ -284,16 +284,15 @@ fn record_net_sample(
             params![session.id, elapsed_ms],
         )
         .map_err(|error| error.to_string())?;
-    let net = transaction
-        .query_row(
-            "SELECT CAST(ROUND(COALESCE(SUM(CASE WHEN valuation = 'expense'
-                THEN -quantity * unit_price
-                ELSE quantity * unit_price * sale_multiplier END), 0)) AS INTEGER)
-             FROM session_entries WHERE session_id = ?1",
-            [&session.id],
-            |row| row.get::<_, i64>(0),
-        )
-        .map_err(|error| error.to_string())?;
+    let net = session
+        .entries
+        .iter()
+        .map(|entry| match entry.valuation {
+            Valuation::Expense => -entry.quantity * entry.unit_price as f64,
+            _ => entry.quantity * entry.unit_price as f64 * entry.sale_multiplier,
+        })
+        .sum::<f64>()
+        .round() as i64;
     let previous = transaction
         .query_row(
             "SELECT net FROM session_net_samples WHERE session_id = ?1

@@ -19,6 +19,12 @@ type ReviewController = Pick<
     | "sessionStatus"
 > & { learning?: ReturnType<typeof useLiveLootCapture>["learning"]; onOpenSelfImprovement?: () => void };
 
+export function focusLootReview() {
+    const heading = document.getElementById("loot-review-heading");
+    heading?.scrollIntoView({ block: "start" });
+    heading?.focus({ preventScroll: true });
+}
+
 function reviewTitle(review: LiveLootReviewEntry) {
     const result = review.result;
     if (result.status === "recognized") return `${result.itemName} × ${result.quantity}`;

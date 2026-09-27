@@ -31,14 +31,16 @@ export function useLiveSession(session: SessionState, dispatch: Dispatch<Session
     const spotEditable = session.status === "idle" && session.elapsedMs === 0 && session.entries.length === 0;
     const editingDisabled = !databaseLoaded || session.status === "finished";
 
+    function dropPrice(drop: DropTemplate) {
+        return market.marketPrices?.find((price) => price.itemId === drop.marketItemId)?.basePrice ?? drop.unitPrice;
+    }
+
     function chooseDrop(drop: DropTemplate) {
         setSelectedDrop(drop);
         setCustomName(drop.name);
         setValuation(drop.valuation);
-        const savedPrice = market.marketPrices?.find((price) => price.itemId === drop.marketItemId)?.basePrice;
-        setUnitPrice(
-            savedPrice === undefined ? (drop.unitPrice === null ? "" : String(drop.unitPrice)) : String(savedPrice),
-        );
+        const price = dropPrice(drop);
+        setUnitPrice(price === null ? "" : String(price));
         setQuantity("1");
     }
 
@@ -116,6 +118,7 @@ export function useLiveSession(session: SessionState, dispatch: Dispatch<Session
         valuation,
         setValuation,
         chooseDrop,
+        dropPrice,
         changeRegion,
         changeGrindSpot,
         addEntry,

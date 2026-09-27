@@ -1,6 +1,8 @@
 import { useLayoutEffect, useState } from "react";
 import { reopenSession } from "./api/tauri";
 import { AppShell, type AppView } from "./components/AppShell/AppShell";
+import { focusLootReview } from "./components/LiveLootCapture/LootReview";
+import type { CaptureSummary } from "./components/LiveLootCapture/useLiveLootCapture";
 import { useLiveSession } from "./hooks/useLiveSession";
 import { useLootFont } from "./hooks/useLootFont";
 import { useOverlayOpacity } from "./hooks/useOverlayOpacity";
@@ -14,8 +16,11 @@ import { SettingsView } from "./views/Settings/Settings";
 
 export function App() {
     const [captureSetupRequest, setCaptureSetupRequest] = useState(0);
-    const [captureStatus, setCaptureStatus] = useState("Capture off");
-    const [reviewCount, setReviewCount] = useState(0);
+    const [captureStatus, setCaptureStatus] = useState<CaptureSummary>({
+        label: "Capture off",
+        tone: "idle",
+        pendingReviews: 0,
+    });
     const [view, setView] = useState<AppView>("live");
     const { theme, setTheme } = useTheme();
     useLayoutEffect(() => {
@@ -67,21 +72,18 @@ export function App() {
                 databaseError={persistedSession.databaseError}
                 session={persistedSession.session}
                 captureStatus={captureStatus}
-                reviewCount={reviewCount}
                 onOpenReview={() => {
                     setShowSelfImprovement(false);
                     setView("live");
-                    requestAnimationFrame(() => {
-                        const heading = document.getElementById("loot-review-heading");
-                        heading?.scrollIntoView({ block: "center" });
-                        heading?.focus({ preventScroll: true });
-                    });
+                    // The desk becomes visible on the next render.
+                    requestAnimationFrame(focusLootReview);
                 }}
                 spotName={liveSession.spot.name}
             >
                 <div hidden={view !== "live"}>
                     <LiveSessionView
                         controller={liveSession}
+                        saved={persistedSession.databaseStatus === "ready"}
                         selfImprovement={selfImprovement}
                         onOpenSelfImprovement={() => {
                             setShowSelfImprovement(true);
@@ -94,7 +96,6 @@ export function App() {
                         visible={view === "live"}
                         captureSetupRequest={captureSetupRequest}
                         onCaptureStatusChange={setCaptureStatus}
-                        onReviewCountChange={setReviewCount}
                     />
                 </div>
                 {view === "history" ? (

@@ -3,7 +3,8 @@ import { Feedback } from "../../components/Feedback/Feedback";
 import { GrindSpotPicker } from "../../components/GrindSpotPicker/GrindSpotPicker";
 import { Icon } from "../../components/Icon/Icon";
 import { LiveLootCapture } from "../../components/LiveLootCapture/LiveLootCapture";
-import { useLiveLootCapture } from "../../components/LiveLootCapture/useLiveLootCapture";
+import { focusLootReview } from "../../components/LiveLootCapture/LootReview";
+import { type CaptureSummary, useLiveLootCapture } from "../../components/LiveLootCapture/useLiveLootCapture";
 import { LootLedger } from "../../components/LootLedger/LootLedger";
 import { createEntry } from "../../domain/session";
 import type { LiveSessionController } from "../../hooks/useLiveSession";
@@ -16,12 +17,12 @@ import { SessionTools } from "./SessionTools";
 
 export function LiveSessionView({
     controller,
+    saved,
     lootFont,
     lootFontReady,
     overlay,
     visible,
     onCaptureStatusChange,
-    onReviewCountChange,
     captureSetupRequest,
     onOpenHistory,
     selfImprovement,
@@ -32,12 +33,12 @@ export function LiveSessionView({
     selfImprovement: ReturnType<typeof useSelfImprovement>;
     onOpenSelfImprovement: () => void;
     controller: LiveSessionController;
+    saved: boolean;
     lootFont: LootFont;
     lootFontReady: boolean;
     visible: boolean;
     captureSetupRequest: number;
-    onCaptureStatusChange: (status: string) => void;
-    onReviewCountChange: (count: number) => void;
+    onCaptureStatusChange: (status: CaptureSummary) => void;
 }) {
     const { session, dispatch, databaseLoaded, editingDisabled, spotEditable, spot, drops, changeGrindSpot, market } =
         controller;
@@ -92,7 +93,6 @@ export function LiveSessionView({
     const [finishError, setFinishError] = useState("");
     const [dropView, setDropView] = useState<"inventory" | "ledger">("inventory");
     const unresolvedCount = capture.reviewResults.filter((entry) => !entry.accepted).length;
-    useEffect(() => onReviewCountChange(unresolvedCount), [unresolvedCount, onReviewCountChange]);
     useEffect(() => {
         finishDialog.current?.close();
         setPreparingReview(false);
@@ -163,7 +163,12 @@ export function LiveSessionView({
                     <Feedback tone="error">{overlay.error}</Feedback>
                 </div>
             )}
-            <SessionMetrics controller={controller} visible={visible} onFinish={() => void requestFinish()} />
+            <SessionMetrics
+                controller={controller}
+                saved={saved}
+                visible={visible}
+                onFinish={() => void requestFinish()}
+            />
             <FinishReviewDialog
                 dialogRef={finishDialog}
                 preparing={preparingReview}
@@ -173,9 +178,7 @@ export function LiveSessionView({
                 onKeepOpen={keepSessionOpen}
                 onReview={() => {
                     keepSessionOpen();
-                    const heading = document.getElementById("loot-review-heading");
-                    heading?.scrollIntoView({ block: "start" });
-                    heading?.focus({ preventScroll: true });
+                    focusLootReview();
                 }}
                 onFinish={() => {
                     finishDialog.current?.close();

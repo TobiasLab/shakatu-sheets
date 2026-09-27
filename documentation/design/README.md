@@ -20,7 +20,7 @@ imagery, and structure comes from alignment and hairlines rather than nested pan
 - **Grind desk.** The grind spot is the heading, with variant prefixes such as `[Dehkia 2]` shown as tags. One readout
   row shows net silver/hour, session net, a net-over-time trend, and session time beside the timer controls. A paused
   timer shows a Paused badge and muted time. The trend plots persisted net samples against elapsed time with a hairline
-  chord for the average pace, the last 30 minutes' rate once available, and a hover or focus readout.
+  chord for the average pace, the last 30 minutes' rate once available, and a readout that follows the pointer or the arrow keys.
 - **Capture.** Loot capture is a one-line status strip. Setup expands it into a connected stepper, the live preview with
   both crop previews beneath, and a narrow control column (area switch, UI scale, position pad, layout import,
   confirmation, diagnostics). Needs attention sits flush inside the strip.
