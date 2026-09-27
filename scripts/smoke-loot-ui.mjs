@@ -288,9 +288,19 @@ try {
     if (process.env.UI_SCREENSHOT_ONLY !== "1") {
         await click("Browse all spots");
         assert.equal(await evaluate("document.activeElement?.type"), "search");
+        const activeOutline = "getComputedStyle(document.activeElement).outlineStyle";
+        assert.equal(await evaluate(activeOutline), "none", "Focus moved after a click draws no focus ring");
+        await press("ArrowLeft", "ArrowLeft", 37);
+        assert.equal(await evaluate(activeOutline), "none", "Caret keys keep the focus ring hidden");
+        await press("ArrowDown", "ArrowDown", 40);
+        assert.equal(await evaluate("document.activeElement.hasAttribute('data-spot-choose')"), true);
+        assert.equal(await evaluate(activeOutline), "solid", "A key that moves focus brings the ring back");
         assert.equal(await evaluate("document.querySelectorAll('dialog[open] li').length"), 97);
         await click("Favorites");
         assert(await evaluate("document.querySelector('dialog[open]').textContent.includes('No favorites yet')"));
+        assert.equal(await evaluate(activeOutline), "none");
+        await press("Tab", "Tab", 9);
+        assert.equal(await evaluate(activeOutline), "solid", "Tab brings the focus ring back after a click");
         await click("All");
         await setField('dialog[open] input[type="search"]', "END STAR’S");
         await until("document.querySelectorAll('dialog[open] li').length === 1");

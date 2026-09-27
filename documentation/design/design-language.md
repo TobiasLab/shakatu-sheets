@@ -163,7 +163,10 @@ default, or whatever the container sets as `--trend-ring` (the History receipt u
 
 ## Accessibility
 
-- Every interactive element is reachable and operable by keyboard, with the global 2px gold focus ring.
+- Every interactive element is reachable and operable by keyboard, with the global 2px gold focus ring. The ring
+  follows the input device: a pointer press hides it, including on focus that code moves afterwards, until Tab, an
+  arrow key, Home/End, or Page Up/Down moves focus again. Keys that only move the caret keep it hidden, and text
+  fields keep their gold border on focus.
 - Visual labels match accessible names; icon-only buttons have an `aria-label`.
 - Live values that change without user action are announced sparingly (status regions), never every second.
 - Contrast rules above apply to both themes.
