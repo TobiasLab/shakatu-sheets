@@ -28,8 +28,7 @@
 }
 
 .Intro span,
-.Note,
-.PrivacyNote {
+.Note {
     color: var(--muted);
     font-size: 12px;
 }
@@ -60,7 +59,6 @@
 }
 
 .Note,
-.PrivacyNote,
 .Error {
     margin: 12px 0 0;
 }
@@ -616,8 +614,7 @@
     color: var(--muted);
 }
 .Intro span,
-.Note,
-.PrivacyNote {
+.Note {
     line-height: 1.5;
 }
 .Actions {
@@ -661,18 +658,6 @@
 .CapturePanel[data-setup-open="false"] > .Error {
     margin: 4px 0 6px;
     max-width: 720px;
-}
-.Intro .PrivacyNote {
-    margin: 0;
-    padding: 0;
-    border: 0;
-}
-.Intro .PrivacyNote summary:hover {
-    color: var(--text);
-}
-.Intro .PrivacyNote[open] {
-    flex-basis: 100%;
-    padding-bottom: 4px;
 }
 .CapturePanel[data-setup-open="false"] > .SetupProgress {
     display: none;
@@ -727,10 +712,6 @@
 
 .Intro [data-recognition-status="error"] {
     color: var(--danger);
-}
-.PrivacyNote p {
-    max-width: 84ch;
-    margin-bottom: 0;
 }
 
 .Intro [data-recognition-status="unavailable"] {

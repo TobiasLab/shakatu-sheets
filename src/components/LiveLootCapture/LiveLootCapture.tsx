@@ -161,22 +161,6 @@ export function LiveLootCapture({ controller }: { controller: ReturnType<typeof 
                                         : "Preview only · unsupported source"}
                         </span>
                     )}
-                    <details className={styles.PrivacyNote}>
-                        <summary>Privacy & capture details</summary>
-                        <p>
-                            Capture pixels stay in memory unless you enable self-improvement or explicitly save
-                            development samples. Self-improvement stores small item-name and quantity crops from your
-                            Needs attention corrections on this device; examples stay until deleted or replaced by newer
-                            examples. Captures are never uploaded.{" "}
-                            {debugSampleCollectionAvailable &&
-                                "The explicit development sample action saves only the configured normal and rare crops locally until they are deleted; it never saves the full screen or uploads samples. "}
-                            Automatic placement scans only the highlighted search area. Confirmed loot crops are
-                            processed by the bundled local OCR worker and recognized results are added automatically.{" "}
-                            {debugSampleCollectionAvailable
-                                ? "Outside development samples and self-improvement, only final coordinates, rare-area confirmation, source dimensions, and BDO UI scale are stored."
-                                : "Outside self-improvement, only final coordinates, rare-area confirmation, source dimensions, and BDO UI scale are stored."}
-                        </p>
-                    </details>
                 </div>
                 <div className={styles.Actions}>
                     {status !== "idle" ? (
@@ -725,6 +709,10 @@ export function LiveLootCapture({ controller }: { controller: ReturnType<typeof 
                                 <div className={styles.DevSampleCollector}>
                                     <p className="eyebrow">Development only</p>
                                     <strong>ROI sample collection</strong>
+                                    <small>
+                                        Saves only the configured normal and rare crops locally until they are deleted.
+                                        It never saves the full screen or uploads samples.
+                                    </small>
                                     <button
                                         className="button"
                                         type="button"
