@@ -107,45 +107,6 @@
     --note-text: #6d6a63;
     --tile-background: #eeede8;
 }
-:root[data-theme="moss"] {
-    --canvas: #151c19;
-    --sidebar: #19221e;
-    --surface: #1c2521;
-    --surface-raised: #243029;
-    --hover: #28352e;
-    --selected: #2f3528;
-    --line: #28342e;
-    --line-strong: #3d4c43;
-    --row-line: #222d27;
-    --text: #dde5df;
-    --text-strong: #f0f5f1;
-    --text-soft: #b1bfb5;
-    --muted: #8c9b90;
-    --gold: #dac68f;
-    --mint: #dac68f;
-    --focus-border: #dac68f;
-    --warning: #dfbf7c;
-    --negative: #deaa9f;
-    --primary-background: #dac68f;
-    --primary-text: #151c19;
-    --primary-border: #dac68f;
-    --primary-hover: #e6d4a2;
-    --input-background: #131a17;
-    --button-background: #222d27;
-    --button-border: #34433a;
-    --button-hover-border: #4f6257;
-    --accent-contrast: #151c19;
-    --accent-hover: #e6d4a2;
-    --accent-border: #6f6c4a;
-    --accent-surface: #2a2f24;
-    --clock-background: #19221e;
-    --quick-item-background: #243029;
-    --quick-item-selected: #2f3528;
-    --item-swatch: #28352e;
-    --expense-swatch: #3a3229;
-    --note-text: #8c9b90;
-    --tile-background: #202b25;
-}
 * {
     box-sizing: border-box;
 }

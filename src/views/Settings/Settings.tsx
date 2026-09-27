@@ -301,7 +301,6 @@ export function SettingsView({
                                     {(
                                         [
                                             { id: "dark", label: "Dark" },
-                                            { id: "moss", label: "Moss" },
                                             { id: "light", label: "Light" },
                                         ] as const
                                     ).map(({ id, label }) => (

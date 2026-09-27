@@ -10,7 +10,7 @@ Shakatu Sheets is a local-first, open-source silver-per-hour tracker for Black D
 - User-triggered EU and NA Central Market price snapshots from Arsha
 - Explicit Garmoth uploads for completed sessions, with local API-key and character settings
 - Bundled grind-spot catalog, including Dehkia variants
-- Light, moss green, and dark theme options
+- Dark and light themes
 - Local, user-triggered Marni loot screenshot imports with an editable review step
 - Session-only review of uncertain live loot captures, with item images, single-image OCR retries, and manual item/quantity correction. OCR retry suggestions are added only when confirmed. Images stay in memory until resolved, cleared, the session finishes, or the app closes.
 - English cropped screenshots at 80%, 100%, and 120% BDO UI scale as the first recognition target
