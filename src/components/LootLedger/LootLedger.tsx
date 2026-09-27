@@ -1,4 +1,4 @@
-import { type KeyboardEvent, type ReactNode, useEffect, useId, useState } from "react";
+import { type KeyboardEvent, type ReactNode, useEffect, useId, useRef, useState } from "react";
 import { getDropIcon } from "../../data/grindSpots";
 import { calculateQuantityPerHour, type SessionEntry, type SessionState } from "../../domain/session";
 import { formatSilver } from "../../format";
@@ -163,6 +163,54 @@ function LedgerEntryRow({
     );
 }
 
+function DropTile({
+    name,
+    icon,
+    quantity,
+    value,
+    rate,
+    announceNew,
+}: {
+    name: string;
+    icon: string | undefined;
+    quantity: number;
+    value: number;
+    rate: number | null;
+    announceNew: boolean;
+}) {
+    const tile = useRef<HTMLLIElement>(null);
+    const previous = useRef(announceNew ? 0 : quantity);
+    // Briefly mark a tile when its quantity rises so new drops stand out at a glance.
+    useEffect(() => {
+        const element = tile.current;
+        if (element && quantity > previous.current) {
+            element.classList.remove(styles.Dropped);
+            void element.offsetWidth;
+            element.classList.add(styles.Dropped);
+        }
+        previous.current = quantity;
+    }, [quantity]);
+    return (
+        <li ref={tile} className={styles.Tile} onAnimationEnd={() => tile.current?.classList.remove(styles.Dropped)}>
+            {icon ? (
+                <img src={icon} alt="" />
+            ) : (
+                <span className={`item-swatch ${styles.TileFallback}`} aria-hidden="true">
+                    {name.slice(0, 2)}
+                </span>
+            )}
+            <strong className={styles.TileQuantity}>{quantityFormatter.format(quantity)}</strong>
+            <span className={styles.TileValue} title="Value after market tax">
+                {formatSilver(value, true)}
+            </span>
+            <span className={styles.TileName} title={name}>
+                {name}
+            </span>
+            <span className={styles.TileRate}>{rate === null ? "—" : `${quantityRateFormatter.format(rate)}/h`}</span>
+        </li>
+    );
+}
+
 function DropInventory({
     entries,
     grindSpotId,
@@ -173,6 +221,8 @@ function DropInventory({
     elapsedMs: number;
 }) {
     const drops = new Map<string, { quantity: number; value: number }>();
+    const [ready, setReady] = useState(false);
+    useEffect(() => setReady(true), []);
     let expenseCount = 0;
     let expenseTotal = 0;
     for (const entry of entries) {
@@ -188,31 +238,17 @@ function DropInventory({
     return (
         <>
             <ul className={styles.Inventory} aria-label="Dropped items">
-                {Array.from(drops, ([name, { quantity, value }]) => {
-                    const icon = getDropIcon(grindSpotId, name);
-                    const rate = calculateQuantityPerHour(quantity, elapsedMs);
-                    return (
-                        <li key={name} className={styles.Tile}>
-                            {icon ? (
-                                <img src={icon} alt="" />
-                            ) : (
-                                <span className={`item-swatch ${styles.TileFallback}`} aria-hidden="true">
-                                    {name.slice(0, 2)}
-                                </span>
-                            )}
-                            <strong className={styles.TileQuantity}>{quantityFormatter.format(quantity)}</strong>
-                            <span className={styles.TileValue} title="Value after market tax">
-                                {formatSilver(value, true)}
-                            </span>
-                            <span className={styles.TileName} title={name}>
-                                {name}
-                            </span>
-                            <span className={styles.TileRate}>
-                                {rate === null ? "—" : `${quantityRateFormatter.format(rate)}/h`}
-                            </span>
-                        </li>
-                    );
-                })}
+                {Array.from(drops, ([name, { quantity, value }]) => (
+                    <DropTile
+                        key={name}
+                        name={name}
+                        icon={getDropIcon(grindSpotId, name)}
+                        quantity={quantity}
+                        value={value}
+                        rate={calculateQuantityPerHour(quantity, elapsedMs)}
+                        announceNew={ready}
+                    />
+                ))}
             </ul>
             {drops.size === 0 && <p className={styles.InventoryNote}>No loot yet.</p>}
             {expenseCount > 0 && (

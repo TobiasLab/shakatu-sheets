@@ -52,9 +52,20 @@ Reusable consumable presets are stored as validated JSON under the `consumable_p
 an ID, local name, region, and item names/IDs, session quantities, and integer unit prices. Library edits never cascade
 to session rows. Preset saving is an explicit operation, separate from the ordered session snapshot save queue.
 
+## Migration 5
+
+Migration 5 creates `session_net_samples`, keyed by session ID and elapsed milliseconds. Each save of an unfinished
+session (including the save that finishes it) computes the session's net in whole silver from its stored entries,
+using the same after-tax formula as history, and inserts a sample at the current elapsed time when net differs from the
+latest sample. A running session's elapsed time includes the segment since `started_at`. Samples beyond the saved
+elapsed time are removed first, so manually entered hours never leave samples from a discarded span. Rows cascade with
+their session. No existing rows are backfilled; sessions recorded before this migration simply have no trend.
+
 ## Persistence
 
 - The latest unfinished session is loaded at startup.
+- The desk reads a session's net samples for its net-over-time trend; the live session supplies the current end point.
+  History spot summaries also report each spot's latest effective completion time.
 - History loads pages of 20 finished sessions and their entries, filtered in SQLite by recorded region, optional spot,
   and completion date. Sorting is effective completion time descending, then ID ascending. Older rows without
   `finished_at` use `updated_at` for both sorting and date filtering.

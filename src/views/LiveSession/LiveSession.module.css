@@ -6,7 +6,7 @@
 }
 .Readout {
     display: grid;
-    grid-template-columns: auto auto minmax(0, 1fr);
+    grid-template-columns: auto auto minmax(0, 1fr) auto;
     align-items: start;
     column-gap: 56px;
     row-gap: 20px;
@@ -36,6 +36,96 @@
 }
 .PrimaryMetric strong {
     color: var(--gold);
+}
+.StateBadge {
+    margin-left: 8px;
+    padding: 0 7px;
+    border-radius: 10px;
+    background: color-mix(in srgb, var(--warning) 16%, transparent);
+    color: var(--warning);
+    font-size: 11px;
+    font-style: normal;
+    font-weight: 600;
+    line-height: 18px;
+}
+.Readout[data-status="paused"] .ClockReadout time {
+    color: var(--muted);
+}
+.Trend {
+    display: grid;
+    align-content: start;
+    gap: 6px;
+    width: 100%;
+    max-width: 340px;
+    min-width: 0;
+    margin: 0;
+    justify-self: center;
+}
+.Trend figcaption {
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+    color: var(--muted);
+    font-size: 12px;
+    font-weight: 500;
+    white-space: nowrap;
+}
+.Trend figcaption strong {
+    color: var(--text-strong);
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+}
+.TrendPlot {
+    position: relative;
+    height: 56px;
+    cursor: crosshair;
+    outline-offset: 4px;
+    touch-action: none;
+}
+.TrendPlot svg {
+    display: block;
+    width: 100%;
+    height: 100%;
+    overflow: visible;
+}
+.TrendLine {
+    fill: none;
+    stroke: var(--gold);
+    stroke-width: 2;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    vector-effect: non-scaling-stroke;
+}
+.TrendArea {
+    fill: var(--gold);
+    opacity: 0.1;
+}
+.TrendAverage,
+.TrendZero {
+    stroke: var(--line-strong);
+    stroke-width: 1;
+    vector-effect: non-scaling-stroke;
+}
+.TrendZero {
+    stroke: var(--line);
+}
+.TrendDot {
+    position: absolute;
+    width: 8px;
+    height: 8px;
+    margin: -4px 0 0 -4px;
+    border-radius: 50%;
+    background: var(--gold);
+    box-shadow: 0 0 0 2px var(--canvas);
+    pointer-events: none;
+}
+.TrendCrosshair {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    width: 1px;
+    background: var(--line-strong);
+    pointer-events: none;
 }
 .SessionClock {
     display: grid;
@@ -187,12 +277,24 @@
 }
 @media (max-width: 1100px) {
     .Readout {
-        grid-template-columns: auto auto;
+        grid-template-columns: auto auto minmax(0, 1fr);
         column-gap: 40px;
+    }
+    .Trend {
+        justify-self: end;
     }
     .SessionClock {
         grid-column: 1 / -1;
         justify-content: start;
+    }
+}
+@media (max-width: 860px) {
+    .Readout {
+        grid-template-columns: auto auto;
+    }
+    .Trend {
+        grid-column: 1 / -1;
+        justify-self: start;
     }
 }
 @media (max-width: 760px) {

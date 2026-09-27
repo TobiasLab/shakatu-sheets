@@ -15,6 +15,7 @@ import { SettingsView } from "./views/Settings/Settings";
 export function App() {
     const [captureSetupRequest, setCaptureSetupRequest] = useState(0);
     const [captureStatus, setCaptureStatus] = useState("Capture off");
+    const [reviewCount, setReviewCount] = useState(0);
     const [view, setView] = useState<AppView>("live");
     const { theme, setTheme } = useTheme();
     useLayoutEffect(() => {
@@ -66,6 +67,16 @@ export function App() {
                 databaseError={persistedSession.databaseError}
                 session={persistedSession.session}
                 captureStatus={captureStatus}
+                reviewCount={reviewCount}
+                onOpenReview={() => {
+                    setShowSelfImprovement(false);
+                    setView("live");
+                    requestAnimationFrame(() => {
+                        const heading = document.getElementById("loot-review-heading");
+                        heading?.scrollIntoView({ block: "center" });
+                        heading?.focus({ preventScroll: true });
+                    });
+                }}
                 spotName={liveSession.spot.name}
             >
                 <div hidden={view !== "live"}>
@@ -83,6 +94,7 @@ export function App() {
                         visible={view === "live"}
                         captureSetupRequest={captureSetupRequest}
                         onCaptureStatusChange={setCaptureStatus}
+                        onReviewCountChange={setReviewCount}
                     />
                 </div>
                 {view === "history" ? (

@@ -19,8 +19,9 @@ use super::{
     sessions::{
         apply_finished_session_consumables_record, delete_finished_session_at_path,
         delete_finished_session_record, list_finished_session_records, load_active_session_record,
-        load_session_by_id, reopen_session_record, save_session_record, EntrySource, HistoryQuery,
-        SessionEntry, SessionRecord, SessionStatus, Valuation,
+        load_session_by_id, load_session_trend_records, reopen_session_record, save_session_record,
+        EntrySource, HistoryQuery, NetSample, SessionEntry, SessionRecord, SessionStatus,
+        Valuation,
     },
     settings::{load_setting, save_settings, save_settings_if_unchanged},
 };
@@ -411,6 +412,9 @@ fn upgrades_a_populated_version_one_database() {
         )
         .unwrap();
     connection
+        .execute("DROP TABLE session_net_samples", [])
+        .unwrap();
+    connection
         .execute("DELETE FROM schema_migrations WHERE version >= 2", [])
         .unwrap();
 
@@ -436,7 +440,7 @@ fn upgrades_a_populated_version_one_database() {
                 row.get::<_, i64>(0)
             })
             .unwrap(),
-        4
+        5
     );
 }
 
@@ -768,7 +772,7 @@ fn history_rejects_invalid_queries() {
 fn history_index_migration_preserves_populated_version_two_database() {
     let mut connection = database();
     history_fixture(&mut connection, "existing", "spot", 1000, 1000);
-    connection.execute_batch("DROP INDEX sessions_finished_region_time_idx; ALTER TABLE session_entries DROP COLUMN garmoth_consumable_id; DELETE FROM schema_migrations WHERE version >= 3;").unwrap();
+    connection.execute_batch("DROP TABLE session_net_samples; DROP INDEX sessions_finished_region_time_idx; ALTER TABLE session_entries DROP COLUMN garmoth_consumable_id; DELETE FROM schema_migrations WHERE version >= 3;").unwrap();
     migrate(&mut connection).unwrap();
     migrate(&mut connection).unwrap();
     assert_eq!(
@@ -823,7 +827,7 @@ fn consumable_migration_preserves_old_rows_and_finished_price_snapshots() {
     let mut connection = database();
     let finished = session(SessionStatus::Finished);
     save_session_record(&mut connection, &finished).unwrap();
-    connection.execute_batch("ALTER TABLE session_entries DROP COLUMN garmoth_consumable_id; DELETE FROM schema_migrations WHERE version = 4;").unwrap();
+    connection.execute_batch("DROP TABLE session_net_samples; ALTER TABLE session_entries DROP COLUMN garmoth_consumable_id; DELETE FROM schema_migrations WHERE version >= 4;").unwrap();
     migrate(&mut connection).unwrap();
     migrate(&mut connection).unwrap();
     assert_eq!(
@@ -1202,4 +1206,65 @@ fn reviewed_upload_keeps_saved_expenses_on_connect_failure_and_can_retry() {
             drop(connection);
             remove_temporary_database(&path);
         });
+}
+
+fn trend(connection: &Connection) -> Vec<(i64, i64)> {
+    load_session_trend_records(connection, "session-1")
+        .unwrap()
+        .into_iter()
+        .map(|NetSample { elapsed_ms, net }| (elapsed_ms, net))
+        .collect()
+}
+
+#[test]
+fn records_net_samples_only_when_net_changes() {
+    let mut connection = database();
+    let mut record = session(SessionStatus::Paused);
+    record.entries.clear();
+    save_session_record(&mut connection, &record).unwrap();
+    assert!(
+        trend(&connection).is_empty(),
+        "an empty session has no samples"
+    );
+
+    record.entries = session(SessionStatus::Paused).entries;
+    save_session_record(&mut connection, &record).unwrap();
+    save_session_record(&mut connection, &record).unwrap();
+    assert_eq!(trend(&connection), vec![(5_000, 1_079_000)]);
+
+    record.elapsed_ms = 9_000;
+    record.entries[0].valuation = Valuation::Market;
+    record.entries[0].sale_multiplier = 0.845;
+    save_session_record(&mut connection, &record).unwrap();
+    assert_eq!(
+        trend(&connection),
+        vec![(5_000, 1_079_000), (9_000, 911_755)],
+        "market values are stored after tax as whole silver"
+    );
+
+    record.elapsed_ms = 6_000;
+    record.entries[0].quantity = 20.0;
+    save_session_record(&mut connection, &record).unwrap();
+    assert_eq!(
+        trend(&connection),
+        vec![(5_000, 1_079_000), (6_000, 1_823_510)],
+        "reducing elapsed time drops samples from the discarded span"
+    );
+}
+
+#[test]
+fn running_samples_include_the_current_segment_and_cascade_on_delete() {
+    let mut connection = database();
+    let mut record = session(SessionStatus::Running);
+    record.started_at = Some(super::timestamp_ms() - 60_000);
+    save_session_record(&mut connection, &record).unwrap();
+    let samples = trend(&connection);
+    assert_eq!(samples.len(), 1);
+    assert!((65_000..70_000).contains(&samples[0].0), "{:?}", samples);
+
+    record.status = SessionStatus::Finished;
+    record.started_at = None;
+    save_session_record(&mut connection, &record).unwrap();
+    delete_finished_session_record(&connection, "session-1").unwrap();
+    assert!(trend(&connection).is_empty());
 }

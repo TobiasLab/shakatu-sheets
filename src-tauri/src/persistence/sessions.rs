@@ -1,6 +1,6 @@
 use std::path::PathBuf;
 
-use rusqlite::{params, Connection, OptionalExtension};
+use rusqlite::{params, Connection, OptionalExtension, Transaction};
 use serde::{Deserialize, Serialize};
 use tauri::State;
 
@@ -258,7 +258,92 @@ pub(super) fn save_session_record(
         }
     }
 
+    record_net_sample(&transaction, session, now)?;
     transaction.commit().map_err(|error| error.to_string())
+}
+
+fn session_elapsed_at(session: &SessionRecord, now: i64) -> i64 {
+    match (session.status, session.started_at) {
+        (SessionStatus::Running, Some(started_at)) => {
+            session.elapsed_ms.saturating_add((now - started_at).max(0))
+        }
+        _ => session.elapsed_ms,
+    }
+}
+
+fn record_net_sample(
+    transaction: &Transaction,
+    session: &SessionRecord,
+    now: i64,
+) -> Result<(), String> {
+    let elapsed_ms = session_elapsed_at(session, now);
+    // Manually entered hours can move time backwards; later samples no longer describe this session.
+    transaction
+        .execute(
+            "DELETE FROM session_net_samples WHERE session_id = ?1 AND elapsed_ms > ?2",
+            params![session.id, elapsed_ms],
+        )
+        .map_err(|error| error.to_string())?;
+    let net = transaction
+        .query_row(
+            "SELECT CAST(ROUND(COALESCE(SUM(CASE WHEN valuation = 'expense'
+                THEN -quantity * unit_price
+                ELSE quantity * unit_price * sale_multiplier END), 0)) AS INTEGER)
+             FROM session_entries WHERE session_id = ?1",
+            [&session.id],
+            |row| row.get::<_, i64>(0),
+        )
+        .map_err(|error| error.to_string())?;
+    let previous = transaction
+        .query_row(
+            "SELECT net FROM session_net_samples WHERE session_id = ?1
+             ORDER BY elapsed_ms DESC LIMIT 1",
+            [&session.id],
+            |row| row.get::<_, i64>(0),
+        )
+        .optional()
+        .map_err(|error| error.to_string())?;
+    if previous.unwrap_or(0) == net {
+        return Ok(());
+    }
+    transaction
+        .execute(
+            "INSERT INTO session_net_samples (session_id, elapsed_ms, net) VALUES (?1, ?2, ?3)
+             ON CONFLICT(session_id, elapsed_ms) DO UPDATE SET net = excluded.net",
+            params![session.id, elapsed_ms, net],
+        )
+        .map_err(|error| error.to_string())?;
+    Ok(())
+}
+
+#[derive(Debug, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct NetSample {
+    pub elapsed_ms: i64,
+    pub net: i64,
+}
+
+pub(super) fn load_session_trend_records(
+    connection: &Connection,
+    session_id: &str,
+) -> Result<Vec<NetSample>, String> {
+    let mut statement = connection
+        .prepare(
+            "SELECT elapsed_ms, net FROM session_net_samples
+             WHERE session_id = ?1 ORDER BY elapsed_ms",
+        )
+        .map_err(|error| error.to_string())?;
+    let samples = statement
+        .query_map([session_id], |row| {
+            Ok(NetSample {
+                elapsed_ms: row.get(0)?,
+                net: row.get(1)?,
+            })
+        })
+        .map_err(|error| error.to_string())?
+        .collect::<Result<Vec<_>, _>>()
+        .map_err(|error| error.to_string());
+    samples
 }
 
 pub(super) fn load_session_by_id(
@@ -694,6 +779,15 @@ pub fn load_active_session(
 pub fn save_session(session: SessionRecord, state: State<'_, DatabasePath>) -> Result<(), String> {
     let mut connection = open_database(&state.0)?;
     save_session_record(&mut connection, &session)
+}
+
+#[tauri::command]
+pub fn load_session_trend(
+    session_id: String,
+    state: State<'_, DatabasePath>,
+) -> Result<Vec<NetSample>, String> {
+    let connection = open_database(&state.0)?;
+    load_session_trend_records(&connection, &session_id)
 }
 
 #[tauri::command]
