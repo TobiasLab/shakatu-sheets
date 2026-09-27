@@ -1,78 +1,77 @@
-.MetricsGrid {
+.DeskHeader {
+    display: flex;
+    align-items: flex-start;
+    gap: 16px;
+    margin-bottom: 28px;
+}
+.Readout {
     display: grid;
-    grid-template-columns: minmax(0, 1fr) minmax(0, 0.9fr) minmax(0, 1.25fr);
-    margin-bottom: var(--space-5);
-    border: 1px solid var(--line);
-    border-radius: var(--panel-radius);
-    background: var(--surface);
+    grid-template-columns: auto auto minmax(0, 1fr);
+    align-items: start;
+    column-gap: 56px;
+    row-gap: 20px;
+    margin-bottom: 28px;
 }
 .Metric {
     display: grid;
     align-content: start;
+    justify-items: start;
     min-width: 0;
-    gap: 10px;
-    padding: 18px 20px;
+    gap: 2px;
 }
-.Metric + .Metric,
-.SessionClock {
-    border-left: 1px solid var(--line);
-}
-.Metric span,
-.ClockReadout > span {
+.Metric > span {
     font-size: 12px;
     font-weight: 500;
-    color: var(--text-soft);
+    color: var(--muted);
 }
-.Metric strong {
+.Metric strong,
+.Metric time {
     color: var(--text-strong);
-    font-size: clamp(28px, 2.7vw, 36px);
+    font-size: var(--text-metric);
     font-weight: 550;
-    letter-spacing: -0.8px;
+    letter-spacing: -0.03em;
     font-variant-numeric: tabular-nums;
-    line-height: 1.15;
-}
-.PrimaryMetric {
-    border-radius: var(--panel-radius) 0 0 var(--panel-radius);
-    box-shadow: inset 0 2px var(--accent-border);
+    line-height: 1.1;
+    white-space: nowrap;
 }
 .PrimaryMetric strong {
     color: var(--gold);
 }
 .SessionClock {
+    display: grid;
+    grid-template-columns: auto auto;
+    grid-template-areas:
+        "readout actions"
+        "manual actions";
+    justify-content: end;
+    align-items: start;
+    column-gap: 20px;
     min-width: 0;
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    align-content: start;
-    gap: 10px;
-    padding: 18px 20px;
 }
 .ClockReadout {
-    display: grid;
-    gap: 12px;
-    width: 100%;
-}
-.ClockReadout time {
-    color: var(--text-strong);
-    font-size: clamp(28px, 2.7vw, 36px);
-    font-weight: 500;
-    font-variant-numeric: tabular-nums;
-    letter-spacing: -0.8px;
-    line-height: 1.28;
+    grid-area: readout;
 }
 .ClockActions {
+    grid-area: actions;
     display: flex;
     flex-wrap: wrap;
     gap: var(--space-2);
+    padding-top: 22px;
+}
+.ClockActions :global(.button) {
+    min-height: 36px;
+    padding-inline: 14px;
 }
 .ManualTime {
+    grid-area: manual;
     position: relative;
-    font-size: var(--text-label);
+    font-size: 12px;
     color: var(--muted);
 }
 .ManualTime summary,
 .Breakdown summary {
-    padding-block: 4px;
+    width: fit-content;
+    padding-block: 2px;
 }
 .ManualTime summary:hover,
 .Breakdown summary:hover {
@@ -81,11 +80,11 @@
 .CompletedHours {
     position: absolute;
     z-index: 9;
-    right: 0;
-    top: 30px;
+    left: 0;
+    top: 28px;
     width: 270px;
     max-width: calc(100vw - 112px);
-    padding: 16px;
+    padding: 14px;
     display: flex;
     align-items: end;
     gap: 8px;
@@ -100,28 +99,29 @@
 }
 .CompletedHours label span {
     display: block;
-    margin-bottom: 8px;
+    margin-bottom: 6px;
 }
 .CompletedHours input {
     min-height: var(--control-height);
-    padding: 8px;
+    padding: 5px 8px;
 }
 .Breakdown {
     position: relative;
+    margin-top: 4px;
     color: var(--muted);
-    font-size: var(--text-label);
+    font-size: 12px;
 }
 .Breakdown dl {
     position: absolute;
     z-index: 8;
-    top: 26px;
+    top: 22px;
     left: 0;
-    width: 230px;
+    width: 240px;
     max-width: calc(100vw - 100px);
     display: grid;
-    gap: 12px;
-    margin: 8px 0 0;
-    padding: 16px;
+    gap: 10px;
+    margin: 6px 0 0;
+    padding: 14px;
     border: 1px solid var(--line-strong);
     border-radius: var(--panel-radius);
     background: var(--surface-raised);
@@ -132,28 +132,48 @@
     justify-content: space-between;
     gap: 12px;
 }
+.Breakdown dt {
+    color: var(--text-soft);
+}
 .Breakdown dd {
     margin: 0;
-    color: var(--text);
-    font-size: 12px;
+    color: var(--text-strong);
+    font-size: 13px;
     font-variant-numeric: tabular-nums;
 }
-.DeskBody {
-    display: flex;
-    flex-direction: column;
-    gap: var(--space-5);
+.ViewSwitch {
+    display: inline-flex;
+    gap: 2px;
+    margin: 0;
+    padding: 2px;
+    border: 1px solid var(--line);
+    border-radius: calc(var(--control-radius) + 2px);
+    background: var(--surface);
 }
-.ContentGrid {
-    display: flex;
-    flex-direction: column;
-    min-width: 0;
-    width: 100%;
+.ViewSwitch button {
+    min-height: 26px;
+    padding: 2px 10px;
+    border: 0;
+    border-radius: var(--control-radius);
+    background: transparent;
+    color: var(--muted);
+    font-size: 12px;
+    font-weight: 500;
+    cursor: pointer;
+}
+.ViewSwitch button:hover {
+    color: var(--text-strong);
+}
+.ViewSwitch button[aria-pressed="true"] {
+    background: var(--surface-raised);
+    color: var(--text-strong);
+    box-shadow: 0 0 0 1px var(--line-strong);
 }
 .EntryTools {
     display: flex;
     align-items: center;
     flex-wrap: wrap;
-    gap: 8px;
+    gap: 6px;
     padding: 0;
     margin: 0;
 }
@@ -169,71 +189,51 @@
     align-items: center;
     justify-content: space-between;
     gap: 20px;
-    padding: 20px;
-    border: 1px solid var(--line-strong);
+    margin-bottom: 24px;
+    padding: 12px 12px 12px 16px;
+    border: 1px solid var(--line);
     border-left: 2px solid var(--success);
     border-radius: var(--panel-radius);
     background: var(--surface);
-    margin-bottom: 20px;
 }
 .Completion strong {
     color: var(--success);
-    font-size: 14px;
-    font-weight: 550;
+    font-size: 13px;
+    font-weight: 600;
 }
 .Completion span {
     display: block;
     font-size: 12px;
     color: var(--text-soft);
-    margin-top: 4px;
+    margin-top: 2px;
 }
-@media (max-width: 760px) {
-    .MetricsGrid {
-        grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-    }
-    .PrimaryMetric {
-        border-radius: var(--panel-radius) 0 0 0;
-    }
-    .Metric strong {
-        font-size: 30px;
-    }
-    .Breakdown dl {
-        left: auto;
-        right: 0;
+.OverlayError {
+    margin: -12px 0 20px;
+}
+@media (max-width: 1100px) {
+    .Readout {
+        grid-template-columns: auto auto;
+        column-gap: 40px;
     }
     .SessionClock {
         grid-column: 1 / -1;
-        gap: 14px;
-        border-left: 0;
-        border-top: 1px solid var(--line);
+        justify-content: start;
     }
-    .ClockReadout {
-        width: auto;
-        margin-right: auto;
+}
+@media (max-width: 760px) {
+    .Readout {
+        --text-metric: 30px;
+        column-gap: 28px;
     }
-    .ClockReadout time {
-        font-size: 28px;
-    }
-    .ManualTime {
-        margin-left: auto;
+    .DeskHeader {
+        flex-wrap: wrap;
     }
     .Completion {
         flex-wrap: wrap;
     }
 }
 @media (max-width: 420px) {
-    .Metric,
-    .SessionClock {
-        padding: 16px;
+    .Readout {
+        grid-template-columns: minmax(0, 1fr);
     }
-    .Metric strong {
-        font-size: 26px;
-    }
-    .ClockReadout {
-        width: 100%;
-    }
-}
-
-.OverlayError {
-    margin-bottom: var(--space-4);
 }

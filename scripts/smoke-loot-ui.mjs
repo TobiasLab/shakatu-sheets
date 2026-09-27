@@ -353,16 +353,11 @@ try {
         await until("window.__session.grindSpotId === 'sycraia-lower-revamp'");
         await screenshot("settings-spot-browser");
         await click("Grind desk");
-        await click("Collapse sidebar");
         assert(
-            await evaluate("document.querySelector('aside').getBoundingClientRect().width <= 80"),
-            "Collapsing navigation must recover workspace width",
-        );
-        await screenshot("sidebar-collapsed");
-        await click("Expand sidebar");
-        assert(
-            await evaluate("document.querySelector('aside').getBoundingClientRect().width > 200"),
-            "Expanding navigation must restore labels",
+            await evaluate(
+                "document.querySelector('nav[aria-label=\"Application views\"]').getBoundingClientRect().bottom <= 48",
+            ),
+            "Navigation must stay in the top bar",
         );
     }
     if (process.env.UI_SCREENSHOT_ONLY === "1") {
@@ -988,7 +983,7 @@ try {
         await evaluate("document.getElementById('self-improvement').scrollIntoView({block:'start'})");
         await screenshot("self-improvement-settings");
         await screenshot("settings");
-        await click("Capture setup");
+        await click("Go to capture setup");
         await until("document.activeElement.textContent.includes('Close setup')");
         assert.equal(
             await evaluate("window.__calls.filter(c => c.command === 'start_native_display_capture').length"),
@@ -1066,6 +1061,7 @@ try {
         await click("Clear search");
         assert.equal(await evaluate("document.activeElement.type"), "search");
         await evaluate("document.querySelector('[aria-label=\"Close manual entry\"]').click()");
+        await click("Ledger");
         const quantitySelector = 'input[aria-label^="Quantity for"]';
         const priceSelector = 'input[aria-label^="Unit price for"]';
         const lootQuantityLabel = await evaluate(
@@ -1290,7 +1286,6 @@ try {
             1,
             "New loot must not be hidden by the previous session's filters",
         );
-        await click("Capture setup");
         await click("Choose capture source");
         await until("window.__calls.filter(c => c.command === 'start_native_display_capture').length === 2");
         await until(

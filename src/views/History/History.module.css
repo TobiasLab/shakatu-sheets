@@ -45,17 +45,17 @@
     border: 0;
     flex-wrap: wrap;
     gap: 8px;
-    margin: -8px 0 20px;
+    margin: -8px 0 24px;
 }
 .ActiveFilters button {
     display: inline-flex;
     align-items: center;
     gap: 10px;
     max-width: 100%;
-    min-height: 32px;
-    padding: 5px 10px;
-    border: 1px solid var(--accent-border);
-    border-radius: var(--control-radius);
+    min-height: 28px;
+    padding: 3px 8px 3px 10px;
+    border: 1px solid var(--line-strong);
+    border-radius: 14px;
     background: var(--surface);
     color: var(--text-soft);
     font-size: 12px;
@@ -78,71 +78,47 @@
     line-height: 1;
 }
 .Overview {
-    display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-    gap: 12px;
-    margin-bottom: 24px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 20px 56px;
+    margin-bottom: 32px;
 }
 .Overview > div {
+    display: grid;
+    align-content: start;
+    gap: 2px;
     min-width: 0;
-    padding: 22px 24px;
-    border: 1px solid var(--line);
-    border-radius: var(--panel-radius);
-    background: var(--surface);
-}
-.Overview > div:first-child {
-    border-color: var(--accent-border);
-    background: var(--accent-surface);
 }
 .Overview span {
-    display: block;
-    margin-bottom: 12px;
     color: var(--muted);
     font-size: 12px;
+    font-weight: 500;
 }
 .Overview strong {
     color: var(--text-strong);
-    font-size: clamp(24px, 2.4vw, 34px);
+    font-size: 32px;
     font-weight: 550;
-    letter-spacing: -1px;
+    letter-spacing: -0.03em;
     line-height: 1.15;
     font-variant-numeric: tabular-nums;
 }
-.Overview > div:first-child strong {
+.Overview > div:last-child strong {
     color: var(--gold);
 }
-.Overview small {
-    margin-left: 5px;
-    color: var(--muted);
-    font-size: 11px;
-    letter-spacing: normal;
-    font-weight: 400;
-}
 .Overview .TimedCount {
-    min-height: 0;
-    margin: 8px 0 0;
+    margin-top: 2px;
     font-size: 11px;
+    font-weight: 400;
 }
 .Comparisons {
     min-width: 0;
-    margin-bottom: 24px;
-    overflow: hidden;
-    border: 1px solid var(--line);
-    border-radius: var(--panel-radius);
-    background: var(--surface);
+    margin-bottom: 32px;
 }
 .ComparisonHeading {
     display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 16px;
-    padding: 18px 22px;
-    border-bottom: 1px solid var(--line);
-}
-.ComparisonHeading h2 {
-    margin: 0;
-    font-size: 14px;
-    font-weight: 550;
+    align-items: baseline;
+    gap: 10px;
+    padding-bottom: 10px;
 }
 .ComparisonHeading > span {
     color: var(--muted);
@@ -152,6 +128,7 @@
 .ComparisonScroll {
     overflow-x: auto;
     overscroll-behavior-x: contain;
+    border-top: 1px solid var(--line);
 }
 .ComparisonScroll:focus-visible,
 .HistoryEntries:focus-visible {
@@ -160,84 +137,96 @@
 .ComparisonScroll table {
     width: 100%;
     border-collapse: collapse;
-    font-size: 12px;
+    font-size: 13px;
     font-variant-numeric: tabular-nums;
 }
 .ComparisonScroll th,
 .ComparisonScroll td {
-    padding: 13px 18px;
+    height: 38px;
+    padding: 4px 12px;
     text-align: right;
-    border-bottom: 1px solid var(--line);
+    border-bottom: 1px solid var(--row-line);
     white-space: nowrap;
 }
 .ComparisonScroll thead th {
-    padding-block: 10px;
-    background: var(--surface-raised);
+    height: 32px;
     color: var(--muted);
     font-size: 11px;
     font-weight: 500;
+    border-bottom-color: var(--line);
 }
 .ComparisonScroll th:first-child {
-    min-width: 180px;
-    padding-left: 22px;
+    min-width: 200px;
+    padding-left: 0;
+    text-align: left;
+}
+.ComparisonScroll thead th:nth-child(2) {
+    padding-left: 12px;
     text-align: left;
 }
 .ComparisonScroll th:last-child,
 .ComparisonScroll td:last-child {
-    padding-right: 22px;
+    padding-right: 4px;
 }
 .ComparisonScroll tbody th {
     font-weight: 500;
 }
-.ComparisonScroll tbody th button {
-    min-height: 32px;
-    max-width: 260px;
-    padding: 4px 0;
+.ComparisonScroll tbody th button:global(.button) {
+    min-height: 28px;
+    max-width: 320px;
+    padding: 2px 8px;
+    margin-left: -8px;
     text-align: left;
     white-space: normal;
     overflow-wrap: anywhere;
-    color: var(--text);
-}
-.ComparisonScroll tbody tr[data-selected="true"] {
-    background: var(--accent-surface);
+    color: var(--text-strong);
+    font-weight: 500;
 }
 .ComparisonScroll tbody th button[aria-pressed="true"] {
     color: var(--gold);
 }
+.ComparisonScroll tbody tr[data-selected="true"] {
+    background: var(--accent-surface);
+}
 .ComparisonScroll tbody tr:hover {
     background: var(--hover);
 }
-.ComparisonScroll tbody tr:last-child th,
-.ComparisonScroll tbody tr:last-child td {
-    border-bottom: 0;
-}
 .ComparisonScroll tbody td:nth-child(2) {
-    color: var(--gold);
-    font-weight: 550;
+    width: 38%;
+    text-align: left;
+}
+.Rate {
+    display: grid;
+    grid-template-columns: 10ch minmax(0, 1fr);
+    align-items: center;
+    column-gap: 12px;
+    color: var(--text-strong);
+    font-weight: 600;
+}
+.Rate i {
+    grid-column: 2;
+    grid-row: 1;
+    height: 6px;
+    border-radius: 3px;
+    background: color-mix(in srgb, var(--gold) 55%, transparent);
+}
+.ComparisonScroll tbody td:not(:nth-child(2)) {
+    color: var(--text-soft);
 }
 .ComparisonScroll small {
     display: block;
     color: var(--muted);
+    font-size: 11px;
 }
 .HistoryGrid {
     display: grid;
-    grid-template-columns: minmax(255px, 0.8fr) minmax(0, 1.3fr);
-    gap: 20px;
+    grid-template-columns: minmax(280px, 400px) minmax(0, 1fr);
+    gap: 32px;
     align-items: start;
 }
-.HistoryGrid > .ListPanel,
-.HistoryGrid > .DetailPanel {
-    border: 1px solid var(--line);
-    border-radius: var(--panel-radius);
-    background: var(--surface);
-    overflow: hidden;
-}
 .HistoryGrid :global(.panel-heading) {
-    min-height: 72px;
-    padding: 18px 20px;
     flex-wrap: wrap;
-    gap: 14px;
-    border-bottom: 1px solid var(--line);
+    gap: 12px;
 }
 .HistoryGrid :global(.panel-heading) > div {
     min-width: 0;
@@ -245,53 +234,50 @@
 }
 .HistoryGrid :global(.panel-heading) h2 {
     overflow-wrap: anywhere;
-    font-size: 14px;
 }
-.DetailPanel :global(.panel-heading) h2 {
-    margin-top: 5px;
-    font-size: 18px;
-    line-height: 1.35;
-    letter-spacing: -0.3px;
+.ListPanel :global(.panel-heading) {
+    min-height: 32px;
+    padding-bottom: 10px;
+}
+.ListPanel :global(.panel-heading) h2 {
+    font-variant-numeric: tabular-nums;
 }
 .Pagination {
     display: flex;
     flex-wrap: wrap;
-    gap: 4px;
+    gap: 2px;
     margin-left: auto;
 }
 .Pagination :global(.button) {
-    min-height: 30px;
-    padding: 5px 8px;
-    font-size: 11px;
+    min-height: 28px;
+    padding: 3px 8px;
+    font-size: 12px;
 }
 .HistoryList {
-    max-height: clamp(200px, 55vh, 650px);
-    padding: 8px;
+    max-height: clamp(240px, 64vh, 760px);
     overflow: auto;
     overscroll-behavior-y: contain;
+    border-top: 1px solid var(--line);
 }
 .HistoryRow {
     display: grid;
     grid-template-columns: minmax(0, 1fr) auto;
-    margin-bottom: 5px;
-    border: 1px solid transparent;
-    border-radius: var(--control-radius);
-}
-.HistoryRow:last-child {
-    margin-bottom: 0;
+    border-bottom: 1px solid var(--row-line);
 }
 .HistoryRow:has(.Selected) {
-    border-color: var(--accent-border);
-    background: var(--accent-surface);
+    background: var(--surface);
+    box-shadow: inset 2px 0 var(--gold);
 }
+.HistorySelect:global(.button),
 .HistorySelect {
-    display: flex;
-    flex-direction: column;
-    gap: 14px;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 12px;
     width: 100%;
-    padding: 14px 12px;
+    padding: 10px 4px 10px 12px;
     border: 0;
-    border-radius: var(--control-radius);
+    border-radius: 0;
     background: transparent;
     color: var(--text-soft);
     text-align: left;
@@ -301,8 +287,13 @@
 .HistoryList button:focus-visible {
     outline-offset: -3px;
 }
-.HistorySelect:hover {
+.HistorySelect:enabled:hover {
     background: var(--hover);
+}
+.HistorySelect[aria-pressed="true"],
+.HistorySelect[aria-pressed="true"]:enabled:hover {
+    border: 0;
+    background: transparent;
 }
 .HistorySelect.Selected {
     color: var(--text);
@@ -316,49 +307,67 @@
     display: block;
 }
 .HistoryList strong {
-    font-size: 12px;
-    font-weight: 550;
+    color: var(--text-strong);
+    font-size: 13px;
+    font-weight: 500;
 }
 .HistoryList small {
-    margin-top: 5px;
+    margin-top: 2px;
     color: var(--muted);
-    font-size: 11px;
-    line-height: 1.6;
+    font-size: 12px;
+    line-height: 1.4;
+    font-variant-numeric: tabular-nums;
 }
 .HistoryList .HistoryValue {
-    display: flex;
-    align-items: center;
-    flex-wrap: wrap;
-    gap: 4px 10px;
+    text-align: right;
     font-variant-numeric: tabular-nums;
 }
 .HistoryValue strong {
-    color: var(--text);
-    font-size: 14px;
-    font-weight: 550;
+    font-weight: 600;
+    white-space: nowrap;
 }
 .Selected .HistoryValue strong {
     color: var(--gold);
 }
-.HistoryValue small {
-    margin-top: 0;
-}
 .DeleteButton {
-    align-self: start;
-    margin-top: 8px;
-    min-height: 34px;
+    align-self: center;
+    min-height: 28px;
+    margin-right: 4px;
     padding: 0 8px;
     border: 0;
     border-radius: var(--control-radius);
-    font-size: 11px;
+    font-size: 12px;
     color: var(--muted);
     background: transparent;
     cursor: pointer;
+    opacity: 0;
+}
+.HistoryRow:hover .DeleteButton,
+.HistoryRow:focus-within .DeleteButton,
+.HistoryRow:has(.Selected) .DeleteButton {
+    opacity: 1;
 }
 .DeleteButton:hover:not(:disabled),
 .DeleteButton:focus-visible {
     color: var(--danger);
     background: var(--surface-raised);
+}
+.HistoryGrid > .DetailPanel {
+    border: 1px solid var(--line);
+    border-radius: var(--panel-radius);
+    background: var(--surface);
+    overflow: hidden;
+}
+.DetailPanel :global(.panel-heading) {
+    padding: 16px 20px 0;
+}
+.DetailPanel :global(.panel-heading) :global(.eyebrow) {
+    font-variant-numeric: tabular-nums;
+}
+.DetailPanel :global(.panel-heading) h2 {
+    font-size: 18px;
+    line-height: 1.3;
+    letter-spacing: -0.02em;
 }
 .DetailActions {
     display: flex;
@@ -366,85 +375,97 @@
     gap: 10px;
 }
 .DetailActions > span {
-    padding: 3px 7px;
-    border: 1px solid var(--line);
-    border-radius: 5px;
-    color: var(--muted);
-    font-size: 10px;
+    padding: 2px 6px;
+    border: 1px solid var(--line-strong);
+    border-radius: var(--control-radius);
+    color: var(--text-soft);
+    font-size: 11px;
     font-weight: 600;
     letter-spacing: 0.04em;
 }
 .HistorySummary {
-    display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-    gap: var(--space-3);
-    padding: 20px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px 40px;
+    padding: 12px 20px 16px;
     border-bottom: 1px solid var(--line);
-    background: var(--surface-raised);
 }
 .HistorySummary span,
 .HistorySummary strong {
     display: block;
 }
 .HistorySummary span {
-    font-size: 11px;
+    font-size: 12px;
     color: var(--muted);
 }
 .HistorySummary strong {
-    margin-top: 7px;
+    margin-top: 1px;
     color: var(--text-strong);
-    font-size: clamp(18px, 1.8vw, 24px);
+    font-size: 24px;
     font-weight: 550;
-    letter-spacing: -0.5px;
+    letter-spacing: -0.02em;
     font-variant-numeric: tabular-nums;
 }
 .HistorySummary > div:last-child strong {
     color: var(--gold);
 }
 .HistoryEntries {
-    max-height: 450px;
+    max-height: 480px;
     overflow: auto;
     overscroll-behavior-y: contain;
-    padding: 0 20px;
+    padding: 4px 20px;
 }
 .HistoryEntry {
     display: grid;
-    grid-template-columns: 34px minmax(0, 1fr) auto;
+    grid-template-columns: 28px minmax(0, 1fr) auto 124px 80px;
     gap: 12px;
     align-items: center;
-    padding: 16px 0;
-    border-bottom: 1px solid var(--line);
-    font-size: 12px;
+    min-height: 44px;
+    padding: 6px 0;
+    border-bottom: 1px solid var(--row-line);
+    font-size: 13px;
     font-variant-numeric: tabular-nums;
-}
-.ItemIcon {
-    object-fit: contain;
 }
 .HistoryEntry:last-child {
     border: 0;
 }
-.HistoryEntry > strong {
-    font-weight: 550;
+.HistoryEntry :global(.item-swatch) {
+    width: 28px;
+    height: 28px;
 }
-.HistoryEntry span,
-.HistoryEntry span strong,
-.HistoryEntry span small {
-    display: block;
+.ItemIcon {
+    border: 1px solid var(--line-strong);
+    border-radius: var(--control-radius);
+    background: var(--tile-background);
+    object-fit: contain;
+}
+.EntryName {
     min-width: 0;
-}
-.HistoryEntry span strong {
     overflow-wrap: anywhere;
-    font-size: 12px;
+    color: var(--text-strong);
     font-weight: 500;
 }
-.HistoryEntry span small {
-    margin-top: 5px;
-    font-size: 11px;
+.EntryQuantity {
+    text-align: right;
+    color: var(--text);
+}
+.EntryPrice {
     color: var(--muted);
+    white-space: nowrap;
+}
+.EntryValue {
+    text-align: right;
+    color: var(--text-strong);
+    font-weight: 600;
+    white-space: nowrap;
+}
+.EntryValue:global(.negative) {
+    color: var(--negative);
 }
 .GarmothUpload {
-    padding: 20px;
+    padding: 16px 20px;
     border-top: 1px solid var(--line);
+    background: var(--sidebar);
 }
 .UploadHeading {
     display: flex;
@@ -464,28 +485,29 @@
 }
 .UploadHeading span {
     color: var(--muted);
-    font-size: 11px;
+    font-size: 12px;
 }
 .UploadHeading strong {
-    margin-top: 4px;
+    margin-top: 1px;
     font-size: 13px;
-    font-weight: 550;
+    font-weight: 600;
 }
 .UploadPreview {
     display: flex;
-    gap: 6px 12px;
+    gap: 4px 14px;
     flex-wrap: wrap;
-    margin-top: 16px;
-    font-size: 11px;
+    margin-top: 10px;
+    font-size: 12px;
     color: var(--muted);
+    font-variant-numeric: tabular-nums;
     overflow-wrap: anywhere;
 }
 .GarmothUpload p {
     overflow-wrap: anywhere;
-    margin: 12px 0 0;
+    margin: 10px 0 0;
     color: var(--muted);
     font-size: 12px;
-    line-height: 1.6;
+    line-height: 1.5;
 }
 .GarmothUpload p.UploadError {
     color: var(--danger);
@@ -496,64 +518,33 @@
 .HistoryEntriesEmpty {
     min-height: 180px;
 }
-@media (max-width: 1000px) {
-    .Overview > div {
-        padding: 20px 18px;
-    }
-    .Overview small {
-        display: none;
-    }
+@media (max-width: 1100px) {
     .HistoryGrid {
-        grid-template-columns: minmax(230px, 0.85fr) minmax(0, 1.3fr);
-        gap: 14px;
+        grid-template-columns: minmax(260px, 340px) minmax(0, 1fr);
+        gap: 20px;
+    }
+    .HistoryEntry {
+        grid-template-columns: 28px minmax(0, 1fr) auto 72px;
+    }
+    .EntryPrice {
+        display: none;
     }
 }
 @media (max-width: 800px) {
     .HistoryGrid {
         grid-template-columns: 1fr;
-        gap: 20px;
     }
     .HistoryList {
-        max-height: 300px;
+        max-height: 320px;
     }
-    .HistorySummary strong {
-        font-size: 24px;
-    }
-}
-@media (max-width: 640px) {
     .Overview {
-        gap: 8px;
-    }
-    .Overview > div {
-        padding: 16px 12px;
-    }
-    .Overview span {
-        font-size: 11px;
-        min-height: 33px;
-        margin-bottom: 8px;
+        gap: 16px 32px;
     }
     .Overview strong {
-        font-size: 24px;
-    }
-    .ComparisonHeading {
-        padding: 16px;
-    }
-    .ComparisonScroll th,
-    .ComparisonScroll td {
-        padding-inline: 14px;
-    }
-    .ComparisonScroll th:first-child {
-        padding-left: 16px;
+        font-size: 26px;
     }
 }
 @media (max-width: 480px) {
-    .Overview strong {
-        font-size: 19px;
-        letter-spacing: -0.6px;
-    }
-    .HistorySummary {
-        padding: 16px;
-    }
     .HistorySummary strong {
         font-size: 20px;
     }

@@ -20,7 +20,7 @@ export function SessionMetrics({
     const totals = useMemo(() => calculateEntryTotals(entries), [entries]);
     const netPerHour = elapsedMs > 0 ? totals.net / (elapsedMs / 3_600_000) : 0;
     return (
-        <section className={styles.MetricsGrid} aria-label="Session summary" aria-busy={!controller.databaseLoaded}>
+        <section className={styles.Readout} aria-label="Session summary" aria-busy={!controller.databaseLoaded}>
             <article className={`${styles.Metric} ${styles.PrimaryMetric}`}>
                 <span>Net silver / hour</span>
                 <strong>{controller.databaseLoaded && elapsedMs > 0 ? formatSilver(netPerHour, true) : "—"}</strong>
@@ -63,8 +63,8 @@ function SessionClock({
     const { session, databaseLoaded, dispatch, setCompletedHours, startOrResume } = controller;
     const timeEditable = session.status === "idle" || session.status === "paused";
     return (
-        <section className={styles.SessionClock}>
-            <div className={styles.ClockReadout}>
+        <section className={styles.SessionClock} aria-label="Session time">
+            <div className={`${styles.Metric} ${styles.ClockReadout}`}>
                 <span>Session time</span>
                 <time>{databaseLoaded ? formatDuration(elapsedMs) : "—"}</time>
             </div>

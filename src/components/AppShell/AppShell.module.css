@@ -1,176 +1,116 @@
 .AppShell {
-    display: grid;
-    grid-template-columns: 208px minmax(0, 1fr);
     min-height: 100vh;
-}
-.Sidebar {
-    position: sticky;
-    top: 0;
-    height: 100vh;
     display: flex;
     flex-direction: column;
-    padding: 20px 12px 16px;
-    overflow-y: auto;
-    scrollbar-width: thin;
+}
+.Bar {
+    position: sticky;
+    top: 0;
+    z-index: 20;
+    display: flex;
+    align-items: center;
+    gap: 24px;
+    min-height: 44px;
+    padding: 0 24px;
     background: var(--sidebar);
-    border-right: 1px solid var(--line);
+    border-bottom: 1px solid var(--line);
 }
 .Brand {
     display: flex;
     align-items: center;
-    gap: 10px;
-    min-height: 36px;
-    padding: 0 8px;
-    margin-bottom: 28px;
+    gap: 8px;
+    color: var(--text-strong);
+    font-size: 13px;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+    white-space: nowrap;
+}
+.Brand svg {
+    color: var(--gold);
+}
+.Tabs {
+    display: flex;
+    align-self: stretch;
+    gap: 4px;
+}
+.Tabs button {
+    position: relative;
+    padding: 0 10px;
+    border: 0;
+    background: none;
+    color: var(--muted);
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    white-space: nowrap;
+}
+.Tabs button:hover {
     color: var(--text-strong);
 }
-.Brand > svg {
-    box-sizing: content-box;
-    flex-shrink: 0;
-    padding: 7px;
-    border: 1px solid var(--accent-border);
-    border-radius: var(--control-radius);
-    color: var(--gold);
-    background: var(--accent-surface);
+.Tabs button[aria-current="page"] {
+    color: var(--text-strong);
 }
-.Brand > span {
-    display: grid;
-    gap: 1px;
-    line-height: 1.2;
+.Tabs button[aria-current="page"]::after {
+    content: "";
+    position: absolute;
+    left: 10px;
+    right: 10px;
+    bottom: -1px;
+    height: 2px;
+    border-radius: 2px 2px 0 0;
+    background: var(--gold);
 }
-.Brand strong {
-    font-size: 15px;
-    font-weight: 650;
-    letter-spacing: -0.35px;
+.Tabs button:focus-visible {
+    outline-offset: -4px;
 }
-.Brand small {
-    color: var(--muted);
-    font-size: 11px;
-    font-weight: 500;
-    letter-spacing: 0.14em;
-    text-transform: uppercase;
-}
-.CollapseButton {
-    display: grid;
-    place-items: center;
-    margin-left: auto;
-    border: 0;
-    padding: 4px;
-    background: transparent;
-    color: var(--muted);
-    border-radius: 5px;
-    cursor: pointer;
-}
-.CollapseButton:hover {
-    background: var(--surface-raised);
-    color: var(--text);
-}
-.NavigationLabel,
-.GroupLabel {
-    display: block;
-    padding: 0 12px 10px;
-    color: var(--muted);
-    font-size: 11px;
-    font-weight: 600;
-    letter-spacing: 0.06em;
-    text-transform: uppercase;
-}
-.ViewNavigation,
-.SidebarBottom {
-    display: grid;
-    gap: 5px;
-}
-.ViewNavigation button,
-.SidebarBottom > button {
-    position: relative;
+.Status {
     display: flex;
     align-items: center;
-    gap: 11px;
-    min-height: 42px;
-    padding: 10px 12px;
-    border: 1px solid transparent;
-    border-radius: var(--control-radius);
-    background: transparent;
-    color: var(--text-soft);
-    font-size: 13px;
-    text-align: left;
-    cursor: pointer;
-}
-.ViewNavigation button:hover,
-.SidebarBottom > button:hover {
-    background: var(--hover);
-    color: var(--text);
-}
-.ViewNavigation button.Active,
-.SidebarBottom > button.Active {
-    border-color: transparent;
-    box-shadow: inset 2px 0 var(--gold);
-    background: var(--accent-surface);
-    color: var(--gold);
-    font-weight: 550;
-}
-.ViewNavigation button.Active::after,
-.SidebarBottom > button.Active::after {
-    content: none;
-}
-.SessionGroup {
-    margin-top: auto;
-    padding-top: 28px;
-}
-.SessionPresence {
-    display: flex;
-    gap: 10px;
-    align-items: start;
-    width: 100%;
-    padding: 12px;
-    border: 1px solid var(--line);
-    border-radius: var(--control-radius);
-    color: var(--text-soft);
-    background: var(--surface);
-    text-align: left;
-    cursor: pointer;
-}
-.SessionPresence:hover {
-    border-color: var(--line-strong);
-    background: var(--hover);
-}
-.SessionPresence > i {
-    margin-top: 6px;
-}
-.SessionPresence > span {
+    gap: 16px;
     min-width: 0;
-    overflow-wrap: anywhere;
-}
-.SessionPresence strong {
-    display: block;
+    margin-left: auto;
+    color: var(--muted);
     font-size: 12px;
-    line-height: 1.5;
-    font-weight: 500;
 }
-.SessionPresence small {
-    display: block;
-    color: var(--muted);
-    margin-top: 5px;
-    font-size: 11px;
-}
-.CaptureStatus {
-    display: block;
-    margin: 10px 12px 0 29px;
-    font-size: 11px;
-    color: var(--muted);
-}
-.SidebarBottom {
-    margin-top: 24px;
-    padding-top: 12px;
-    border-top: 1px solid var(--line);
-}
+.Capture,
 .DatabaseState {
     display: flex;
     align-items: center;
-    gap: 8px;
-    padding: 12px 12px 0;
-    font-size: 11px;
-    color: var(--muted);
+    gap: 7px;
+    white-space: nowrap;
+}
+.Presence {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    min-width: 0;
+    min-height: 28px;
+    padding: 2px 10px;
+    border: 1px solid var(--line);
+    border-radius: var(--control-radius);
+    background: var(--surface);
+    color: var(--text-soft);
+    font-size: 12px;
+    cursor: pointer;
+}
+.Presence:hover {
+    border-color: var(--line-strong);
+    color: var(--text-strong);
+}
+.PresenceSpot {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.Presence time {
+    color: var(--text-strong);
+}
+.Presence strong {
+    color: var(--gold);
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
 }
 .StatusDot {
     display: inline-block;
@@ -180,63 +120,29 @@
     border-radius: 50%;
     background: var(--muted);
 }
-.Running {
+.StatusDot[data-tone="running"],
+.StatusDot[data-tone="capture"] {
     background: var(--success);
 }
-.saving {
+.StatusDot[data-tone="saving"] {
     background: var(--gold);
 }
-.error {
+.StatusDot[data-tone="error"] {
     background: var(--danger);
 }
-.Main {
-    min-width: 0;
-}
-.WorkspaceBar {
-    min-height: 52px;
-    display: flex;
-    align-items: center;
-    flex-wrap: wrap;
-    justify-content: space-between;
-    gap: 12px;
-    padding: 10px 28px;
-    font-size: 12px;
-    border-bottom: 1px solid var(--line);
-}
-.Breadcrumb {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    font-weight: 500;
-}
-.Breadcrumb > span {
-    color: var(--muted);
-    font-weight: 400;
-}
-.Breadcrumb > i {
-    color: var(--line-strong);
-    font-style: normal;
-}
-.WorkspaceStatus {
-    display: flex;
-    align-items: center;
-    gap: 7px;
-    padding: 4px 9px;
-    border: 1px solid var(--line);
-    border-radius: var(--control-radius);
-    background: var(--surface);
-    color: var(--text-soft);
-    font-size: 11px;
-}
 .Workspace {
-    max-width: 1280px;
+    flex: 1;
     width: 100%;
+    max-width: 1440px;
     min-width: 0;
     margin: 0 auto;
-    padding: 24px 28px 32px;
+    padding: 24px 32px 40px;
+}
+.Workspace:focus {
+    outline: none;
 }
 .SaveError {
-    padding: 14px 32px;
+    padding: 10px 24px;
     color: var(--danger);
     background: var(--surface);
     border-bottom: 1px solid var(--danger);
@@ -253,105 +159,25 @@
     color: var(--text);
 }
 .SkipLink:focus {
-    top: 12px;
+    top: 8px;
 }
-.Collapsed {
-    grid-template-columns: 72px minmax(0, 1fr);
-}
-.Collapsed .Brand > span,
-.Collapsed .Brand > svg,
-.Collapsed .NavigationLabel,
-.Collapsed .ViewNavigation button > span,
-.Collapsed .SidebarBottom > button > span,
-.Collapsed .SessionGroup,
-.Collapsed .DatabaseState > span,
-.Collapsed .Active::after {
-    display: none;
-}
-.Collapsed .CollapseButton {
-    margin: auto;
-}
-.Collapsed .ViewNavigation button,
-.Collapsed .SidebarBottom > button {
-    justify-content: center;
-    padding-inline: 0;
-}
-.Collapsed .DatabaseState {
-    justify-content: center;
-}
-.Collapsed .SidebarBottom {
-    margin-top: auto;
-}
-@media (max-width: 1000px) {
-    .AppShell {
-        grid-template-columns: 72px minmax(0, 1fr);
+@media (max-width: 900px) {
+    .Bar {
+        gap: 12px;
+        padding: 0 16px;
     }
     .Brand {
-        justify-content: center;
-        padding: 0;
-    }
-    .Brand > span,
-    .CollapseButton,
-    .NavigationLabel,
-    .ViewNavigation button > span,
-    .SidebarBottom > button > span,
-    .SessionGroup,
-    .DatabaseState > span,
-    .ViewNavigation button.Active::after,
-    .SidebarBottom > button.Active::after {
         display: none;
     }
-    .ViewNavigation button,
-    .SidebarBottom > button {
-        justify-content: center;
-        padding-inline: 0;
-    }
-    .SidebarBottom {
-        margin-top: auto;
-    }
-    .DatabaseState {
-        justify-content: center;
-    }
-    .Collapsed .Brand > svg {
-        display: block;
+    .PresenceSpot {
+        display: none;
     }
     .Workspace {
-        padding: 24px 24px 36px;
-    }
-    .WorkspaceBar {
-        padding-inline: 24px;
+        padding: 20px 16px 32px;
     }
 }
 @media (max-width: 600px) {
-    .AppShell {
-        grid-template-columns: 56px minmax(0, 1fr);
-    }
-    .Sidebar {
-        padding-inline: 6px;
-    }
-    .Workspace {
-        padding: 20px 16px;
-    }
-    .WorkspaceBar {
-        padding-inline: 16px;
-    }
-    .Breadcrumb > span,
-    .Breadcrumb > i {
+    .Capture {
         display: none;
-    }
-    .WorkspaceStatus {
-        font-size: 11px;
-    }
-}
-
-@media (max-height: 650px) {
-    .Brand {
-        margin-bottom: 16px;
-    }
-    .SessionGroup {
-        padding-top: 20px;
-    }
-    .SidebarBottom {
-        margin-top: 16px;
     }
 }

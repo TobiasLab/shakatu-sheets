@@ -8,6 +8,15 @@ import { Icon } from "../Icon/Icon";
 import styles from "./LootLedger.module.css";
 
 const quantityRateFormatter = new Intl.NumberFormat("en", { maximumFractionDigits: 2 });
+const quantityFormatter = new Intl.NumberFormat("en");
+
+function parseWholeNumber(value: string) {
+    return Number(value.replace(/,/g, "").trim());
+}
+
+function displayWholeNumber(value: string) {
+    return /^\d+$/.test(value) ? quantityFormatter.format(Number(value)) : value;
+}
 
 function LedgerEntryRow({
     entry,
@@ -27,6 +36,7 @@ function LedgerEntryRow({
     const [quantity, setQuantity] = useState(String(entry.quantity));
     const [unitPrice, setUnitPrice] = useState(String(entry.unitPrice));
     const [error, setError] = useState("");
+    const [editing, setEditing] = useState<"quantity" | "price" | null>(null);
     const icon = getDropIcon(grindSpotId, entry.name);
     const quantityPerHour = calculateQuantityPerHour(entry.quantity, elapsedMs);
     const formattedQuantityRate = quantityPerHour === null ? "—" : quantityRateFormatter.format(quantityPerHour);
@@ -37,8 +47,9 @@ function LedgerEntryRow({
     }, [entry.quantity, entry.unitPrice]);
 
     function commitEdit() {
-        const parsedQuantity = Number(quantity);
-        const parsedUnitPrice = Number(unitPrice);
+        setEditing(null);
+        const parsedQuantity = parseWholeNumber(quantity);
+        const parsedUnitPrice = parseWholeNumber(unitPrice);
         if (
             !quantity.trim() ||
             !unitPrice.trim() ||
@@ -98,13 +109,16 @@ function LedgerEntryRow({
             </td>
             <td>
                 <input
-                    type="number"
-                    min="1"
-                    step="1"
-                    value={quantity}
+                    type="text"
+                    inputMode="numeric"
+                    value={editing === "quantity" ? quantity : displayWholeNumber(quantity)}
                     disabled={editingDisabled}
                     aria-label={`Quantity for ${entry.name}`}
-                    onFocus={(event) => event.currentTarget.select()}
+                    onFocus={(event) => {
+                        setEditing("quantity");
+                        event.currentTarget.value = quantity;
+                        event.currentTarget.select();
+                    }}
                     onChange={(event) => setQuantity(event.target.value)}
                     onBlur={commitEdit}
                     onKeyDown={handleEditKey}
@@ -115,13 +129,16 @@ function LedgerEntryRow({
             </td>
             <td>
                 <input
-                    type="number"
-                    min="0"
-                    step="1"
-                    value={unitPrice}
+                    type="text"
+                    inputMode="numeric"
+                    value={editing === "price" ? unitPrice : displayWholeNumber(unitPrice)}
                     disabled={editingDisabled}
                     aria-label={`Unit price for ${entry.name}`}
-                    onFocus={(event) => event.currentTarget.select()}
+                    onFocus={(event) => {
+                        setEditing("price");
+                        event.currentTarget.value = unitPrice;
+                        event.currentTarget.select();
+                    }}
                     onChange={(event) => setUnitPrice(event.target.value)}
                     onBlur={commitEdit}
                     onKeyDown={handleEditKey}
@@ -146,7 +163,72 @@ function LedgerEntryRow({
     );
 }
 
+function DropInventory({
+    entries,
+    grindSpotId,
+    elapsedMs,
+}: {
+    entries: SessionEntry[];
+    grindSpotId: string;
+    elapsedMs: number;
+}) {
+    const drops = new Map<string, { quantity: number; value: number }>();
+    let expenseCount = 0;
+    let expenseTotal = 0;
+    for (const entry of entries) {
+        const value = entry.quantity * entry.unitPrice * entry.saleMultiplier;
+        if (entry.valuation === "expense") {
+            expenseCount += 1;
+            expenseTotal += entry.quantity * entry.unitPrice;
+            continue;
+        }
+        const drop = drops.get(entry.name) ?? { quantity: 0, value: 0 };
+        drops.set(entry.name, { quantity: drop.quantity + entry.quantity, value: drop.value + value });
+    }
+    return (
+        <>
+            <ul className={styles.Inventory} aria-label="Dropped items">
+                {Array.from(drops, ([name, { quantity, value }]) => {
+                    const icon = getDropIcon(grindSpotId, name);
+                    const rate = calculateQuantityPerHour(quantity, elapsedMs);
+                    return (
+                        <li key={name} className={styles.Tile}>
+                            {icon ? (
+                                <img src={icon} alt="" />
+                            ) : (
+                                <span className={`item-swatch ${styles.TileFallback}`} aria-hidden="true">
+                                    {name.slice(0, 2)}
+                                </span>
+                            )}
+                            <strong className={styles.TileQuantity}>{quantityFormatter.format(quantity)}</strong>
+                            <span className={styles.TileValue} title="Value after market tax">
+                                {formatSilver(value, true)}
+                            </span>
+                            <span className={styles.TileName} title={name}>
+                                {name}
+                            </span>
+                            <span className={styles.TileRate}>
+                                {rate === null ? "—" : `${quantityRateFormatter.format(rate)}/h`}
+                            </span>
+                        </li>
+                    );
+                })}
+            </ul>
+            {drops.size === 0 && <p className={styles.InventoryNote}>No loot yet.</p>}
+            {expenseCount > 0 && (
+                <p className={styles.InventoryNote}>
+                    {expenseCount === 1 ? "1 expense" : `${expenseCount} expenses`} ·{" "}
+                    <span className="negative">−{formatSilver(expenseTotal, true)}</span>
+                </p>
+            )}
+        </>
+    );
+}
+
 export function LootLedger({
+    title = "Loot ledger",
+    mode = "ledger",
+    switcher,
     tools,
     beforeEntries,
     loading = false,
@@ -156,6 +238,9 @@ export function LootLedger({
     onRemove,
     onUpdate,
 }: {
+    title?: string;
+    mode?: "inventory" | "ledger";
+    switcher?: ReactNode;
     tools: ReactNode;
     beforeEntries?: ReactNode;
     loading?: boolean;
@@ -179,9 +264,10 @@ export function LootLedger({
     );
     return (
         <section className={`panel ${styles.LedgerPanel}`} aria-labelledby={headingId} aria-busy={loading}>
-            <div className="panel-heading">
-                <div>
-                    <h2 id={headingId}>Loot ledger</h2>
+            <div className={`panel-heading ${styles.Heading}`}>
+                <div className={styles.Title}>
+                    <h2 id={headingId}>{title}</h2>
+                    {switcher}
                 </div>
                 {tools}
             </div>
@@ -194,6 +280,8 @@ export function LootLedger({
                         ? "This session has no recorded loot or expenses."
                         : "Set up capture or add your first item."}
                 </EmptyState>
+            ) : mode === "inventory" ? (
+                <DropInventory entries={entries} grindSpotId={grindSpotId} elapsedMs={elapsedMs} />
             ) : (
                 <>
                     <div className={styles.LedgerToolbar}>

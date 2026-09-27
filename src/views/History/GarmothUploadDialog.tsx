@@ -131,7 +131,7 @@ export function GarmothUploadDialog({
                         </div>
                     </div>
                 </div>
-                <section className={`${dialogStyles.MetricsGrid} ${styles.Metrics}`} aria-label="Session summary">
+                <section className={styles.Metrics} aria-label="Session summary">
                     <div className={dialogStyles.Metric}>
                         <span>Net silver / hour</span>
                         <strong>{formatSilver(totals.netPerHour, true)}</strong>

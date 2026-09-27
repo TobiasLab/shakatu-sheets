@@ -4,6 +4,9 @@ Runtime dependencies are intentionally small:
 
 - Tauri provides the desktop shell and IPC boundary.
 - React renders the interface.
+- `@fontsource-variable/inter` (OFL-1.1) bundles the Inter variable UI font. Linux systems otherwise fall back to
+  DejaVu Sans, and the interface depends on Inter's tabular figures. Only the Latin subset (about 48 KB) is loaded for
+  English text; the font is bundled locally and never fetched from the network.
 - `rusqlite` provides SQLite access and bundles SQLite for consistent Windows and Linux builds.
 - Reqwest makes HTTPS requests to Arsha using Rustls rather than a platform TLS dependency.
 - Serde serializes Tauri command data.
