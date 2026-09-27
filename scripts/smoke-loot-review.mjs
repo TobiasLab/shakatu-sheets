@@ -150,7 +150,7 @@ try {
     await send("Page.bringToFront");
     await until(`document.querySelectorAll('[data-review-entry]').length===5`);
     assert.equal(await evaluate(`document.querySelectorAll('#loot-review-detail form').length`), 1);
-    for (const theme of ["dark", "light", "moss"]) {
+    for (const theme of ["dark", "light"]) {
         await evaluate(`document.documentElement.dataset.theme='${theme}'`);
         await viewport(1280, 800);
         await screenshot(`review-${theme}`);

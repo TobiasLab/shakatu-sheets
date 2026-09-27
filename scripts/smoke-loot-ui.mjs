@@ -299,7 +299,7 @@ try {
         await setField('dialog[open] input[type="search"]', "no matching spot");
         assert(await evaluate("document.querySelector('dialog[open]').textContent.includes('No spots match')"));
         await click("Clear search");
-        for (const theme of ["dark", "light", "moss"]) {
+        for (const theme of ["dark", "light"]) {
             await evaluate(`document.documentElement.dataset.theme = ${JSON.stringify(theme)}`);
             await screenshot(`spot-browser-${theme}`);
         }
@@ -815,7 +815,7 @@ try {
             true,
             "Tab stays inside filters",
         );
-        for (const theme of ["dark", "light", "moss"]) {
+        for (const theme of ["dark", "light"]) {
             await evaluate(`document.documentElement.dataset.theme = ${JSON.stringify(theme)}`);
             await screenshot(`history-filters-${theme}`);
         }
@@ -1209,7 +1209,7 @@ try {
         await click("Pause timer");
         await until("window.__session.status === 'paused'");
         await click("Settings");
-        for (const theme of ["light", "moss", "dark"]) {
+        for (const theme of ["light", "dark"]) {
             await evaluate(`document.querySelector('input[name="theme"][value="${theme}"]').click()`);
             await click("Grind desk");
             await screenshot(`desk-${theme}`);

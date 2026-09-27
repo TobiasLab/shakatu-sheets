@@ -1,15 +1,14 @@
 import { useLayoutEffect, useState } from "react";
 
-export type Theme = "light" | "moss" | "dark";
+export type Theme = "light" | "dark";
 
 const THEME_STORAGE_KEY = "shakatu-sheets-theme-v2";
 const LEGACY_THEME_STORAGE_KEY = "shakatu-sheets-theme";
 
 function readSavedTheme(): Theme {
-    const savedTheme = localStorage.getItem(THEME_STORAGE_KEY);
-    if (savedTheme === "light" || savedTheme === "moss" || savedTheme === "dark") return savedTheme;
-    const legacy = localStorage.getItem(LEGACY_THEME_STORAGE_KEY);
-    return legacy === "light" ? "light" : legacy ? "moss" : "dark";
+    const savedTheme = localStorage.getItem(THEME_STORAGE_KEY) ?? localStorage.getItem(LEGACY_THEME_STORAGE_KEY);
+    // The retired moss theme falls back to dark.
+    return savedTheme === "light" ? "light" : "dark";
 }
 
 export function useTheme() {

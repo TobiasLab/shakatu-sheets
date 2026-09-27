@@ -9,8 +9,7 @@ reference for the rest of the app: numbers carry the screen, labels are small an
 imagery, and structure comes from alignment and hairlines rather than nested panels.
 
 - **Type and color.** Inter with tabular figures for every number. Graphite neutrals with one value accent (gold) for
-  silver per hour and primary actions. Dark is the default; light and moss share the same token names in
-  `src/index.css`.
+  silver per hour and primary actions. Dark is the default; light uses the same token names in `src/index.css`.
 - **Shell.** A 44px top bar holds the Grind desk, History, and Settings tabs, capture status, and save state. Away from
   the desk, it also shows the running session's spot, time, and silver per hour; clicking it returns to the desk.
 - **Grind desk.** The grind spot is the heading (with shortcuts and Browse all spots while selectable). A single readout

@@ -327,7 +327,7 @@ try {
                 [-300990000, "-300.99M"],
                 [9007199254740991, "9007.19T"],
             ]) {
-                for (const theme of ["dark", "light", "moss"]) {
+                for (const theme of ["dark", "light"]) {
                     await evaluate(`window.__event("session-overlay-state", {
                         session: {...window.currentSession, status:"paused", elapsedMs:3600000, startedAt:null,
                             entries:Array.from({length:30},(_,i)=>({id:String(i),name:window.overlayLootNames[i] ?? "Loot "+i,quantity:1,
