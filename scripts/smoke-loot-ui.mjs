@@ -78,15 +78,16 @@ async function setField(selector, value) {
     })()`);
 }
 async function setHistoryFilter(selector, value) {
-    await click("Filters");
+    if (selector === "region") {
+        await evaluate(
+            `[...document.querySelectorAll('[aria-label="Recorded region"] button')].find(b => b.textContent === ${JSON.stringify(value.toUpperCase())}).click()`,
+        );
+        return;
+    }
     await setField(selector, value);
-    await click("Close filters");
-    await until('document.activeElement?.getAttribute("aria-label") === "Filters"');
 }
 async function clearHistoryFilters() {
-    await click("Filters");
     await click("Clear filters");
-    await click("Close filters");
 }
 async function press(key, code, windowsVirtualKeyCode) {
     await send("Input.dispatchKeyEvent", { type: "keyDown", key, code, windowsVirtualKeyCode });
@@ -403,18 +404,17 @@ try {
         await click("Reload");
         await until("document.body.textContent.includes('No completed sessions yet')");
         await screenshot("history-empty");
-        await click("Filters");
-        await setField('dialog[open] input[type="date"]', "2026-10-01");
+        await setField('input[type="date"]', "2026-10-01");
         await setField("#history-completed-through", "2026-09-01");
-        await until("document.querySelectorAll('dialog[open] [aria-invalid=true]').length === 2");
+        await until("document.querySelectorAll('[aria-label=\"Filters\"] [aria-invalid=true]').length === 2");
         assert(
             await evaluate(
-                "document.querySelector('dialog[open] [aria-invalid=true]').getAttribute('aria-describedby') === 'history-date-error'",
+                "document.querySelector('[aria-label=\"Filters\"] [aria-invalid=true]').getAttribute('aria-describedby') === 'history-date-error'",
             ),
         );
+        await until("document.getElementById('history-date-error') !== null");
         await screenshot("history-date-error");
-        await click("Clear filters");
-        await click("Close filters");
+        await clearHistoryFilters();
         await evaluate("window.__failHistory = true");
         await click("Reload");
         await until("document.body.textContent.includes('Synthetic history read failure')");
@@ -796,9 +796,11 @@ try {
         );
         await screenshot("history");
         assert.equal(
-            await evaluate("document.querySelector('select[aria-label=\"Recorded region\"]').getClientRects().length"),
-            0,
-            "Filters stay hidden until requested",
+            await evaluate(
+                'document.querySelector(\'[aria-label="Recorded region"] button[aria-pressed="true"]\')?.textContent',
+            ),
+            "EU",
+            "Filters stay visible with the session region selected",
         );
         assert.equal(
             await evaluate(
@@ -807,23 +809,11 @@ try {
             false,
             "History omits methodological prose",
         );
-        await click("Filters");
-        await until('document.activeElement?.getAttribute("aria-label") === "Recorded region"');
-        await press("Tab", "Tab", 9);
-        assert.equal(
-            await evaluate('document.querySelector("dialog[open]").contains(document.activeElement)'),
-            true,
-            "Tab stays inside filters",
-        );
         for (const theme of ["dark", "light"]) {
             await evaluate(`document.documentElement.dataset.theme = ${JSON.stringify(theme)}`);
             await screenshot(`history-filters-${theme}`);
         }
         await evaluate("document.documentElement.dataset.theme = 'dark'");
-        await press("Escape", "Escape", 27);
-        await until(
-            'document.querySelector("dialog[open]") === null && document.activeElement?.getAttribute("aria-label") === "Filters"',
-        );
         await setHistoryFilter('select[aria-label="Grind spot"]', "stars-end-revamp");
         await until('document.body.textContent.includes("No sessions match these filters")');
         assert.equal(
@@ -868,7 +858,7 @@ try {
             true,
             "Spot filter must not remove comparisons for other spots",
         );
-        await setHistoryFilter('select[aria-label="Recorded region"]', "na");
+        await setHistoryFilter("region", "na");
         await until(
             'document.body.innerText.includes("No sessions match these filters") && document.querySelector(\'[aria-label="Grind spot comparisons"]\') === null',
         );
@@ -877,7 +867,7 @@ try {
         await evaluate("window.__holdHistory = true");
         await click("Reload");
         await until('typeof window.__releaseHistory === "function"');
-        await setHistoryFilter('select[aria-label="Recorded region"]', "na");
+        await setHistoryFilter("region", "na");
         await until('document.body.innerText.includes("No sessions match these filters")');
         await evaluate("window.__releaseHistory()");
         await delay(100);
@@ -913,16 +903,14 @@ try {
             mobile: false,
         });
         await screenshot("history-comparisons-compact");
-        await click("Filters");
         await screenshot("history-filters-compact");
         assert.equal(
             await evaluate(
-                '(() => { const r = document.querySelector("dialog[open]").getBoundingClientRect(); return r.left >= 0 && r.right <= innerWidth && r.top >= 0 && r.bottom <= innerHeight; })()',
+                '(() => { const r = document.querySelector("[aria-label=\\"Filters\\"]").getBoundingClientRect(); return r.left >= 0 && r.right <= innerWidth; })()',
             ),
             true,
-            "Filter dialog fits the viewport",
+            "Filters fit the viewport",
         );
-        await click("Close filters");
         assert.equal(
             await evaluate("document.documentElement.scrollWidth <= innerWidth"),
             true,
@@ -1434,8 +1422,10 @@ try {
         await until(
             'window.__calls.filter(c => c.command === "list_finished_sessions").at(-1)?.args.query.region === "na"',
         );
-        await until("document.querySelector('[aria-label=\"Filters\"]')?.textContent.includes('NA')");
-        await setHistoryFilter('select[aria-label="Recorded region"]', "eu");
+        await until(
+            "document.querySelector('[aria-label=\"Recorded region\"] button[aria-pressed=\"true\"]')?.textContent === 'NA'",
+        );
+        await setHistoryFilter("region", "eu");
         await until(
             'window.__calls.filter(c => c.command === "list_finished_sessions").at(-1)?.args.query.region === "eu"',
         );
