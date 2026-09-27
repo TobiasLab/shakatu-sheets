@@ -4,14 +4,12 @@
 - [Self-improvement](architecture/quantity-learning.md): opt-in learning, correction examples, and automatic recovery.
 - [Database](database/): schema, migrations, and data lifecycle.
 - [Dependency management](dependency_management/): dependency policy and tooling.
-- [Product behavior](design/): session, recognition-review, history, and upload behavior.
+- [Product behavior](design/): session, recognition-review, history, and upload behavior, and the
+  [design language](design/design-language.md) every UI change follows.
 - [Development](development/): setup, testing, packaging, and branch workflow, including
   [Windows support](development/windows.md), [loot benchmarks](development/live-loot-benchmark.md), and
   [performance verification](development/performance.md).
 - [External services](misc/): integration notes.
-
-The previous visual design language was retired on September 26, 2026 for the app redesign. It no longer guides agent
-work. The product reference describes current behavior without prescribing future layouts or styling.
 
 Keep documentation short, factual, and current. Update the relevant reference instead of adding a new implementation
 plan, completion report, or per-investigation write-up. Keep temporary plans and measurements in task or PR context;

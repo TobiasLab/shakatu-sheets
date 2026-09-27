@@ -1,19 +1,13 @@
 # Product behavior
 
-This reference describes existing behavior. The interface design rules follow in [Interface](#interface).
+This reference describes existing behavior. The visual rules every UI change follows are in the
+[design language](design-language.md).
 
 ## Interface
 
-The main window usually sits on a second monitor during a grind and is read at a glance. The session overlay is the
-reference for the rest of the app: numbers carry the screen, labels are small and muted, item icons are the only
-imagery, and structure comes from alignment and hairlines rather than nested panels.
+Dark is the default theme and light is the alternative; a saved preference for the retired moss theme falls back to
+dark.
 
-- **Type and color.** Inter with tabular figures for numbers that align or update live. Graphite neutrals with one
-  value accent (gold) for silver per hour and primary actions. Dark is the default; light uses the same token names in
-  `src/index.css`. The retired moss preference falls back to dark. Text tokens meet 4.5:1 contrast on every surface.
-- **Shared controls.** Selects and disclosures draw their own chevrons. A shared `.segmented` control switches between
-  closely related views or values (drop view, entry type, region, recent ranges, spot sort). Feedback is a tinted
-  note with a tone edge; empty states are dashed regions.
 - **Shell.** A 44px top bar holds the Grind desk, History, and Settings tabs, capture status, and save state. Away from
   the desk, it also shows the running session's spot, time, and silver per hour; clicking it returns to the desk. While
   captures await review, a warning pill shows their count everywhere and opens the Needs attention queue.
@@ -35,8 +29,6 @@ imagery, and structure comes from alignment and hairlines rather than nested pan
   7/30-day shortcuts, and Clear filters. Totals use the desk's readout style. Grind-spot comparisons are an open table with a bar
   proportional to each spot's rate. The session list sits beside a single receipt panel for the selected session.
 - **Settings.** A sticky section index sits beside open sections. Each section has a label column and a form column.
-- **Density.** 32px controls, 13px body text, 11–12px labels, 4px control and 6px panel radii. Row actions such as
-  remove and delete appear on hover or focus.
 
 ## Sessions and prices
 
