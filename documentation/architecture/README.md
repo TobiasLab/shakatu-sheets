@@ -154,11 +154,18 @@ existing duplicate-session confirmation. Successfully uploaded sessions may add 
 replace existing consumables. The previous remote session is not changed.
 
 Upload options are transient: global contribution defaults off, unchecked Agris is omitted, checked Agris with a blank
-amount sends `-1`, and a specified amount must be a positive safe integer. Blank drop rate is omitted; explicit rates
-are non-negative percentages with at most two decimals. The user confirmed that 250% sends `rate: 250`, without a
-ratio conversion. The optional-field contract permits omission of Agris; no undocumented zero/null sentinel is added.
-These options do not affect local silver calculations, are preserved while retrying within the modal, and reset on
-reopening. They are not stored in SQLite, so no migration is required.
+amount sends `-1`, and a specified amount must be a positive safe integer. The optional-field contract permits
+omission of Agris; no undocumented zero/null sentinel is added. These options do not affect local silver calculations,
+are preserved while retrying within the modal, and reset on reopening.
+
+Drop buffs mirror Garmoth's manual upload form: one loot scroll level, then any other grind buffs. The bundled
+`src/data/garmothBuffs.json` lists Garmoth's enabled grind buffs (`mode: 0`) with their drop amount and a curated tier
+group; tiers of one buff (loot scroll, Adventurer's Luck, Node War Benefit, Fortuna) are a single choice. The upload
+sends the selected IDs as `buffs` and their summed drop amount as `amount`, omitting both when nothing is selected.
+Rust revalidates the IDs and tier groups against the same file and computes the amount itself. No `rate` is sent;
+whether Garmoth derives the drop rate from `buffs` is unconfirmed. Submitting an upload stores the selection under the
+`garmoth.buffs` setting, even if the upload then fails, and the next review preselects it; a stored selection that no
+longer fits the catalog starts empty.
 
 Rust validates options and preview totals and then rechecks the complete reviewed session snapshot under the Garmoth
 operations lock. The lock covers the consumable correction, upload reservation, and HTTP operation. Corrections

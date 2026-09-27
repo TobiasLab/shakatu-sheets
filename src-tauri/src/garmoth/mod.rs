@@ -5,6 +5,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::persistence::load_setting;
 
+pub(crate) mod buffs;
 pub(crate) mod diagnostics;
 pub(crate) mod settings;
 pub(crate) mod upload;
@@ -23,6 +24,7 @@ pub(super) const API_KEY_SETTING: &str = "garmoth.api_key";
 pub(super) const CHARACTER_IDS_SETTING: &str = "garmoth.character_ids";
 pub(super) const CHARACTERS_SETTING: &str = "garmoth.characters";
 pub(super) const SELECTED_CHARACTER_SETTING: &str = "garmoth.selected_character_id";
+pub(super) const BUFFS_SETTING: &str = "garmoth.buffs";
 const MAX_RESPONSE_BYTES: u64 = 1_000_000;
 
 #[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]

@@ -4,9 +4,10 @@ use tauri::State;
 use crate::persistence::{load_setting, save_settings, save_settings_if_unchanged, DatabasePath};
 
 use super::{
-    client, parse_selected_character_id, parse_stored_characters, response_bytes, stored_api_key,
-    valid_character_id, GarmothCharacter, GarmothOperations, API_BASE_URL, API_KEY_SETTING,
-    CHARACTERS_SETTING, CHARACTER_IDS_SETTING, SELECTED_CHARACTER_SETTING,
+    buffs::parse_stored_buffs, client, parse_selected_character_id, parse_stored_characters,
+    response_bytes, stored_api_key, valid_character_id, GarmothCharacter, GarmothOperations,
+    API_BASE_URL, API_KEY_SETTING, BUFFS_SETTING, CHARACTERS_SETTING, CHARACTER_IDS_SETTING,
+    SELECTED_CHARACTER_SETTING,
 };
 
 #[derive(Serialize)]
@@ -16,6 +17,7 @@ pub(crate) struct GarmothSettings {
     character_ids: Vec<String>,
     characters: Vec<GarmothCharacter>,
     selected_character_id: Option<String>,
+    buff_ids: Vec<i64>,
 }
 
 #[derive(Deserialize)]
@@ -132,6 +134,7 @@ pub(crate) async fn load_garmoth_settings(
         character_ids: parse_stored_character_ids(load_setting(&state.0, CHARACTER_IDS_SETTING)?)?,
         characters,
         selected_character_id,
+        buff_ids: parse_stored_buffs(load_setting(&state.0, BUFFS_SETTING)?),
     })
 }
 

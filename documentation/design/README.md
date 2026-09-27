@@ -109,6 +109,8 @@ consumables but cannot replace existing ones. A repeat upload requires confirmat
 Unknown outcomes block retries. Items outside the destination spot's export table are listed as omitted; local entries
 and full session totals are retained.
 
-Global contribution defaults off. Agris and drop-rate options are optional, remain available across failed attempts,
-and reset when review is reopened. The detailed persistence and upload contracts live in
+Drop buffs follow Garmoth's form: a loot scroll level (None, Lv. 1, Lv. 2) and a grid of the other grind buffs, where
+choosing a tier replaces the other tiers of that buff. The review shows the resulting drop amount and preselects the
+buffs submitted with the previous upload. Global contribution defaults off. The Agris option is optional, remains available
+across failed attempts, and resets when review is reopened. The detailed persistence and upload contracts live in
 [architecture](../architecture/README.md#consumable-presets).

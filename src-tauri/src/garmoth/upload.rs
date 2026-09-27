@@ -6,12 +6,13 @@ use tauri::State;
 
 use crate::persistence::{
     claim_garmoth_upload, finish_garmoth_upload, load_session_for_upload, load_setting,
-    release_garmoth_upload, DatabasePath, SessionEntry, SessionStatus, Valuation,
+    release_garmoth_upload, save_settings, DatabasePath, SessionEntry, SessionStatus, Valuation,
 };
 
 use super::{
-    client, parse_selected_character_id, parse_stored_characters, stored_api_key,
-    GarmothOperations, API_BASE_URL, CHARACTERS_SETTING, SELECTED_CHARACTER_SETTING,
+    buffs::drop_amount, client, parse_selected_character_id, parse_stored_characters,
+    stored_api_key, GarmothOperations, API_BASE_URL, BUFFS_SETTING, CHARACTERS_SETTING,
+    SELECTED_CHARACTER_SETTING,
 };
 
 #[derive(Deserialize)]
@@ -34,7 +35,8 @@ pub(crate) struct GarmothUploadInput {
     drops: BTreeMap<String, i64>,
     global: bool,
     agris: Option<i64>,
-    rate: Option<f64>,
+    #[serde(default)]
+    buffs: Vec<i64>,
     expected_session: SessionRecord,
     consumable_entries: Option<Vec<SessionEntry>>,
 }
@@ -53,8 +55,10 @@ struct CreateSessionPayload<'a> {
     consumables: &'a [[i64; 2]],
     #[serde(skip_serializing_if = "Option::is_none")]
     agris: Option<i64>,
+    #[serde(skip_serializing_if = "<[i64]>::is_empty")]
+    buffs: &'a [i64],
     #[serde(skip_serializing_if = "Option::is_none")]
-    rate: Option<f64>,
+    amount: Option<i64>,
 }
 
 #[derive(Clone, Copy, Serialize)]
@@ -110,14 +114,6 @@ fn validate_upload(input: &GarmothUploadInput) -> Result<(), String> {
         .is_some_and(|value| value != -1 && !(1..=9_007_199_254_740_991).contains(&value))
     {
         return Err("Agris must be -1 for unknown usage or a positive whole amount.".into());
-    }
-    if input.rate.is_some_and(|value| {
-        !value.is_finite()
-            || value < 0.0
-            || value * 100.0 > 9_007_199_254_740_991.0
-            || (value * 100.0 - (value * 100.0).round()).abs() > 0.000001
-    }) {
-        return Err("Drop rate must be non-negative with at most two decimal places.".into());
     }
     for (key, quantity) in &input.drops {
         let Some((main, sub)) = key.split_once('_') else {
@@ -273,6 +269,11 @@ pub(crate) async fn upload_garmoth_session(
 ) -> Result<GarmothUploadResult, String> {
     let _guard = operations.lock().await;
     validate_upload(&input)?;
+    let amount = drop_amount(&input.buffs)?;
+    // Buffs rarely change between sessions, so the next review starts from the selection submitted here, even when
+    // this upload then fails.
+    let buffs = serde_json::to_string(&input.buffs).map_err(|error| error.to_string())?;
+    save_settings(&state.0, &[(BUFFS_SETTING, Some(&buffs))])?;
     let session = load_session_for_upload(&state.0, &input.session_id)?;
     let consumables = reviewed_consumables(&input, &session)?;
     let api_key = stored_api_key(&state.0)?;
@@ -295,7 +296,8 @@ pub(crate) async fn upload_garmoth_session(
         spec: character.spec.as_deref(),
         consumables: &consumables,
         agris: input.agris,
-        rate: input.rate,
+        buffs: &input.buffs,
+        amount: (amount > 0).then_some(amount),
     };
     let body = serde_json::to_vec(&payload)
         .map_err(|error| format!("could not prepare the Garmoth upload: {error}"))?;
@@ -429,7 +431,8 @@ mod tests {
             spec: Some("awak"),
             consumables: &consumables,
             agris: None,
-            rate: None,
+            buffs: &[],
+            amount: None,
         };
 
         assert_eq!(
@@ -528,7 +531,7 @@ mod tests {
     }
 
     #[test]
-    fn validates_agris_and_percentage_options() {
+    fn validates_agris_option() {
         let mut input = sample_input();
         assert!(validate_upload(&input).is_ok());
         for value in [-1, 1, 20000] {
@@ -539,19 +542,10 @@ mod tests {
             input.agris = Some(value);
             assert!(validate_upload(&input).is_err());
         }
-        input.agris = None;
-        for value in [0.0, 250.0, 250.25, 0.29] {
-            input.rate = Some(value);
-            assert!(validate_upload(&input).is_ok());
-        }
-        for value in [-1.0, 250.001, f64::INFINITY, f64::NAN] {
-            input.rate = Some(value);
-            assert!(validate_upload(&input).is_err());
-        }
     }
 
     #[test]
-    fn serializes_global_agris_and_rate_without_percentage_conversion() {
+    fn serializes_global_agris_buffs_and_drop_amount() {
         let drops = BTreeMap::new();
         let payload = CreateSessionPayload {
             grindspot_id: 200,
@@ -564,12 +558,15 @@ mod tests {
             spec: None,
             consumables: &[],
             agris: Some(-1),
-            rate: Some(250.25),
+            buffs: &[2, 8],
+            amount: Some(100),
         };
         let json = serde_json::to_value(payload).unwrap();
         assert_eq!(json["global"], true);
         assert_eq!(json["agris"], -1);
-        assert_eq!(json["rate"], 250.25);
+        assert_eq!(json["buffs"], serde_json::json!([2, 8]));
+        assert_eq!(json["amount"], 100);
+        assert!(json.get("rate").is_none());
     }
 
     #[test]

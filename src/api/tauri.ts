@@ -39,6 +39,7 @@ export type GarmothSettings = {
     characterIds: string[];
     characters: GarmothCharacter[];
     selectedCharacterId: string | null;
+    buffIds: number[];
 };
 
 export type GarmothUploadInput = {
@@ -51,7 +52,7 @@ export type GarmothUploadInput = {
     drops: Record<string, number>;
     global: boolean;
     agris?: number;
-    rate?: number;
+    buffs?: number[];
     expectedSession: SessionState;
     consumableEntries?: SessionEntry[];
 };
