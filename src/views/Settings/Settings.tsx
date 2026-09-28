@@ -1,4 +1,5 @@
 import { type FormEvent, useEffect, useState } from "react";
+import type { Theme } from "../../api/preferences";
 import {
     fetchGarmothCharacters,
     type GarmothSettings,
@@ -11,12 +12,12 @@ import { ConsumablePresetSettings } from "../../components/ConsumablePresets/Con
 import { Feedback } from "../../components/Feedback/Feedback";
 import { FormField } from "../../components/FormField/FormField";
 import { GrindSpotPicker } from "../../components/GrindSpotPicker/GrindSpotPicker";
+import type { SpotPreferences } from "../../components/GrindSpotPicker/preferences";
 import type { SessionState } from "../../domain/session";
 import { formatTimestamp } from "../../format";
 import type { LiveSessionController } from "../../hooks/useLiveSession";
 import type { PersistedSetting } from "../../hooks/usePersistedSetting";
 import type { useSelfImprovement } from "../../hooks/useSelfImprovement";
-import type { Theme } from "../../hooks/useTheme";
 import { isLootFont, type LootFont } from "../../recognition/lootFont";
 import { SelfImprovementSettings } from "./SelfImprovementSettings";
 import styles from "./Settings.module.css";
@@ -24,7 +25,8 @@ import styles from "./Settings.module.css";
 export function SettingsView({
     marketController,
     theme,
-    onThemeChange,
+    spotPreferences,
+    onSpotPreferencesChange,
     onOpenCapture,
     overlayOpacity,
     lootFont,
@@ -43,8 +45,9 @@ export function SettingsView({
         | "spotEditable"
         | "changeGrindSpot"
     >;
-    theme: Theme;
-    onThemeChange: (theme: Theme) => void;
+    theme: PersistedSetting<Theme>;
+    spotPreferences: SpotPreferences;
+    onSpotPreferencesChange: (preferences: SpotPreferences) => void;
     onOpenCapture: () => void;
     overlayOpacity: PersistedSetting<number>;
     lootFont: PersistedSetting<LootFont>;
@@ -231,6 +234,8 @@ export function SettingsView({
                                         region={session.region}
                                         disabled={!spotEditable || !databaseLoaded || market.fetchingPrices}
                                         onSelect={changeGrindSpot}
+                                        preferences={spotPreferences}
+                                        onPreferencesChange={onSpotPreferencesChange}
                                     />
                                 </div>
                                 {!spotEditable && <p>Grind spot locked for this session.</p>}
@@ -309,8 +314,8 @@ export function SettingsView({
                                                 type="radio"
                                                 name="theme"
                                                 value={id}
-                                                checked={theme === id}
-                                                onChange={() => onThemeChange(id)}
+                                                checked={theme.value === id}
+                                                onChange={() => theme.update(id)}
                                             />
                                             <span className={styles.ThemePreview} aria-hidden="true">
                                                 <i />
@@ -324,6 +329,18 @@ export function SettingsView({
                                         </label>
                                     ))}
                                 </fieldset>
+                                {theme.error && (
+                                    <div role="alert" className={styles.Error}>
+                                        {theme.error}
+                                        <button
+                                            type="button"
+                                            className="button"
+                                            onClick={() => theme.update(theme.value)}
+                                        >
+                                            Retry save
+                                        </button>
+                                    </div>
+                                )}
                                 <label htmlFor="overlay-opacity">Overlay opacity</label>
                                 <div className={styles.OpacitySlider}>
                                     <input

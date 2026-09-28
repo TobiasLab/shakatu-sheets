@@ -11,6 +11,7 @@ mod garmoth_uploads;
 pub(crate) mod loot_font;
 pub(crate) mod market_prices;
 pub(crate) mod overlay;
+pub(crate) mod preferences;
 pub(crate) mod quantity_learning;
 pub(crate) mod sessions;
 mod settings;

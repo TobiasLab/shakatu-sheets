@@ -10,10 +10,8 @@ import { SelectionButton } from "../SelectionButton/SelectionButton";
 import styles from "./GrindSpotPicker.module.css";
 import {
     filterSpots,
-    parseSpotPreferences,
     quickSpotIds,
     rememberSpot,
-    SPOT_PREFERENCES_KEY,
     type SpotFilter,
     type SpotPreferences,
     splitSpotName,
@@ -48,14 +46,6 @@ function moveFocus(event: KeyboardEvent<HTMLElement>, list: HTMLElement | null) 
     buttons[next].focus();
 }
 
-function readPreferences() {
-    try {
-        return parseSpotPreferences(localStorage.getItem(SPOT_PREFERENCES_KEY));
-    } catch {
-        return parseSpotPreferences(null);
-    }
-}
-
 export function GrindSpotPicker({
     spot,
     disabled,
@@ -63,6 +53,8 @@ export function GrindSpotPicker({
     compact = false,
     locked = false,
     region,
+    preferences,
+    onPreferencesChange,
 }: {
     compact?: boolean;
     locked?: boolean;
@@ -70,8 +62,9 @@ export function GrindSpotPicker({
     spot: GrindSpotProfile;
     disabled: boolean;
     onSelect: (id: string) => void;
+    preferences: SpotPreferences;
+    onPreferencesChange: (preferences: SpotPreferences) => void;
 }) {
-    const [preferences, setPreferences] = useState(readPreferences);
     const [query, setQuery] = useState("");
     const [filter, setFilter] = useState<SpotFilter>("All");
     const dialog = useRef<HTMLDialogElement>(null);
@@ -120,27 +113,17 @@ export function GrindSpotPicker({
 
     useEffect(() => {
         if (disabled) dialog.current?.close();
-        else setPreferences(readPreferences());
     }, [disabled]);
-
-    function save(next: SpotPreferences) {
-        setPreferences(next);
-        try {
-            localStorage.setItem(SPOT_PREFERENCES_KEY, JSON.stringify(next));
-        } catch {
-            // Preferences remain usable in memory when storage is unavailable.
-        }
-    }
 
     function select(id: string) {
         if (disabled) return;
         onSelect(id);
-        save(rememberSpot(preferences, id));
+        onPreferencesChange(rememberSpot(preferences, id));
         dialog.current?.close();
     }
 
     function toggleFavorite(id: string) {
-        save({
+        onPreferencesChange({
             ...preferences,
             favorites: preferences.favorites.includes(id)
                 ? preferences.favorites.filter((favorite) => favorite !== id)

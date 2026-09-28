@@ -139,6 +139,10 @@ await send("Page.addScriptToEvaluateOnNewDocument", {
                 return;
             }
             if (command === "load_overlay_opacity") return 100;
+            if (command === "load_theme") return window.__theme ?? null;
+            if (command === "save_theme") { window.__theme = args.theme; return; }
+            if (command === "load_spot_preferences") return window.__spotPreferences ?? null;
+            if (command === "save_spot_preferences") { window.__spotPreferences = args.preferences; return; }
             if (command === "save_overlay_opacity") return;
             if (command === "load_market_prices") return window.__marketPrices?.[args.region] ?? [];
             if (command === "fetch_market_prices") {

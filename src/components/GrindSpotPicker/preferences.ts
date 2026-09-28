@@ -1,21 +1,17 @@
 import { grindSpots } from "../../data/grindSpots";
 
-export const SPOT_PREFERENCES_KEY = "shakatu-sheets-spot-preferences-v1";
 export type SpotPreferences = { favorites: string[]; recent: string[] };
 export type SpotFilter = "All" | "Favorites" | "Recent";
 const spotIds = new Set(grindSpots.map((spot) => spot.id));
 
-export function parseSpotPreferences(raw: string | null): SpotPreferences {
-    try {
-        const value = JSON.parse(raw ?? "null");
-        const clean = (ids: unknown): string[] =>
-            Array.isArray(ids)
-                ? [...new Set(ids.filter((id): id is string => typeof id === "string" && spotIds.has(id)))]
-                : [];
-        return { favorites: clean(value?.favorites), recent: clean(value?.recent).slice(0, 8) };
-    } catch {
-        return { favorites: [], recent: [] };
-    }
+// Drops spot IDs that are unknown to this build, duplicated, or malformed.
+export function cleanSpotPreferences(value: unknown): SpotPreferences {
+    const record = typeof value === "object" && value !== null ? (value as Record<string, unknown>) : {};
+    const clean = (ids: unknown): string[] =>
+        Array.isArray(ids)
+            ? [...new Set(ids.filter((id): id is string => typeof id === "string" && spotIds.has(id)))]
+            : [];
+    return { favorites: clean(record.favorites), recent: clean(record.recent).slice(0, 8) };
 }
 
 export function rememberSpot(preferences: SpotPreferences, id: string): SpotPreferences {

@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Feedback } from "../../components/Feedback/Feedback";
 import { GrindSpotPicker } from "../../components/GrindSpotPicker/GrindSpotPicker";
+import type { SpotPreferences } from "../../components/GrindSpotPicker/preferences";
 import { Icon } from "../../components/Icon/Icon";
 import { LiveLootCapture } from "../../components/LiveLootCapture/LiveLootCapture";
 import { focusLootReview } from "../../components/LiveLootCapture/LootReview";
@@ -27,6 +28,8 @@ export function LiveSessionView({
     onOpenHistory,
     selfImprovement,
     onOpenSelfImprovement,
+    spotPreferences,
+    onSpotPreferencesChange,
 }: {
     overlay: { openOverlay: () => Promise<void>; error: string; available: boolean };
     onOpenHistory: () => void;
@@ -38,6 +41,8 @@ export function LiveSessionView({
     lootFontReady: boolean;
     visible: boolean;
     captureSetupRequest: number;
+    spotPreferences: SpotPreferences;
+    onSpotPreferencesChange: (preferences: SpotPreferences) => void;
     onCaptureStatusChange: (status: CaptureSummary) => void;
 }) {
     const { session, dispatch, databaseLoaded, editingDisabled, spotEditable, spot, drops, changeGrindSpot, market } =
@@ -142,6 +147,8 @@ export function LiveSessionView({
                     locked={!spotEditable}
                     disabled={!spotEditable || !databaseLoaded || market.fetchingPrices || !visible}
                     onSelect={changeGrindSpot}
+                    preferences={spotPreferences}
+                    onPreferencesChange={onSpotPreferencesChange}
                 />
                 <button
                     type="button"

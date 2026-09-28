@@ -38,7 +38,7 @@ dark.
 
 Users select a grind spot and region, optionally fetch market prices, and track time with the timer or manually entered
 hours. Spot selection locks once the session has time or entries. Loot and expenses remain editable until finishing.
-Favorites and recent spots are stored locally. Ledger filters only affect the displayed rows.
+Favorites and recent spots are saved in SQLite settings. Ledger filters only affect the displayed rows.
 
 Market, vendor, and expense values remain distinct. Market requests are explicit, prices are editable, and missing
 prices are not guessed. If the selected region has no saved prices, the other region's saved snapshot is identified as
