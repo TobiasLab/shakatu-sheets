@@ -1,6 +1,6 @@
 import { useRef, useState } from "react";
 import { getGrindSpotDrops, grindSpots } from "../../data/grindSpots";
-import { createEntry } from "../../domain/session";
+import { createEntry, type SessionEntry } from "../../domain/session";
 import type { LiveSessionController } from "../../hooks/useLiveSession";
 import { type MarniRecognition, recognizeMarniScreenshot } from "../../recognition/marni";
 import { Feedback } from "../Feedback/Feedback";
@@ -99,18 +99,35 @@ export function MarniImport({ controller }: { controller: LiveSessionController 
 
     function applyImport() {
         if (!draft || elapsedMs === null || selectedItems.length === 0 || !canImport) return;
-        const entries = selectedItems.map((item) => {
+        const entries: SessionEntry[] = [];
+        const unpriced: string[] = [];
+        for (const item of selectedItems) {
             const drop = drops.find((candidate) => candidate.name === item.suggestedDropName);
             if (!drop) throw new Error(`Unknown recognized item: ${item.suggestedDropName}`);
             const marketPrice = market.currentMarketPrices.find(
                 (price) => price.itemId === drop.marketItemId,
             )?.basePrice;
-            const unitPrice = marketPrice ?? drop.unitPrice ?? 0;
-            return {
+            const unitPrice = marketPrice ?? drop.unitPrice;
+            if (unitPrice === null || !Number.isSafeInteger(unitPrice) || unitPrice < 0) {
+                unpriced.push(drop.name);
+                continue;
+            }
+            entries.push({
                 ...createEntry(drop.name, Number(item.quantity), unitPrice, drop.valuation),
                 source: "recognition" as const,
-            };
-        });
+            });
+        }
+        if (unpriced.length > 0) {
+            // Saved prices cover only the session's grind spot.
+            const names = unpriced.join(", ");
+            const spotName = grindSpots.find((spot) => spot.id === draft.grindSpotId)?.name ?? draft.grindSpotId;
+            setError(
+                draft.grindSpotId === session.grindSpotId
+                    ? `No saved price for ${names}. Fetch prices in Settings → Market first.`
+                    : `No saved price for ${names}. Switch the session to ${spotName} and fetch its prices first.`,
+            );
+            return;
+        }
         dispatch({ type: "import-recognition", grindSpotId: draft.grindSpotId, elapsedMs, entries });
         setMessage(`Imported ${entries.length} ${entries.length === 1 ? "entry" : "entries"} into the session.`);
         setDraft(null);
