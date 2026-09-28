@@ -17,6 +17,8 @@ agents.md
 mocks/
 # Local gameplay ROI images and OCR issue logs
 /dev-samples/
+# Claude Code worktrees are full checkouts of other branches
+/.claude/worktrees/
 
 # Editor directories and files
 .vscode/*
