@@ -15,6 +15,8 @@ On Windows the same identifier resolves through the roaming known folder:
 Windows inherits the current user's directory ACLs. For controlled tests only, `SHAKATU_DATA_DIR` can select an absolute
 alternate data directory. Normal launches do not set it. Safe window close flushes the ordered session queue and retries
 the newest failed snapshot; persistent failure keeps the window open. No migration accompanies Windows support.
+If the database cannot be opened or migrated at startup, the window still opens and reports the error instead of
+loading a session.
 
 ## Migration 1
 

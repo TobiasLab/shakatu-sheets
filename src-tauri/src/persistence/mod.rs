@@ -26,6 +26,9 @@ const DATABASE_VERSION: i64 = 5;
 
 pub struct DatabasePath(pub PathBuf);
 
+/// Managed instead of `DatabasePath` when startup cannot open the database, so the window can report why.
+pub struct DatabaseInitError(pub String);
+
 pub fn initialize_database(app: &AppHandle) -> Result<PathBuf, String> {
     let app_data_dir = match std::env::var_os("SHAKATU_DATA_DIR") {
         Some(path) => {

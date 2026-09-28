@@ -14,9 +14,10 @@ pub fn run() {
     configure_linux_webview();
 
     let builder = tauri::Builder::default().setup(|app| {
-        let database_path =
-            persistence::initialize_database(app.handle()).map_err(std::io::Error::other)?;
-        app.manage(persistence::DatabasePath(database_path));
+        match persistence::initialize_database(app.handle()) {
+            Ok(path) => app.manage(persistence::DatabasePath(path)),
+            Err(error) => app.manage(persistence::DatabaseInitError(error)),
+        };
         app.manage(garmoth::GarmothOperations::default());
         app.manage(native_capture::NativeCaptureState::default());
         #[cfg(target_os = "linux")]
