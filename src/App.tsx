@@ -42,9 +42,10 @@ export function App() {
     const selfImprovement = useSelfImprovement();
     const [showSelfImprovement, setShowSelfImprovement] = useState(false);
     const persistedSession = usePersistedSession(async () => {
-        // Without an open database these saves can never succeed, so they must not keep the window open.
-        if (!persistedSession.databaseLoaded) return;
-        await Promise.all([overlayOpacity.flush(), lootFont.flush(), theme.flush(), spotPreferences.flush()]);
+        const flushes = [overlayOpacity.flush(), lootFont.flush(), theme.flush(), spotPreferences.flush()];
+        // Without a loaded database a failing save must not keep the window open; pending saves still get their chance.
+        if (persistedSession.databaseLoaded) await Promise.all(flushes);
+        else await Promise.allSettled(flushes);
     });
     const liveSession = useLiveSession(
         persistedSession.session,
