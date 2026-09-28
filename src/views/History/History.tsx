@@ -128,12 +128,14 @@ export function HistoryView({
         }
     }
 
+    // Page loads wait for an in-flight save so a just-finished session is listed; autosaves leave a shown page alone.
+    const waitingForSave = databaseStatus === "saving" && records === null;
     useEffect(() => {
-        if (databaseLoaded && databaseStatus !== "saving") void loadHistory();
+        if (databaseLoaded && !waitingForSave) void loadHistory();
         return () => {
             historyRequestId.current += 1;
         };
-    }, [databaseLoaded, databaseStatus, region, fromDate, toDate, grindSpotFilter, offset]);
+    }, [databaseLoaded, waitingForSave, region, fromDate, toDate, grindSpotFilter, offset]);
 
     useEffect(() => {
         if (databaseLoaded) {
