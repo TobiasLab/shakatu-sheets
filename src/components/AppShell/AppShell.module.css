@@ -1,12 +1,11 @@
+/* The page itself never scrolls: the workspace scrolls under the title bar so its scrollbar stays out of the bar. */
 .AppShell {
-    min-height: 100vh;
+    height: 100vh;
     display: flex;
     flex-direction: column;
 }
 .Bar {
-    position: sticky;
-    top: 0;
-    z-index: 20;
+    position: relative;
     display: flex;
     align-items: center;
     gap: 24px;
@@ -85,6 +84,7 @@
 }
 .Review {
     display: flex;
+    flex-shrink: 0;
     align-items: center;
     gap: 7px;
     min-height: 28px;
@@ -148,6 +148,35 @@
     font-variant-numeric: tabular-nums;
     white-space: nowrap;
 }
+.ResizeEdge {
+    position: absolute;
+    inset: 0 0 auto;
+    height: 5px;
+}
+.WindowControls {
+    display: flex;
+    align-self: stretch;
+    margin-right: -24px;
+}
+.WindowControls button {
+    display: grid;
+    place-items: center;
+    width: 44px;
+    border: 0;
+    background: none;
+    color: var(--text-soft);
+}
+.WindowControls button:hover {
+    background: var(--hover);
+    color: var(--text-strong);
+}
+.WindowControls .Close:hover {
+    background: var(--danger);
+    color: var(--accent-contrast);
+}
+.WindowControls button:focus-visible {
+    outline-offset: -2px;
+}
 .StatusDot {
     display: inline-block;
     width: 6px;
@@ -168,11 +197,9 @@
 }
 .Workspace {
     flex: 1;
-    width: 100%;
-    max-width: 1440px;
-    min-width: 0;
-    margin: 0 auto;
-    padding: 24px 32px 40px;
+    min-height: 0;
+    overflow-y: auto;
+    padding: 24px max(32px, calc((100% - 1376px) / 2)) 40px;
 }
 .Workspace:focus {
     outline: none;
@@ -197,11 +224,7 @@
 .SkipLink:focus {
     top: 8px;
 }
-@media (max-width: 900px) {
-    .Bar {
-        gap: 12px;
-        padding: 0 16px;
-    }
+@media (max-width: 1160px) {
     .Brand {
         display: none;
     }
@@ -214,11 +237,23 @@
     .Review {
         padding-right: 4px;
     }
+}
+@media (max-width: 900px) {
+    .Bar {
+        gap: 12px;
+        padding: 0 16px;
+    }
+    .DatabaseState {
+        display: none;
+    }
+    .WindowControls {
+        margin-right: -16px;
+    }
     .Workspace {
         padding: 20px 16px 32px;
     }
 }
-@media (max-width: 600px) {
+@media (max-width: 760px) {
     .Capture {
         display: none;
     }

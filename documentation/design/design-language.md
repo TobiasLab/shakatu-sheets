@@ -106,6 +106,12 @@ Two themes, dark (default) and light, share the same token names. Every new toke
 
 - **Shell:** a 44px top bar (`AppShell`) with the app mark, the Grind desk / History / Settings tabs, and a status area:
   pending-review pill, capture status, the running session away from the desk, and save state. There is no sidebar.
+  The top bar is also the window title bar: the main window has no system decorations, the bar's empty space drags the
+  window, and 44px minimize, maximize/restore, and close buttons sit flush right. Close turns `--danger` on hover. The
+  page itself never scrolls; the workspace scrolls beneath the bar so its scrollbar stays out of the title bar. To keep
+  the bar from overlapping, it drops detail as the window narrows: at 1160px and below the app mark, the pending-review
+  text (the count stays), and the running session's spot name; at 900px and below the save state (storage errors still
+  show in the banner under the bar); at 760px and below the capture status.
 - **Workspace:** content maxes out at 1440px with 32px side padding (16px below 900px). Pages must not scroll
   horizontally at any width down to 640px; wide tables scroll inside their own region.
 - **Grind desk, top to bottom:** spot heading, readout row (silver/hour, net, net-over-time trend, time with timer

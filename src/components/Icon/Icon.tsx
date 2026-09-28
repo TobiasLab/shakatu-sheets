@@ -11,11 +11,17 @@ type IconName =
     | "pause"
     | "popout"
     | "monitor"
+    | "minimize"
+    | "maximize"
+    | "restore"
     | "close";
 
 const paths: Record<IconName, string> = {
     monitor: "M3 4h18v13H3z M8 21h8 M12 17v4",
     close: "M6 6l12 12 M18 6 6 18",
+    minimize: "M6 12h12",
+    maximize: "M6 6h12v12H6z",
+    restore: "M6 9h9v9H6z M9 9V6h9v9h-3",
     popout: "M14 3h7v7 M21 3l-9 9 M10 3H3v18h18v-7",
     star: "m12 3 2.8 5.7 6.2.9-4.5 4.4 1.1 6.2L12 17.3l-5.6 2.9 1.1-6.2L3 9.6l6.2-.9z",
     lock: "M6 10h12v11H6z M8 10V7a4 4 0 0 1 8 0v3",

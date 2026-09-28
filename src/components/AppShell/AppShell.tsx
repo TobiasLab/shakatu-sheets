@@ -1,4 +1,6 @@
-import type { ReactNode } from "react";
+import { getCurrentWindow } from "@tauri-apps/api/window";
+import { type MouseEvent, type ReactNode, useEffect, useLayoutEffect, useRef, useState } from "react";
+import { supportsTauriApi } from "../../api/tauri";
 import { calculateTotals, type SessionState } from "../../domain/session";
 import { formatDuration, formatSilver } from "../../format";
 import { useElapsedTime } from "../../hooks/useElapsedTime";
@@ -36,12 +38,16 @@ export function AppShell({
     databaseError: string;
     children: ReactNode;
 }) {
+    const workspace = useRef<HTMLElement>(null);
+    useLayoutEffect(() => {
+        workspace.current?.scrollTo(0, 0);
+    }, [view]);
     return (
         <div className={styles.AppShell}>
             <a className={styles.SkipLink} href="#workspace">
                 Skip to workspace
             </a>
-            <header className={styles.Bar}>
+            <header className={styles.Bar} data-tauri-drag-region="deep">
                 <span className={styles.Brand}>
                     <Icon name="brand" size={14} />
                     Shakatu Sheets
@@ -91,13 +97,14 @@ export function AppShell({
                         </span>
                     )}
                 </div>
+                {supportsTauriApi() && <WindowControls />}
             </header>
             {databaseError && (
                 <div className={styles.SaveError} role="alert">
                     <strong>Session storage needs attention.</strong> {databaseError}
                 </div>
             )}
-            <main id="workspace" tabIndex={-1} className={styles.Workspace}>
+            <main id="workspace" ref={workspace} tabIndex={-1} className={styles.Workspace}>
                 {children}
             </main>
         </div>
@@ -130,5 +137,76 @@ function SessionPresence({
             <time>{formatDuration(elapsedMs)}</time>
             {elapsedMs > 0 && <strong>{formatSilver(netPerHour, true)}/h</strong>}
         </button>
+    );
+}
+
+// Native caption buttons do not take focus, so a click leaves focus where the user was typing.
+function keepFocus(event: MouseEvent) {
+    event.preventDefault();
+}
+
+function WindowControls() {
+    const [maximized, setMaximized] = useState(false);
+    useEffect(() => {
+        const appWindow = getCurrentWindow();
+        let disposed = false;
+        let revision = 0;
+        let unlisten: (() => void) | undefined;
+        const refresh = async () => {
+            const request = ++revision;
+            const next = await appWindow.isMaximized();
+            if (!disposed && request === revision) setMaximized(next);
+        };
+        void appWindow
+            .onResized(() => {
+                void refresh().catch(() => undefined);
+            })
+            .then((stop) => {
+                if (disposed) void Promise.resolve(stop()).catch(() => undefined);
+                else unlisten = stop;
+            })
+            .catch(() => undefined);
+        void refresh().catch(() => undefined);
+        return () => {
+            disposed = true;
+            if (unlisten) void Promise.resolve(unlisten()).catch(() => undefined);
+        };
+    }, []);
+    const maximizeLabel = maximized ? "Restore window" : "Maximize window";
+    return (
+        <>
+            {/* On Linux the top edge resizes the undecorated window; dragging there would turn the resize into a move. */}
+            {!maximized && <div className={styles.ResizeEdge} data-tauri-drag-region="false" />}
+            <div className={styles.WindowControls}>
+                <button
+                    type="button"
+                    aria-label="Minimize window"
+                    title="Minimize window"
+                    onMouseDown={keepFocus}
+                    onClick={() => void getCurrentWindow().minimize()}
+                >
+                    <Icon name="minimize" size={16} />
+                </button>
+                <button
+                    type="button"
+                    aria-label={maximizeLabel}
+                    title={maximizeLabel}
+                    onMouseDown={keepFocus}
+                    onClick={() => void getCurrentWindow().toggleMaximize()}
+                >
+                    <Icon name={maximized ? "restore" : "maximize"} size={16} />
+                </button>
+                <button
+                    type="button"
+                    className={styles.Close}
+                    aria-label="Close window"
+                    title="Close window"
+                    onMouseDown={keepFocus}
+                    onClick={() => void getCurrentWindow().close()}
+                >
+                    <Icon name="close" size={16} />
+                </button>
+            </div>
+        </>
     );
 }
