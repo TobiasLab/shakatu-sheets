@@ -160,9 +160,10 @@ Garmoth's grind buffs for uploads are refreshed separately, so a problem in the 
 node scripts/sync-grind-buffs.mjs
 ```
 
-It writes Garmoth's enabled grind buffs to `src/data/garmothBuffs.json` in Garmoth's display order and downloads their
-icons to `public/buffs/`. Buffs without an icon path use `grind-buffs/<id>.png`; icons missing from Garmoth's asset host
-fall back to an empty tile. Tier groups are curated by ID in the script, which fails if a grouped buff disappears.
+It writes Garmoth's enabled grind buffs to `src/data/garmothBuffs.json` in Garmoth's display order, with their drop
+rate, cap flag, and drop amount, and downloads their icons to `public/buffs/`. Buffs without an icon path use
+`grind-buffs/<id>.png`; icons missing from Garmoth's asset host fall back to an empty tile. Tier groups are curated by
+ID in the script, which fails if a grouped buff disappears.
 
 The shared `src/data/supplementalDrops.json` catalog adds Laila's Petal, Pure Forest Breath, and
 [Event] Bountiful Autumn Lunchbox to every spot's manual entry, recognition dictionary, screenshot import, icons, and

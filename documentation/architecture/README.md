@@ -159,13 +159,15 @@ omission of Agris; no undocumented zero/null sentinel is added. These options do
 are preserved while retrying within the modal, and reset on reopening.
 
 Drop buffs mirror Garmoth's manual upload form: one loot scroll level, then any other grind buffs. The bundled
-`src/data/garmothBuffs.json` lists Garmoth's enabled grind buffs (`mode: 0`) with their drop amount and a curated tier
-group; tiers of one buff (loot scroll, Adventurer's Luck, Node War Benefit, Fortuna) are a single choice. The upload
-sends the selected IDs as `buffs` and their summed drop amount as `amount`, omitting both when nothing is selected.
-Rust revalidates the IDs and tier groups against the same file and computes the amount itself. No `rate` is sent;
-whether Garmoth derives the drop rate from `buffs` is unconfirmed. Submitting an upload stores the selection under the
-`garmoth.buffs` setting, even if the upload then fails, and the next review preselects it; a stored selection that no
-longer fits the catalog starts empty.
+`src/data/garmothBuffs.json` lists Garmoth's enabled grind buffs (`mode: 0`) with their drop rate, cap flag, drop
+amount, and a curated tier group; tiers of one buff (loot scroll, Adventurer's Luck, Node War Benefit, Fortuna) are a
+single choice. The drop rate adds the capped buffs up to 300% and the uncapped buffs on top (Garmoth's `is_uncapped`:
+Blessing of the Morning, Eye of Arsha, Edania Buff, Castle Buff, the Defense Tokens, and Blessing of Agris Scroll). The
+drop amount is the sum of the buffs' amounts. The upload sends the selected IDs as `buffs`, the drop rate as `rate` (a
+percentage, so 250% sends `250`), and the drop amount as `amount`, omitting each when it is empty or zero. Rust
+revalidates the IDs and tier groups against the same file and computes both totals itself. Submitting an upload stores
+the selection under the `garmoth.buffs` setting, even if the upload then fails, and the next review preselects it; a
+stored selection that no longer fits the catalog starts empty.
 
 Rust validates options and preview totals and then rechecks the complete reviewed session snapshot under the Garmoth
 operations lock. The lock covers the consumable correction, upload reservation, and HTTP operation. Corrections

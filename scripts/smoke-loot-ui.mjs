@@ -1568,13 +1568,13 @@ try {
         const buffHeading =
             "[...document.querySelectorAll('dialog[open] h2')].find(h => h.textContent === 'Drop buffs')";
         const pressedBuffs = `[...${buffHeading}.closest('section').querySelectorAll('button[aria-pressed="true"]')].map(b => b.textContent.trim()).join(',')`;
-        const buffAmount = `${buffHeading}.nextElementSibling.textContent`;
+        const buffTotals = `JSON.stringify([...${buffHeading}.nextElementSibling.querySelectorAll('div')].map(d => d.textContent))`;
         assert.equal(
             await evaluate(pressedBuffs),
             "Lv. 2,[Camp] Adventurer's Luck V",
             "The last used buffs are preselected",
         );
-        assert.equal(await evaluate(buffAmount), "Drop amount +100%");
+        assert.equal(await evaluate(buffTotals), JSON.stringify(["Drop amount+100%", "Drop rate+150%"]));
         await click("[Camp] Adventurer's Luck III");
         await click("None");
         await click("Lv. 1");
@@ -1584,7 +1584,7 @@ try {
             "Lv. 1,[Camp] Adventurer's Luck III,Blessing of Old Moon Scroll",
             "One tier of each buff stays selected",
         );
-        assert.equal(await evaluate(buffAmount), "Drop amount +150%");
+        assert.equal(await evaluate(buffTotals), JSON.stringify(["Drop amount+150%", "Drop rate+230%"]));
         await click("Upload to Garmoth");
         await until("window.__calls.some(c => c.command === 'upload_garmoth_session')");
         const upload = await evaluate("window.__calls.find(c => c.command === 'upload_garmoth_session').args.input");
@@ -1597,7 +1597,7 @@ try {
             [...upload.buffs].sort((a, b) => a - b),
             [1, 10, 138],
         );
-        assert.equal("rate" in upload, false);
+        assert.equal("rate" in upload, false, "Rust derives the drop rate from the buffs");
         await until("!document.querySelector('dialog[open]')");
         assert.equal(await evaluate("JSON.stringify(window.__session.entries)"), supplementalEntries);
         assert.equal(errors.length, 0, JSON.stringify(errors));

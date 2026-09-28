@@ -6,6 +6,7 @@ import {
     buildGarmothUpload,
     chooseBuff,
     dropAmount,
+    dropRate,
     type GarmothBuff,
     garmothBuffs,
     getGarmothUploadNotice,
@@ -238,6 +239,17 @@ describe("drop buffs", () => {
         expect(dropAmount([])).toBe(0);
         // Loot scroll Lv. 2, Adventurer's Luck V, Blessing of Old Moon Scroll.
         expect(dropAmount([2, 8, 138])).toBe(200);
+    });
+
+    it("caps the drop rate of capped buffs at 300% and adds uncapped buffs on top", () => {
+        expect(dropRate([])).toBe(0);
+        expect(dropRate([2, 8, 138])).toBe(250);
+        // J's Special Scroll and Scroll of the Glorious Battlefield push the capped buffs past 300%.
+        const capped = [2, 8, 138, 3, 79];
+        expect(dropRate(capped)).toBe(300);
+        // Blessing of the Morning, Eye of Arsha, and Edania Buff, then Blessing of Agris Scroll.
+        expect(dropRate([...capped, 46, 36, 77])).toBe(470);
+        expect(dropRate([...capped, 46, 36, 77, 218])).toBe(520);
     });
 
     it("bundles only known tier groups with unique IDs", () => {
