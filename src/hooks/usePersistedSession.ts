@@ -1,5 +1,5 @@
 import { useEffect, useLayoutEffect, useReducer, useRef, useState } from "react";
-import { loadActiveSession, saveSession, supportsTauriApi } from "../api/tauri";
+import { loadActiveSession, reopenSession, saveSession, supportsTauriApi } from "../api/tauri";
 import type { OverlayTimerRequest } from "../components/SessionOverlay/sessionOverlay";
 import { createSession, pauseRestoredSession, reduceSession } from "../domain/session";
 
@@ -120,5 +120,11 @@ export function usePersistedSession(beforeClose?: () => Promise<void>) {
         return null;
     }
 
-    return { session, dispatch, databaseLoaded, databaseStatus, databaseError, closing, requestOverlayTimer };
+    async function reopen(id: string) {
+        // Rust judges from saved data whether the active session may be replaced, so staged edits must land first.
+        await persistenceQueue.current.flush();
+        dispatch({ type: "hydrate", session: await reopenSession(id) });
+    }
+
+    return { session, dispatch, databaseLoaded, databaseStatus, databaseError, closing, requestOverlayTimer, reopen };
 }

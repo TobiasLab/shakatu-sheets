@@ -1,5 +1,4 @@
 import { useState } from "react";
-import { reopenSession } from "./api/tauri";
 import { AppShell, type AppView } from "./components/AppShell/AppShell";
 import { focusLootReview } from "./components/LiveLootCapture/LootReview";
 import type { CaptureSummary } from "./components/LiveLootCapture/useLiveLootCapture";
@@ -53,8 +52,7 @@ export function App() {
     }
 
     async function reopenFinishedSession(id: string) {
-        const session = await reopenSession(id);
-        persistedSession.dispatch({ type: "hydrate", session });
+        await persistedSession.reopen(id);
         setView("live");
     }
 

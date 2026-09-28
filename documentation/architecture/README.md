@@ -22,7 +22,8 @@ multiplied by the number of entries. SQL mirrors the existing entry valuation ca
 functions derive duration-weighted rates and ranking from the compact aggregate facts. Individual session details still
 use the same pure frontend calculation as the live view. Normal saves cannot change finished
 sessions. Reopening is a separate backend command that atomically returns one finished session to a paused state without
-replacing an active session that contains progress. Deletion is also a separate backend command, requires the row to still
+replacing an active session that contains progress. The frontend flushes the save queue first, so that check sees
+loot still waiting for the autosave. Deletion is also a separate backend command, requires the row to still
 be finished, and relies on SQLite foreign-key cascades for session-owned records.
 
 Saved market prices are read from SQLite when the selected region or grind-spot profile changes. The frontend only
