@@ -195,7 +195,9 @@
 .StatusDot[data-tone="error"] {
     background: var(--danger);
 }
+/* Positioned so visually hidden absolute elements stay inside the workspace scroll instead of making the page scroll. */
 .Workspace {
+    position: relative;
     flex: 1;
     min-height: 0;
     overflow-y: auto;

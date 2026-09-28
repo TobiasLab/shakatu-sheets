@@ -1414,6 +1414,13 @@ try {
                 entriesBeforeReview,
                 "Dismissing a retry must not add loot",
             );
+            await click(await evaluate("document.querySelector('header button[aria-label$=attention]').ariaLabel"));
+            assert.equal(await evaluate("document.activeElement.id"), "loot-review-heading");
+            assert.equal(
+                await evaluate("document.scrollingElement.scrollTop"),
+                0,
+                "Opening review from the title bar must keep the title bar in view",
+            );
             // Finish while a new notification is still being tracked, before its OCR result.
             for (let frame = 0; frame < 4; frame++) {
                 await evaluate("window.__emitLoot(4)");
