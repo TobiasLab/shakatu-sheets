@@ -1,7 +1,9 @@
-import { useState } from "react";
+import { useLayoutEffect, useState } from "react";
 import { loadLootFont, saveLootFont } from "./api/lootFont";
+import { loadSpotPreferences, loadTheme, saveSpotPreferences, saveTheme, type Theme } from "./api/preferences";
 import { loadOverlayOpacity, saveOverlayOpacity } from "./api/sessionOverlay";
 import { AppShell, type AppView } from "./components/AppShell/AppShell";
+import type { SpotPreferences } from "./components/GrindSpotPicker/preferences";
 import { focusLootReview } from "./components/LiveLootCapture/LootReview";
 import type { CaptureSummary } from "./components/LiveLootCapture/useLiveLootCapture";
 import { useLiveSession } from "./hooks/useLiveSession";
@@ -9,7 +11,6 @@ import { usePersistedSession } from "./hooks/usePersistedSession";
 import { usePersistedSetting } from "./hooks/usePersistedSetting";
 import { useSelfImprovement } from "./hooks/useSelfImprovement";
 import { useSessionOverlay } from "./hooks/useSessionOverlay";
-import { useTheme } from "./hooks/useTheme";
 import type { LootFont } from "./recognition/lootFont";
 import { HistoryView } from "./views/History/History";
 import { LiveSessionView } from "./views/LiveSession/LiveSession";
@@ -23,7 +24,18 @@ export function App() {
         pendingReviews: 0,
     });
     const [view, setView] = useState<AppView>("live");
-    const { theme, setTheme } = useTheme();
+    const theme = usePersistedSetting<Theme>("dark", loadTheme, saveTheme, "theme");
+    // A failed load keeps favorites read-only rather than letting the next pick overwrite them with the empty default.
+    const spotPreferences = usePersistedSetting<SpotPreferences>(
+        { favorites: [], recent: [] },
+        loadSpotPreferences,
+        saveSpotPreferences,
+        "grind spot favorites",
+        true,
+    );
+    const changeSpotPreferences = (next: SpotPreferences) => {
+        if (spotPreferences.loaded) void spotPreferences.update(next);
+    };
     const overlayOpacity = usePersistedSetting(100, loadOverlayOpacity, saveOverlayOpacity, "opacity");
     // Capture must not guess the in-game font, so a failed load stays unready until a font is saved.
     const lootFont = usePersistedSetting<LootFont>("korean", loadLootFont, saveLootFont, "in-game font", true);
@@ -32,7 +44,7 @@ export function App() {
     const persistedSession = usePersistedSession(async () => {
         // Without an open database these saves can never succeed, so they must not keep the window open.
         if (!persistedSession.databaseLoaded) return;
-        await Promise.all([overlayOpacity.flush(), lootFont.flush()]);
+        await Promise.all([overlayOpacity.flush(), lootFont.flush(), theme.flush(), spotPreferences.flush()]);
     });
     const liveSession = useLiveSession(
         persistedSession.session,
@@ -43,7 +55,7 @@ export function App() {
     const overlay = useSessionOverlay(
         {
             session: persistedSession.session,
-            theme,
+            theme: theme.value,
             opacity: overlayOpacity.value,
             timerEnabled: persistedSession.databaseLoaded && !persistedSession.closing,
             pendingReviews: captureStatus.pendingReviews,
@@ -60,6 +72,13 @@ export function App() {
         await persistedSession.reopen(id);
         setView("live");
     }
+
+    useLayoutEffect(() => {
+        document.documentElement.dataset.theme = theme.value;
+    }, [theme.value]);
+
+    // The app renders only after the saved theme loads, so its content never appears in the wrong theme.
+    if (!theme.loaded) return null;
 
     return (
         <div inert={persistedSession.closing}>
@@ -93,6 +112,8 @@ export function App() {
                         lootFont={lootFont.value}
                         lootFontReady={lootFont.loaded && !lootFont.saving && !lootFont.error}
                         overlay={overlay}
+                        spotPreferences={spotPreferences.value}
+                        onSpotPreferencesChange={changeSpotPreferences}
                         onOpenHistory={() => setView("history")}
                         visible={view === "live"}
                         captureSetupRequest={captureSetupRequest}
@@ -119,7 +140,8 @@ export function App() {
                     <SettingsView
                         marketController={liveSession}
                         theme={theme}
-                        onThemeChange={setTheme}
+                        spotPreferences={spotPreferences.value}
+                        onSpotPreferencesChange={changeSpotPreferences}
                         onOpenCapture={openCaptureSetup}
                         overlayOpacity={overlayOpacity}
                         lootFont={lootFont}

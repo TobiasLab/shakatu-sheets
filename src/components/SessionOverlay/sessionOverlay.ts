@@ -1,5 +1,5 @@
+import type { Theme } from "../../api/preferences";
 import type { SessionEntry, SessionState } from "../../domain/session";
-import type { Theme } from "../../hooks/useTheme";
 
 export const OVERLAY_STATE = "session-overlay-state";
 export const OVERLAY_VISIBILITY_CHANGED = "session-overlay-visibility-changed";

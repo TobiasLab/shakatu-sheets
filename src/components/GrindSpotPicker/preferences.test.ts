@@ -1,17 +1,18 @@
 import { describe, expect, it } from "vitest";
 import { grindSpots } from "../../data/grindSpots";
-import { filterSpots, parseSpotPreferences, quickSpotIds, rememberSpot, splitSpotName } from "./preferences";
+import { cleanSpotPreferences, filterSpots, quickSpotIds, rememberSpot, splitSpotName } from "./preferences";
 
 const ids = grindSpots.slice(0, 10).map((spot) => spot.id);
 
 describe("spot preferences", () => {
-    it("recovers from malformed storage and removes unknown and duplicate IDs", () => {
-        expect(parseSpotPreferences("broken")).toEqual({ favorites: [], recent: [] });
-        expect(parseSpotPreferences(null)).toEqual({ favorites: [], recent: [] });
-        expect(
-            parseSpotPreferences(JSON.stringify({ favorites: [ids[0], "missing", ids[0], 2], recent: ids })),
-        ).toEqual({ favorites: [ids[0]], recent: ids.slice(0, 8) });
-        expect(parseSpotPreferences('{"favorites":{},"recent":false}')).toEqual({ favorites: [], recent: [] });
+    it("recovers from malformed values and removes unknown and duplicate IDs", () => {
+        expect(cleanSpotPreferences("broken")).toEqual({ favorites: [], recent: [] });
+        expect(cleanSpotPreferences(null)).toEqual({ favorites: [], recent: [] });
+        expect(cleanSpotPreferences({ favorites: [ids[0], "missing", ids[0], 2], recent: ids })).toEqual({
+            favorites: [ids[0]],
+            recent: ids.slice(0, 8),
+        });
+        expect(cleanSpotPreferences({ favorites: {}, recent: false })).toEqual({ favorites: [], recent: [] });
     });
     it("prioritizes favorites and fills four shortcuts with distinct recent spots", () => {
         expect(quickSpotIds({ favorites: [ids[2], ids[0]], recent: [ids[0], ids[1], ids[2], ids[3], ids[4]] })).toEqual(
@@ -26,7 +27,7 @@ describe("spot preferences", () => {
             recent: [ids[2], ids[0], ids[1], ...ids.slice(3, 8)],
         });
         expect(rememberSpot(preferences, ids[8]).recent).toEqual([ids[8], ...ids.slice(0, 7)]);
-        expect(parseSpotPreferences(JSON.stringify(preferences))).toEqual(preferences);
+        expect(cleanSpotPreferences(preferences)).toEqual(preferences);
     });
 });
 

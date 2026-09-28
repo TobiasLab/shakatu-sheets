@@ -525,6 +525,56 @@ fn loot_font_defaults_persists_and_rejects_unknown_values() {
     remove_temporary_database(&path);
 }
 
+#[test]
+fn theme_and_spot_preferences_persist_and_reject_invalid_values() {
+    use super::preferences::{
+        load_spot_preferences_at_path, load_theme_at_path, save_spot_preferences_at_path,
+        save_theme_at_path, SpotPreferences, Theme,
+    };
+    let (path, connection) = temporary_database();
+    drop(connection);
+    assert_eq!(load_theme_at_path(&path).unwrap(), None);
+    for theme in [Theme::Light, Theme::Dark] {
+        save_theme_at_path(&path, theme).unwrap();
+        assert_eq!(load_theme_at_path(&path).unwrap(), Some(theme));
+    }
+    assert!(serde_json::from_str::<Theme>("\"moss\"").is_err());
+    save_settings(&path, &[("theme", Some("moss"))]).unwrap();
+    assert!(load_theme_at_path(&path).is_err());
+
+    assert_eq!(load_spot_preferences_at_path(&path).unwrap(), None);
+    let preferences: SpotPreferences = serde_json::from_value(serde_json::json!({
+        "favorites": ["garmoth-162", "sycraia-lower-revamp"],
+        "recent": ["stars-end-revamp"]
+    }))
+    .unwrap();
+    save_spot_preferences_at_path(&path, &preferences).unwrap();
+    assert_eq!(
+        load_spot_preferences_at_path(&path).unwrap(),
+        Some(preferences.clone())
+    );
+    for invalid in [
+        serde_json::json!({"favorites": [""], "recent": []}),
+        serde_json::json!({"favorites": ["Sycraia"], "recent": []}),
+        serde_json::json!({"favorites": [], "recent": ["a", "b", "c", "d", "e", "f", "g", "h", "i"]}),
+        serde_json::json!({"favorites": vec!["spot"; 201], "recent": []}),
+    ] {
+        let invalid: SpotPreferences = serde_json::from_value(invalid).unwrap();
+        assert!(save_spot_preferences_at_path(&path, &invalid).is_err());
+    }
+    assert!(serde_json::from_value::<SpotPreferences>(
+        serde_json::json!({"favorites": [], "recent": [], "extra": 1})
+    )
+    .is_err());
+    assert_eq!(
+        load_spot_preferences_at_path(&path).unwrap(),
+        Some(preferences)
+    );
+    save_settings(&path, &[("grind_spot_preferences", Some("not json"))]).unwrap();
+    assert!(load_spot_preferences_at_path(&path).is_err());
+    remove_temporary_database(&path);
+}
+
 fn history_query() -> HistoryQuery {
     HistoryQuery {
         region: Some(Region::Eu),
