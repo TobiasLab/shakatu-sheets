@@ -24,17 +24,17 @@ it("prefers the SQLite theme and ignores browser storage once it exists", async 
     expect(invoke.mock.calls).toEqual([["load_theme"]]);
 });
 
-it("moves the browser theme into SQLite before removing it", async () => {
+it("moves the browser theme into SQLite and keeps it for a retry when saving fails", async () => {
     storage.set("shakatu-sheets-theme", "light");
     invoke.mockResolvedValueOnce(null).mockResolvedValueOnce(undefined);
     await expect(loadTheme()).resolves.toBe("light");
     expect(invoke.mock.calls[1]).toEqual(["save_theme", { theme: "light" }]);
     expect(storage.size).toBe(0);
 
-    storage.set("shakatu-sheets-theme-v2", "moss");
+    storage.set("shakatu-sheets-theme-v2", "light");
     invoke.mockResolvedValueOnce(null).mockRejectedValueOnce(new Error("disk full"));
-    await expect(loadTheme()).rejects.toThrow("disk full");
-    expect(storage.get("shakatu-sheets-theme-v2")).toBe("moss");
+    await expect(loadTheme()).resolves.toBe("light");
+    expect(storage.get("shakatu-sheets-theme-v2")).toBe("light");
 });
 
 it("moves cleaned browser spot favorites into SQLite", async () => {

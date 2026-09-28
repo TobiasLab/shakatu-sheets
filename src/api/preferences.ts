@@ -4,7 +4,7 @@ import { cleanSpotPreferences, type SpotPreferences } from "../components/GrindS
 export type Theme = "light" | "dark";
 
 // Until September 2026 the theme and spot favorites lived in browser storage. The first load without a SQLite value
-// saves the old value there and then removes it from browser storage.
+// uses the old value, saves it there, and removes it from browser storage once that save succeeds.
 const legacyThemeKeys = ["shakatu-sheets-theme-v2", "shakatu-sheets-theme"];
 const legacySpotPreferencesKey = "shakatu-sheets-spot-preferences-v1";
 
@@ -35,8 +35,12 @@ export async function loadTheme(): Promise<Theme> {
     if (legacy === null) return "dark";
     // The retired moss theme falls back to dark.
     const theme = legacy === "light" ? "light" : "dark";
-    await saveTheme(theme);
-    removeLegacy(legacyThemeKeys);
+    try {
+        await saveTheme(theme);
+        removeLegacy(legacyThemeKeys);
+    } catch {
+        // The browser value stays, so the next load retries the move.
+    }
     return theme;
 }
 
@@ -56,8 +60,12 @@ export async function loadSpotPreferences(): Promise<SpotPreferences> {
         // Malformed old preferences are dropped.
     }
     const preferences = cleanSpotPreferences(value);
-    await saveSpotPreferences(preferences);
-    removeLegacy([legacySpotPreferencesKey]);
+    try {
+        await saveSpotPreferences(preferences);
+        removeLegacy([legacySpotPreferencesKey]);
+    } catch {
+        // The browser value stays, so the next load retries the move.
+    }
     return preferences;
 }
 
