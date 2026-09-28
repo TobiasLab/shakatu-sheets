@@ -51,7 +51,8 @@ Rates without elapsed time display an unavailable value. Timer ticks and local f
 
 Screenshot import accepts cropped English Marni loot tracker images at 80%, 100%, or 120% BDO UI scale. Processing is
 local and produces an editable draft with low-confidence suggestions marked for review. Confirmation requires complete
-rows and an empty idle session. Screenshots and draft thumbnails are not persisted.
+rows, an empty idle session, and a saved price for every imported item; missing prices name the items instead of
+importing them at zero. Screenshots and draft thumbnails are not persisted.
 
 Live capture is explicit and can run before or while the timer is paused. Navigation and minimization preserve
 recognition; previews run only when setup is visible. Recognized events enter the ledger. Unresolved captures support
