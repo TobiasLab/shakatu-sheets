@@ -260,7 +260,8 @@ pub(crate) async fn upload_garmoth_session(
     upload(&input, &state.0, client()?, API_BASE_URL).await
 }
 
-/// Callers hold `GarmothOperations`, so the checked session cannot change before the upload is claimed.
+/// Callers hold `GarmothOperations`, which serializes the upload with Garmoth settings changes and finished-session
+/// deletion. Claiming the upload rechecks that the session is still finished.
 pub(crate) async fn upload(
     input: &GarmothUploadInput,
     path: &PathBuf,
