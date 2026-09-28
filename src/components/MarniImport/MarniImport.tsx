@@ -98,9 +98,12 @@ export function MarniImport({ controller }: { controller: LiveSessionController 
     }
 
     function applyImport() {
-        if (!draft || elapsedMs === null || selectedItems.length === 0 || !canImport) return;
+        if (!draft || elapsedMs === null || selectedItems.length === 0 || !canImport || market.marketPrices === null) {
+            return;
+        }
         const entries: SessionEntry[] = [];
-        const unpriced: string[] = [];
+        const unfetched = new Set<string>();
+        const unpriceable = new Set<string>();
         for (const item of selectedItems) {
             const drop = drops.find((candidate) => candidate.name === item.suggestedDropName);
             if (!drop) throw new Error(`Unknown recognized item: ${item.suggestedDropName}`);
@@ -109,7 +112,7 @@ export function MarniImport({ controller }: { controller: LiveSessionController 
             )?.basePrice;
             const unitPrice = marketPrice ?? drop.unitPrice;
             if (unitPrice === null || !Number.isSafeInteger(unitPrice) || unitPrice < 0) {
-                unpriced.push(drop.name);
+                (drop.marketItemId === undefined ? unpriceable : unfetched).add(drop.name);
                 continue;
             }
             entries.push({
@@ -117,15 +120,25 @@ export function MarniImport({ controller }: { controller: LiveSessionController 
                 source: "recognition" as const,
             });
         }
-        if (unpriced.length > 0) {
-            // Saved prices cover only the session's grind spot.
-            const names = unpriced.join(", ");
-            const spotName = grindSpots.find((spot) => spot.id === draft.grindSpotId)?.name ?? draft.grindSpotId;
-            setError(
-                draft.grindSpotId === session.grindSpotId
-                    ? `No saved price for ${names}. Fetch prices in Settings → Market first.`
-                    : `No saved price for ${names}. Switch the session to ${spotName} and fetch its prices first.`,
-            );
+        if (unfetched.size > 0 || unpriceable.size > 0) {
+            const problems: string[] = [];
+            if (unfetched.size > 0) {
+                // Saved prices cover only the session's grind spot.
+                const names = [...unfetched].join(", ");
+                const spotName = grindSpots.find((spot) => spot.id === draft.grindSpotId)?.name ?? draft.grindSpotId;
+                problems.push(
+                    draft.grindSpotId === session.grindSpotId
+                        ? `No saved price for ${names}. Fetch prices in Settings → Market first.`
+                        : `No saved price for ${names}. Switch the session to ${spotName} and fetch its prices first.`,
+                );
+            }
+            if (unpriceable.size > 0) {
+                problems.push(
+                    `${[...unpriceable].join(", ")} ${unpriceable.size === 1 ? "has" : "have"} no market price. ` +
+                        "Set those rows to Ignore item and add them manually with a price.",
+                );
+            }
+            setError(problems.join(" "));
             return;
         }
         dispatch({ type: "import-recognition", grindSpotId: draft.grindSpotId, elapsedMs, entries });
@@ -248,7 +261,12 @@ export function MarniImport({ controller }: { controller: LiveSessionController 
                         <button
                             className="button primary-button"
                             type="button"
-                            disabled={!canImport || elapsedMs === null || selectedItems.length === 0}
+                            disabled={
+                                !canImport ||
+                                elapsedMs === null ||
+                                selectedItems.length === 0 ||
+                                market.marketPrices === null
+                            }
                             onClick={applyImport}
                         >
                             Import {selectedItems.length} items
