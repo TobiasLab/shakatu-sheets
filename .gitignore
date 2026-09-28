@@ -12,7 +12,9 @@ dist
 dist-ssr
 *.local
 .env
-agents.md
+# Local agent instructions
+AGENTS.md
+CLAUDE.md
 /documentation/misc/garmoth-api.md
 mocks/
 # Local gameplay ROI images and OCR issue logs
