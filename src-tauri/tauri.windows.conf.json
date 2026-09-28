@@ -8,7 +8,8 @@
         "width": 1280,
         "height": 820,
         "minWidth": 640,
-        "minHeight": 420
+        "minHeight": 420,
+        "decorations": false
       },
       {
         "label": "session-overlay",

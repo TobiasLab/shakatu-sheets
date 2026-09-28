@@ -42,6 +42,9 @@ async function evaluate(expression) {
     return result.result.value;
 }
 const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+// The workspace scrolls under the title bar, so horizontal overflow can hide inside it instead of the page.
+const fitsWindow =
+    "[document.documentElement, document.getElementById('workspace')].every((e) => e.scrollWidth <= e.clientWidth)";
 async function until(expression, timeoutMs = 5_000) {
     const deadline = Date.now() + timeoutMs;
     while (Date.now() < deadline) {
@@ -110,6 +113,7 @@ await send("Page.addScriptToEvaluateOnNewDocument", {
     window.__TAURI_EVENT_PLUGIN_INTERNALS__ = { unregisterListener(event, id) { listeners.delete(id); } };
     window.__resize = () => { for (const [id, args] of listeners) if (args.event === "tauri://resize") callbacks.get(args.handler)?.({event: args.event, payload:{width:1280,height:820}, id}); };
     window.__minimized = false;
+    window.__maximized = false;
     window.__TAURI_INTERNALS__ = {
         metadata: { currentWindow: { label: "main" }, currentWebview: { label: "main" } },
         transformCallback(fn) { const id = ++nextCallbackId; callbacks.set(id, fn); return id; },
@@ -257,9 +261,10 @@ await send("Page.addScriptToEvaluateOnNewDocument", {
                 return {x:0.2,y:0.7,uiScalePercent:${uiScale}};
             }
             if (command === "plugin:window|is_minimized") return window.__minimized;
+            if (command === "plugin:window|is_maximized") return window.__maximized;
             if (command === "plugin:event|listen") { const id = args.handler; listeners.set(id, args); return id; }
             if (command === "debug_roi_sample_collection_status") throw new Error("Debug collection unavailable in test");
-            if (["acknowledge_native_display_frame", "set_native_display_capture_region", "set_native_display_capture_preview_enabled", "stop_native_display_capture", "save_loot_capture_settings", "plugin:event|unlisten"].includes(command)) return;
+            if (["acknowledge_native_display_frame", "set_native_display_capture_region", "set_native_display_capture_preview_enabled", "stop_native_display_capture", "save_loot_capture_settings", "plugin:event|unlisten", "plugin:window|minimize", "plugin:window|toggle_maximize", "plugin:window|close"].includes(command)) return;
             throw new Error("Unexpected test command: " + command);
         }
     };
@@ -377,6 +382,26 @@ try {
             ),
             "Navigation must stay in the top bar",
         );
+        for (const [label, command] of [
+            ["Minimize window", "plugin:window|minimize"],
+            ["Maximize window", "plugin:window|toggle_maximize"],
+            ["Close window", "plugin:window|close"],
+        ]) {
+            await click(label);
+            assert(
+                await evaluate(`window.__calls.some((call) => call.command === ${JSON.stringify(command)})`),
+                `${label} requests ${command}`,
+            );
+            assert.notEqual(
+                await evaluate("document.activeElement?.getAttribute('aria-label')"),
+                label,
+                "Window buttons leave focus where it was",
+            );
+        }
+        await evaluate("window.__maximized = true; window.__resize()");
+        await until(`document.querySelector('[aria-label="Restore window"]') !== null`);
+        await evaluate("window.__maximized = false; window.__resize()");
+        await until(`document.querySelector('[aria-label="Maximize window"]') !== null`);
     }
     if (process.env.UI_SCREENSHOT_ONLY === "1") {
         console.log(`Screenshot saved: ${output}/desk-idle.png`);
@@ -751,10 +776,7 @@ try {
         await evaluate(
             "document.querySelector('fieldset[aria-label=\"Align loot areas\"]').scrollIntoView({block:'center'})",
         );
-        assert(
-            await evaluate("document.documentElement.scrollWidth <= window.innerWidth"),
-            "Capture setup must fit compact windows",
-        );
+        assert(await evaluate(fitsWindow), "Capture setup must fit compact windows");
         assert(
             await evaluate(`(() => {
             const rect = (direction) => document.querySelector('[data-direction="' + direction + '"]').getBoundingClientRect();
@@ -975,11 +997,7 @@ try {
             true,
             "Filters fit the viewport",
         );
-        assert.equal(
-            await evaluate("document.documentElement.scrollWidth <= innerWidth"),
-            true,
-            "History must not overflow the viewport",
-        );
+        assert.equal(await evaluate(fitsWindow), true, "History must not overflow the viewport");
         await send("Emulation.setDeviceMetricsOverride", {
             width: 1280,
             height: 820,
@@ -1276,10 +1294,7 @@ try {
                 mobile: false,
             });
             await screenshot(`minimum-window-${width}`);
-            assert(
-                await evaluate(`document.documentElement.scrollWidth <= ${width}`),
-                `Window at ${width}px must not overflow horizontally`,
-            );
+            assert(await evaluate(fitsWindow), `Window at ${width}px must not overflow horizontally`);
             await click("Add loot or expense");
             assert(
                 await evaluate(
@@ -1301,10 +1316,7 @@ try {
             await evaluate("document.querySelector('[aria-label=\"Close manual entry\"]').click()");
             for (const view of ["History", "Settings"]) {
                 await click(view);
-                assert(
-                    await evaluate(`document.documentElement.scrollWidth <= ${width}`),
-                    `${view} must fit at ${width}px`,
-                );
+                assert(await evaluate(fitsWindow), `${view} must fit at ${width}px`);
                 if (width === 640) await screenshot(`${view.toLowerCase()}-compact`);
             }
             await click("Grind desk");

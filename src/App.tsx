@@ -1,4 +1,4 @@
-import { useLayoutEffect, useState } from "react";
+import { useState } from "react";
 import { reopenSession } from "./api/tauri";
 import { AppShell, type AppView } from "./components/AppShell/AppShell";
 import { focusLootReview } from "./components/LiveLootCapture/LootReview";
@@ -23,9 +23,6 @@ export function App() {
     });
     const [view, setView] = useState<AppView>("live");
     const { theme, setTheme } = useTheme();
-    useLayoutEffect(() => {
-        window.scrollTo(0, 0);
-    }, [view]);
     const overlayOpacity = useOverlayOpacity();
     const lootFont = useLootFont();
     const selfImprovement = useSelfImprovement();

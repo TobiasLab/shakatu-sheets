@@ -104,7 +104,11 @@ try {
     });
     assert.deepEqual(restored?.entries, saved.entries, "Reload must preserve the saved ledger");
     await request(`/session/${session}/window/rect`, { width: 700, height: 500 });
-    assert(await evaluate("return document.documentElement.scrollWidth <= window.innerWidth + 1"));
+    assert(
+        await evaluate(
+            "return [document.documentElement, document.getElementById('workspace')].every((e) => e.scrollWidth <= e.clientWidth + 1)",
+        ),
+    );
     await waitFor(`return Boolean(${button("Choose capture source")})`);
     console.info(
         "Installed desktop smoke passed: startup, local OCR assets, SQLite save/reload, navigation, and compact layout.",

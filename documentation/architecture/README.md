@@ -107,6 +107,15 @@ The main window loads and saves this preference in SQLite and previews changes i
 and pending saves are awaited before closing; hiding the overlay or leaving Settings does not interrupt persistence.
 Position and size are not persisted by the app.
 Closing the main window retains the save-before-destroy flow, then exits the app including the overlay.
+The main window has no native decorations; the React top bar is a `data-tauri-drag-region="deep"` title bar, and its
+close button requests a normal close so it goes through the same flow. The main capability therefore allows dragging,
+minimizing, toggling maximize, and closing. Edge resizing of the undecorated window is handled by Tauri's window layer.
+On Linux that resize border lies inside the webview, so a 5px strip at the top of the bar opts out of dragging while the
+window is not maximized; otherwise a press on the top edge would start both a resize and a move. The document never
+scrolls: `main#workspace` is the scroll container, which keeps the scrollbar out of the title bar. Without system
+decorations the app loses the title-bar system menu, desktop-specific title-bar click settings, and the Windows 11
+snap-layout flyout. While a modal dialog is open, or while the app is closing, the rest of the page including the top bar
+is inert; Esc closes a dialog and system window shortcuts keep working.
 The overlay uses a separate capability for events, hiding, dragging, and minimized-state inspection.
 Native layer placement commands accept calls only from the session overlay and only when layer-shell is active.
 
