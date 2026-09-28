@@ -14,11 +14,10 @@ import { GrindSpotPicker } from "../../components/GrindSpotPicker/GrindSpotPicke
 import type { SessionState } from "../../domain/session";
 import { formatTimestamp } from "../../format";
 import type { LiveSessionController } from "../../hooks/useLiveSession";
-import type { useLootFont } from "../../hooks/useLootFont";
-import type { useOverlayOpacity } from "../../hooks/useOverlayOpacity";
+import type { PersistedSetting } from "../../hooks/usePersistedSetting";
 import type { useSelfImprovement } from "../../hooks/useSelfImprovement";
 import type { Theme } from "../../hooks/useTheme";
-import { isLootFont } from "../../recognition/lootFont";
+import { isLootFont, type LootFont } from "../../recognition/lootFont";
 import { SelfImprovementSettings } from "./SelfImprovementSettings";
 import styles from "./Settings.module.css";
 
@@ -47,8 +46,8 @@ export function SettingsView({
     theme: Theme;
     onThemeChange: (theme: Theme) => void;
     onOpenCapture: () => void;
-    overlayOpacity: ReturnType<typeof useOverlayOpacity>;
-    lootFont: ReturnType<typeof useLootFont>;
+    overlayOpacity: PersistedSetting<number>;
+    lootFont: PersistedSetting<LootFont>;
     selfImprovement: ReturnType<typeof useSelfImprovement>;
     showSelfImprovement?: boolean;
 }) {
@@ -333,11 +332,11 @@ export function SettingsView({
                                         min="25"
                                         max="100"
                                         step="5"
-                                        value={overlayOpacity.opacity}
+                                        value={overlayOpacity.value}
                                         disabled={!overlayOpacity.loaded}
-                                        onChange={(event) => overlayOpacity.updateOpacity(event.target.valueAsNumber)}
+                                        onChange={(event) => overlayOpacity.update(event.target.valueAsNumber)}
                                     />
-                                    <output htmlFor="overlay-opacity">{overlayOpacity.opacity}%</output>
+                                    <output htmlFor="overlay-opacity">{overlayOpacity.value}%</output>
                                 </div>
                                 {overlayOpacity.saving && <p role="status">Saving opacity…</p>}
                                 {overlayOpacity.error && (
@@ -346,7 +345,7 @@ export function SettingsView({
                                         <button
                                             type="button"
                                             className="button"
-                                            onClick={() => overlayOpacity.updateOpacity(overlayOpacity.opacity)}
+                                            onClick={() => overlayOpacity.update(overlayOpacity.value)}
                                         >
                                             Retry save
                                         </button>
@@ -364,12 +363,12 @@ export function SettingsView({
                                 <FormField label="In-game font">
                                     <select
                                         id="loot-font"
-                                        value={lootFont.font}
+                                        value={lootFont.value}
                                         disabled={!lootFont.loaded && !lootFont.error}
                                         aria-describedby="loot-font-description"
                                         onChange={(event) => {
                                             if (isLootFont(event.target.value))
-                                                void lootFont.updateFont(event.target.value);
+                                                void lootFont.update(event.target.value);
                                         }}
                                     >
                                         <option value="korean">Korean Font</option>
@@ -386,7 +385,7 @@ export function SettingsView({
                                         <button
                                             type="button"
                                             className="button"
-                                            onClick={() => void lootFont.updateFont(lootFont.font)}
+                                            onClick={() => void lootFont.update(lootFont.value)}
                                         >
                                             Save selected font
                                         </button>

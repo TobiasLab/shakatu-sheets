@@ -77,10 +77,23 @@ pub(super) fn stored_api_key(path: &PathBuf) -> Result<String, String> {
     settings::validate_api_key(&api_key).map(str::to_string)
 }
 
-pub(super) async fn response_bytes(
-    mut response: reqwest::Response,
+pub(super) async fn get(
+    path: &str,
+    query: &[(&str, &str)],
+    api_key: &str,
     purpose: &str,
 ) -> Result<Vec<u8>, String> {
+    let response = client()?
+        .get(format!("{API_BASE_URL}{path}"))
+        .query(query)
+        .header("apiKey", api_key)
+        .send()
+        .await
+        .map_err(|error| format!("could not reach Garmoth: {}", error.without_url()))?;
+    response_bytes(response, purpose).await
+}
+
+async fn response_bytes(mut response: reqwest::Response, purpose: &str) -> Result<Vec<u8>, String> {
     let status = response.status();
     if !status.is_success() {
         return Err(match status {

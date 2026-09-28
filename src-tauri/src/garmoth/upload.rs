@@ -1,4 +1,4 @@
-use std::collections::BTreeMap;
+use std::{collections::BTreeMap, path::PathBuf};
 
 use crate::persistence::sessions::{save_upload_consumables, SessionRecord};
 use serde::{Deserialize, Serialize};
@@ -7,6 +7,7 @@ use tauri::State;
 use crate::persistence::{
     claim_garmoth_upload, finish_garmoth_upload, load_session_for_upload, load_setting,
     release_garmoth_upload, save_settings, DatabasePath, SessionEntry, SessionStatus, Valuation,
+    MAX_SAFE_INTEGER,
 };
 
 use super::{
@@ -86,20 +87,6 @@ pub(crate) struct GarmothUploadResult {
     saved_session: Option<SessionRecord>,
 }
 
-#[derive(Debug, PartialEq)]
-enum RequestFailure {
-    Retryable,
-    Unknown,
-}
-
-fn classify_request_failure(error: &reqwest::Error) -> RequestFailure {
-    if error.is_connect() {
-        RequestFailure::Retryable
-    } else {
-        RequestFailure::Unknown
-    }
-}
-
 fn validate_upload(input: &GarmothUploadInput) -> Result<(), String> {
     if input.session_id.trim().is_empty()
         || input.grindspot_id <= 0
@@ -113,7 +100,7 @@ fn validate_upload(input: &GarmothUploadInput) -> Result<(), String> {
     }
     if input
         .agris
-        .is_some_and(|value| value != -1 && !(1..=9_007_199_254_740_991).contains(&value))
+        .is_some_and(|value| value != -1 && !(1..=MAX_SAFE_INTEGER).contains(&value))
     {
         return Err("Agris must be -1 for unknown usage or a positive whole amount.".into());
     }
@@ -175,18 +162,18 @@ fn session_consumables(entries: &[SessionEntry]) -> Result<Vec<[i64; 2]>, String
         };
         if entry.valuation != Valuation::Expense
             || id <= 0
-            || id > 9_007_199_254_740_991
+            || id > MAX_SAFE_INTEGER
             || !entry.quantity.is_finite()
             || entry.quantity <= 0.0
             || entry.quantity.fract() != 0.0
-            || entry.quantity > 9_007_199_254_740_991.0
+            || entry.quantity > MAX_SAFE_INTEGER as f64
         {
             return Err("Invalid saved consumable quantity.".into());
         }
         let quantity = quantities.entry(id).or_default();
         *quantity = quantity
             .checked_add(entry.quantity as i64)
-            .filter(|value| *value <= 9_007_199_254_740_991)
+            .filter(|value| *value <= MAX_SAFE_INTEGER)
             .ok_or("Consumable quantity is too large.")?;
     }
     if quantities.len() > 100 {
@@ -270,19 +257,28 @@ pub(crate) async fn upload_garmoth_session(
     operations: State<'_, GarmothOperations>,
 ) -> Result<GarmothUploadResult, String> {
     let _guard = operations.lock().await;
-    validate_upload(&input)?;
+    upload(&input, &state.0, client()?, API_BASE_URL).await
+}
+
+/// Callers hold `GarmothOperations`, so the checked session cannot change before the upload is claimed.
+pub(crate) async fn upload(
+    input: &GarmothUploadInput,
+    path: &PathBuf,
+    client: reqwest::Client,
+    base_url: &str,
+) -> Result<GarmothUploadResult, String> {
+    validate_upload(input)?;
     let totals = drop_totals(&input.buffs)?;
     // Buffs rarely change between sessions, so the next review starts from the selection submitted here, even when
     // this upload then fails.
     let buffs = serde_json::to_string(&input.buffs).map_err(|error| error.to_string())?;
-    save_settings(&state.0, &[(BUFFS_SETTING, Some(&buffs))])?;
-    let session = load_session_for_upload(&state.0, &input.session_id)?;
-    let consumables = reviewed_consumables(&input, &session)?;
-    let api_key = stored_api_key(&state.0)?;
-    let characters = parse_stored_characters(load_setting(&state.0, CHARACTERS_SETTING)?)?;
-    let selected_id =
-        parse_selected_character_id(load_setting(&state.0, SELECTED_CHARACTER_SETTING)?)?
-            .ok_or_else(|| "select a Garmoth character in Settings first".to_string())?;
+    save_settings(path, &[(BUFFS_SETTING, Some(&buffs))])?;
+    let session = load_session_for_upload(path, &input.session_id)?;
+    let consumables = reviewed_consumables(input, &session)?;
+    let api_key = stored_api_key(path)?;
+    let characters = parse_stored_characters(load_setting(path, CHARACTERS_SETTING)?)?;
+    let selected_id = parse_selected_character_id(load_setting(path, SELECTED_CHARACTER_SETTING)?)?
+        .ok_or_else(|| "select a Garmoth character in Settings first".to_string())?;
     let character = characters
         .iter()
         .find(|character| character.id == selected_id)
@@ -304,34 +300,20 @@ pub(crate) async fn upload_garmoth_session(
     };
     let body = serde_json::to_vec(&payload)
         .map_err(|error| format!("could not prepare the Garmoth upload: {error}"))?;
-    let client = client()?;
     let request = client
-        .post(format!("{API_BASE_URL}/grind-tracker/sessions/create"))
+        .post(format!("{base_url}/grind-tracker/sessions/create"))
         .header("apiKey", api_key)
         .header(reqwest::header::CONTENT_TYPE, "application/json")
         .body(body)
         .build()
         .map_err(|error| format!("could not prepare the Garmoth upload: {error}"))?;
 
-    save_and_send_upload(&input, &state, client, request).await
-}
-
-pub(crate) async fn save_and_send_upload(
-    input: &GarmothUploadInput,
-    state: &DatabasePath,
-    client: reqwest::Client,
-    request: reqwest::Request,
-) -> Result<GarmothUploadResult, String> {
-    // The upload command holds GarmothOperations while building the request and calling this helper.
-    validate_upload(input)?;
-    let session = load_session_for_upload(&state.0, &input.session_id)?;
-    reviewed_consumables(input, &session)?;
     let saved_session = input
         .consumable_entries
         .as_ref()
-        .map(|entries| save_upload_consumables(&state.0, &session, entries))
+        .map(|entries| save_upload_consumables(path, &session, entries))
         .transpose()?;
-    let outcome = match send_upload(input, state, client, request).await {
+    let outcome = match send_upload(input, path, client, request).await {
         Ok(outcome) => outcome,
         Err(error) => GarmothUploadOutcome {
             status: GarmothUploadResultStatus::Failed,
@@ -350,20 +332,21 @@ pub(crate) async fn save_and_send_upload(
 
 async fn send_upload(
     input: &GarmothUploadInput,
-    state: &DatabasePath,
+    path: &PathBuf,
     client: reqwest::Client,
     request: reqwest::Request,
 ) -> Result<GarmothUploadOutcome, String> {
-    let was_uploaded = claim_garmoth_upload(&state.0, &input.session_id, input.repeat_upload)?;
+    let was_uploaded = claim_garmoth_upload(path, &input.session_id, input.repeat_upload)?;
     let response = client.execute(request).await;
 
     let response = match response {
         Ok(response) => response,
-        Err(error) if classify_request_failure(&error) == RequestFailure::Retryable => {
+        // Only a connect failure proves the request was never sent.
+        Err(error) if error.is_connect() => {
             let restored = if was_uploaded {
-                finish_garmoth_upload(&state.0, &input.session_id)
+                finish_garmoth_upload(path, &input.session_id)
             } else {
-                release_garmoth_upload(&state.0, &input.session_id)
+                release_garmoth_upload(path, &input.session_id)
             };
             if restored.is_ok() {
                 return Err(
@@ -384,7 +367,7 @@ async fn send_upload(
     };
     let status = response.status();
     if status.is_success() {
-        if finish_garmoth_upload(&state.0, &input.session_id).is_err() {
+        if finish_garmoth_upload(path, &input.session_id).is_err() {
             return Ok(GarmothUploadOutcome {
                 status: GarmothUploadResultStatus::Unknown,
                 message: "Garmoth confirmed the upload, but Shakatu Sheets could not save that confirmation. Check your Garmoth grind tracker; this session will not be retried automatically.".into(),
@@ -641,7 +624,7 @@ mod tests {
     }
 
     #[test]
-    fn classifies_connect_failures_as_retryable_and_timeouts_as_unknown() {
+    fn only_connect_failures_prove_the_request_was_not_sent() {
         tokio::runtime::Builder::new_current_thread()
             .enable_io()
             .enable_time()
@@ -659,10 +642,7 @@ mod tests {
                     .send()
                     .await
                     .unwrap_err();
-                assert_eq!(
-                    classify_request_failure(&connect_error),
-                    RequestFailure::Retryable
-                );
+                assert!(connect_error.is_connect());
 
                 let listener = TcpListener::bind("127.0.0.1:0").unwrap();
                 let address = listener.local_addr().unwrap();
@@ -679,17 +659,13 @@ mod tests {
                     .await
                     .unwrap_err();
                 assert!(timeout_error.is_timeout());
-                assert_eq!(
-                    classify_request_failure(&timeout_error),
-                    RequestFailure::Unknown
-                );
+                assert!(!timeout_error.is_connect());
                 server.join().unwrap();
 
                 // A server that never answers the TLS handshake stalls before the request is sent.
-                for (connect_timeout, expected) in [
-                    (None, RequestFailure::Unknown),
-                    (Some(Duration::from_millis(20)), RequestFailure::Retryable),
-                ] {
+                for (connect_timeout, retryable) in
+                    [(None, false), (Some(Duration::from_millis(20)), true)]
+                {
                     let listener = TcpListener::bind("127.0.0.1:0").unwrap();
                     let address = listener.local_addr().unwrap();
                     let server = thread::spawn(move || {
@@ -708,7 +684,7 @@ mod tests {
                         .await
                         .unwrap_err();
                     assert!(handshake_error.is_timeout());
-                    assert_eq!(classify_request_failure(&handshake_error), expected);
+                    assert_eq!(handshake_error.is_connect(), retryable);
                     server.join().unwrap();
                 }
             });

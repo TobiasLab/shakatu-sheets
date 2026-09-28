@@ -1103,7 +1103,7 @@ fn reviewed_upload_keeps_saved_expenses_on_connect_failure_and_can_retry() {
         .build()
         .unwrap()
         .block_on(async {
-            use crate::garmoth::upload::{save_and_send_upload, GarmothUploadInput};
+            use crate::garmoth::upload::{upload, GarmothUploadInput};
             let (path, mut connection) = temporary_database();
             let mut finished = session(SessionStatus::Finished);
             finished.grind_spot_id = "stars-end-revamp".into();
@@ -1112,6 +1112,18 @@ fn reviewed_upload_keeps_saved_expenses_on_connect_failure_and_can_retry() {
             finished.entries[0].quantity = 10.0;
             finished.entries[0].unit_price = 100;
             save_session_record(&mut connection, &finished).unwrap();
+            save_settings(
+                &path,
+                &[
+                    ("garmoth.api_key", Some("test-key")),
+                    (
+                        "garmoth.characters",
+                        Some(r#"[{"id":"character","name":"Test","classId":8,"spec":null}]"#),
+                    ),
+                    ("garmoth.selected_character_id", Some("character")),
+                ],
+            )
+            .unwrap();
             let mut drops = serde_json::from_str::<serde_json::Value>(include_str!(
                 "../../../src/data/garmothMappings.json"
             ))
@@ -1126,7 +1138,7 @@ fn reviewed_upload_keeps_saved_expenses_on_connect_failure_and_can_retry() {
             let net = 1000 - expense.quantity as i64 * expense.unit_price;
             let mut json = serde_json::json!({"sessionId":finished.id,"expectedSession":finished,
             "grindspotId":200,"minutes":60,"hourly":net,"total":net,"drops":drops,"global":true,
-            "agris":-1,"rate":250.25,"consumableEntries":[expense]});
+            "agris":-1,"consumableEntries":[expense]});
             let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
             let address = listener.local_addr().unwrap();
             drop(listener);
@@ -1135,18 +1147,15 @@ fn reviewed_upload_keeps_saved_expenses_on_connect_failure_and_can_retry() {
                 .timeout(Duration::from_millis(100))
                 .build()
                 .unwrap();
-            let make_request = || client.post(format!("http://{address}")).build().unwrap();
-            let state = super::DatabasePath(path.clone());
+            let base_url = format!("http://{address}");
             let operations = GarmothOperations::default();
             let input: GarmothUploadInput = serde_json::from_value(json.clone()).unwrap();
             // A stale draft must fail before changing any local entries or upload marker.
             json["expectedSession"]["elapsedMs"] = serde_json::json!(1);
             let stale = serde_json::from_value(json.clone()).unwrap();
-            assert!(
-                save_and_send_upload(&stale, &state, client.clone(), make_request())
-                    .await
-                    .is_err()
-            );
+            assert!(upload(&stale, &path, client.clone(), &base_url)
+                .await
+                .is_err());
             assert_eq!(
                 load_session_by_id(&connection, &finished.id).unwrap(),
                 Some(finished.clone())
@@ -1154,7 +1163,7 @@ fn reviewed_upload_keeps_saved_expenses_on_connect_failure_and_can_retry() {
             let guard = operations.lock().await;
             let pending = async {
                 let _guard = operations.lock().await;
-                save_and_send_upload(&input, &state, client.clone(), make_request()).await
+                upload(&input, &path, client.clone(), &base_url).await
             };
             tokio::pin!(pending);
             assert!(
@@ -1171,7 +1180,7 @@ fn reviewed_upload_keeps_saved_expenses_on_connect_failure_and_can_retry() {
             );
             release_garmoth_upload(&path, &finished.id).unwrap();
             let result = serde_json::to_value(
-                save_and_send_upload(&input, &state, client.clone(), make_request())
+                upload(&input, &path, client.clone(), &base_url)
                     .await
                     .unwrap(),
             )
@@ -1194,7 +1203,7 @@ fn reviewed_upload_keeps_saved_expenses_on_connect_failure_and_can_retry() {
             json.as_object_mut().unwrap().remove("consumableEntries");
             let input = serde_json::from_value(json).unwrap();
             let result = serde_json::to_value(
-                save_and_send_upload(&input, &state, client.clone(), make_request())
+                upload(&input, &path, client.clone(), &base_url)
                     .await
                     .unwrap(),
             )

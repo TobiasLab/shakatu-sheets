@@ -271,7 +271,7 @@ fn invalid_input_duplicate_images_and_future_schemas_are_rejected() {
     let dir = TestDirectory::new();
     let path = dir.learning();
     enable(&path);
-    for bad in [0, -1, MAX_QUANTITY + 1] {
+    for bad in [0, -1, MAX_SAFE_INTEGER + 1] {
         let mut input = example(1);
         input.quantity = bad;
         assert!(operate(&path, LearningOperation::Save { example: input }).is_err());

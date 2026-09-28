@@ -1,6 +1,6 @@
 use std::path::PathBuf;
 
-use rusqlite::{params, OptionalExtension};
+use rusqlite::{params, OptionalExtension, Transaction};
 
 use super::{open_database, timestamp_ms};
 
@@ -22,20 +22,7 @@ pub(crate) fn save_settings(
     let transaction = connection
         .transaction()
         .map_err(|error| error.to_string())?;
-    for (key, value) in settings {
-        match value {
-            Some(value) => transaction
-                .execute(
-                    "INSERT INTO settings (key, value, updated_at) VALUES (?1, ?2, ?3)
-                     ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at",
-                    params![key, value, timestamp_ms()],
-                )
-                .map_err(|error| error.to_string())?,
-            None => transaction
-                .execute("DELETE FROM settings WHERE key = ?1", [key])
-                .map_err(|error| error.to_string())?,
-        };
-    }
+    write_settings(&transaction, settings)?;
     transaction.commit().map_err(|error| error.to_string())
 }
 
@@ -60,6 +47,15 @@ pub(crate) fn save_settings_if_unchanged(
     if current.as_deref() != Some(expected_value) {
         return Ok(false);
     }
+    write_settings(&transaction, settings)?;
+    transaction.commit().map_err(|error| error.to_string())?;
+    Ok(true)
+}
+
+fn write_settings(
+    transaction: &Transaction,
+    settings: &[(&str, Option<&str>)],
+) -> Result<(), String> {
     for (key, value) in settings {
         match value {
             Some(value) => transaction
@@ -74,6 +70,5 @@ pub(crate) fn save_settings_if_unchanged(
                 .map_err(|error| error.to_string())?,
         };
     }
-    transaction.commit().map_err(|error| error.to_string())?;
-    Ok(true)
+    Ok(())
 }

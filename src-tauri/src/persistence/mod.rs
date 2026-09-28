@@ -24,6 +24,9 @@ pub(crate) use settings::{load_setting, save_settings, save_settings_if_unchange
 
 const DATABASE_VERSION: i64 = 5;
 
+/// JavaScript's `Number.MAX_SAFE_INTEGER`: larger integers cannot cross IPC exactly.
+pub(crate) const MAX_SAFE_INTEGER: i64 = 9_007_199_254_740_991;
+
 pub struct DatabasePath(pub PathBuf);
 
 /// Managed instead of `DatabasePath` when startup cannot open the database, so the window can report why.

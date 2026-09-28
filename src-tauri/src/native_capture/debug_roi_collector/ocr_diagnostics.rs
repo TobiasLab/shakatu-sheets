@@ -1,6 +1,7 @@
 use super::{
     unix_ms, DebugRoiSampleCollector, Run, FRAMES_PER_MINUTE, PHASE_FAILED, PHASE_FINISHED,
 };
+use crate::persistence::MAX_SAFE_INTEGER;
 use serde::{Deserialize, Serialize};
 use std::fs::OpenOptions;
 use std::io::Write;
@@ -108,7 +109,7 @@ impl OcrIssue {
                     && self.item_name.as_ref().is_some_and(|name| !name.is_empty())
                     && self
                         .quantity
-                        .is_some_and(|quantity| quantity > 0 && quantity <= 9_007_199_254_740_991)
+                        .is_some_and(|quantity| quantity > 0 && quantity <= MAX_SAFE_INTEGER as u64)
             }
             Status::Withheld => matches!(
                 self.reason.as_deref().unwrap_or(""),
