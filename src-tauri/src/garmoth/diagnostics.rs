@@ -3,10 +3,7 @@ use tauri::State;
 
 use crate::persistence::{load_setting, DatabasePath};
 
-use super::{
-    client, parse_stored_characters, response_bytes, stored_api_key, GarmothOperations,
-    API_BASE_URL, CHARACTERS_SETTING,
-};
+use super::{get, parse_stored_characters, stored_api_key, GarmothOperations, CHARACTERS_SETTING};
 
 fn consumable_field(key: &str) -> bool {
     matches!(
@@ -145,18 +142,14 @@ pub(crate) async fn inspect_garmoth_consumables(
     {
         return Err("Select a fetched Garmoth character first".into());
     }
-    let response = client()?
-        .get(format!("{API_BASE_URL}/gear-planner/getCharacterBuilds"))
-        .query(&[("ids", &character_id)])
-        .header("apiKey", stored_api_key(&state.0)?)
-        .send()
-        .await
-        .map_err(|_| "Could not reach Garmoth to inspect consumables".to_string())?;
-    report(
-        &response_bytes(response, "inspecting consumables").await?,
-        &character_id,
-        include_field_names,
+    let response = get(
+        "/gear-planner/getCharacterBuilds",
+        &[("ids", &character_id)],
+        &stored_api_key(&state.0)?,
+        "inspecting consumables",
     )
+    .await?;
+    report(&response, &character_id, include_field_names)
 }
 
 #[cfg(test)]

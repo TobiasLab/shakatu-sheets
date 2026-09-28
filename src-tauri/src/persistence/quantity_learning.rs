@@ -4,12 +4,11 @@ use rusqlite::{params, Connection, TransactionBehavior};
 use serde::{Deserialize, Serialize};
 use tauri::State;
 
-use super::{loot_font::LootFont, open_database, timestamp_ms, DatabasePath};
+use super::{loot_font::LootFont, open_database, timestamp_ms, DatabasePath, MAX_SAFE_INTEGER};
 mod audit;
 
 const MAX_EXAMPLES: i64 = 200;
 const MAX_PROFILE_EXAMPLES: i64 = 50;
-const MAX_QUANTITY: i64 = 9_007_199_254_740_991;
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
@@ -182,10 +181,10 @@ fn validate(example: &QuantityExampleInput) -> Result<(), String> {
             (profile.source_width, profile.source_height),
             (3440, 1440) | (2560, 1440) | (1920, 1080)
         )
-        || !(1..=MAX_QUANTITY).contains(&example.quantity)
+        || !(1..=MAX_SAFE_INTEGER).contains(&example.quantity)
         || example
             .original_quantity
-            .is_some_and(|value| !(1..=MAX_QUANTITY).contains(&value))
+            .is_some_and(|value| !(1..=MAX_SAFE_INTEGER).contains(&value))
     {
         return Err("Invalid self-improvement example.".into());
     }

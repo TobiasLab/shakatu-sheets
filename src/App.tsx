@@ -1,14 +1,16 @@
 import { useState } from "react";
+import { loadLootFont, saveLootFont } from "./api/lootFont";
+import { loadOverlayOpacity, saveOverlayOpacity } from "./api/sessionOverlay";
 import { AppShell, type AppView } from "./components/AppShell/AppShell";
 import { focusLootReview } from "./components/LiveLootCapture/LootReview";
 import type { CaptureSummary } from "./components/LiveLootCapture/useLiveLootCapture";
 import { useLiveSession } from "./hooks/useLiveSession";
-import { useLootFont } from "./hooks/useLootFont";
-import { useOverlayOpacity } from "./hooks/useOverlayOpacity";
 import { usePersistedSession } from "./hooks/usePersistedSession";
+import { usePersistedSetting } from "./hooks/usePersistedSetting";
 import { useSelfImprovement } from "./hooks/useSelfImprovement";
 import { useSessionOverlay } from "./hooks/useSessionOverlay";
 import { useTheme } from "./hooks/useTheme";
+import type { LootFont } from "./recognition/lootFont";
 import { HistoryView } from "./views/History/History";
 import { LiveSessionView } from "./views/LiveSession/LiveSession";
 import { SettingsView } from "./views/Settings/Settings";
@@ -22,8 +24,9 @@ export function App() {
     });
     const [view, setView] = useState<AppView>("live");
     const { theme, setTheme } = useTheme();
-    const overlayOpacity = useOverlayOpacity();
-    const lootFont = useLootFont();
+    const overlayOpacity = usePersistedSetting(100, loadOverlayOpacity, saveOverlayOpacity, "opacity");
+    // Capture must not guess the in-game font, so a failed load stays unready until a font is saved.
+    const lootFont = usePersistedSetting<LootFont>("korean", loadLootFont, saveLootFont, "in-game font", true);
     const selfImprovement = useSelfImprovement();
     const [showSelfImprovement, setShowSelfImprovement] = useState(false);
     const persistedSession = usePersistedSession(async () => {
@@ -41,7 +44,7 @@ export function App() {
         {
             session: persistedSession.session,
             theme,
-            opacity: overlayOpacity.opacity,
+            opacity: overlayOpacity.value,
             timerEnabled: persistedSession.databaseLoaded && !persistedSession.closing,
             pendingReviews: captureStatus.pendingReviews,
         },
@@ -87,7 +90,7 @@ export function App() {
                             setShowSelfImprovement(true);
                             setView("settings");
                         }}
-                        lootFont={lootFont.font}
+                        lootFont={lootFont.value}
                         lootFontReady={lootFont.loaded && !lootFont.saving && !lootFont.error}
                         overlay={overlay}
                         onOpenHistory={() => setView("history")}

@@ -57,7 +57,6 @@ pub fn run() {
         }
     });
 
-    #[cfg(all(debug_assertions, any(target_os = "linux", target_os = "windows")))]
     let builder = builder.invoke_handler(tauri::generate_handler![
         session_overlay_window::session_overlay_uses_layer_shell,
         session_overlay_window::adjust_session_overlay,
@@ -91,46 +90,14 @@ pub fn run() {
         native_capture::set_native_display_capture_region,
         native_capture::start_native_display_capture,
         native_capture::stop_native_display_capture,
+        #[cfg(all(debug_assertions, any(target_os = "linux", target_os = "windows")))]
         native_capture::start_debug_roi_sample_collection,
+        #[cfg(all(debug_assertions, any(target_os = "linux", target_os = "windows")))]
         native_capture::stop_debug_roi_sample_collection,
+        #[cfg(all(debug_assertions, any(target_os = "linux", target_os = "windows")))]
         native_capture::debug_roi_sample_collection_status,
+        #[cfg(all(debug_assertions, any(target_os = "linux", target_os = "windows")))]
         native_capture::log_debug_roi_ocr_issue
-    ]);
-
-    #[cfg(not(all(debug_assertions, any(target_os = "linux", target_os = "windows"))))]
-    let builder = builder.invoke_handler(tauri::generate_handler![
-        session_overlay_window::session_overlay_uses_layer_shell,
-        session_overlay_window::adjust_session_overlay,
-        persistence::sessions::delete_finished_session,
-        persistence::sessions::list_finished_sessions,
-        persistence::sessions::load_session_trend,
-        persistence::sessions::load_active_session,
-        persistence::consumable_presets::load_consumable_presets,
-        persistence::consumable_presets::save_consumable_presets,
-        persistence::loot_font::load_loot_font,
-        persistence::loot_font::save_loot_font,
-        persistence::quantity_learning::quantity_learning,
-        persistence::overlay::load_overlay_opacity,
-        persistence::overlay::save_overlay_opacity,
-        persistence::market_prices::load_market_prices,
-        persistence::sessions::reopen_session,
-        persistence::sessions::save_session,
-        garmoth::settings::fetch_garmoth_characters,
-        garmoth::diagnostics::inspect_garmoth_consumables,
-        garmoth::settings::load_garmoth_settings,
-        garmoth::settings::save_garmoth_api_key,
-        garmoth::settings::select_garmoth_character,
-        garmoth::upload::upload_garmoth_session,
-        market::fetch_market_prices,
-        loot_layout::read_normal_loot_layout,
-        native_capture::native_capture_capabilities,
-        native_capture::acknowledge_native_display_frame,
-        native_capture::load_loot_capture_settings,
-        native_capture::save_loot_capture_settings,
-        native_capture::set_native_display_capture_preview_enabled,
-        native_capture::set_native_display_capture_region,
-        native_capture::start_native_display_capture,
-        native_capture::stop_native_display_capture
     ]);
 
     builder

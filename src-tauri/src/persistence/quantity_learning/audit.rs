@@ -1,3 +1,4 @@
+use crate::persistence::MAX_SAFE_INTEGER;
 use serde::{Deserialize, Serialize};
 
 #[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
@@ -53,10 +54,10 @@ impl Frame {
             && self.capture_token.is_some() == self.batch_id.is_some()
             && self
                 .capture_token
-                .is_none_or(|value| value <= 9_007_199_254_740_991)
+                .is_none_or(|value| value <= MAX_SAFE_INTEGER as u64)
             && self
                 .batch_id
-                .is_none_or(|value| value <= 9_007_199_254_740_991)
+                .is_none_or(|value| value <= MAX_SAFE_INTEGER as u64)
             && self.quantity_bounds.as_ref().is_none_or(|b| {
                 b.left < b.right
                     && b.top < b.bottom

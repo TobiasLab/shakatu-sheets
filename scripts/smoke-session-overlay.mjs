@@ -10,13 +10,13 @@ const harness = `import React, { useState } from "react";
 import ReactDOM from "react-dom/client";
 import { useSessionOverlay } from "./hooks/useSessionOverlay";
 import { usePersistedSession } from "./hooks/usePersistedSession";
-import { useLootFont } from "./hooks/useLootFont";
+import { usePersistedSetting } from "./hooks/usePersistedSetting";
+import { loadLootFont, saveLootFont } from "./api/lootFont";
 import { useSelfImprovement } from "./hooks/useSelfImprovement";
 import { useMarketPrices } from "./hooks/useMarketPrices";
 import { getGrindSpot, getMarketItemIds } from "./data/grindSpots";
-import { useOverlayOpacity } from "./hooks/useOverlayOpacity";
 import { SettingsView } from "./views/Settings/Settings";
-import { requestOverlayTimer } from "./api/sessionOverlay";
+import { loadOverlayOpacity, requestOverlayTimer, saveOverlayOpacity } from "./api/sessionOverlay";
 import { SessionOverlay } from "./components/SessionOverlay/SessionOverlay";
 import { createEntry } from "./domain/session";
 import "./index.css";
@@ -26,8 +26,8 @@ function Harness() {
     const [theme, setTheme] = useState("dark");
     const [settingsVisible, setSettingsVisible] = useState(true);
     const [pendingReviews, setPendingReviews] = useState(0);
-    const opacity = useOverlayOpacity();
-    const lootFont = useLootFont();
+    const opacity = usePersistedSetting(100, loadOverlayOpacity, saveOverlayOpacity, "opacity");
+    const lootFont = usePersistedSetting("korean", loadLootFont, saveLootFont, "in-game font", true);
     const selfImprovement = useSelfImprovement();
     const persisted = usePersistedSession(opacity.flush);
     const spot = getGrindSpot(persisted.session.grindSpotId);
@@ -38,7 +38,7 @@ function Harness() {
         changeRegion: region => persisted.dispatch({ type: "set-region", region }), changeGrindSpot: () => {},
     };
     const overlay = useSessionOverlay({
-        session: persisted.session, theme, opacity: opacity.opacity,
+        session: persisted.session, theme, opacity: opacity.value,
         timerEnabled: persisted.databaseLoaded && !persisted.closing, pendingReviews,
     }, persisted.requestOverlayTimer);
     window.currentSession = persisted.session;

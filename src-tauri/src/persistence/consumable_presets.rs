@@ -3,10 +3,9 @@ use std::{collections::HashSet, path::PathBuf};
 use serde::{Deserialize, Serialize};
 use tauri::State;
 
-use super::{load_setting, save_settings, DatabasePath, Region};
+use super::{load_setting, save_settings, DatabasePath, Region, MAX_SAFE_INTEGER};
 
 const SETTING: &str = "consumable_presets";
-const MAX_SAFE_INTEGER: i64 = 9_007_199_254_740_991;
 
 #[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]

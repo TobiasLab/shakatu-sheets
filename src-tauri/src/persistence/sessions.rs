@@ -9,7 +9,7 @@ use crate::garmoth::GarmothOperations;
 use super::{
     garmoth_uploads::{load_garmoth_upload_status, GarmothUploadStatus},
     market_prices::Region,
-    open_database, timestamp_ms, DatabaseInitError, DatabasePath,
+    open_database, timestamp_ms, DatabaseInitError, DatabasePath, MAX_SAFE_INTEGER,
 };
 
 #[derive(Clone, Copy, Debug, Deserialize, PartialEq, Serialize)]
@@ -69,13 +69,6 @@ pub struct FinishedSessionRecord {
     pub session: SessionRecord,
     pub finished_at: i64,
     pub garmoth_upload_status: Option<GarmothUploadStatus>,
-}
-
-fn region_to_str(region: &Region) -> &'static str {
-    match region {
-        Region::Eu => "eu",
-        Region::Na => "na",
-    }
 }
 
 fn parse_region(value: &str) -> Result<Region, String> {
@@ -157,13 +150,13 @@ fn validate_session(session: &SessionRecord) -> Result<(), String> {
         }
         if let Some(id) = entry.garmoth_consumable_id {
             if id <= 0
-                || id > 9_007_199_254_740_991
+                || id > MAX_SAFE_INTEGER
                 || entry.valuation != Valuation::Expense
                 || entry.source != EntrySource::Manual
                 || entry.sale_multiplier != 1.0
-                || entry.quantity > 9_007_199_254_740_991.0
-                || entry.unit_price > 9_007_199_254_740_991
-                || entry.quantity * entry.unit_price as f64 > 9_007_199_254_740_991.0
+                || entry.quantity > MAX_SAFE_INTEGER as f64
+                || entry.unit_price > MAX_SAFE_INTEGER
+                || entry.quantity * entry.unit_price as f64 > MAX_SAFE_INTEGER as f64
             {
                 return Err("invalid consumable expense".into());
             }
@@ -215,7 +208,7 @@ pub(super) fn save_session_record(
                 finished_at = excluded.finished_at",
             params![
                 session.id,
-                region_to_str(&session.region),
+                session.region.as_str(),
                 session.grind_spot_id,
                 status_to_str(&session.status),
                 session.started_at,
@@ -510,7 +503,7 @@ pub(super) fn list_finished_session_records(
     let transaction = connection
         .unchecked_transaction()
         .map_err(|error| error.to_string())?;
-    let region = query.region.as_ref().map(region_to_str);
+    let region = query.region.map(Region::as_str);
     // A literal predicate keeps sessions_finished_region_time_idx usable; `?1 IS NULL OR` would not.
     let region_filter = |column: &str| {
         if region.is_some() {
@@ -756,7 +749,7 @@ pub(super) fn apply_finished_session_consumables_record(
         total = (entry.quantity as i64)
             .checked_mul(entry.unit_price)
             .and_then(|cost| total.checked_add(cost))
-            .filter(|cost| *cost <= 9_007_199_254_740_991)
+            .filter(|cost| *cost <= MAX_SAFE_INTEGER)
             .ok_or("Consumable cost is too large.")?;
     }
     transaction.execute(

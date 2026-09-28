@@ -4,10 +4,9 @@ use tauri::State;
 use crate::persistence::{load_setting, save_settings, save_settings_if_unchanged, DatabasePath};
 
 use super::{
-    buffs::parse_stored_buffs, client, parse_selected_character_id, parse_stored_characters,
-    response_bytes, stored_api_key, valid_character_id, GarmothCharacter, GarmothOperations,
-    API_BASE_URL, API_KEY_SETTING, BUFFS_SETTING, CHARACTERS_SETTING, CHARACTER_IDS_SETTING,
-    SELECTED_CHARACTER_SETTING,
+    buffs::parse_stored_buffs, get, parse_selected_character_id, parse_stored_characters,
+    stored_api_key, valid_character_id, GarmothCharacter, GarmothOperations, API_KEY_SETTING,
+    BUFFS_SETTING, CHARACTERS_SETTING, CHARACTER_IDS_SETTING, SELECTED_CHARACTER_SETTING,
 };
 
 #[derive(Serialize)]
@@ -146,14 +145,8 @@ pub(crate) async fn save_garmoth_api_key(
 ) -> Result<(), String> {
     let _guard = operations.lock().await;
     let api_key = validate_api_key(&api_key)?;
-    let response = client()?
-        .get(format!("{API_BASE_URL}/user/profile"))
-        .header("apiKey", api_key)
-        .send()
-        .await
-        .map_err(|error| format!("could not reach Garmoth: {error}"))?;
     let profile = serde_json::from_slice::<GarmothProfile>(
-        &response_bytes(response, "validating the API key").await?,
+        &get("/user/profile", &[], api_key, "validating the API key").await?,
     )
     .map_err(|error| format!("Garmoth returned an invalid profile response: {error}"))?;
     if profile.id <= 0 {
@@ -185,17 +178,14 @@ pub(crate) async fn fetch_garmoth_characters(
         .map(String::as_str)
         .collect::<Vec<_>>()
         .join(",");
-    let response = client()?
-        .get(format!("{API_BASE_URL}/gear-planner/getCharacterBuilds"))
-        .query(&[("ids", ids)])
-        .header("apiKey", &api_key)
-        .send()
-        .await
-        .map_err(|error| format!("could not reach Garmoth: {error}"))?;
-    let characters = parse_characters(
-        &response_bytes(response, "fetching character builds").await?,
-        &character_ids,
-    )?;
+    let response = get(
+        "/gear-planner/getCharacterBuilds",
+        &[("ids", &ids)],
+        &api_key,
+        "fetching character builds",
+    )
+    .await?;
+    let characters = parse_characters(&response, &character_ids)?;
     let ids_json = serde_json::to_string(&character_ids).map_err(|error| error.to_string())?;
     let characters_json = serde_json::to_string(&characters).map_err(|error| error.to_string())?;
     let current_selection =
