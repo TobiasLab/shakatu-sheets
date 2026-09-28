@@ -2,14 +2,14 @@ use std::path::PathBuf;
 
 use rusqlite::{params, Connection, OptionalExtension, Transaction};
 use serde::{Deserialize, Serialize};
-use tauri::State;
+use tauri::{AppHandle, Manager, State};
 
 use crate::garmoth::GarmothOperations;
 
 use super::{
     garmoth_uploads::{load_garmoth_upload_status, GarmothUploadStatus},
     market_prices::Region,
-    open_database, timestamp_ms, DatabasePath,
+    open_database, timestamp_ms, DatabaseInitError, DatabasePath,
 };
 
 #[derive(Clone, Copy, Debug, Deserialize, PartialEq, Serialize)]
@@ -786,9 +786,11 @@ pub(crate) fn save_upload_consumables(
 }
 
 #[tauri::command]
-pub fn load_active_session(
-    state: State<'_, DatabasePath>,
-) -> Result<Option<SessionRecord>, String> {
+pub fn load_active_session(app: AppHandle) -> Result<Option<SessionRecord>, String> {
+    let Some(state) = app.try_state::<DatabasePath>() else {
+        let error = &app.state::<DatabaseInitError>().0;
+        return Err(format!("Could not open the database: {error}"));
+    };
     let connection = open_database(&state.0)?;
     load_active_session_record(&connection)
 }
