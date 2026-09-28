@@ -1,5 +1,5 @@
 import { useId } from "react";
-import { chooseBuff, dropAmount, garmothBuffs } from "../../garmoth";
+import { chooseBuff, dropAmount, dropRate, garmothBuffs } from "../../garmoth";
 import styles from "./GarmothBuffPicker.module.css";
 
 const lootScrolls = garmothBuffs.filter((buff) => buff.group === "loot-scroll");
@@ -21,9 +21,16 @@ export function GarmothBuffPicker({
         <section className={styles.Buffs} aria-labelledby={headingId}>
             <div className="panel-heading">
                 <h2 id={headingId}>Drop buffs</h2>
-                <span className={styles.Amount}>
-                    Drop amount <strong>+{dropAmount(selected)}%</strong>
-                </span>
+                <dl className={styles.Totals}>
+                    <div>
+                        <dt>Drop amount</dt>
+                        <dd>+{dropAmount(selected)}%</dd>
+                    </div>
+                    <div>
+                        <dt>Drop rate</dt>
+                        <dd>+{dropRate(selected)}%</dd>
+                    </div>
+                </dl>
             </div>
             <div className={styles.Scroll}>
                 <span id={scrollLabelId}>Loot scroll</span>

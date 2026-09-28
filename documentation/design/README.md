@@ -110,7 +110,8 @@ Unknown outcomes block retries. Items outside the destination spot's export tabl
 and full session totals are retained.
 
 Drop buffs follow Garmoth's form: a loot scroll level (None, Lv. 1, Lv. 2) and a grid of the other grind buffs, where
-choosing a tier replaces the other tiers of that buff. The review shows the resulting drop amount and preselects the
-buffs submitted with the previous upload. Global contribution defaults off. The Agris option is optional, remains available
-across failed attempts, and resets when review is reopened. The detailed persistence and upload contracts live in
+choosing a tier replaces the other tiers of that buff. The review shows the resulting drop amount and drop rate, with
+capped buffs limited to 300% and uncapped buffs added on top, and preselects the buffs submitted with the previous
+upload. Global contribution defaults off. The Agris option is optional, remains available across failed attempts, and
+resets when review is reopened. The detailed persistence and upload contracts live in
 [architecture](../architecture/README.md#consumable-presets).

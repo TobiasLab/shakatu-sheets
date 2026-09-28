@@ -3,6 +3,8 @@
         "id": 1,
         "name": "Lv. 1",
         "icon": "/buffs/1.png",
+        "rate": 100,
+        "uncapped": false,
         "amount": 50,
         "group": "loot-scroll"
     },
@@ -10,6 +12,8 @@
         "id": 2,
         "name": "Lv. 2",
         "icon": "/buffs/2.png",
+        "rate": 100,
+        "uncapped": false,
         "amount": 100,
         "group": "loot-scroll"
     },
@@ -17,6 +21,8 @@
         "id": 6,
         "name": "[Event] Blessing of Kamasylve (1 Day)",
         "icon": "/buffs/6.webp",
+        "rate": 20,
+        "uncapped": false,
         "amount": 0,
         "group": null
     },
@@ -24,6 +30,8 @@
         "id": 37,
         "name": "Old Moon Treaty Token",
         "icon": "/buffs/37.png",
+        "rate": 5,
+        "uncapped": false,
         "amount": 0,
         "group": null
     },
@@ -31,6 +39,8 @@
         "id": 5,
         "name": "[Pet] Arctic Fox",
         "icon": "/buffs/5.webp",
+        "rate": 5,
+        "uncapped": false,
         "amount": 0,
         "group": null
     },
@@ -38,6 +48,8 @@
         "id": 41,
         "name": "Girin's Tear",
         "icon": "/buffs/41.webp",
+        "rate": 10,
+        "uncapped": false,
         "amount": 0,
         "group": null
     },
@@ -45,6 +57,8 @@
         "id": 12,
         "name": "[Camp] Adventurer's Luck I",
         "icon": "/buffs/12.webp",
+        "rate": 10,
+        "uncapped": false,
         "amount": 0,
         "group": "adventurers-luck"
     },
@@ -52,6 +66,8 @@
         "id": 11,
         "name": "[Camp] Adventurer's Luck II",
         "icon": "/buffs/11.webp",
+        "rate": 20,
+        "uncapped": false,
         "amount": 0,
         "group": "adventurers-luck"
     },
@@ -59,6 +75,8 @@
         "id": 10,
         "name": "[Camp] Adventurer's Luck III",
         "icon": "/buffs/10.webp",
+        "rate": 30,
+        "uncapped": false,
         "amount": 0,
         "group": "adventurers-luck"
     },
@@ -66,6 +84,8 @@
         "id": 9,
         "name": "[Camp] Adventurer's Luck IV",
         "icon": "/buffs/9.webp",
+        "rate": 40,
+        "uncapped": false,
         "amount": 0,
         "group": "adventurers-luck"
     },
@@ -73,6 +93,8 @@
         "id": 8,
         "name": "[Camp] Adventurer's Luck V",
         "icon": "/buffs/8.webp",
+        "rate": 50,
+        "uncapped": false,
         "amount": 0,
         "group": "adventurers-luck"
     },
@@ -80,6 +102,8 @@
         "id": 40,
         "name": "Bonghwang's Tear",
         "icon": "/buffs/40.webp",
+        "rate": 5,
+        "uncapped": false,
         "amount": 0,
         "group": null
     },
@@ -87,6 +111,8 @@
         "id": 46,
         "name": "Blessing of the Morning (20%)",
         "icon": "/buffs/46.png",
+        "rate": 20,
+        "uncapped": true,
         "amount": 0,
         "group": null
     },
@@ -94,6 +120,8 @@
         "id": 77,
         "name": "[Event] Edania Buff",
         "icon": "/buffs/77.png",
+        "rate": 100,
+        "uncapped": true,
         "amount": 0,
         "group": null
     },
@@ -101,6 +129,8 @@
         "id": 36,
         "name": "Eye of Arsha",
         "icon": "/buffs/36.png",
+        "rate": 50,
+        "uncapped": true,
         "amount": 0,
         "group": null
     },
@@ -108,6 +138,8 @@
         "id": 216,
         "name": "Balenos Defense Token",
         "icon": "/buffs/216.webp",
+        "rate": 20,
+        "uncapped": true,
         "amount": 0,
         "group": null
     },
@@ -115,6 +147,8 @@
         "id": 217,
         "name": "Serendia Defense Token",
         "icon": "/buffs/217.webp",
+        "rate": 30,
+        "uncapped": true,
         "amount": 0,
         "group": null
     },
@@ -122,6 +156,8 @@
         "id": 30,
         "name": "Castle Buff",
         "icon": "/buffs/30.png",
+        "rate": 50,
+        "uncapped": true,
         "amount": 0,
         "group": null
     },
@@ -129,6 +165,8 @@
         "id": 39,
         "name": "[Event] Golden Blessing of Agris",
         "icon": "/buffs/39.webp",
+        "rate": 0,
+        "uncapped": false,
         "amount": 100,
         "group": null
     },
@@ -136,6 +174,8 @@
         "id": 138,
         "name": "Blessing of Old Moon Scroll",
         "icon": "/buffs/138.webp",
+        "rate": 100,
+        "uncapped": false,
         "amount": 100,
         "group": null
     },
@@ -143,6 +183,8 @@
         "id": 172,
         "name": "Old Moon Fortune Scroll",
         "icon": "/buffs/172.webp",
+        "rate": 30,
+        "uncapped": false,
         "amount": 0,
         "group": null
     },
@@ -150,6 +192,8 @@
         "id": 4,
         "name": "[Event] Supreme Old Moon Scroll",
         "icon": "/buffs/4.webp",
+        "rate": 50,
+        "uncapped": false,
         "amount": 0,
         "group": null
     },
@@ -157,6 +201,8 @@
         "id": 3,
         "name": "J's Special Scroll",
         "icon": "/buffs/3.png",
+        "rate": 100,
+        "uncapped": false,
         "amount": 0,
         "group": null
     },
@@ -164,6 +210,8 @@
         "id": 79,
         "name": "[Event] Scroll of the Glorious Battlefield",
         "icon": "/buffs/79.webp",
+        "rate": 100,
+        "uncapped": false,
         "amount": 0,
         "group": null
     },
@@ -171,6 +219,8 @@
         "id": 34,
         "name": "Glorious Item Drop Rate Increase Scroll",
         "icon": "/buffs/34.webp",
+        "rate": 10,
+        "uncapped": false,
         "amount": 0,
         "group": null
     },
@@ -178,6 +228,8 @@
         "id": 61,
         "name": "Node War Benefit 5%",
         "icon": "/buffs/61.png",
+        "rate": 5,
+        "uncapped": false,
         "amount": 0,
         "group": "node-war-benefit"
     },
@@ -185,6 +237,8 @@
         "id": 62,
         "name": "Node War Benefit 10%",
         "icon": "/buffs/62.png",
+        "rate": 10,
+        "uncapped": false,
         "amount": 0,
         "group": "node-war-benefit"
     },
@@ -192,6 +246,8 @@
         "id": 63,
         "name": "Node War Benefit 15%",
         "icon": "/buffs/63.png",
+        "rate": 15,
+        "uncapped": false,
         "amount": 0,
         "group": "node-war-benefit"
     },
@@ -199,6 +255,8 @@
         "id": 64,
         "name": "Node War Benefit 20%",
         "icon": "/buffs/64.png",
+        "rate": 20,
+        "uncapped": false,
         "amount": 0,
         "group": "node-war-benefit"
     },
@@ -206,6 +264,8 @@
         "id": 65,
         "name": "Node War Benefit 25%",
         "icon": "/buffs/65.png",
+        "rate": 25,
+        "uncapped": false,
         "amount": 0,
         "group": "node-war-benefit"
     },
@@ -213,6 +273,8 @@
         "id": 38,
         "name": "Night Time",
         "icon": "/buffs/38.png",
+        "rate": 10,
+        "uncapped": false,
         "amount": 0,
         "group": null
     },
@@ -220,6 +282,8 @@
         "id": 215,
         "name": "Blessing of Fortuna",
         "icon": "/buffs/215.webp",
+        "rate": 20,
+        "uncapped": false,
         "amount": 0,
         "group": "fortuna"
     },
@@ -227,6 +291,8 @@
         "id": 51,
         "name": "Generous Blessing of Fortuna",
         "icon": "/buffs/51.webp",
+        "rate": 30,
+        "uncapped": false,
         "amount": 0,
         "group": "fortuna"
     },
@@ -234,6 +300,8 @@
         "id": 214,
         "name": "Fortune's Guidance",
         "icon": "/buffs/214.webp",
+        "rate": 20,
+        "uncapped": false,
         "amount": 0,
         "group": null
     },
@@ -241,13 +309,17 @@
         "id": 156,
         "name": "Black Spirit's Special Energy",
         "icon": "/buffs/156.webp",
+        "rate": 20,
+        "uncapped": false,
         "amount": 0,
         "group": null
     },
     {
         "id": 218,
         "name": "Blessing of Agris Scroll",
-        "icon": null,
+        "icon": "/buffs/218.webp",
+        "rate": 50,
+        "uncapped": true,
         "amount": 0,
         "group": null
     }

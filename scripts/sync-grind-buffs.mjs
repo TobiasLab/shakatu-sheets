@@ -25,7 +25,11 @@ await mkdir("public/buffs", { recursive: true });
 for (const buff of Object.values(metadata.buffs)
     .filter((candidate) => candidate.enabled && candidate.mode === 0)
     .sort((a, b) => a.sort - b.sort || a.id - b.id)) {
-    if (!Number.isSafeInteger(buff.id) || !buff.name || !Number.isSafeInteger(buff.amount) || buff.amount < 0)
+    if (
+        !Number.isSafeInteger(buff.id) ||
+        !buff.name ||
+        ![buff.rate, buff.amount].every((value) => Number.isSafeInteger(value) && value >= 0)
+    )
         throw new Error(`Invalid buff ${buff.id}`);
     // Buffs without an icon path usually still have one at grind-buffs/<id>.png, as Garmoth's older buffs do.
     const img = buff.img ?? `grind-buffs/${buff.id}.png`;
@@ -41,7 +45,15 @@ for (const buff of Object.values(metadata.buffs)
             icon = null;
         }
     }
-    buffs.push({ id: buff.id, name: buff.name, icon, amount: buff.amount, group: groups.get(buff.id) ?? null });
+    buffs.push({
+        id: buff.id,
+        name: buff.name,
+        icon,
+        rate: buff.rate,
+        uncapped: buff.is_uncapped === 1,
+        amount: buff.amount,
+        group: groups.get(buff.id) ?? null,
+    });
 }
 for (const id of groups.keys()) {
     if (!buffs.some((buff) => buff.id === id)) throw new Error(`Grouped buff ${id} is no longer available`);

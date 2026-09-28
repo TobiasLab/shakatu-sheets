@@ -3,7 +3,15 @@ import importedBuffs from "./data/garmothBuffs.json";
 import { grindSpots } from "./data/grindSpots";
 import { calculateTotals, type SessionState } from "./domain/session";
 
-export type GarmothBuff = { id: number; name: string; icon: string | null; amount: number; group: string | null };
+export type GarmothBuff = {
+    id: number;
+    name: string;
+    icon: string | null;
+    rate: number;
+    uncapped: boolean;
+    amount: number;
+    group: string | null;
+};
 export const garmothBuffs = importedBuffs as GarmothBuff[];
 
 export type GarmothUploadPreview = {
@@ -75,6 +83,20 @@ export function chooseBuff(selected: number[], buff: GarmothBuff, chosen: boolea
             (buff.group === null || garmothBuffs.find((candidate) => candidate.id === id)?.group !== buff.group),
     );
     return chosen ? [...others, buff.id] : others;
+}
+
+// Capped buffs add up to at most 300%; uncapped buffs such as Blessing of the Morning and Eye of Arsha add on top.
+const DROP_RATE_CAP = 300;
+
+export function dropRate(selected: number[]): number {
+    let capped = 0;
+    let uncapped = 0;
+    for (const buff of garmothBuffs) {
+        if (!selected.includes(buff.id)) continue;
+        if (buff.uncapped) uncapped += buff.rate;
+        else capped += buff.rate;
+    }
+    return Math.min(capped, DROP_RATE_CAP) + uncapped;
 }
 
 export function dropAmount(selected: number[]): number {

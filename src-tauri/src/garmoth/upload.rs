@@ -10,7 +10,7 @@ use crate::persistence::{
 };
 
 use super::{
-    buffs::drop_amount, client, parse_selected_character_id, parse_stored_characters,
+    buffs::drop_totals, client, parse_selected_character_id, parse_stored_characters,
     stored_api_key, GarmothOperations, API_BASE_URL, BUFFS_SETTING, CHARACTERS_SETTING,
     SELECTED_CHARACTER_SETTING,
 };
@@ -57,6 +57,8 @@ struct CreateSessionPayload<'a> {
     agris: Option<i64>,
     #[serde(skip_serializing_if = "<[i64]>::is_empty")]
     buffs: &'a [i64],
+    #[serde(skip_serializing_if = "Option::is_none")]
+    rate: Option<i64>,
     #[serde(skip_serializing_if = "Option::is_none")]
     amount: Option<i64>,
 }
@@ -269,7 +271,7 @@ pub(crate) async fn upload_garmoth_session(
 ) -> Result<GarmothUploadResult, String> {
     let _guard = operations.lock().await;
     validate_upload(&input)?;
-    let amount = drop_amount(&input.buffs)?;
+    let totals = drop_totals(&input.buffs)?;
     // Buffs rarely change between sessions, so the next review starts from the selection submitted here, even when
     // this upload then fails.
     let buffs = serde_json::to_string(&input.buffs).map_err(|error| error.to_string())?;
@@ -297,7 +299,8 @@ pub(crate) async fn upload_garmoth_session(
         consumables: &consumables,
         agris: input.agris,
         buffs: &input.buffs,
-        amount: (amount > 0).then_some(amount),
+        rate: (totals.rate > 0).then_some(totals.rate),
+        amount: (totals.amount > 0).then_some(totals.amount),
     };
     let body = serde_json::to_vec(&payload)
         .map_err(|error| format!("could not prepare the Garmoth upload: {error}"))?;
@@ -432,6 +435,7 @@ mod tests {
             consumables: &consumables,
             agris: None,
             buffs: &[],
+            rate: None,
             amount: None,
         };
 
@@ -545,7 +549,7 @@ mod tests {
     }
 
     #[test]
-    fn serializes_global_agris_buffs_and_drop_amount() {
+    fn serializes_global_agris_buffs_and_drop_totals() {
         let drops = BTreeMap::new();
         let payload = CreateSessionPayload {
             grindspot_id: 200,
@@ -559,14 +563,15 @@ mod tests {
             consumables: &[],
             agris: Some(-1),
             buffs: &[2, 8],
+            rate: Some(150),
             amount: Some(100),
         };
         let json = serde_json::to_value(payload).unwrap();
         assert_eq!(json["global"], true);
         assert_eq!(json["agris"], -1);
         assert_eq!(json["buffs"], serde_json::json!([2, 8]));
+        assert_eq!(json["rate"], 150);
         assert_eq!(json["amount"], 100);
-        assert!(json.get("rate").is_none());
     }
 
     #[test]
