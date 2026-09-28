@@ -39,7 +39,7 @@ uploads, and finished-session deletion.
 
 Uploads are explicit and single-shot. Rust reserves a session as `unknown` before sending the create request and changes
 it to `success` only after a successful response. A connect failure known to occur before transmission releases the
-reservation; any potentially transmitted request without a success response remains `unknown` because Garmoth does not
+reservation; a 10-second connect timeout keeps stalled DNS, TCP, and TLS setup in that category; any potentially transmitted request without a success response remains `unknown` because Garmoth does not
 document error semantics or an idempotency contract. The app blocks ambiguous retries and directs the user to check their
 Garmoth grind tracker. Reserved and uploaded sessions cannot be reopened.
 

@@ -684,6 +684,33 @@ mod tests {
                     RequestFailure::Unknown
                 );
                 server.join().unwrap();
+
+                // A server that never answers the TLS handshake stalls before the request is sent.
+                for (connect_timeout, expected) in [
+                    (None, RequestFailure::Unknown),
+                    (Some(Duration::from_millis(20)), RequestFailure::Retryable),
+                ] {
+                    let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+                    let address = listener.local_addr().unwrap();
+                    let server = thread::spawn(move || {
+                        let _connection = listener.accept().unwrap();
+                        thread::sleep(Duration::from_millis(200));
+                    });
+                    let mut builder = Client::builder().timeout(Duration::from_millis(100));
+                    if let Some(connect_timeout) = connect_timeout {
+                        builder = builder.connect_timeout(connect_timeout);
+                    }
+                    let handshake_error = builder
+                        .build()
+                        .unwrap()
+                        .get(format!("https://{address}"))
+                        .send()
+                        .await
+                        .unwrap_err();
+                    assert!(handshake_error.is_timeout());
+                    assert_eq!(classify_request_failure(&handshake_error), expected);
+                    server.join().unwrap();
+                }
             });
     }
 }

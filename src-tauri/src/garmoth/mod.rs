@@ -37,7 +37,9 @@ pub(crate) struct GarmothCharacter {
 }
 
 pub(super) fn client() -> Result<Client, String> {
+    // A connect timeout keeps DNS, TCP, and TLS stalls classified as connect errors, which prove nothing was sent.
     Client::builder()
+        .connect_timeout(Duration::from_secs(10))
         .timeout(Duration::from_secs(15))
         .redirect(Policy::none())
         .user_agent(concat!("shakatu-sheets/", env!("CARGO_PKG_VERSION")))
