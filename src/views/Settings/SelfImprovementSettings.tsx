@@ -2,10 +2,64 @@ import { useState } from "react";
 import { Feedback } from "../../components/Feedback/Feedback";
 import { LearningFeedback } from "../../components/LearningFeedback/LearningFeedback";
 import { QuantityImage } from "../../components/QuantityImage/QuantityImage";
+import { formatRelativeDay, formatTimestamp } from "../../format";
 import type { useSelfImprovement } from "../../hooks/useSelfImprovement";
-import type { QuantityExample } from "../../recognition/quantityLearning";
+import type { LearningEvidence, LearningProfile, QuantityExample } from "../../recognition/quantityLearning";
 import styles from "./SelfImprovementSettings.module.css";
 import settingsStyles from "./Settings.module.css";
+
+function setupName(profile: LearningProfile) {
+    return `${profile.font === "korean" ? "Korean" : "Strong Sword"} · ${profile.uiScalePercent}% · ${profile.sourceWidth} × ${profile.sourceHeight}`;
+}
+
+function RecoveryChecks({ evidence }: { evidence: readonly LearningEvidence[] }) {
+    const groups = new Map<string, LearningEvidence[]>();
+    for (const entry of evidence) {
+        const key = `${entry.kind === "item" ? "Items" : "Quantities"} · ${setupName(entry.profile)}`;
+        groups.set(key, [...(groups.get(key) ?? []), entry]);
+    }
+    return [...groups].map(([name, entries]) => {
+        const wrong = entries[0].wrong;
+        const rows = [...entries].sort((a, b) =>
+            a.kind === "quantity" ? Number(a.label) - Number(b.label) : a.label.localeCompare(b.label),
+        );
+        return (
+            // biome-ignore lint/a11y/noNoninteractiveTabindex: Allow keyboard scrolling of the overflowing table.
+            <section className={styles.TableScroll} aria-label={name} tabIndex={0} key={name}>
+                <table>
+                    <caption>
+                        {name}
+                        {wrong > 0 && ` · ${wrong} wrong ${wrong === 1 ? "prediction" : "predictions"}`}
+                    </caption>
+                    <thead>
+                        <tr>
+                            <th scope="col">{entries[0].kind === "item" ? "Item" : "Quantity"}</th>
+                            <th scope="col">Templates</th>
+                            <th scope="col">Checks</th>
+                            <th scope="col">Other labels</th>
+                            <th scope="col">Status</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {rows.map((entry) => (
+                            <tr key={entry.label}>
+                                <th scope="row">{entry.label}</th>
+                                <td>{entry.templates}</td>
+                                <td>
+                                    {entry.correct}/{entry.checked}
+                                </td>
+                                <td>{entry.alternativesCorrect}</td>
+                                <td data-ready={entry.eligible}>
+                                    {entry.eligible ? "Ready" : wrong > 0 ? "Blocked" : "Not ready"}
+                                </td>
+                            </tr>
+                        ))}
+                    </tbody>
+                </table>
+            </section>
+        );
+    });
+}
 
 function SavedExample({
     example,
@@ -16,23 +70,25 @@ function SavedExample({
     disabled: boolean;
     onDelete: () => void;
 }) {
+    const label = `${example.itemName ?? "Item not recorded"} × ${example.quantity}`;
     return (
         <li className={styles.Example}>
             <div className={styles.ExampleRow}>
-                <QuantityImage image={example} />
+                <div className={styles.ExampleImages}>
+                    {example.itemImage && (
+                        <QuantityImage image={example.itemImage} label={`Confirmed item: ${example.itemName}`} />
+                    )}
+                    <QuantityImage image={example} />
+                </div>
                 <div className={styles.ExampleLabel}>
-                    <strong>
-                        {example.itemName ?? "Item not recorded"} × {example.quantity}
-                    </strong>
+                    <strong>{label}</strong>
                     <span>
-                        {example.profile.font === "korean" ? "Korean" : "Strong Sword"} ·{" "}
-                        {example.profile.uiScalePercent}% · {example.profile.sourceWidth} ×{" "}
-                        {example.profile.sourceHeight}
+                        {setupName(example.profile)} · {formatRelativeDay(example.confirmedAt)}
+                        {!example.itemImage && " · Quantity only"}
                     </span>
-                    <span>{new Date(example.confirmedAt).toLocaleString()}</span>
                 </div>
                 <button
-                    className="button subtle"
+                    className={`button subtle ${styles.Delete}`}
                     type="button"
                     disabled={disabled}
                     onClick={onDelete}
@@ -41,18 +97,12 @@ function SavedExample({
                     Delete
                 </button>
             </div>
-            {example.itemImage && (
-                <QuantityImage image={example.itemImage} label={`Confirmed item: ${example.itemName}`} />
-            )}
-            {!example.itemImage && <p>No item-name image was available. This example only teaches the quantity.</p>}
             <details className={styles.ExampleDetails}>
-                <summary>View recognition details</summary>
+                <summary>Recognition details</summary>
                 <dl>
                     <div>
-                        <dt>Your confirmation</dt>
-                        <dd>
-                            {example.itemName ?? "Item not recorded"} × {example.quantity}
-                        </dd>
+                        <dt>Confirmed</dt>
+                        <dd>{formatTimestamp(example.confirmedAt)}</dd>
                     </div>
                     <div>
                         <dt>Accepted OCR quantity</dt>
@@ -64,10 +114,8 @@ function SavedExample({
                             {example.validation ? "Checks recognition accuracy" : "Helps recognize similar captures"}
                         </dd>
                     </div>
-                </dl>
-                {example.audit ? (
-                    <>
-                        <dl>
+                    {example.audit && (
+                        <>
                             <div>
                                 <dt>Crop source</dt>
                                 <dd>Frame {example.audit.cropFrame.frame}</dd>
@@ -97,11 +145,12 @@ function SavedExample({
                                     {example.audit.cropFrame.batchId ?? "Unavailable"}
                                 </dd>
                             </div>
-                        </dl>
-                        <p>
-                            Initial OCR evidence, before any manual retry. Readings are guesses; your confirmed item and
-                            quantity are the labels used for self-improvement.
-                        </p>
+                        </>
+                    )}
+                </dl>
+                {example.audit ? (
+                    <>
+                        <p>OCR readings from the first attempt, before any retry.</p>
                         {example.audit.frames.length === 0 && (
                             <p>This capture had too few observations for an OCR attempt.</p>
                         )}
@@ -133,7 +182,6 @@ function SavedExample({
                 ) : (
                     <>
                         <p>This example predates detailed frame history.</p>
-                        <p>Available OCR text</p>
                         <pre>{example.originalText || "No OCR text was available for this capture."}</pre>
                     </>
                 )}
@@ -147,6 +195,7 @@ export function SelfImprovementSettings({ learning }: { learning: ReturnType<typ
     const [shown, setShown] = useState(20);
     const [examplesOpen, setExamplesOpen] = useState(false);
     const { state, ready, busy } = learning;
+    const { evidence, eligibleCount } = learning.model.current;
     return (
         <section id="self-improvement" className="panel" aria-labelledby="self-improvement-title">
             <div className="panel-heading">
@@ -158,104 +207,52 @@ export function SelfImprovementSettings({ learning }: { learning: ReturnType<typ
                 </span>
             </div>
             <div className={settingsStyles.SettingsForm}>
-                <p>Help the app recognize loot items and quantities by confirming captures in Needs attention.</p>
+                <p>
+                    Help the app recognize loot by confirming captures in Needs attention. Examples stay on this device.
+                </p>
                 {!learning.available ? (
                     <p>Self-improvement is available in the desktop app.</p>
                 ) : (
                     <>
-                        <label className={styles.Option}>
-                            <span>
-                                <strong>Learn from my corrections</strong>
-                                <small>
-                                    Save item-name and quantity images with your confirmed item and number from normal
-                                    drops in Needs attention.
-                                </small>
-                            </span>
-                            <input
-                                id="self-improvement-enabled"
-                                type="checkbox"
-                                role="switch"
-                                checked={state.enabled}
-                                aria-checked={state.enabled}
-                                disabled={!ready || busy}
-                                onChange={(event) => void learning.setSettings(event.target.checked, state.autoAllow)}
-                            />
-                        </label>
-                        <label className={styles.Option}>
-                            <span>
-                                <strong>Auto allow</strong>
-                                <small>
-                                    Allow saved examples to recover unreadable items or quantities when the checks below
-                                    pass. Otherwise, ask you to confirm.
-                                </small>
-                            </span>
-                            <input
-                                id="self-improvement-auto-allow"
-                                type="checkbox"
-                                role="switch"
-                                checked={state.autoAllow}
-                                aria-checked={state.autoAllow}
-                                disabled={!ready || busy || !state.enabled}
-                                onChange={(event) => void learning.setSettings(state.enabled, event.target.checked)}
-                            />
-                        </label>
-                        <div className={styles.Note}>
-                            <strong>{state.autoAllow ? "Automatic recovery" : "You confirm suggestions"}</strong>
-                            <p>
-                                {state.autoAllow
-                                    ? learning.model.current.eligibleCount > 0
-                                        ? "Some item or quantity labels meet the example checks below. Each new drop still needs agreement across at least three frames for both its item and quantity."
-                                        : "Waiting for more confirmed examples. Matches stay as suggestions until the checks below pass."
-                                    : "Saved examples can suggest an item and a number in Needs attention. You check both and choose Add to session."}
-                            </p>
+                        <div>
+                            <label className={styles.Option}>
+                                <span>
+                                    <strong>Learn from my corrections</strong>
+                                    <small>
+                                        Save the item and quantity you confirm for normal loot, with their text images.
+                                    </small>
+                                </span>
+                                <input
+                                    id="self-improvement-enabled"
+                                    type="checkbox"
+                                    role="switch"
+                                    checked={state.enabled}
+                                    aria-checked={state.enabled}
+                                    disabled={!ready || busy}
+                                    onChange={(event) =>
+                                        void learning.setSettings(event.target.checked, state.autoAllow)
+                                    }
+                                />
+                            </label>
+                            <label className={styles.Option}>
+                                <span>
+                                    <strong>Auto allow</strong>
+                                    <small>
+                                        Add unreadable drops automatically when saved examples pass the recovery checks.
+                                        Otherwise, suggest them in Needs attention.
+                                    </small>
+                                </span>
+                                <input
+                                    id="self-improvement-auto-allow"
+                                    type="checkbox"
+                                    role="switch"
+                                    checked={state.autoAllow}
+                                    aria-checked={state.autoAllow}
+                                    disabled={!ready || busy || !state.enabled}
+                                    onChange={(event) => void learning.setSettings(state.enabled, event.target.checked)}
+                                />
+                            </label>
                         </div>
-                        <p>
-                            Images and corrections stay on this device. Item names and whole quantities are learned
-                            independently for your font, UI scale, and resolution. Older examples have no confirmed item
-                            image.
-                        </p>
-                        <details className={styles.Library}>
-                            <summary>Automatic recovery checks</summary>
-                            <div className={styles.LibraryBody}>
-                                <p>
-                                    For each learned label: at least 2 distinct matching templates, at least 3 reserved
-                                    examples all recognized correctly, and at least 1 correctly recognized reserved
-                                    example of a different label. Any wrong reserved prediction blocks that type of
-                                    learning for the display setup.
-                                </p>
-                                <p>
-                                    Every new drop needs at least 3 agreeing frames for both item and quantity. A field
-                                    can come from eligible learned images or clear OCR. Conflicting OCR blocks automatic
-                                    recovery. Learned items must belong to the current item list.
-                                </p>
-                                <p>
-                                    These are conservative example checks, not a measured gameplay accuracy guarantee.
-                                    Similar captures can share the same errors. Older quantity-only Auto allow settings
-                                    were turned off when item learning was added.
-                                </p>
-                                {learning.model.current.evidence.map((entry) => (
-                                    <div
-                                        className={styles.FrameEvidence}
-                                        key={`${entry.kind}/${entry.label}/${entry.profile.font}/${entry.profile.uiScalePercent}/${entry.profile.sourceWidth}/${entry.profile.sourceHeight}`}
-                                    >
-                                        <strong>
-                                            {entry.kind === "item" ? "Item" : "Quantity"}: {entry.label} —{" "}
-                                            {entry.eligible ? "Example checks met" : "Confirmation required"}
-                                        </strong>
-                                        <p>
-                                            {entry.profile.font} · {entry.profile.uiScalePercent}% ·{" "}
-                                            {entry.profile.sourceWidth} × {entry.profile.sourceHeight}
-                                        </p>
-                                        <p>
-                                            {entry.templates} templates · {entry.correct}/{entry.checked} reserved
-                                            examples correct · {entry.alternativesCorrect} other-label examples correct
-                                            · {entry.wrong} wrong predictions in this setup
-                                        </p>
-                                    </div>
-                                ))}
-                                {learning.model.current.evidence.length === 0 && <p>No active learning examples.</p>}
-                            </div>
-                        </details>
                         <LearningFeedback learning={learning} />
                         {learning.message && !learning.error && <Feedback tone="success">{learning.message}</Feedback>}
                         {!ready && !busy && (
@@ -263,6 +260,22 @@ export function SelfImprovementSettings({ learning }: { learning: ReturnType<typ
                                 Retry loading self-improvement
                             </button>
                         )}
+                        <details className={styles.Library}>
+                            <summary>
+                                Automatic recovery checks <span>{eligibleCount} ready</span>
+                            </summary>
+                            <div className={styles.LibraryBody}>
+                                <p>
+                                    A label is ready with 2 templates, at least 3 checks all correct, 1 correct check of
+                                    another label, and no wrong predictions.
+                                </p>
+                                {evidence.length === 0 ? (
+                                    <p>No learned labels yet.</p>
+                                ) : (
+                                    <RecoveryChecks evidence={evidence} />
+                                )}
+                            </div>
+                        </details>
                         <details
                             className={styles.Library}
                             id="self-improvement-examples"
@@ -273,83 +286,69 @@ export function SelfImprovementSettings({ learning }: { learning: ReturnType<typ
                             </summary>
                             <div className={styles.LibraryBody}>
                                 {state.examples.length === 0 ? (
-                                    <p>
-                                        No examples yet. Enable self-improvement, then confirm a normal-loot capture in
-                                        Needs attention to get started.
-                                    </p>
+                                    <p>No examples yet. Confirm a normal-loot capture in Needs attention to add one.</p>
                                 ) : (
-                                    <>
-                                        <p>
-                                            Check what the app has learned, or delete an example with an incorrect item
-                                            or number. Some examples are kept aside to check recognition accuracy.
-                                        </p>
-                                        {examplesOpen && (
-                                            <ul className={styles.Examples} aria-label="Saved correction examples">
-                                                {state.examples.slice(0, shown).map((example) => (
-                                                    <SavedExample
-                                                        key={example.id}
-                                                        example={example}
-                                                        disabled={busy}
-                                                        onDelete={() => void learning.deleteExample(example.id)}
-                                                    />
-                                                ))}
-                                            </ul>
-                                        )}
-                                        {shown < state.examples.length && (
-                                            <button
-                                                className="button"
-                                                type="button"
-                                                onClick={() => setShown(shown + 20)}
-                                            >
-                                                Show more examples
-                                            </button>
-                                        )}
-                                    </>
+                                    examplesOpen && (
+                                        <ul className={styles.Examples} aria-label="Saved correction examples">
+                                            {state.examples.slice(0, shown).map((example) => (
+                                                <SavedExample
+                                                    key={example.id}
+                                                    example={example}
+                                                    disabled={busy}
+                                                    onDelete={() => void learning.deleteExample(example.id)}
+                                                />
+                                            ))}
+                                        </ul>
+                                    )
                                 )}
-                                <p>
-                                    Keeps up to 50 examples per display setup and 200 overall. Older examples are
-                                    replaced as new ones arrive. Turning self-improvement off keeps your saved examples.
-                                </p>
-                                {confirmReset ? (
-                                    <div className={styles.Note}>
-                                        <p>
-                                            Delete all saved examples and turn self-improvement off? Your sessions will
-                                            stay unchanged.
-                                        </p>
-                                        <div className={styles.Actions}>
-                                            <button
-                                                className="button"
-                                                type="button"
-                                                disabled={busy}
-                                                onClick={() => setConfirmReset(false)}
-                                            >
-                                                Keep examples
-                                            </button>
-                                            <button
-                                                className="button"
-                                                type="button"
-                                                disabled={busy}
-                                                onClick={() => {
-                                                    setConfirmReset(false);
-                                                    void learning.reset();
-                                                }}
-                                            >
-                                                Delete all examples
-                                            </button>
-                                        </div>
-                                    </div>
-                                ) : (
-                                    <button
-                                        className="button subtle"
-                                        type="button"
-                                        disabled={!ready || busy}
-                                        onClick={() => setConfirmReset(true)}
-                                    >
-                                        Reset self-improvement
+                                {shown < state.examples.length && (
+                                    <button className="button" type="button" onClick={() => setShown(shown + 20)}>
+                                        Show more examples
                                     </button>
                                 )}
+                                <p>
+                                    Keeps up to 50 examples per display setup and 200 in total. Older ones are replaced.
+                                </p>
                             </div>
                         </details>
+                        {confirmReset ? (
+                            <Feedback
+                                action={
+                                    <div className={styles.Actions}>
+                                        <button
+                                            className="button"
+                                            type="button"
+                                            disabled={busy}
+                                            onClick={() => setConfirmReset(false)}
+                                        >
+                                            Keep examples
+                                        </button>
+                                        <button
+                                            className="button"
+                                            type="button"
+                                            disabled={busy}
+                                            onClick={() => {
+                                                setConfirmReset(false);
+                                                void learning.reset();
+                                            }}
+                                        >
+                                            Delete all examples
+                                        </button>
+                                    </div>
+                                }
+                            >
+                                Delete all saved examples and turn self-improvement off? Sessions stay unchanged.
+                            </Feedback>
+                        ) : (
+                            <button
+                                className="button subtle"
+                                type="button"
+                                disabled={!ready || busy}
+                                onClick={() => setConfirmReset(true)}
+                            >
+                                Reset self-improvement
+                            </button>
+                        )}
                     </>
                 )}
             </div>

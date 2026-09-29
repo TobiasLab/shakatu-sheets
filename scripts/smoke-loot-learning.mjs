@@ -142,10 +142,19 @@ try {
     assert.equal(await evaluate("window.saved.examples[0].itemName"), "Black Stone");
     assert.equal(await evaluate("window.saved.examples[0].itemImage.width"), 18);
     await evaluate(
-        "[...document.querySelectorAll('summary')].find(el=>el.textContent==='Automatic recovery checks').parentElement.open=true",
+        "[...document.querySelectorAll('summary')].find(el=>el.textContent.startsWith('Automatic recovery checks')).parentElement.open=true",
     );
-    assert(await evaluate("document.body.innerText.includes('Item: Black Stone — Confirmation required')"));
-    assert(await evaluate("document.body.innerText.includes('1 templates · 0/0 reserved examples correct')"));
+    assert.deepEqual(
+        await evaluate(
+            "[...document.querySelectorAll('#self-improvement section[aria-label^=Items] tbody tr')].map(row=>[...row.children].map(cell=>cell.textContent))",
+        ),
+        [["Black Stone", "1", "0/0", "0", "Not ready"]],
+        "Recovery checks list each learned item with its evidence",
+    );
+    assert.equal(
+        await evaluate("document.querySelector('#self-improvement section[aria-label^=Items] caption').textContent"),
+        "Items · Korean · 80% · 3440 × 1440",
+    );
     assert.equal(await evaluate("window.saved.examples[0].audit.cropFrame.frame"), 12);
     assert.equal(await evaluate("window.saved.examples[0].audit.sessionId"), "session-1");
     assert.equal(await evaluate("window.saved.examples[0].audit.frames[0].passes[0].text"), "Black Stone x 9");
@@ -282,7 +291,12 @@ try {
     await evaluate("window.failSave=false");
     await evaluate("document.querySelectorAll('input[type=checkbox]')[1].click()");
     await until("window.learningState.autoAllow===true");
-    assert(await evaluate("document.body.textContent.includes('Waiting for more confirmed examples')"));
+    assert(
+        await evaluate(
+            "[...document.querySelectorAll('summary')].some(el=>el.textContent==='Automatic recovery checks 0 ready')",
+        ),
+        "Auto allow shows that no label is ready yet",
+    );
     await button("Delete");
     await until("window.saved.examples.length===2");
     await button("Reset self-improvement");
