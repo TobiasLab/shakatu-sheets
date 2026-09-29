@@ -70,9 +70,9 @@ enabled, successful manual corrections in Needs attention teach normal-loot item
 Learning Black Stone ×6 can help recognize Black Stone ×9, but learning a quantity of 16 does not teach every number
 containing 6. Rare banners, dismissals, failed insertions, and automatic results do not teach the reader.
 
-Learned suggestions prefill untouched item and quantity fields. Users check the capture and confirm with **Add to session**;
-prefilling alone never inserts loot. Drafts survive switching between captures, and later suggestions never replace manual
-edits. Suggested items must belong to the current session's item dictionary.
+Learned suggestions prefill untouched item and quantity fields and tag them Suggested. Users check the capture and
+confirm with **Add to session**; prefilling alone never inserts loot. Drafts survive switching between captures, and
+later suggestions never replace manual edits. Suggested items must belong to the current session's item dictionary.
 
 **Auto allow** separately enables recovery after ordinary OCR remains unresolved. It requires eligible learned examples,
 agreement across at least three frames, and no conflicting item or quantity evidence. Accepted OCR is never overridden;

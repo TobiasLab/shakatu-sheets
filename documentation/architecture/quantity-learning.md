@@ -28,7 +28,7 @@ teaches recognition. The manual drop still adds normally. There is no accepted-c
 
 Available learned item and quantity suggestions prefill an untouched correction draft. Users check the editable fields
 against the capture and click **Add to session** once to confirm. Prefilling does not insert a drop or teach the reader.
-The first suggested draft and its suggestion note stay stable across example saves and capture switches. Matching runs
+The first suggested draft stays stable across example saves and capture switches, and a field is tagged Suggested while it still holds the learned value. Matching runs
 only until a draft is populated; later suggestions never overwrite a manual edit. Suggestions only use item labels present in the current session's item dictionary. Corrections made before
 opt-in are not recovered retroactively.
 

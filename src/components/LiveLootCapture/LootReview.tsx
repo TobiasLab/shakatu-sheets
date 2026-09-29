@@ -267,10 +267,6 @@ export function LootReview({ controller }: { controller: ReviewController }) {
                         Self-improvement settings
                     </button>
                 )}
-                <span>
-                    Review captures are discarded when dismissed, on finish, or when the app closes. Correction examples
-                    you teach are kept locally and remain until deleted or replaced by newer examples.
-                </span>
                 {controller.omittedReviewResults > 0 && (
                     <span role="status">
                         {controller.omittedReviewResults} older results removed. Unresolved item captures are retained.
