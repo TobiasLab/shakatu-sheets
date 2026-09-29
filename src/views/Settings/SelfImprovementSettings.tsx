@@ -16,7 +16,9 @@ function RecoveryChecks({ evidence }: { evidence: readonly LearningEvidence[] })
     const groups = new Map<string, LearningEvidence[]>();
     for (const entry of evidence) {
         const key = `${entry.kind === "item" ? "Items" : "Quantities"} · ${setupName(entry.profile)}`;
-        groups.set(key, [...(groups.get(key) ?? []), entry]);
+        const group = groups.get(key) ?? [];
+        group.push(entry);
+        groups.set(key, group);
     }
     return [...groups].map(([name, entries]) => {
         const wrong = entries[0].wrong;
@@ -24,39 +26,36 @@ function RecoveryChecks({ evidence }: { evidence: readonly LearningEvidence[] })
             a.kind === "quantity" ? Number(a.label) - Number(b.label) : a.label.localeCompare(b.label),
         );
         return (
-            // biome-ignore lint/a11y/noNoninteractiveTabindex: Allow keyboard scrolling of the overflowing table.
-            <section className={styles.TableScroll} aria-label={name} tabIndex={0} key={name}>
-                <table>
-                    <caption>
-                        {name}
-                        {wrong > 0 && ` · ${wrong} wrong ${wrong === 1 ? "prediction" : "predictions"}`}
-                    </caption>
-                    <thead>
-                        <tr>
-                            <th scope="col">{entries[0].kind === "item" ? "Item" : "Quantity"}</th>
-                            <th scope="col">Templates</th>
-                            <th scope="col">Checks</th>
-                            <th scope="col">Other labels</th>
-                            <th scope="col">Status</th>
+            <table className={styles.Checks} key={name}>
+                <caption>
+                    {name}
+                    {wrong > 0 && ` · ${wrong} wrong ${wrong === 1 ? "prediction" : "predictions"}`}
+                </caption>
+                <thead>
+                    <tr>
+                        <th scope="col">{entries[0].kind === "item" ? "Item" : "Quantity"}</th>
+                        <th scope="col">Templates</th>
+                        <th scope="col">Checks</th>
+                        <th scope="col">Other labels</th>
+                        <th scope="col">Status</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {rows.map((entry) => (
+                        <tr key={entry.label}>
+                            <th scope="row">{entry.label}</th>
+                            <td>{entry.templates}</td>
+                            <td>
+                                {entry.correct}/{entry.checked}
+                            </td>
+                            <td>{entry.alternativesCorrect}</td>
+                            <td data-ready={entry.eligible}>
+                                {entry.eligible ? "Ready" : wrong > 0 ? "Blocked" : "Not ready"}
+                            </td>
                         </tr>
-                    </thead>
-                    <tbody>
-                        {rows.map((entry) => (
-                            <tr key={entry.label}>
-                                <th scope="row">{entry.label}</th>
-                                <td>{entry.templates}</td>
-                                <td>
-                                    {entry.correct}/{entry.checked}
-                                </td>
-                                <td>{entry.alternativesCorrect}</td>
-                                <td data-ready={entry.eligible}>
-                                    {entry.eligible ? "Ready" : wrong > 0 ? "Blocked" : "Not ready"}
-                                </td>
-                            </tr>
-                        ))}
-                    </tbody>
-                </table>
-            </section>
+                    ))}
+                </tbody>
+            </table>
         );
     });
 }
@@ -238,8 +237,8 @@ export function SelfImprovementSettings({ learning }: { learning: ReturnType<typ
                                 <span>
                                     <strong>Auto allow</strong>
                                     <small>
-                                        Add unreadable drops automatically when saved examples pass the recovery checks.
-                                        Otherwise, suggest them in Needs attention.
+                                        Add unreadable drops automatically when their labels are ready and at least 3
+                                        frames agree. Otherwise, suggest them in Needs attention.
                                     </small>
                                 </span>
                                 <input
@@ -262,14 +261,18 @@ export function SelfImprovementSettings({ learning }: { learning: ReturnType<typ
                         )}
                         <details className={styles.Library}>
                             <summary>
-                                Automatic recovery checks <span>{eligibleCount} ready</span>
+                                Automatic recovery checks {state.enabled && !busy && <span>{eligibleCount} ready</span>}
                             </summary>
                             <div className={styles.LibraryBody}>
                                 <p>
-                                    A label is ready with 2 templates, at least 3 checks all correct, 1 correct check of
-                                    another label, and no wrong predictions.
+                                    A label is ready with at least 2 templates and at least 3 checks, all correct, plus
+                                    1 correct check of another label. Any wrong prediction blocks its whole table.
                                 </p>
-                                {evidence.length === 0 ? (
+                                {!state.enabled ? (
+                                    <p>Checks run while Learn from my corrections is on.</p>
+                                ) : busy ? (
+                                    <p>Updating…</p>
+                                ) : evidence.length === 0 ? (
                                     <p>No learned labels yet.</p>
                                 ) : (
                                     <RecoveryChecks evidence={evidence} />

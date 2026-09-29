@@ -56,6 +56,14 @@ export function itemImage(capture: LootReviewCapture | undefined): LootRoiFrame 
     return cropImage(capture, capture?.itemBounds, 512);
 }
 
+/** The crops a confirmed correction would save, using the same checks as `correctionQuantityExample`. */
+export function learnableImages(capture: LootReviewCapture | undefined) {
+    const quantity = quantityImage(capture);
+    if (!quantity || !shape(quantity)) return undefined;
+    const item = itemImage(capture);
+    return { quantity, item: item && shape(item, 512) ? item : undefined };
+}
+
 function cropImage(
     capture: LootReviewCapture | undefined,
     bounds: LootReviewCapture["quantityBounds"],

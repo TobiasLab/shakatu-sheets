@@ -1,6 +1,6 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import type { LiveLootReviewEntry } from "../../recognition/liveLootReview";
-import { itemImage, quantityImage } from "../../recognition/quantityLearning";
+import { learnableImages } from "../../recognition/quantityLearning";
 import { retryLootCapture } from "../../recognition/retryLootCapture";
 import { FormField } from "../FormField/FormField";
 import { QuantityImage } from "../QuantityImage/QuantityImage";
@@ -33,8 +33,10 @@ export function CaptureCorrection({
     const canvas = useRef<HTMLCanvasElement>(null);
     const { item, quantity, learnedItem, learnedQuantity } = draft;
     const capture = review.result.status === "dropped" ? undefined : review.result.capture;
-    const learningImage = learnOnAdd && review.source === "normal" ? quantityImage(capture) : undefined;
-    const learningItemImage = learningImage ? itemImage(capture) : undefined;
+    const learning = learnOnAdd && review.source === "normal" ? learnableImages(capture) : undefined;
+    const suggestedId = useId();
+    const itemSuggested = item !== "" && item === learnedItem;
+    const quantitySuggested = learnedQuantity !== undefined && quantity === String(learnedQuantity);
     const retry = useRef<AbortController | null>(null);
     const [retrying, setRetrying] = useState(false);
     const [retryMessage, setRetryMessage] = useState("");
@@ -113,13 +115,17 @@ export function CaptureCorrection({
             ) : (
                 <p className={styles.Unavailable}>No image was available for this notification.</p>
             )}
-            {learningImage && (
+            {learning && (
                 <div className={styles.Learning}>
-                    <span>{learningItemImage ? "Saved for learning" : "Saved for learning · quantity only"}</span>
-                    {learningItemImage && (
-                        <QuantityImage image={learningItemImage} label="Item name image for self-improvement" />
+                    <span>
+                        {learning.item
+                            ? "Saved for learning when added"
+                            : "Saved for learning when added · quantity only"}
+                    </span>
+                    {learning.item && (
+                        <QuantityImage image={learning.item} label="Item name image for self-improvement" />
                     )}
-                    <QuantityImage image={learningImage} />
+                    <QuantityImage image={learning.quantity} />
                 </div>
             )}
             {(suggestion || retryMessage) && (
@@ -156,12 +162,17 @@ export function CaptureCorrection({
                     label={
                         <>
                             Item
-                            {item !== "" && item === learnedItem && <span className={styles.Suggested}>Suggested</span>}
+                            {itemSuggested && (
+                                <span className={styles.Suggested} id={`${suggestedId}-item`} aria-hidden="true">
+                                    Suggested
+                                </span>
+                            )}
                         </>
                     }
                 >
                     <select
                         required
+                        aria-describedby={itemSuggested ? `${suggestedId}-item` : undefined}
                         value={item}
                         disabled={disabled}
                         onChange={(event) => onDraftChange({ ...draft, item: event.target.value })}
@@ -179,14 +190,17 @@ export function CaptureCorrection({
                     label={
                         <>
                             Quantity
-                            {learnedQuantity !== undefined && quantity === String(learnedQuantity) && (
-                                <span className={styles.Suggested}>Suggested</span>
+                            {quantitySuggested && (
+                                <span className={styles.Suggested} id={`${suggestedId}-quantity`} aria-hidden="true">
+                                    Suggested
+                                </span>
                             )}
                         </>
                     }
                 >
                     <input
                         type="number"
+                        aria-describedby={quantitySuggested ? `${suggestedId}-quantity` : undefined}
                         min="1"
                         step="1"
                         max={Number.MAX_SAFE_INTEGER}

@@ -58,8 +58,8 @@ Live capture is explicit and can run before or while the timer is paused. Naviga
 recognition; previews run only when setup is visible. Recognized events enter the ledger. Unresolved captures support
 manual correction, OCR suggestions that require confirmation, and dismissal without changing existing ledger entries.
 Finishing drains pending OCR and offers a choice to review unresolved drops or finish without them. Review time is
-excluded from session duration. Review images are discarded when the session finishes; opted-in learning examples
-remain in their separate local database.
+excluded from session duration. Review images are discarded when dismissed, when the session finishes, or when the app
+closes; opted-in learning examples remain in their separate local database.
 
 See [live loot architecture](../architecture/live-loot.md) for capture profiles, OCR policy, diagnostics, and limits.
 
@@ -78,11 +78,12 @@ later suggestions never replace manual edits. Suggested items must belong to the
 agreement across at least three frames, and no conflicting item or quantity evidence. Accepted OCR is never overridden;
 uncertain captures remain available for manual review. Eligibility checks do not guarantee real-game accuracy.
 
-**Saved examples** lets users inspect confirmed labels, small text images, and recognition details, delete individual
-examples, or reset the library and turn both settings off. Disabling learning retains saved examples. Examples stay on
-the user's device in a separate database and survive session deletion; full capture frames are not saved by learning.
-A failed example save does not undo the added loot and can be retried or discarded from the capture strip or
-Settings. A successful save is announced to screen readers without leaving a message in the strip.
+**Saved examples** lets users inspect confirmed labels, small text images, and recognition details, and delete
+individual examples. **Reset self-improvement** clears the library and turns both settings off. Disabling learning
+retains saved examples. Examples stay on the user's device in a separate database and survive session deletion; full
+capture frames are not saved by learning. A failed example save does not undo the added loot and can be retried or
+discarded from the capture strip or Settings. A successful save is announced to screen readers without leaving a message
+in the strip.
 
 See [self-improvement architecture](../architecture/quantity-learning.md) for matching rules, storage, and validation limits.
 
