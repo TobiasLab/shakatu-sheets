@@ -81,7 +81,8 @@ uncertain captures remain available for manual review. Eligibility checks do not
 **Saved examples** lets users inspect confirmed labels, small text images, and recognition details, delete individual
 examples, or reset the library and turn both settings off. Disabling learning retains saved examples. Examples stay on
 the user's device in a separate database and survive session deletion; full capture frames are not saved by learning.
-A failed example save does not undo the added loot and can be retried or discarded.
+A failed example save does not undo the added loot and can be retried or discarded from the capture strip or
+Settings. A successful save is announced to screen readers without leaving a message in the strip.
 
 See [self-improvement architecture](../architecture/quantity-learning.md) for matching rules, storage, and validation limits.
 

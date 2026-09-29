@@ -16,6 +16,7 @@ export function useSelfImprovement() {
     const [error, setError] = useState("");
     const [failedExamples, setFailedExamples] = useState<QuantityExampleInput[]>([]);
     const [message, setMessage] = useState("");
+    const [announcement, setAnnouncement] = useState("");
     const alive = useRef(true);
     const pending = useRef(0);
     const queuedExamples = useRef(0);
@@ -29,6 +30,7 @@ export function useSelfImprovement() {
         pending.current += 1;
         setBusy(true);
         setError("");
+        setMessage("");
         // Stop automatic recovery while settings or examples are being changed.
         model.current = prepareQuantityLearning(emptyQuantityLearning);
         try {
@@ -64,7 +66,7 @@ export function useSelfImprovement() {
         if (await run({ kind: "save", example })) {
             queuedExamples.current -= 1;
             setFailedExamples((current) => current.filter((saved) => saved.id !== example.id));
-            setMessage("Correction saved for self-improvement.");
+            setAnnouncement("Correction saved for self-improvement.");
         } else if (alive.current) {
             setFailedExamples((current) =>
                 current.some((saved) => saved.id === example.id) ? current : [...current, example],
@@ -82,9 +84,10 @@ export function useSelfImprovement() {
             !review.learningId
         )
             return;
+        setAnnouncement("");
         const example = correctionQuantityExample(review, quantity, itemName);
         if (!example) {
-            setMessage("Drop added. No clear, complete quantity crop was available to learn from.");
+            setAnnouncement("Drop added. No clear, complete quantity crop was available to learn from.");
             return;
         }
         if (queuedExamples.current >= 50) {
@@ -103,6 +106,7 @@ export function useSelfImprovement() {
         busy,
         error,
         message,
+        announcement,
         model,
         failedExample: failedExamples[0] ?? null,
         failedExampleCount: failedExamples.length,
