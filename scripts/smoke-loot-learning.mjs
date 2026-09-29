@@ -146,14 +146,16 @@ try {
     );
     assert.deepEqual(
         await evaluate(
-            "[...document.querySelectorAll('#self-improvement section[aria-label^=Items] tbody tr')].map(row=>[...row.children].map(cell=>cell.textContent))",
+            "[...[...document.querySelectorAll('#self-improvement table')].find(t=>t.caption.textContent.startsWith('Items')).tBodies[0].rows].map(row=>[...row.children].map(cell=>cell.textContent))",
         ),
         [["Black Stone", "1", "0/0", "0", "Not ready"]],
         "Recovery checks list each learned item with its evidence",
     );
     assert.equal(
-        await evaluate("document.querySelector('#self-improvement section[aria-label^=Items] caption').textContent"),
-        "Items · Korean · 80% · 3440 × 1440",
+        await evaluate(
+            "[...document.querySelectorAll('#self-improvement caption')].some(c=>c.textContent==='Items · Korean · 80% · 3440 × 1440')",
+        ),
+        true,
     );
     assert.equal(await evaluate("window.saved.examples[0].audit.cropFrame.frame"), 12);
     assert.equal(await evaluate("window.saved.examples[0].audit.sessionId"), "session-1");
@@ -291,11 +293,8 @@ try {
     await evaluate("window.failSave=false");
     await evaluate("document.querySelectorAll('input[type=checkbox]')[1].click()");
     await until("window.learningState.autoAllow===true");
-    assert(
-        await evaluate(
-            "[...document.querySelectorAll('summary')].some(el=>el.textContent==='Automatic recovery checks 0 ready')",
-        ),
-        "Auto allow shows that no label is ready yet",
+    await until(
+        "[...document.querySelectorAll('summary')].some(el=>el.textContent==='Automatic recovery checks 0 ready')",
     );
     await button("Delete");
     await until("window.saved.examples.length===2");

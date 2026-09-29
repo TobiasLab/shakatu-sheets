@@ -4,6 +4,7 @@ import {
     correctionQuantityExample,
     itemImage,
     type LearningProfile,
+    learnableImages,
     prepareQuantityLearning,
     type QuantityExample,
     quantityImage,
@@ -327,6 +328,41 @@ describe("learned item names", () => {
         });
         expect(itemImage(capture)?.width).toBe(21);
         expect(itemImage({ ...capture, itemBounds: { left: -1, right: 21, top: 0, bottom: 9 } })).toBeUndefined();
+    });
+    it("previews exactly the crops that a correction would save", () => {
+        const capture = copyLootReviewCapture(frames[0]);
+        const blank = copyLootReviewCapture(frames[0]);
+        blank.pixels.fill(0);
+        for (const candidate of [capture, { ...capture, itemBounds: undefined }, blank]) {
+            const saved = correctionQuantityExample(
+                {
+                    id: 1,
+                    source: "normal",
+                    accepted: false,
+                    error: "",
+                    learningId: "preview-event",
+                    learningProfile: profile,
+                    result: {
+                        eventId: "1",
+                        firstFrame: 0,
+                        selectedFrames: [0],
+                        status: "withheld",
+                        reason: "item-not-recognized",
+                        itemName: null,
+                        quantity: null,
+                        capture: candidate,
+                    },
+                },
+                6,
+                "Black Stone",
+            );
+            const preview = learnableImages(candidate);
+            expect(preview === undefined).toBe(saved === undefined);
+            expect(preview?.item === undefined).toBe(!saved?.itemImage);
+        }
+        expect(learnableImages(capture)?.item?.width).toBe(21);
+        expect(learnableImages({ ...capture, itemBounds: undefined })).toMatchObject({ item: undefined });
+        expect(learnableImages(blank)).toBeUndefined();
     });
     it("learns the item independently of quantity and the current dictionary limits suggestions", () => {
         const reader = namedModel(false);
