@@ -1,3 +1,4 @@
+import type { useSelfImprovement } from "../../hooks/useSelfImprovement";
 import type { LootAlignmentGuide, LootUiScale } from "../../recognition/displayCapture";
 import { Feedback } from "../Feedback/Feedback";
 import { FormField } from "../FormField/FormField";
@@ -40,6 +41,53 @@ function AlignmentGuide({
                 />
             ))}
         </div>
+    );
+}
+export function LearningFeedback({ learning }: { learning: ReturnType<typeof useSelfImprovement> }) {
+    const count = learning.failedExampleCount;
+    return (
+        <>
+            {(learning.error || learning.failedExample) && (
+                <div className={styles.LearningFeedback}>
+                    <Feedback
+                        id="learning-feedback"
+                        tone="error"
+                        action={
+                            learning.failedExample && (
+                                <div className={styles.LearningActions}>
+                                    <button
+                                        className="button"
+                                        type="button"
+                                        aria-describedby="learning-feedback"
+                                        disabled={learning.busy || !learning.state.enabled}
+                                        onClick={learning.retrySave}
+                                    >
+                                        Retry save
+                                    </button>
+                                    <button
+                                        className="button subtle"
+                                        type="button"
+                                        aria-describedby="learning-feedback"
+                                        disabled={learning.busy}
+                                        onClick={learning.discardFailedSave}
+                                    >
+                                        Discard
+                                    </button>
+                                </div>
+                            )
+                        }
+                    >
+                        {learning.error ||
+                            (count === 1
+                                ? "A learning example could not be saved. Your drop was added."
+                                : `${count} learning examples could not be saved. Your drops were added.`)}
+                    </Feedback>
+                </div>
+            )}
+            <div className="sr-only" aria-live="polite">
+                {learning.announcement}
+            </div>
+        </>
     );
 }
 export function LiveLootCapture({ controller }: { controller: ReturnType<typeof useLiveLootCapture> }) {
@@ -247,6 +295,7 @@ export function LiveLootCapture({ controller }: { controller: ReturnType<typeof 
                     Local recognition stopped: {recognitionError}
                 </p>
             )}
+            <LearningFeedback learning={controller.learning} />
             {status === "capturing" && (
                 <div
                     id="capture-setup"
@@ -773,21 +822,6 @@ export function LiveLootCapture({ controller }: { controller: ReturnType<typeof 
                 {recognitionAnnouncement}
             </div>
             <LootReview controller={controller} />
-            {(controller.learning.error || controller.learning.failedExample || controller.learning.message) && (
-                <Feedback
-                    tone={controller.learning.error || controller.learning.failedExample ? "error" : "success"}
-                    action={
-                        <button className="button subtle" type="button" onClick={controller.onOpenSelfImprovement}>
-                            Self-improvement settings
-                        </button>
-                    }
-                >
-                    {controller.learning.error ||
-                        (controller.learning.failedExample
-                            ? "Your drop was added, but an example is waiting to be saved. Open Self-improvement in Settings to retry."
-                            : controller.learning.message)}
-                </Feedback>
-            )}
         </section>
     );
 }

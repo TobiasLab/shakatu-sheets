@@ -8,6 +8,7 @@ const harness = `
 import React,{useState} from 'react';
 import ReactDOM from 'react-dom/client';
 import {LootReview} from '/src/components/LiveLootCapture/LootReview.tsx';
+import {LearningFeedback} from '/src/components/LiveLootCapture/LiveLootCapture.tsx';
 import {SelfImprovementSettings} from '/src/views/Settings/SelfImprovementSettings.tsx';
 import settingsStyles from '/src/views/Settings/Settings.module.css';
 import {useSelfImprovement} from '/src/hooks/useSelfImprovement.ts';
@@ -29,6 +30,7 @@ function Harness(){
  window.learningState=learning.state;
  function correct(id,item,quantity){const original=reviews.find(x=>x.id===id);const corrected=correctLiveLootReviewEntry(original,item,quantity,(item,quantity)=>{if(window.failAdd)return 'Synthetic ledger failure';window.added.push({item,quantity});return null;});setReviews(current=>current.map(x=>x.id===id?corrected:x));if(corrected.accepted&&!original.accepted)learning.learnCorrection(original,quantity,item);}
  return <main style={{maxWidth:900,margin:'20px auto',padding:16}}><h1 id="live-capture-heading" tabIndex={-1}>Learning test</h1>
+ <LearningFeedback learning={learning}/>
  <LootReview controller={{reviewResults:reviews,omittedReviewResults:0,databaseLoaded:true,sessionStatus:'paused',itemDictionary:['Black Stone','Caphras Stone'],resultDescription:()=> 'Check quantity',clearReviewResults:()=>setReviews([]),dismissReviewResult:id=>setReviews(current=>current.filter(x=>x.id!==id)),correctReviewResult:correct,acceptReviewResult:()=>{},learning}}/>
  <div className={settingsStyles.Preferences}><SelfImprovementSettings learning={learning}/></div></main>;
 }
@@ -128,6 +130,14 @@ try {
     await evaluate("window.failAdd=false");
     await button("Add to session");
     await until("window.saved.examples.length===1");
+    await until(
+        "document.querySelector('.sr-only[aria-live=polite]')?.textContent==='Correction saved for self-improvement.'",
+    );
+    assert.equal(
+        await evaluate("document.querySelectorAll('[data-tone]').length"),
+        0,
+        "A saved correction is announced without a lasting banner",
+    );
     assert.equal(await evaluate("window.saved.examples[0].quantity"), 6);
     assert.equal(await evaluate("window.saved.examples[0].itemName"), "Black Stone");
     assert.equal(await evaluate("window.saved.examples[0].itemImage.width"), 18);
@@ -210,6 +220,12 @@ try {
     await evaluate("window.failSave=true");
     await button("Add to session");
     await until("document.body.textContent.includes('Synthetic storage failure')");
+    assert(
+        await evaluate(
+            "document.querySelector('#learning-feedback').textContent.includes('Synthetic storage failure')",
+        ),
+        "The capture strip shows why the example was not saved",
+    );
     assert.equal(await evaluate("window.added.length"), before + 1, "Storage failure does not undo the drop");
     assert.deepEqual(
         await evaluate("window.added.at(-1)"),
@@ -224,9 +240,26 @@ try {
         await evaluate("document.body.textContent.includes('Retry saving example')"),
         "A later save must not discard a previous failed example",
     );
-    await button("Retry saving example");
+    assert.equal(
+        await evaluate("document.querySelector('#learning-feedback').textContent"),
+        "A learning example could not be saved. Your drop was added.",
+    );
+    assert(
+        !(await evaluate("document.querySelector('#self-improvement').textContent.includes('Correction saved')")),
+        "Settings must not report a saved correction beside an unsaved one",
+    );
+    await button("Retry save");
     await until("window.saved.examples.length===3");
     assert.equal(await evaluate("window.added.length"), before + 2, "Retry only saves the example");
+    await until("!document.querySelector('#learning-feedback')");
+    await evaluate("window.failSave=true;window.addPending(5)");
+    await until("!!document.querySelector('#review-select-5')");
+    await correct(8);
+    await until("!!document.querySelector('#learning-feedback')");
+    await button("Discard");
+    assert.equal(await evaluate("document.querySelector('#learning-feedback')"), null, "Discard clears the notice");
+    assert.equal(await evaluate("window.saved.examples.length"), 3, "Discard does not save the example");
+    await evaluate("window.failSave=false");
     await evaluate("document.querySelectorAll('input[type=checkbox]')[1].click()");
     await until("window.learningState.autoAllow===true");
     assert(await evaluate("document.body.textContent.includes('Waiting for more confirmed examples')"));
