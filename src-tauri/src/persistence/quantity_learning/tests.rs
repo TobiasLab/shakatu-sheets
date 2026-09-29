@@ -210,7 +210,7 @@ fn learning_does_not_modify_the_session_database_and_main_can_reopen_it() {
 }
 
 #[test]
-fn round_trip_png_validation_split_settings_and_reset() {
+fn round_trip_png_settings_and_reset() {
     let dir = TestDirectory::new();
     let path = dir.learning();
     assert!(operate(
@@ -232,8 +232,6 @@ fn round_trip_png_validation_split_settings_and_reset() {
     }
     let loaded = operate(&path, LearningOperation::Load).unwrap();
     assert_eq!(loaded.examples.len(), 3);
-    assert!(loaded.examples[0].validation);
-    assert!(!loaded.examples[1].validation);
     assert_eq!(loaded.examples[0].input.pixels, example(3).pixels);
     assert_eq!(loaded.examples[0].input.original_text, "Black Stone x &");
     let repeated = operate(
@@ -350,6 +348,112 @@ fn storage_is_bounded_per_profile_and_globally() {
             .input
             .id,
         "event-259"
+    );
+    assert_eq!(
+        db.query_row(
+            "SELECT COUNT(*) FROM quantity_examples WHERE validation",
+            [],
+            |r| r.get::<_, i64>(0)
+        )
+        .unwrap(),
+        0,
+        "No example is reserved from teaching"
+    );
+}
+
+#[test]
+fn unreadable_rows_are_reported_without_blocking_the_library() {
+    let dir = TestDirectory::new();
+    let path = dir.learning();
+    enable(&path);
+    for index in 1..=5 {
+        operate(
+            &path,
+            LearningOperation::Save {
+                example: example(index),
+            },
+        )
+        .unwrap();
+    }
+    let db = open_database(&path).unwrap();
+    db.execute_batch(
+        "UPDATE quantity_examples SET png = x'00' WHERE id = 'event-2';
+         UPDATE quantity_examples SET audit_json = '{' WHERE id = 'event-3';
+         UPDATE quantity_examples SET item_name = 'Black Stone', item_width = 8 WHERE id = 'event-4';
+         UPDATE quantity_examples SET item_name = 'Black Stone', item_width = -1, item_height = 16, item_png = x'00'
+           WHERE id = 'event-5';",
+    )
+    .unwrap();
+    let loaded = operate(&path, LearningOperation::Load).unwrap();
+    assert_eq!(loaded.examples.len(), 1);
+    assert_eq!(loaded.examples[0].input.id, "event-1");
+    let ids = |learning: &QuantityLearning| {
+        learning
+            .unreadable
+            .iter()
+            .map(|entry| entry.id.clone())
+            .collect::<Vec<_>>()
+    };
+    assert_eq!(ids(&loaded), ["event-5", "event-4", "event-3", "event-2"]);
+    assert_eq!(loaded.unreadable[1].reason, "Invalid saved item image.");
+    let saved = operate(
+        &path,
+        LearningOperation::Save {
+            example: example(6),
+        },
+    )
+    .unwrap();
+    assert_eq!(
+        saved.examples.len(),
+        2,
+        "Saving still works beside unreadable rows"
+    );
+    let deleted = operate(
+        &path,
+        LearningOperation::Delete {
+            id: "event-3".into(),
+        },
+    )
+    .unwrap();
+    assert_eq!(ids(&deleted), ["event-5", "event-4", "event-2"]);
+    assert_eq!(
+        deleted.examples.len(),
+        2,
+        "Delete removes only the named example"
+    );
+}
+
+#[test]
+fn a_reused_id_with_a_different_label_is_rejected() {
+    let dir = TestDirectory::new();
+    let path = dir.learning();
+    enable(&path);
+    operate(
+        &path,
+        LearningOperation::Save {
+            example: example(1),
+        },
+    )
+    .unwrap();
+    let mut changed = example(1);
+    changed.quantity = 9;
+    assert!(operate(&path, LearningOperation::Save { example: changed }).is_err());
+}
+
+#[test]
+fn load_rejects_a_newer_learning_file_without_changing_it() {
+    let dir = TestDirectory::new();
+    let path = dir.learning();
+    enable(&path);
+    let db = open_database(&path).unwrap();
+    db.execute_batch("PRAGMA user_version = 4").unwrap();
+    assert!(operate(&path, LearningOperation::Load)
+        .unwrap_err()
+        .contains("version 4"));
+    assert_eq!(
+        db.query_row("PRAGMA user_version", [], |r| r.get::<_, i64>(0))
+            .unwrap(),
+        4
     );
 }
 

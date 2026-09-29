@@ -97,7 +97,7 @@ node scripts/smoke-loot-ui.mjs
 node scripts/smoke-loot-learning.mjs
 ```
 
-The learning smoke uses synthetic crops and a persistence adapter to check opt-in, suggestions, corrections, failure
+The learning smoke starts its own Vite server and needs only the Chromium instance. It uses synthetic crops and a persistence adapter to check opt-in, suggestions, corrections, failure
 retries, auto-allow controls, deletion, and reset. For synthetic matching overhead, run
 `npx vite-node --script scripts/benchmark-loot-learning.mjs`; see [self-improvement](../architecture/quantity-learning.md)
 for acceptance rules and storage compatibility.

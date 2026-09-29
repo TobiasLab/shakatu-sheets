@@ -13,6 +13,7 @@ import {
     RareLootFrameAnalyzer,
     rareLootDetectionProfile,
 } from "../src/recognition/rareLoot.ts";
+import { createLearningReplay, learningFrame } from "./loot-learning-replay.mjs";
 import { decodeRoiFrames } from "./loot-roi-decoder.mjs";
 
 const args = process.argv.slice(2);
@@ -25,6 +26,7 @@ const { values } = parseArgs({
         output: { type: "string" },
         annotations: { type: "string" },
         trace: { type: "string" },
+        learning: { type: "string" },
         "sample-step": { type: "string", default: "1" },
         "sample-offset": { type: "string", default: "0" },
     },
@@ -38,15 +40,17 @@ if (![1, 2].includes(sampleStep) || !Number.isInteger(sampleOffset) || sampleOff
     throw new Error("Sampling requires --sample-step 1 or 2 and an offset smaller than the step.");
 if (!root)
     throw new Error(
-        "Usage: npm run benchmark:loot:roi -- <live-loot directory> [--validation] [--ocr] [--annotations labels.json] [--output report.json] [--trace readings.jsonl] [--sample-step 1|2] [--sample-offset 0|1]",
+        "Usage: npm run benchmark:loot:roi -- <live-loot directory> [--validation] [--ocr] [--annotations labels.json] [--output report.json] [--trace readings.jsonl] [--learning learning.json] [--sample-step 1|2] [--sample-offset 0|1]",
     );
-for (const path of [values.output, values.trace].filter(Boolean)) {
+if (values.learning && !useOcr) throw new Error("--learning needs --ocr: recognized readings are its labels.");
+const reportPaths = [values.output, values.trace, values.learning].filter(Boolean);
+for (const path of reportPaths) {
     const fromRoot = relative(resolve(root), resolve(path));
     if (!isAbsolute(fromRoot) && fromRoot.split(sep)[0] !== "..")
         throw new Error("Write analysis outside the source corpus.");
 }
-if (values.output && values.trace && resolve(values.output) === resolve(values.trace))
-    throw new Error("Report and trace paths must differ.");
+if (new Set(reportPaths.map((path) => resolve(path))).size !== reportPaths.length)
+    throw new Error("Report, trace and learning paths must differ.");
 if (values.trace) await writeFile(values.trace, "", { flag: "wx" });
 const annotations = JSON.parse(await readFile(values.annotations ?? join(root, "annotations.json"), "utf8"));
 const cases = JSON.parse(await readFile(new URL("./fixtures/loot-roi-cases.json", import.meta.url), "utf8"));
@@ -97,6 +101,10 @@ const report = {
     split,
     ocr: useOcr,
     note: "Accuracy replay waits for OCR; it does not measure real-time throughput. Unreviewed runs have diagnostic counts only.",
+    runs: [],
+};
+const learningReport = {
+    note: "Observation only: capture results are unchanged. Recognized OCR labels each event, as if a user confirmed every drop.",
     runs: [],
 };
 let failed = false;
@@ -151,6 +159,19 @@ try {
             if (crop?.width !== profile.width || crop?.height !== profile.height)
                 throw new Error(`${run.id}: unsupported ${kind} geometry.`);
             const analyzer = new RareLootFrameAnalyzer(rareGeometry, sampleFps);
+            const learning =
+                values.learning && kind === "normal"
+                    ? createLearningReplay(
+                          {
+                              font,
+                              uiScalePercent: manifest.uiScalePercent,
+                              sourceWidth: manifest.sourceDimensions.width,
+                              sourceHeight: manifest.sourceDimensions.height,
+                          },
+                          annotations.itemDictionary,
+                      )
+                    : undefined;
+            const learningFrames = new Map();
             const results = [];
             let ocrJobs = 0;
             let ocrCalls = 0;
@@ -176,7 +197,8 @@ try {
                     lastOcrEventId = frames[0]?.eventId;
                     const readings = [];
                     for (const frame of frames) {
-                        if (values.trace) frame.diagnostics = { passes: [] };
+                        // The app records OCR passes, and automatic recovery checks them for conflicts.
+                        if (values.trace || learning) frame.diagnostics = { passes: [] };
                         if (!worker) {
                             readings.push([]);
                             continue;
@@ -210,6 +232,11 @@ try {
                             font,
                         );
                         readings.push(texts);
+                        if (learning && frame.eventId) {
+                            const observed = learningFrames.get(frame.eventId) ?? [];
+                            observed.push(learningFrame(frame, texts));
+                            learningFrames.set(frame.eventId, observed);
+                        }
                     }
                     if (values.trace)
                         await appendFile(
@@ -229,12 +256,17 @@ try {
                         );
                     return readings;
                 },
-                onResult: (result) =>
+                onResult: (result) => {
                     results.push({
                         ...result,
                         firstBatchId: replayIds[result.firstFrame],
                         selectedBatchIds: result.selectedFrames.map((frame) => replayIds[frame]),
-                    }),
+                    });
+                    if (learning) {
+                        learning.event(result, learningFrames.get(result.eventId) ?? [], replayIds[result.firstFrame]);
+                        learningFrames.delete(result.eventId);
+                    }
+                },
             });
             try {
                 let sourceIndex = 0;
@@ -295,11 +327,19 @@ try {
                     failed = true;
             }
             console.log(JSON.stringify({ ...summary, reviewedCases }));
+            if (learning) {
+                const learned = { run: run.id, font, ...learning.report() };
+                if (learned.automatic.wrong) failed = true;
+                console.log(JSON.stringify({ learning: { ...learned, unresolved: learned.unresolved.length } }));
+                learningReport.runs.push(learned);
+            }
             report.runs.push({ ...summary, reviewedCases, results });
         }
     }
     if (!report.runs.length) throw new Error(`No ${split} runs.`);
     if (output) await writeFile(resolve(output), `${JSON.stringify(report, null, 2)}\n`, { flag: "wx" });
+    if (values.learning)
+        await writeFile(resolve(values.learning), `${JSON.stringify(learningReport, null, 2)}\n`, { flag: "wx" });
 } finally {
     await worker?.terminate();
 }

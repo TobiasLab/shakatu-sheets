@@ -14,13 +14,13 @@ it("orders mutations after in-flight saves and continues after failure", async (
                     reject = fail;
                 }),
         )
-        .mockResolvedValueOnce({ enabled: false, autoAllow: false, examples: [] });
+        .mockResolvedValueOnce({ enabled: false, autoAllow: false, examples: [], unreadable: [] });
     const first = quantityLearning({ kind: "settings", enabled: true, autoAllow: false });
     const reset = quantityLearning({ kind: "reset" });
     await Promise.resolve();
     expect(invoke).toHaveBeenCalledTimes(1);
     reject(new Error("Storage unavailable"));
     await expect(first).rejects.toThrow("Storage unavailable");
-    await expect(reset).resolves.toEqual({ enabled: false, autoAllow: false, examples: [] });
+    await expect(reset).resolves.toEqual({ enabled: false, autoAllow: false, examples: [], unreadable: [] });
     expect(invoke.mock.calls[1]).toEqual(["quantity_learning", { operation: { kind: "reset" } }]);
 });

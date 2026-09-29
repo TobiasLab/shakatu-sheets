@@ -122,9 +122,9 @@ being reopened or while running across the upgrade, because those samples cover 
 
 Opt-in normal-loot self-improvement uses `quantity-learning.sqlite3` alongside `shakatu-sheets.sqlite3`, under the same
 application-data directory (including `SHAKATU_DATA_DIR` overrides). It has independent ordered migrations, currently
-`PRAGMA user_version = 3`. Loading defaults does not create the file; changing learning settings or saving an example
-creates it. No session migration, setting, foreign key, or session-entry change accompanies this feature. Builds predating
-self-improvement ignore the learning file and continue using the version-4 session database. Returning to a compatible
+`PRAGMA user_version = 3`. Loading defaults does not create the file; any other operation (settings, save, delete or reset)
+creates and migrates it, and loading an existing older file upgrades it. No session migration, setting, foreign key, or session-entry change accompanies this feature. Builds predating
+self-improvement ignore the learning file and continue using the session database. Returning to a compatible
 learning build restores the saved examples and settings. Migration 2 adds nullable `audit_json` without changing migration 1.
 Existing examples retain their images and labels with no invented audit history. Migration 3 adds nullable `item_name`, `item_width`, `item_height` and `item_png` columns. Older examples remain
 quantity-only. Auto allow is disabled once on this migration because item recovery expands automatic behavior. Earlier
@@ -133,12 +133,18 @@ learning builds supporting versions 1 or 2 cannot open the upgraded learning fil
 The separate database stores opt-in and auto-allow settings, a confirmation sequence, and at most 200 examples with
 at most 50 per font/UI-scale/source-resolution setup. Each example contains an event UUID, positive safe-integer
 quantity, original OCR quantity if available, bounded original OCR text, native dimensions, a small RGBA PNG blob,
-capture setup, confirmation time in milliseconds, and a fixed matching/validation role. New corrections additionally save
+capture setup, confirmation time in milliseconds, and a retired `validation` flag that is always written as 0. New corrections additionally save
 the confirmed item label and an isolated name PNG when available. Quantity crops are limited to 64×32 pixels, name crops
-to 512×32. Every third new paired example is reserved for validation. Identical paired crops/labels in the same setup do
-not advance the sequence. The matcher deduplicates component images independently to avoid repeated support and
-training/validation leakage when the other component changes; roles follow database insertion order, not wall-clock time. Conflicting component labels require deletion first.
-Save retries are idempotent. Rust validates dimensions, PNG format, readable ink and label lengths.
+to 512×32. The sequence orders examples by insertion. Identical paired crops/labels in the same setup do not advance it. The
+matcher deduplicates component images independently, so a repeated image adds no support when the other component
+changes; the earliest insertion keeps it, regardless of wall-clock time. Conflicting component labels require deletion
+first. Earlier builds reserved every third example for checks; this build ignores that stored flag and checks every
+example against the others.
+Save retries are idempotent. Rust validates dimensions, readable ink and label lengths on save, and encodes the PNGs itself. Loading decodes every PNG
+and validates each example again. A stored example that fails (for example a corrupt PNG, malformed audit JSON, or a
+check added by a later build) is left out of the library and its ID is returned as unreadable. Settings reports these and
+can delete them; they are never deleted silently, and the rest of the library stays usable. Unreadable rows still count
+toward the storage limits until they are deleted or pruned.
 
 New examples also store a versioned audit object: session ID and recognition generation when available, original event
 ID, unresolved status/reason, and the saved crop's source frame index, ROI dimensions and quantity/item bounds. Native capture

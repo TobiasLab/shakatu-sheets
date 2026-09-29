@@ -124,7 +124,7 @@ function installTauriMock() {
                 case "load_garmoth_settings":
                     return { apiKeyConfigured: false, characterIds: [], characters: [], selectedCharacterId: null };
                 case "quantity_learning":
-                    return { enabled: false, autoAllow: false, examples: [] };
+                    return { enabled: false, autoAllow: false, examples: [], unreadable: [] };
                 case "load_loot_font":
                     return window.__savedLootFont ?? "korean";
                 case "save_loot_font":

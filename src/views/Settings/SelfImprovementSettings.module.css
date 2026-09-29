@@ -185,6 +185,9 @@
     color: var(--muted);
     font-size: 11px;
 }
+.ExampleLabel .Blocking {
+    color: var(--danger);
+}
 .Delete {
     opacity: 0;
 }

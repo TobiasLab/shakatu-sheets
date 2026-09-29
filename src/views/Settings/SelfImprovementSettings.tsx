@@ -21,21 +21,18 @@ function RecoveryChecks({ evidence }: { evidence: readonly LearningEvidence[] })
         groups.set(key, group);
     }
     return [...groups].map(([name, entries]) => {
-        const wrong = entries[0].wrong;
         const rows = [...entries].sort((a, b) =>
             a.kind === "quantity" ? Number(a.label) - Number(b.label) : a.label.localeCompare(b.label),
         );
         return (
             <table className={styles.Checks} key={name}>
-                <caption>
-                    {name}
-                    {wrong > 0 && ` · ${wrong} wrong ${wrong === 1 ? "prediction" : "predictions"}`}
-                </caption>
+                <caption>{name}</caption>
                 <thead>
                     <tr>
                         <th scope="col">{entries[0].kind === "item" ? "Item" : "Quantity"}</th>
-                        <th scope="col">Templates</th>
-                        <th scope="col">Checks</th>
+                        <th scope="col">Examples</th>
+                        <th scope="col">Correct</th>
+                        <th scope="col">Wrong</th>
                         <th scope="col">Other labels</th>
                         <th scope="col">Status</th>
                     </tr>
@@ -44,13 +41,12 @@ function RecoveryChecks({ evidence }: { evidence: readonly LearningEvidence[] })
                     {rows.map((entry) => (
                         <tr key={entry.label}>
                             <th scope="row">{entry.label}</th>
-                            <td>{entry.templates}</td>
-                            <td>
-                                {entry.correct}/{entry.checked}
-                            </td>
+                            <td>{entry.checked}</td>
+                            <td>{entry.correct}</td>
+                            <td>{entry.wrong}</td>
                             <td>{entry.alternativesCorrect}</td>
                             <td data-ready={entry.eligible}>
-                                {entry.eligible ? "Ready" : wrong > 0 ? "Blocked" : "Not ready"}
+                                {entry.eligible ? "Ready" : entry.wrong > 0 ? "Blocked" : "Not ready"}
                             </td>
                         </tr>
                     ))}
@@ -62,10 +58,12 @@ function RecoveryChecks({ evidence }: { evidence: readonly LearningEvidence[] })
 
 function SavedExample({
     example,
+    blocking,
     disabled,
     onDelete,
 }: {
     example: QuantityExample;
+    blocking: boolean;
     disabled: boolean;
     onDelete: () => void;
 }) {
@@ -85,6 +83,11 @@ function SavedExample({
                         {setupName(example.profile)} · {formatRelativeDay(example.confirmedAt)}
                         {!example.itemImage && " · Quantity only"}
                     </span>
+                    {blocking && (
+                        <span className={styles.Blocking}>
+                            Matched another label · blocks automatic recovery. Delete it if its label is wrong.
+                        </span>
+                    )}
                 </div>
                 <button
                     className={`button subtle ${styles.Delete}`}
@@ -106,12 +109,6 @@ function SavedExample({
                     <div>
                         <dt>Accepted OCR quantity</dt>
                         <dd>{example.originalQuantity ?? "None — unresolved"}</dd>
-                    </div>
-                    <div>
-                        <dt>Purpose</dt>
-                        <dd>
-                            {example.validation ? "Checks recognition accuracy" : "Helps recognize similar captures"}
-                        </dd>
                     </div>
                     {example.audit && (
                         <>
@@ -195,6 +192,7 @@ export function SelfImprovementSettings({ learning }: { learning: ReturnType<typ
     const [examplesOpen, setExamplesOpen] = useState(false);
     const { state, ready, busy } = learning;
     const { evidence, eligibleCount } = learning.model.current;
+    const blocking = new Set(evidence.flatMap((entry) => entry.wrongExamples));
     return (
         <section id="self-improvement" className="panel" aria-labelledby="self-improvement-title">
             <div className="panel-heading">
@@ -253,6 +251,26 @@ export function SelfImprovementSettings({ learning }: { learning: ReturnType<typ
                             </label>
                         </div>
                         <LearningFeedback learning={learning} />
+                        {state.unreadable.length > 0 && (
+                            <Feedback
+                                tone="error"
+                                action={
+                                    <button
+                                        className="button"
+                                        type="button"
+                                        disabled={busy}
+                                        onClick={() => void learning.deleteUnreadable()}
+                                    >
+                                        Delete unreadable examples
+                                    </button>
+                                }
+                            >
+                                {state.unreadable.length === 1
+                                    ? "1 saved example could not be read and is ignored"
+                                    : `${state.unreadable.length} saved examples could not be read and are ignored`}
+                                {` (${[...new Set(state.unreadable.map((entry) => entry.reason.replace(/\.$/, "")))].join("; ")}).`}
+                            </Feedback>
+                        )}
                         {learning.message && !learning.error && <Feedback tone="success">{learning.message}</Feedback>}
                         {!ready && !busy && (
                             <button className="button" type="button" onClick={() => void learning.reload()}>
@@ -265,8 +283,10 @@ export function SelfImprovementSettings({ learning }: { learning: ReturnType<typ
                             </summary>
                             <div className={styles.LibraryBody}>
                                 <p>
-                                    A label is ready with at least 2 templates and at least 3 checks, all correct, plus
-                                    1 correct check of another label. Any wrong prediction blocks its whole table.
+                                    Each example is checked against the other examples of its setup. A label is ready
+                                    with at least 4 examples, all recognized correctly, plus 1 correct check of another
+                                    label. An example that matches another label blocks both labels. Delete it if it is
+                                    mislabeled; otherwise more examples of its label resolve it.
                                 </p>
                                 {!state.enabled ? (
                                     <p>Checks run while Learn from my corrections is on.</p>
@@ -297,6 +317,7 @@ export function SelfImprovementSettings({ learning }: { learning: ReturnType<typ
                                                 <SavedExample
                                                     key={example.id}
                                                     example={example}
+                                                    blocking={blocking.has(example.id)}
                                                     disabled={busy}
                                                     onDelete={() => void learning.deleteExample(example.id)}
                                                 />
