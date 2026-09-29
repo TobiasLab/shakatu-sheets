@@ -9,6 +9,8 @@ import {
     type QuantityExampleInput,
 } from "../recognition/quantityLearning";
 
+const emptyModel = prepareQuantityLearning(emptyQuantityLearning);
+
 export function useSelfImprovement() {
     const [state, setState] = useState(emptyQuantityLearning);
     const [ready, setReady] = useState(false);
@@ -18,12 +20,14 @@ export function useSelfImprovement() {
     const [saveError, setSaveError] = useState("");
     const [message, setMessage] = useState("");
     const [announcement, setAnnouncement] = useState("");
+    const [skippedExamples, setSkippedExamples] = useState(0);
     const alive = useRef(true);
     const pending = useRef(0);
-    const queuedExamples = useRef(0);
+    // Examples that are saving or failed, by id. A save finishing after Reset cannot miscount the queue.
+    const unsaved = useRef(new Set<string>());
     const savingAllowed = useRef(false);
     const current = useRef(emptyQuantityLearning);
-    const model = useRef(prepareQuantityLearning(emptyQuantityLearning));
+    const model = useRef(emptyModel);
 
     async function run(operation: LearningOperation) {
         if (operation.kind === "reset" || (operation.kind === "settings" && !operation.enabled))
@@ -33,7 +37,7 @@ export function useSelfImprovement() {
         setError("");
         setMessage("");
         // Stop automatic recovery while settings or examples are being changed.
-        model.current = prepareQuantityLearning(emptyQuantityLearning);
+        model.current = emptyModel;
         try {
             const next = await quantityLearning(operation);
             if (!alive.current) return false;
@@ -70,7 +74,7 @@ export function useSelfImprovement() {
     async function save(example: QuantityExampleInput) {
         setAnnouncement("");
         if (await run({ kind: "save", example })) {
-            queuedExamples.current -= 1;
+            unsaved.current.delete(example.id);
             setFailedExamples((current) => current.filter((saved) => saved.id !== example.id));
             setSaveError("");
             setAnnouncement("Correction saved for self-improvement.");
@@ -97,13 +101,11 @@ export function useSelfImprovement() {
             setAnnouncement("Drop added. No clear, complete quantity crop was available to learn from.");
             return;
         }
-        if (queuedExamples.current >= 50) {
-            setError(
-                "The drop was added, but the learning save queue is full. Retry or discard unsaved examples before teaching more.",
-            );
+        if (unsaved.current.size >= 50) {
+            setSkippedExamples((count) => count + 1);
             return;
         }
-        queuedExamples.current += 1;
+        unsaved.current.add(example.id);
         void save(example);
     }
 
@@ -113,6 +115,7 @@ export function useSelfImprovement() {
         busy,
         error,
         saveError,
+        skippedExamples,
         message,
         announcement,
         model,
@@ -123,11 +126,15 @@ export function useSelfImprovement() {
         reload: () => run({ kind: "load" }),
         setSettings: (enabled: boolean, autoAllow: boolean) => run({ kind: "settings", enabled, autoAllow }),
         deleteExample: (id: string) => run({ kind: "delete", id }),
+        async deleteUnreadable() {
+            for (const { id } of current.current.unreadable) if (!(await run({ kind: "delete", id }))) return;
+        },
         async reset() {
             if (await run({ kind: "reset" })) {
                 setFailedExamples([]);
                 setSaveError("");
-                queuedExamples.current = 0;
+                setSkippedExamples(0);
+                unsaved.current.clear();
                 setMessage("Saved examples cleared. Self-improvement is off.");
             }
         },
@@ -135,9 +142,10 @@ export function useSelfImprovement() {
             if (failedExamples[0]) void save(failedExamples[0]);
         },
         discardFailedSave: () => {
-            if (failedExamples.length > 0) queuedExamples.current -= 1;
+            if (failedExamples[0]) unsaved.current.delete(failedExamples[0].id);
             setFailedExamples((current) => current.slice(1));
             setSaveError("");
         },
+        dismissSkipped: () => setSkippedExamples(0),
     };
 }

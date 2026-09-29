@@ -76,29 +76,33 @@ export function LootReview({ controller }: { controller: ReviewController }) {
 
     if (!selected) return null;
     const status = selected.result.status;
+    const learning =
+        controller.learning?.state.enabled && selected.source === "normal" && selected.result.status !== "dropped"
+            ? { model: controller.learning.model.current, profile: selected.learningProfile }
+            : undefined;
     let draft = drafts[selected.id];
-    if (!draft) {
-        const image = status === "dropped" ? undefined : quantityImage(selected.result.capture);
-        const learned =
-            controller.learning?.state.enabled && selected.source === "normal" && image && selected.learningProfile
-                ? controller.learning.model.current.suggest(image, selected.learningProfile)
-                : undefined;
-        const nameImage = status === "dropped" ? undefined : itemImage(selected.result.capture);
+    if (!draft && selected.result.status !== "dropped") {
+        // A match on the saved crop uses the current library, so deleted or newly taught examples count. The
+        // capture-time suggestion fills what it lacks: a match from another selected frame or a clear OCR majority.
+        const stored = learning ? selected.result.quantitySuggestion : undefined;
+        const image = quantityImage(selected.result.capture);
+        const nameImage = itemImage(selected.result.capture);
+        const learnedQuantity =
+            (learning?.profile && image ? learning.model.suggest(image, learning.profile)?.quantity : undefined) ??
+            stored?.quantity ??
+            undefined;
         const learnedItem =
-            controller.learning?.state.enabled && selected.source === "normal" && nameImage && selected.learningProfile
-                ? controller.learning.model.current.suggestItem(
-                      nameImage,
-                      selected.learningProfile,
-                      controller.itemDictionary,
-                  )
-                : undefined;
+            (learning?.profile && nameImage
+                ? learning.model.suggestItem(nameImage, learning.profile, controller.itemDictionary)?.itemName
+                : undefined) ??
+            (stored?.itemName && controller.itemDictionary.includes(stored.itemName) ? stored.itemName : undefined);
         draft = {
-            item: learnedItem?.itemName ?? "",
-            quantity: String(learned?.quantity ?? 1),
-            learnedItem: learnedItem?.itemName,
-            learnedQuantity: learned?.quantity,
+            item: learnedItem ?? "",
+            quantity: String(learnedQuantity ?? 1),
+            learnedItem,
+            learnedQuantity,
         };
-        if (learned || learnedItem) {
+        if (learnedQuantity !== undefined || learnedItem !== undefined) {
             setDrafts({ ...drafts, [selected.id]: draft });
         }
     }
@@ -237,7 +241,7 @@ export function LootReview({ controller }: { controller: ReviewController }) {
                             draft={draft}
                             onDraftChange={(draft) => setDrafts((current) => ({ ...current, [selected.id]: draft }))}
                             onAdd={controller.correctReviewResult}
-                            learnOnAdd={controller.learning?.state.enabled}
+                            learnOnAdd={!!learning?.profile && controller.learning?.ready}
                         />
                     )}
                     {status === "recognized" && (

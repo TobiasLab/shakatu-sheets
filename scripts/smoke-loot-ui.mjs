@@ -128,7 +128,7 @@ await send("Page.addScriptToEvaluateOnNewDocument", {
                 return null;
             }
             if (command === "quantity_learning") {
-                window.__selfImprovement ??= {enabled:false,autoAllow:false,examples:[]};
+                window.__selfImprovement ??= {enabled:false,autoAllow:false,examples:[],unreadable:[]};
                 if (args.operation.kind === "settings") Object.assign(window.__selfImprovement, {enabled:args.operation.enabled,autoAllow:args.operation.enabled && args.operation.autoAllow});
                 return structuredClone(window.__selfImprovement);
             }

@@ -14,6 +14,7 @@ import {
 const profile: LearningProfile = { font: "korean", uiScalePercent: 80, sourceWidth: 3440, sourceHeight: 1440 };
 const six = [".###.", "#....", "#....", "####.", "#...#", "#...#", ".###."];
 const nine = [".###.", "#...#", "#...#", ".####", "....#", "....#", ".###."];
+const one = ["..#..", ".##..", "..#..", "..#..", "..#..", "..#..", ".###."];
 function pixels(rows: string[], padding = 1, brightness = 255): LootRoiFrame {
     const width = rows[0].length + padding * 2,
         height = rows.length + padding * 2;
@@ -30,8 +31,8 @@ function pixels(rows: string[], padding = 1, brightness = 255): LootRoiFrame {
     for (let i = 3; i < data.length; i += 4) data[i] = 255;
     return { width, height, pixels: data };
 }
-function example(id: string, quantity: number, validation = false): QuantityExample {
-    const image = pixels(quantity === 6 ? six : nine, 1, 235 + (id.length % 20));
+function example(id: string, quantity: number): QuantityExample {
+    const image = pixels(quantity === 6 ? six : quantity === 1 ? one : nine, 1, 235 + (id.length % 20));
     for (let i = 0; i < Math.min(id.length, image.width * 3); i++)
         image.pixels[Math.floor(i / 3) * 4 + (i % 3)] = id.charCodeAt(i) % 90;
     return {
@@ -43,7 +44,6 @@ function example(id: string, quantity: number, validation = false): QuantityExam
         originalQuantity: null,
         originalText: "Black Stone x &",
         confirmedAt: 1,
-        validation,
     };
 }
 function model(autoAllow = false, extra: QuantityExample[] = []) {
@@ -53,11 +53,11 @@ function model(autoAllow = false, extra: QuantityExample[] = []) {
         examples: [example("train-six-1", 6), example("train-six-2", 6), example("train-nine", 9), ...extra],
     });
 }
-const validation = [
-    example("val-six-1", 6, true),
-    example("val-six-2", 6, true),
-    example("val-six-3", 6, true),
-    example("val-nine", 9, true),
+const moreExamples = [
+    example("more-six-1", 6),
+    example("more-six-2", 6),
+    example("more-six-3", 6),
+    example("more-nine", 9),
 ];
 function frame(index: number, quantity = 6): LiveLootOcrFrame {
     const roi = pixels(quantity === 6 ? six : nine);
@@ -150,11 +150,11 @@ describe("local quantity examples", () => {
         expect(reader.suggest(pixels(six.map((row) => `${row}..${row}`)), profile)).toBeUndefined();
         expect(reader.suggest(pixels([".....", "....."]), profile)).toBeUndefined();
     });
-    it("abstains for conflicting labels and never trains from reserved validation images", () => {
+    it("suggests from the first example and abstains for conflicting labels", () => {
         const wrong = { ...example("wrong", 6), quantity: 9 };
         expect(model(false, [wrong]).suggest(pixels(six), profile)).toBeUndefined();
-        const onlyValidation = prepareQuantityLearning({ enabled: true, autoAllow: true, examples: validation });
-        expect(onlyValidation.suggest(pixels(six), profile)).toBeUndefined();
+        const first = prepareQuantityLearning({ enabled: true, autoAllow: true, examples: [example("six", 6)] });
+        expect(first.suggest(pixels(six), profile)).toEqual({ quantity: 6, automatic: false });
         expect(
             prepareQuantityLearning({ enabled: false, autoAllow: true, examples: [example("six", 6)] }).suggest(
                 pixels(six),
@@ -162,23 +162,35 @@ describe("local quantity examples", () => {
             ),
         ).toBeUndefined();
     });
-    it("requires reserved positive and competing examples before automatic eligibility", () => {
+    it("requires four correctly checked examples and a correct competing label before automatic eligibility", () => {
         expect(model(true).suggest(pixels(six), profile)?.automatic).toBe(false);
-        expect(model(false, validation).suggest(pixels(six), profile)?.automatic).toBe(false);
-        expect(model(true, validation.slice(0, 3)).suggest(pixels(six), profile)?.automatic).toBe(false);
-        expect(model(true, validation).suggest(pixels(six), profile)?.automatic).toBe(true);
-        expect(
-            model(true, [...validation, { ...example("bad-validation", 6, true), quantity: 9 }]).suggest(
-                pixels(six),
-                profile,
-            )?.automatic,
-        ).toBe(false);
-        const oneTraining = prepareQuantityLearning({
-            enabled: true,
-            autoAllow: true,
-            examples: [example("six", 6), example("nine", 9), ...validation],
-        });
-        expect(oneTraining.suggest(pixels(six), profile)?.automatic).toBe(false);
+        expect(model(false, moreExamples).suggest(pixels(six), profile)?.automatic).toBe(false);
+        // A single nine cannot be checked against another nine, so six has no correct competing check.
+        expect(model(true, moreExamples.slice(0, 3)).suggest(pixels(six), profile)?.automatic).toBe(false);
+        expect(model(true, moreExamples).suggest(pixels(six), profile)?.automatic).toBe(true);
+        const library = (sixes: number) =>
+            prepareQuantityLearning({
+                enabled: true,
+                autoAllow: true,
+                examples: [
+                    ...Array.from({ length: sixes }, (_, index) => example(`six-${index}`, 6)),
+                    example("nine-a", 9),
+                    example("nine-b", 9),
+                ],
+            });
+        expect(library(3).suggest(pixels(six), profile)?.automatic).toBe(false);
+        expect(library(4).suggest(pixels(six), profile)?.automatic).toBe(true);
+    });
+    it("blocks only the labels involved in a wrong prediction and names its example", () => {
+        // The nine image labeled 8 makes every nine ambiguous; the ones still give six a correct competing check.
+        const misread = { ...example("misread", 9), quantity: 8 };
+        const reader = model(true, [...moreExamples, example("one-a", 1), example("one-b", 1), misread]);
+        expect(reader.suggest(pixels(six), profile)?.automatic).toBe(true);
+        const quantity = (label: string) =>
+            reader.evidence.find((entry) => entry.kind === "quantity" && entry.label === label);
+        expect(quantity("6")).toMatchObject({ wrong: 0, wrongExamples: [], eligible: true });
+        expect(quantity("8")).toMatchObject({ wrongExamples: ["misread"], eligible: false });
+        expect(quantity("9")).toMatchObject({ wrongExamples: ["misread"], eligible: false });
     });
     it("copies quantity coordinates into the retained row and rejects partial or oversized crops", () => {
         const source = frame(0);
@@ -197,7 +209,7 @@ describe("local quantity examples", () => {
 describe("automatic unresolved quantity recovery", () => {
     const frames = [frame(0), frame(1), frame(2)];
     const readings = Array.from({ length: 3 }, () => ["Black Stone x &", "Black Stone x ?", "Black Stone x &"]);
-    const reader = model(true, validation);
+    const reader = model(true, moreExamples);
     it("requires clear matching items and at least three matching frame crops", () => {
         expect(suggestUnresolvedQuantity(frames, readings, ["Black Stone"], profile, reader)).toEqual({
             quantity: 6,
@@ -243,8 +255,8 @@ describe("automatic unresolved quantity recovery", () => {
     });
 });
 
-function namedExample(id: string, itemName = "Black Stone", quantity = 6, reserved = false): QuantityExample {
-    const number = example(id, quantity, reserved);
+function namedExample(id: string, itemName = "Black Stone", quantity = 6): QuantityExample {
+    const number = example(id, quantity);
     const name = pixels((itemName === "Black Stone" ? six : nine).map((row) => `${row}..${row}..${row}`));
     for (let i = 0; i < id.length; i++) name.pixels[i * 4] = id.charCodeAt(i) % 90;
     return { ...number, itemName, itemImage: { ...name, pixels: Array.from(name.pixels) } };
@@ -285,10 +297,10 @@ function namedModel(autoAllow = true) {
             namedExample("train-a"),
             namedExample("train-b"),
             namedExample("train-c", "Caphras Stone", 9),
-            namedExample("check-a", "Black Stone", 6, true),
-            namedExample("check-b", "Black Stone", 6, true),
-            namedExample("check-c", "Black Stone", 6, true),
-            namedExample("check-d", "Caphras Stone", 9, true),
+            namedExample("more-a"),
+            namedExample("more-b"),
+            namedExample("more-c"),
+            namedExample("more-d", "Caphras Stone", 9),
         ],
     });
 }
@@ -373,10 +385,9 @@ describe("learned item names", () => {
         expect(reader.suggestItem(image, profile, ["Caphras Stone"])).toBeUndefined();
         expect(reader.suggestItem(image, { ...profile, font: "strong-sword" }, dictionary)).toBeUndefined();
         expect(reader.evidence.find((entry) => entry.kind === "item" && entry.label === "Black Stone")).toMatchObject({
-            templates: 2,
-            checked: 3,
-            correct: 3,
-            alternativesCorrect: 1,
+            checked: 5,
+            correct: 5,
+            alternativesCorrect: 2,
             wrong: 0,
             eligible: true,
         });
@@ -486,25 +497,10 @@ describe("learned item names", () => {
         }));
         expect(suggestUnresolvedQuantity(agreeing, readings, dictionary, profile, namedModel())?.automatic).toBe(true);
     });
-    it.each([true, false])("preserves the first component role despite clock changes (reserved: %s)", (reserved) => {
-        const original = { ...namedExample("original", "Black Stone", 6, reserved), confirmedAt: 100 };
-        const copy = {
-            ...namedExample("copy", "Black Stone", 6, !reserved),
-            itemImage: original.itemImage,
-            confirmedAt: 1,
-        };
-        // The database returns descending insertion sequence, regardless of confirmation time.
-        const reader = prepareQuantityLearning({ enabled: true, autoAllow: true, examples: [copy, original] });
-        expect(reader.evidence.find((entry) => entry.kind === "item")).toMatchObject({
-            templates: reserved ? 0 : 1,
-            checked: reserved ? 1 : 0,
-            eligible: false,
-        });
-    });
-    it("does not count repeated component images as support or leak them into validation", () => {
+    it("counts a repeated component image once, so it cannot check itself or add support", () => {
         const first = { ...namedExample("first"), confirmedAt: 1 };
         const repeated = [2, 3, 4, 5].map((index) => ({
-            ...namedExample(`copy-${index}`, "Black Stone", 6, index >= 3),
+            ...namedExample(`copy-${index}`),
             itemImage: first.itemImage,
             confirmedAt: index,
         }));
@@ -514,8 +510,8 @@ describe("learned item names", () => {
             examples: [...repeated.reverse(), first],
         });
         expect(reader.evidence.find((entry) => entry.kind === "item")).toMatchObject({
-            templates: 1,
-            checked: 0,
+            checked: 1,
+            correct: 0,
             eligible: false,
         });
     });

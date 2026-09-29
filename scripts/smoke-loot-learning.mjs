@@ -22,10 +22,11 @@ const capturePixels=new Uint8ClampedArray(29*11*4);
 for(let y=0;y<11;y++){const row=pixels.subarray(y*9*4,(y+1)*9*4);capturePixels.set(row,y*29*4);capturePixels.set(row,(y*29+9)*4);capturePixels.set(row,(y*29+20)*4);}
 const evidence={frame:12,captureToken:123,batchId:456,roiWidth:362,roiHeight:311,quantityBounds:{left:120,top:50,right:129,bottom:61},itemBounds:{left:100,top:50,right:118,bottom:61},readings:['Black Stone x 9','Black Stone x &'],passes:[{threshold:150,scale:2,region:'line',text:'Black Stone x 9'}]};
 function entry(id){return {id,source:'normal',font:'korean',learningProfile:profile,learningId:'event-'+id,learningContext:{sessionId:'session-1',generation:3},accepted:false,error:'',result:{eventId:'event-'+id,firstFrame:12,selectedFrames:[12],status:'withheld',reason:'consensus-withheld',itemName:null,quantity:null,capture:{width:29,height:11,pixels:capturePixels,quantityBounds:{left:20,top:0,right:29,bottom:11},itemBounds:{left:0,top:0,right:18,bottom:11},originalText:'Black Stone x 9',sourceFrame:evidence,ocrFrames:[evidence]}}};}
-window.saved={enabled:false,autoAllow:false,examples:[]};window.added=[];window.failSave=false;
+window.saved={enabled:false,autoAllow:false,examples:[],unreadable:[]};window.added=[];window.failSave=false;
 function Harness(){
  const learning=useSelfImprovement();const [reviews,setReviews]=useState([entry(1)]);
- window.addPending=(id,cropOverrides={})=>setReviews(current=>{const next=entry(id);Object.assign(next.result.capture,cropOverrides);return [...current,next];});
+ window.addPending=(id,cropOverrides={},overrides={},resultOverrides={})=>setReviews(current=>{const next=entry(id);Object.assign(next.result.capture,cropOverrides);Object.assign(next,overrides);Object.assign(next.result,resultOverrides);return [...current,next];});
+ window.entry=entry;window.learnCorrection=learning.learnCorrection;
  window.reloadLearning=learning.reload;
  window.learningState=learning.state;
  function correct(id,item,quantity){const original=reviews.find(x=>x.id===id);const corrected=correctLiveLootReviewEntry(original,item,quantity,(item,quantity)=>{if(window.failAdd)return 'Synthetic ledger failure';window.added.push({item,quantity});return null;});setReviews(current=>current.map(x=>x.id===id?corrected:x));if(corrected.accepted&&!original.accepted)learning.learnCorrection(original,quantity,item);}
@@ -41,10 +42,10 @@ const mockApi = `export async function quantityLearning(operation){
  if(operation.kind==='save'){
   if(window.failSave)throw Error('Synthetic storage failure');
   if(!window.saved.enabled)throw Error('Learning is off');
-  window.saved.examples.unshift({...operation.example,confirmedAt:Date.now(),validation:false});
+  window.saved.examples.unshift({...operation.example,confirmedAt:Date.now()});
  }
- if(operation.kind==='delete')window.saved.examples=window.saved.examples.filter(x=>x.id!==operation.id);
- if(operation.kind==='reset')window.saved={enabled:false,autoAllow:false,examples:[]};
+ if(operation.kind==='delete'){window.saved.examples=window.saved.examples.filter(x=>x.id!==operation.id);window.saved.unreadable=window.saved.unreadable.filter(x=>x.id!==operation.id);}
+ if(operation.kind==='reset')window.saved={enabled:false,autoAllow:false,examples:[],unreadable:[]};
  return structuredClone(window.saved);
 }`;
 const server = await createServer({
@@ -148,7 +149,7 @@ try {
         await evaluate(
             "[...[...document.querySelectorAll('#self-improvement table')].find(t=>t.caption.textContent.startsWith('Items')).tBodies[0].rows].map(row=>[...row.children].map(cell=>cell.textContent))",
         ),
-        [["Black Stone", "1", "0/0", "0", "Not ready"]],
+        [["Black Stone", "1", "0", "0", "0", "Not ready"]],
         "Recovery checks list each learned item with its evidence",
     );
     assert.equal(
@@ -184,6 +185,37 @@ try {
     assert.equal(await evaluate("window.added.length"), before, "Suggestion does not insert loot");
     assert.equal(await evaluate("document.querySelector('#loot-review-detail input[type=number]').value"), "6");
     assert.equal(await evaluate("window.saved.examples.length"), savedBefore, "Prefill does not teach");
+    const learningHint = "document.querySelector('#loot-review-detail').textContent.includes('Saved for learning')";
+    assert(await evaluate(learningHint), "A capture with a known setup promises a learning example");
+    await evaluate("window.addPending(40,{},{learningProfile:undefined})");
+    await until("!!document.querySelector('#review-select-40')");
+    await evaluate("document.querySelector('#review-select-40').click()");
+    assert(!(await evaluate(learningHint)), "A capture without a known setup cannot be learned from");
+    await evaluate("document.querySelector('[aria-label=\"Dismiss review entry 41\"]').click()");
+    await evaluate(
+        "window.addPending(41,{itemBounds:null,quantityBounds:null},{},{quantitySuggestion:{quantity:12,itemName:'Caphras Stone',automatic:false}})",
+    );
+    await until("!!document.querySelector('#review-select-41')");
+    await evaluate("document.querySelector('#review-select-41').click()");
+    assert.equal(
+        await evaluate("document.querySelector('#loot-review-detail select').value"),
+        "Caphras Stone",
+        "The capture-time suggestion fills fields the saved crop cannot match",
+    );
+    assert.equal(await evaluate("document.querySelector('#loot-review-detail input[type=number]').value"), "12");
+    await evaluate("document.querySelector('[aria-label=\"Dismiss review entry 42\"]').click()");
+    await evaluate(
+        "window.addPending(42,{},{},{quantitySuggestion:{quantity:12,itemName:'Caphras Stone',automatic:false}})",
+    );
+    await until("!!document.querySelector('#review-select-42')");
+    await evaluate("document.querySelector('#review-select-42').click()");
+    assert.equal(
+        await evaluate("document.querySelector('#loot-review-detail select').value"),
+        "Black Stone",
+        "A match against the current library wins over the capture-time suggestion",
+    );
+    assert.equal(await evaluate("document.querySelector('#loot-review-detail input[type=number]').value"), "6");
+    await evaluate("document.querySelector('[aria-label=\"Dismiss review entry 43\"]').click()");
     for (const [entryId, overrides, expectedItem, expectedQuantity] of [
         [30, { itemBounds: null }, "", "6"],
         [31, { quantityBounds: null }, "Black Stone", "1"],
@@ -290,6 +322,17 @@ try {
     await button("Discard");
     assert.equal(await evaluate(notice), null, "Discard clears the notice");
     assert.equal(await evaluate("window.saved.examples.length"), 3, "Discard does not save the example");
+    await evaluate("for(let id=100;id<151;id++)window.learnCorrection(window.entry(id),6,'Black Stone')");
+    await until(`${notice}?.textContent.includes('50 learning examples could not be saved')`);
+    const skipped = "A correction was added to the session but not kept for learning";
+    assert(
+        await evaluate(`${notice}.textContent.includes(${JSON.stringify(skipped)})`),
+        "A full queue says a correction was not kept",
+    );
+    await evaluate(
+        `[...${notice}.querySelectorAll('[data-tone]')].find(el=>el.textContent.includes(${JSON.stringify(skipped)})).querySelector('button').click()`,
+    );
+    await until(`!${notice}.textContent.includes(${JSON.stringify(skipped)})`);
     await evaluate("window.failSave=false");
     await evaluate("document.querySelectorAll('input[type=checkbox]')[1].click()");
     await until("window.learningState.autoAllow===true");
@@ -298,6 +341,23 @@ try {
     );
     await button("Delete");
     await until("window.saved.examples.length===2");
+    await evaluate(
+        "window.saved.unreadable=[{id:'broken-1',reason:'Invalid saved quantity image format.'},{id:'broken-2',reason:'Invalid saved quantity image format.'}];window.reloadLearning()",
+    );
+    await until(
+        "document.body.innerText.includes('2 saved examples could not be read and are ignored (Invalid saved quantity image format).')",
+    );
+    await button("Delete unreadable examples");
+    await until("window.saved.unreadable.length===0&&!document.body.innerText.includes('could not be read')");
+    assert.equal(await evaluate("window.saved.examples.length"), 2, "Deleting unreadable examples keeps the others");
+    await evaluate(
+        "window.saved.examples.push({...window.saved.examples[0],id:'misread',quantity:9,itemImage:null,itemName:null});window.reloadLearning()",
+    );
+    await until(
+        "[...document.querySelectorAll('#self-improvement-examples li')].some(li=>li.textContent.includes('Item not recorded × 9')&&li.textContent.includes('Matched another label'))",
+    );
+    await evaluate("window.saved.examples=window.saved.examples.filter(x=>x.id!=='misread');window.reloadLearning()");
+    await until("!document.querySelector('#self-improvement-examples').textContent.includes('Matched another label')");
     await button("Reset self-improvement");
     await button("Keep examples");
     assert.equal(await evaluate("window.saved.examples.length"), 2);
@@ -306,6 +366,7 @@ try {
     await until(
         "window.learningState.examples.length===0&&!window.learningState.enabled&&!window.learningState.autoAllow",
     );
+    assert.equal(await evaluate(notice), null, "Reset discards unsaved examples");
     await send("Emulation.setDeviceMetricsOverride", { width: 320, height: 640, deviceScaleFactor: 1, mobile: false });
     assert(await evaluate("document.documentElement.scrollWidth<=innerWidth"), "Learning controls fit narrow windows");
     assert.deepEqual(errors, []);

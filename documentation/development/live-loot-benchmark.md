@@ -160,6 +160,23 @@ simultaneous identical drops, three consecutive drops, camera movement, and arri
 contain batch IDs and expected items, not captured pixels. They are development regression cases, not an independent
 accuracy estimate. Original PNGs and generated reports remain outside tracked source.
 
+### Self-improvement replay
+
+Add `--learning /path/to/learning.json` (with `--ocr`) to replay self-improvement over the normal-loot events of each run:
+
+```sh
+npm run benchmark:loot:roi -- /path/to/dev-samples/live-loot --ocr --learning /tmp/loot-learning.json
+```
+
+It only observes. The coordinator gets no learning callback, so recognition results match a run without the option. OCR
+passes are recorded, as in the app, so saved capture evidence can include them. Events are processed in order. Each
+event is first matched against the library built from the earlier events, both as the Needs attention prefill (one crop)
+and as automatic recovery (every OCR frame and reading, with Auto allow on). Then a recognized event teaches its OCR label
+through the same crops and storage rules the app uses. This treats every drop as confirmed, so it measures the matcher on
+real crops and how quickly labels become eligible. Real users only confirm unresolved drops, so it gives no expected
+recovery rate. The report scores prefills and automatic recoveries against the OCR labels. It also lists unresolved
+events with the suggestion they would receive, and fails the command on any wrong automatic recovery.
+
 ## Regression fixtures
 
 Use `--annotations scripts/fixtures/<fixture>.json` to select reviewed labels without modifying a source corpus.

@@ -14,6 +14,7 @@ export function LearningFeedback({
 }) {
     const id = useId();
     const count = learning.failedExampleCount;
+    const skipped = learning.skippedExamples;
     const reason = learning.saveError ? ` (${learning.saveError.replace(/\.$/, "")})` : "";
     const settingsLink = onOpenSettings && (
         <button className="button subtle" type="button" onClick={onOpenSettings}>
@@ -22,7 +23,7 @@ export function LearningFeedback({
     );
     return (
         <>
-            {(learning.error || learning.failedExample) && (
+            {(learning.error || learning.failedExample || skipped > 0) && (
                 <div className={`${styles.Notices} ${className}`}>
                     {learning.error && (
                         <Feedback tone="error" action={settingsLink}>
@@ -63,6 +64,18 @@ export function LearningFeedback({
                             {`${count === 1 ? "A learning example" : `${count} learning examples`} could not be saved${reason}. ${
                                 count === 1 ? "Your drop was added." : "Your drops were added."
                             } ${learning.state.enabled ? "Retry before closing the app." : "Turn self-improvement on to retry."}`}
+                        </Feedback>
+                    )}
+                    {skipped > 0 && (
+                        <Feedback
+                            tone="error"
+                            action={
+                                <button className="button subtle" type="button" onClick={learning.dismissSkipped}>
+                                    Dismiss
+                                </button>
+                            }
+                        >
+                            {`${skipped === 1 ? "A correction was" : `${skipped} corrections were`} added to the session but not kept for learning: 50 examples were still waiting to be saved.`}
                         </Feedback>
                     )}
                 </div>

@@ -40,9 +40,20 @@ export type LearningImage = {
     height: number;
     pixels: number[];
 };
-export type QuantityExample = QuantityExampleInput & { confirmedAt: number; validation: boolean };
-export type QuantityLearning = { enabled: boolean; autoAllow: boolean; examples: QuantityExample[] };
-export const emptyQuantityLearning: QuantityLearning = { enabled: false, autoAllow: false, examples: [] };
+export type QuantityExample = QuantityExampleInput & { confirmedAt: number };
+/** `unreadable` lists stored examples that no longer decode or validate; they are ignored. */
+export type QuantityLearning = {
+    enabled: boolean;
+    autoAllow: boolean;
+    examples: QuantityExample[];
+    unreadable: { id: string; reason: string }[];
+};
+export const emptyQuantityLearning: QuantityLearning = {
+    enabled: false,
+    autoAllow: false,
+    examples: [],
+    unreadable: [],
+};
 
 function profileKey(profile: LearningProfile) {
     return `${profile.font}/${profile.uiScalePercent}/${profile.sourceWidth}/${profile.sourceHeight}`;
@@ -164,20 +175,22 @@ function distance(a: Shape, b: Shape) {
 }
 
 type PreparedExample = {
+    id: string;
     label: string;
     shape: Shape;
     key: string;
-    validation: boolean;
 };
 export type LearningEvidence = {
     profile: LearningProfile;
     kind: "item" | "quantity";
     label: string;
-    templates: number;
+    /** Examples of this label; each is predicted by the other examples of its setup. */
     checked: number;
     correct: number;
     alternativesCorrect: number;
     wrong: number;
+    /** Examples predicted as another label, or another label's examples predicted as this one. */
+    wrongExamples: string[];
     eligible: boolean;
 };
 
@@ -226,9 +239,9 @@ export function correctionQuantityExample(
     };
 }
 
-function matchShape(target: Shape, key: string, examples: PreparedExample[]) {
+function matchShape(target: Shape, key: string, examples: PreparedExample[], exclude?: PreparedExample) {
     const ranked = examples
-        .filter((entry) => entry.key === key && !entry.validation)
+        .filter((entry) => entry.key === key && entry !== exclude)
         .map((entry) => ({ label: entry.label, distance: distance(target, entry.shape) }))
         .sort((a, b) => a.distance - b.distance);
     const best = ranked[0];
@@ -241,16 +254,14 @@ function matchShape(target: Shape, key: string, examples: PreparedExample[]) {
     };
 }
 
-export function prepareQuantityLearning(state: QuantityLearning) {
+export function prepareQuantityLearning(state: Omit<QuantityLearning, "unreadable">) {
     const evidence: LearningEvidence[] = [];
     function prepare(kind: "item" | "quantity") {
         const examples: PreparedExample[] = [];
         const profiles = new Map<string, LearningProfile>();
-        // A repeated component image cannot become both a template and a validation example,
-        // or count as additional support just because the other component changed.
+        // A repeated component image counts once, so it cannot check itself or add support just because the other
+        // component changed. Persistence returns newest insertion first; the earliest insertion keeps the image.
         const images = new Map<string, PreparedExample>();
-        // Persistence returns newest insertion first. Wall-clock changes must not change a component
-        // from a template into a validation example (or the reverse).
         for (const example of [...(state.enabled ? state.examples.slice(0, 200) : [])].reverse()) {
             const image = kind === "item" ? example.itemImage : example;
             const label = kind === "item" ? example.itemName : String(example.quantity);
@@ -263,51 +274,49 @@ export function prepareQuantityLearning(state: QuantityLearning) {
             const previous = images.get(imageKey);
             if (previous) {
                 // Preserve contradictory labels so matching abstains, including malformed imported libraries.
-                if (previous.label !== label) examples.push({ ...previous, label, validation: false });
+                if (previous.label !== label) examples.push({ ...previous, id: example.id, label });
                 continue;
             }
-            const entry = {
-                label,
-                shape: prepared,
-                key,
-                validation: example.validation,
-            };
+            const entry = { id: example.id, label, shape: prepared, key };
             images.set(imageKey, entry);
             examples.push(entry);
         }
         const eligible = new Set<string>();
         for (const [key, profile] of profiles) {
+            // Leave-one-out: every example is predicted by the other examples of its setup.
             const checked = examples
-                .filter((entry) => entry.key === key && entry.validation)
-                .map((entry) => ({ actual: entry.label, predicted: matchShape(entry.shape, key, examples)?.label }));
-            const wrong = checked.filter(
-                (entry) => entry.predicted !== undefined && entry.predicted !== entry.actual,
-            ).length;
-            for (const label of new Set(examples.filter((entry) => entry.key === key).map((entry) => entry.label))) {
+                .filter((entry) => entry.key === key)
+                .map((entry) => ({
+                    id: entry.id,
+                    actual: entry.label,
+                    predicted: matchShape(entry.shape, key, examples, entry)?.label,
+                }));
+            for (const label of new Set(checked.map((entry) => entry.actual))) {
                 const own = checked.filter((entry) => entry.actual === label);
-                const templates = examples.filter(
-                    (entry) => entry.key === key && entry.label === label && !entry.validation,
-                ).length;
                 const correct = own.filter((entry) => entry.predicted === label).length;
                 const alternativesCorrect = checked.filter(
                     (entry) => entry.actual !== label && entry.predicted === entry.actual,
                 ).length;
+                const wrongExamples = checked
+                    .filter(
+                        (entry) =>
+                            entry.predicted !== undefined &&
+                            entry.predicted !== entry.actual &&
+                            (entry.actual === label || entry.predicted === label),
+                    )
+                    .map((entry) => entry.id);
                 const qualifies =
-                    templates >= 2 &&
-                    own.length >= 3 &&
-                    correct === own.length &&
-                    alternativesCorrect >= 1 &&
-                    wrong === 0;
+                    own.length >= 4 && correct === own.length && alternativesCorrect >= 1 && wrongExamples.length === 0;
                 if (qualifies) eligible.add(`${key}/${label}`);
                 evidence.push({
                     profile,
                     kind,
                     label,
-                    templates,
                     checked: own.length,
                     correct,
                     alternativesCorrect,
-                    wrong,
+                    wrong: wrongExamples.length,
+                    wrongExamples,
                     eligible: qualifies,
                 });
             }

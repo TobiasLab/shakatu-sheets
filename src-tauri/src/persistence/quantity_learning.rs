@@ -49,7 +49,6 @@ pub struct QuantityExample {
     #[serde(flatten)]
     input: QuantityExampleInput,
     confirmed_at: i64,
-    validation: bool,
 }
 
 #[derive(Default, Debug, Serialize)]
@@ -58,6 +57,14 @@ pub struct QuantityLearning {
     enabled: bool,
     auto_allow: bool,
     examples: Vec<QuantityExample>,
+    /// Stored examples that no longer decode or validate. They are ignored, never deleted silently.
+    unreadable: Vec<UnreadableExample>,
+}
+
+#[derive(Debug, Serialize)]
+pub struct UnreadableExample {
+    id: String,
+    reason: String,
 }
 
 #[derive(Debug, Deserialize)]
@@ -260,85 +267,113 @@ fn load(connection: &Connection) -> Result<QuantityLearning, String> {
         )
         .map_err(|e| e.to_string())?;
     let mut statement = connection.prepare(
-        "SELECT id, profile, quantity, original_quantity, width, height, png, confirmed_at, validation, original_text, audit_json, item_name, item_width, item_height, item_png
+        "SELECT id, profile, quantity, original_quantity, width, height, png, confirmed_at, original_text, audit_json, item_name, item_width, item_height, item_png
          FROM quantity_examples ORDER BY sequence DESC LIMIT ?1",
     ).map_err(|e| e.to_string())?;
     let rows = statement
         .query_map([MAX_EXAMPLES], |row| {
-            Ok((
-                row.get::<_, String>(0)?,
-                row.get::<_, String>(1)?,
-                row.get::<_, i64>(2)?,
-                row.get::<_, Option<i64>>(3)?,
-                row.get::<_, u32>(4)?,
-                row.get::<_, u32>(5)?,
-                row.get::<_, Vec<u8>>(6)?,
-                row.get::<_, i64>(7)?,
-                row.get::<_, bool>(8)?,
-                row.get::<_, String>(9)?,
-                row.get::<_, Option<String>>(10)?,
-                row.get::<_, Option<String>>(11)?,
-                row.get::<_, Option<u32>>(12)?,
-                row.get::<_, Option<u32>>(13)?,
-                row.get::<_, Option<Vec<u8>>>(14)?,
-            ))
+            // A column that no longer converts makes only its own example unreadable.
+            let columns = || -> rusqlite::Result<ExampleRow> {
+                Ok((
+                    row.get::<_, String>(0)?,
+                    row.get::<_, String>(1)?,
+                    row.get::<_, i64>(2)?,
+                    row.get::<_, Option<i64>>(3)?,
+                    row.get::<_, u32>(4)?,
+                    row.get::<_, u32>(5)?,
+                    row.get::<_, Vec<u8>>(6)?,
+                    row.get::<_, i64>(7)?,
+                    row.get::<_, String>(8)?,
+                    row.get::<_, Option<String>>(9)?,
+                    row.get::<_, Option<String>>(10)?,
+                    row.get::<_, Option<u32>>(11)?,
+                    row.get::<_, Option<u32>>(12)?,
+                    row.get::<_, Option<Vec<u8>>>(13)?,
+                ))
+            };
+            Ok((row.get::<_, String>(0)?, columns()))
         })
         .map_err(|e| e.to_string())?;
     let mut examples = Vec::new();
+    let mut unreadable = Vec::new();
     for row in rows {
-        let (
-            id,
-            profile,
-            quantity,
-            original_quantity,
-            width,
-            height,
-            png,
-            confirmed_at,
-            validation,
-            original_text,
-            audit_json,
-            item_name,
-            item_width,
-            item_height,
-            item_png,
-        ) = row.map_err(|e| e.to_string())?;
-        let input = QuantityExampleInput {
-            id,
-            profile: serde_json::from_str(&profile).map_err(|e| e.to_string())?,
-            quantity,
-            item_name,
-            item_image: match (item_width, item_height, item_png) {
-                (Some(width), Some(height), Some(png)) => Some(Box::new(LearningImage {
-                    width,
-                    height,
-                    pixels: decode(&png, width, height, 512)?,
-                })),
-                (None, None, None) => None,
-                _ => return Err("Invalid saved item image.".into()),
-            },
-            original_quantity,
-            original_text,
-            audit: audit_json
-                .as_deref()
-                .map(serde_json::from_str)
-                .transpose()
-                .map_err(|e| e.to_string())?,
-            width,
-            height,
-            pixels: decode(&png, width, height, 64)?,
-        };
-        validate(&input)?;
-        examples.push(QuantityExample {
-            input,
-            confirmed_at,
-            validation,
-        });
+        let (id, columns) = row.map_err(|e| e.to_string())?;
+        match columns.map_err(|e| e.to_string()).and_then(read_example) {
+            Ok(example) => examples.push(example),
+            Err(reason) => unreadable.push(UnreadableExample { id, reason }),
+        }
     }
     Ok(QuantityLearning {
         enabled,
         auto_allow,
         examples,
+        unreadable,
+    })
+}
+
+type ExampleRow = (
+    String,
+    String,
+    i64,
+    Option<i64>,
+    u32,
+    u32,
+    Vec<u8>,
+    i64,
+    String,
+    Option<String>,
+    Option<String>,
+    Option<u32>,
+    Option<u32>,
+    Option<Vec<u8>>,
+);
+
+fn read_example(row: ExampleRow) -> Result<QuantityExample, String> {
+    let (
+        id,
+        profile,
+        quantity,
+        original_quantity,
+        width,
+        height,
+        png,
+        confirmed_at,
+        original_text,
+        audit_json,
+        item_name,
+        item_width,
+        item_height,
+        item_png,
+    ) = row;
+    let input = QuantityExampleInput {
+        id,
+        profile: serde_json::from_str(&profile).map_err(|e| e.to_string())?,
+        quantity,
+        item_name,
+        item_image: match (item_width, item_height, item_png) {
+            (Some(width), Some(height), Some(png)) => Some(Box::new(LearningImage {
+                width,
+                height,
+                pixels: decode(&png, width, height, 512)?,
+            })),
+            (None, None, None) => None,
+            _ => return Err("Invalid saved item image.".into()),
+        },
+        original_quantity,
+        original_text,
+        audit: audit_json
+            .as_deref()
+            .map(serde_json::from_str)
+            .transpose()
+            .map_err(|e| e.to_string())?,
+        width,
+        height,
+        pixels: decode(&png, width, height, 64)?,
+    };
+    validate(&input)?;
+    Ok(QuantityExample {
+        input,
+        confirmed_at,
     })
 }
 
@@ -425,10 +460,12 @@ fn operate(path: &PathBuf, operation: LearningOperation) -> Result<QuantityLearn
                     |row| row.get(0),
                 )
                 .map_err(|e| e.to_string())?;
+            // `validation` is retired: every example teaches and is checked against the others. Writing 0 keeps
+            // migration 1's constraint; older builds then see no reserved examples and only suggest.
             tx.execute(
                 "INSERT INTO quantity_examples(id, profile, quantity, original_quantity, width, height, png, confirmed_at, sequence, validation, original_text, audit_json, item_name, item_width, item_height, item_png)
                  VALUES(?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16)",
-                params![example.id, profile, example.quantity, example.original_quantity, example.width, example.height, png, timestamp_ms(), sequence, sequence % 3 == 0, example.original_text, example.audit.as_ref().map(serde_json::to_string).transpose().map_err(|e| e.to_string())?, example.item_name, example.item_image.as_ref().map(|image| image.width), example.item_image.as_ref().map(|image| image.height), item_png],
+                params![example.id, profile, example.quantity, example.original_quantity, example.width, example.height, png, timestamp_ms(), sequence, false, example.original_text, example.audit.as_ref().map(serde_json::to_string).transpose().map_err(|e| e.to_string())?, example.item_name, example.item_image.as_ref().map(|image| image.width), example.item_image.as_ref().map(|image| image.height), item_png],
             ).map_err(|e| e.to_string())?;
             tx.execute("DELETE FROM quantity_examples WHERE profile = ?1 AND id NOT IN (SELECT id FROM quantity_examples WHERE profile = ?1 ORDER BY sequence DESC LIMIT ?2)", params![profile, MAX_PROFILE_EXAMPLES]).map_err(|e| e.to_string())?;
             tx.execute("DELETE FROM quantity_examples WHERE id NOT IN (SELECT id FROM quantity_examples ORDER BY sequence DESC LIMIT ?1)", [MAX_EXAMPLES]).map_err(|e| e.to_string())?;
