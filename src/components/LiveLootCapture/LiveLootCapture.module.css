@@ -73,13 +73,6 @@
     margin-top: 12px;
 }
 
-.LearningActions {
-    display: flex;
-    flex-wrap: wrap;
-    flex-shrink: 0;
-    gap: 8px;
-}
-
 .CaptureWorkspace {
     display: grid;
     grid-template-columns: minmax(0, 1fr) 320px;

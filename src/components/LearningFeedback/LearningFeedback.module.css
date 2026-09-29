@@ -1,0 +1,11 @@
+.Notices {
+    display: grid;
+    gap: 8px;
+}
+
+.Actions {
+    display: flex;
+    flex-wrap: wrap;
+    flex-shrink: 0;
+    gap: 8px;
+}

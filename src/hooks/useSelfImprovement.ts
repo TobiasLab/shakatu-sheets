@@ -15,6 +15,7 @@ export function useSelfImprovement() {
     const [busy, setBusy] = useState(false);
     const [error, setError] = useState("");
     const [failedExamples, setFailedExamples] = useState<QuantityExampleInput[]>([]);
+    const [saveError, setSaveError] = useState("");
     const [message, setMessage] = useState("");
     const [announcement, setAnnouncement] = useState("");
     const alive = useRef(true);
@@ -41,8 +42,12 @@ export function useSelfImprovement() {
             setReady(true);
             return true;
         } catch (failure) {
-            if (alive.current)
-                setError(`Self-improvement: ${String(failure)}. Capture and session data are unaffected.`);
+            if (alive.current) {
+                const reason = failure instanceof Error ? failure.message : String(failure);
+                // A failed save stays with its unsaved example so its Retry and Discard never sit beside another error.
+                if (operation.kind === "save") setSaveError(reason);
+                else setError(`Self-improvement: ${reason}. Capture and session data are unaffected.`);
+            }
             return false;
         } finally {
             pending.current -= 1;
@@ -63,9 +68,11 @@ export function useSelfImprovement() {
     }, []);
 
     async function save(example: QuantityExampleInput) {
+        setAnnouncement("");
         if (await run({ kind: "save", example })) {
             queuedExamples.current -= 1;
             setFailedExamples((current) => current.filter((saved) => saved.id !== example.id));
+            setSaveError("");
             setAnnouncement("Correction saved for self-improvement.");
         } else if (alive.current) {
             setFailedExamples((current) =>
@@ -105,6 +112,7 @@ export function useSelfImprovement() {
         ready,
         busy,
         error,
+        saveError,
         message,
         announcement,
         model,
@@ -118,6 +126,7 @@ export function useSelfImprovement() {
         async reset() {
             if (await run({ kind: "reset" })) {
                 setFailedExamples([]);
+                setSaveError("");
                 queuedExamples.current = 0;
                 setMessage("Saved examples cleared. Self-improvement is off.");
             }
@@ -128,7 +137,7 @@ export function useSelfImprovement() {
         discardFailedSave: () => {
             if (failedExamples.length > 0) queuedExamples.current -= 1;
             setFailedExamples((current) => current.slice(1));
-            setError("");
+            setSaveError("");
         },
     };
 }

@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Feedback } from "../../components/Feedback/Feedback";
+import { LearningFeedback } from "../../components/LearningFeedback/LearningFeedback";
 import { QuantityImage } from "../../components/QuantityImage/QuantityImage";
 import type { useSelfImprovement } from "../../hooks/useSelfImprovement";
 import type { QuantityExample } from "../../recognition/quantityLearning";
@@ -255,42 +256,12 @@ export function SelfImprovementSettings({ learning }: { learning: ReturnType<typ
                                 {learning.model.current.evidence.length === 0 && <p>No active learning examples.</p>}
                             </div>
                         </details>
-                        {learning.error && <Feedback tone="error">{learning.error}</Feedback>}
+                        <LearningFeedback learning={learning} />
                         {learning.message && !learning.error && <Feedback tone="success">{learning.message}</Feedback>}
                         {!ready && !busy && (
                             <button className="button" type="button" onClick={() => void learning.reload()}>
                                 Retry loading self-improvement
                             </button>
-                        )}
-                        {learning.failedExample && (
-                            <div className={styles.Note}>
-                                <strong>
-                                    {learning.failedExampleCount} unsaved{" "}
-                                    {learning.failedExampleCount === 1 ? "example" : "examples"}
-                                </strong>
-                                <p>
-                                    Your drops were added to the session. Retry saving their examples before closing the
-                                    app.
-                                </p>
-                                <div className={styles.Actions}>
-                                    <button
-                                        className="button"
-                                        type="button"
-                                        disabled={busy || !state.enabled}
-                                        onClick={learning.retrySave}
-                                    >
-                                        Retry saving example
-                                    </button>
-                                    <button
-                                        className="button subtle"
-                                        type="button"
-                                        disabled={busy}
-                                        onClick={learning.discardFailedSave}
-                                    >
-                                        Discard unsaved example
-                                    </button>
-                                </div>
-                            </div>
                         )}
                         <details
                             className={styles.Library}
