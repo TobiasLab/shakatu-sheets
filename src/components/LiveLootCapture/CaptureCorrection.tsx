@@ -65,11 +65,7 @@ export function CaptureCorrection({
             );
             if (controller.signal.aborted) return;
             setSuggestion(result);
-            setRetryMessage(
-                result
-                    ? "Check the suggestion against the image before adding it."
-                    : "OCR could not read a clear item and quantity. You can still add this capture manually.",
-            );
+            setRetryMessage(result ? "" : "OCR could not read a clear item and quantity.");
         } catch (error) {
             if (!controller.signal.aborted)
                 setRetryMessage(`OCR retry failed: ${error instanceof Error ? error.message : String(error)}`);
@@ -112,72 +108,58 @@ export function CaptureCorrection({
                             {retrying ? "Reading capture…" : "Retry OCR"}
                         </button>
                     </figcaption>
-                    <div className={styles.CaptureImage}>
-                        <canvas ref={canvas} aria-label="Unrecognized item capture" />
-                    </div>
+                    <canvas ref={canvas} aria-label="Unrecognized item capture" />
                 </figure>
             ) : (
                 <p className={styles.Unavailable}>No image was available for this notification.</p>
             )}
-            {retryMessage && (
-                <div className={styles.RetryResult}>
-                    <p role="status">{retryMessage}</p>
-                    {suggestion && (
-                        <>
-                            <strong>
-                                {suggestion.item} × {suggestion.quantity}
-                            </strong>
-                            <button
-                                className="button"
-                                type="button"
-                                disabled={disabled}
-                                onClick={() =>
-                                    onDraftChange({ item: suggestion.item, quantity: String(suggestion.quantity) })
-                                }
-                            >
-                                Use suggestion
-                            </button>
-                        </>
-                    )}
-                </div>
-            )}
-            {(learnedItem !== undefined || learnedQuantity !== undefined) && (
-                <div className={styles.RetryResult}>
-                    <p>
-                        Saved examples suggested
-                        {learnedItem !== undefined && (
-                            <>
-                                {" "}
-                                <strong>{learnedItem}</strong>
-                            </>
-                        )}
-                        {learnedQuantity !== undefined && (
-                            <>
-                                {" "}
-                                {learnedItem !== undefined ? "× " : "quantity "}
-                                <strong>{learnedQuantity}</strong>
-                            </>
-                        )}
-                        . Check the fields against the capture, then add to session.
-                    </p>
-                </div>
-            )}
             {learningImage && (
-                <div className={styles.RetryResult}>
+                <div className={styles.Learning}>
+                    <span>{learningItemImage ? "Saved for learning" : "Saved for learning · quantity only"}</span>
                     {learningItemImage && (
                         <QuantityImage image={learningItemImage} label="Item name image for self-improvement" />
                     )}
                     <QuantityImage image={learningImage} />
-                    <p>
-                        Self-improvement is on. Adding this drop saves your confirmed item and quantity with the images
-                        shown here. Check that each image contains the complete text.
-                        {!learningItemImage &&
-                            " The item name could not be isolated; only the quantity image will be learned."}
+                </div>
+            )}
+            {(suggestion || retryMessage) && (
+                <div className={styles.RetryResult}>
+                    <p role="status">
+                        {suggestion ? (
+                            <>
+                                OCR suggests{" "}
+                                <strong>
+                                    {suggestion.item} × {suggestion.quantity}
+                                </strong>
+                            </>
+                        ) : (
+                            retryMessage
+                        )}
                     </p>
+                    {suggestion && (
+                        <button
+                            className="button"
+                            type="button"
+                            disabled={disabled}
+                            onClick={() =>
+                                onDraftChange({ item: suggestion.item, quantity: String(suggestion.quantity) })
+                            }
+                        >
+                            Use suggestion
+                        </button>
+                    )}
                 </div>
             )}
             <div className={styles.CorrectionFields}>
-                <FormField label="Item">
+                <FormField
+                    className={styles.ItemField}
+                    label={
+                        <>
+                            Item
+                            {item !== "" && item === learnedItem && <span className={styles.Suggested}>Suggested</span>}
+                        </>
+                    }
+                >
                     <select
                         required
                         value={item}
@@ -192,7 +174,17 @@ export function CaptureCorrection({
                         ))}
                     </select>
                 </FormField>
-                <FormField label="Quantity">
+                <FormField
+                    className={styles.QuantityField}
+                    label={
+                        <>
+                            Quantity
+                            {learnedQuantity !== undefined && quantity === String(learnedQuantity) && (
+                                <span className={styles.Suggested}>Suggested</span>
+                            )}
+                        </>
+                    }
+                >
                     <input
                         type="number"
                         min="1"
@@ -204,8 +196,6 @@ export function CaptureCorrection({
                         onChange={(event) => onDraftChange({ ...draft, quantity: event.target.value })}
                     />
                 </FormField>
-            </div>
-            <div className={styles.CorrectionActions}>
                 <button className="button primary-button" type="submit" disabled={disabled}>
                     Add to session
                 </button>

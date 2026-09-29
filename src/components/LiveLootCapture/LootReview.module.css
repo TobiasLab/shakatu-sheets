@@ -97,7 +97,7 @@
     border-left: 1px solid var(--line);
 }
 .DetailHeader {
-    align-items: start;
+    align-items: center;
 }
 .DetailHeader > div {
     min-width: 0;
@@ -139,45 +139,83 @@
 }
 .Capture {
     margin: 0 0 16px;
-    border: 1px solid var(--line);
-    border-radius: var(--control-radius);
-    overflow: hidden;
-    background: var(--canvas);
 }
 .Capture figcaption {
     display: flex;
     align-items: center;
     justify-content: space-between;
     gap: 12px;
-    padding: 6px 10px;
+    margin-bottom: 8px;
     color: var(--muted);
     font-size: 11px;
-}
-.Capture figcaption :global(.button) {
-    min-height: 28px;
-    padding: 4px 8px;
-    font-size: 11px;
-}
-.CaptureImage {
-    display: grid;
-    place-items: center;
-    min-height: 76px;
-    padding: 12px;
-    background: #151419;
 }
 .Capture canvas {
     display: block;
     max-width: 100%;
     height: auto;
     max-height: 120px;
-    object-fit: contain;
+    border: 1px solid var(--line);
+    border-radius: var(--control-radius);
+}
+.Learning {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+    margin: -4px 0 16px;
+    color: var(--muted);
+    font-size: 11px;
+}
+.Learning span {
+    margin-right: 4px;
+}
+.Learning canvas {
+    height: 32px;
+}
+.RetryResult {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px 12px;
+    margin-bottom: 16px;
+    font-size: 12px;
+}
+.RetryResult p {
+    margin: 0;
+    color: var(--text-soft);
+    overflow-wrap: anywhere;
+}
+.RetryResult strong {
+    color: var(--text-strong);
+    font-weight: 500;
 }
 .CorrectionFields {
-    display: grid;
-    grid-template-columns: minmax(0, 1fr) 96px;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-end;
     gap: 12px;
 }
-.CorrectionActions,
+.ItemField {
+    flex: 1 1 200px;
+    max-width: 360px;
+}
+.QuantityField {
+    flex: 0 0 96px;
+}
+.CorrectionFields > :global(.button) {
+    margin-left: auto;
+}
+.Suggested {
+    margin-left: 6px;
+    padding: 0 6px;
+    border: 1px solid var(--line-strong);
+    border-radius: 10px;
+    color: var(--muted);
+    font-size: 11px;
+    font-weight: 500;
+    line-height: 17px;
+    white-space: nowrap;
+}
 .ReadyAction {
     display: flex;
     flex-wrap: wrap;
@@ -185,34 +223,8 @@
     justify-content: flex-end;
     gap: 12px;
 }
-.CorrectionActions {
-    margin-top: 16px;
-}
 .ReadyAction p {
     flex-basis: 100%;
-}
-.RetryResult {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: 8px 12px;
-    padding: 12px;
-    margin-bottom: 16px;
-    border: 1px solid var(--line);
-    background: var(--surface);
-    font-size: 12px;
-}
-.RetryResult p {
-    flex-basis: 100%;
-    margin: 0;
-    color: var(--text-soft);
-    overflow-wrap: anywhere;
-}
-.RetryResult strong {
-    flex: 1;
-    min-width: 0;
-    font-weight: 500;
-    overflow-wrap: anywhere;
 }
 .Footer {
     display: flex;
@@ -266,8 +278,8 @@
     .Detail {
         padding: 12px;
     }
-    .CorrectionFields {
-        grid-template-columns: minmax(0, 1fr) 72px;
+    .QuantityField {
+        flex-basis: 72px;
     }
 }
 .Footer :global(.button) {

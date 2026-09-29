@@ -200,15 +200,19 @@ try {
     await evaluate("document.querySelector('#review-select-3').click()");
     assert.equal(await evaluate("document.querySelector('#loot-review-detail select').value"), "Black Stone");
     assert.equal(await evaluate("document.querySelector('#loot-review-detail input[type=number]').value"), "6");
-    assert(
-        await evaluate("document.querySelector('#loot-review-detail').textContent.includes('Black Stone × 6')"),
-        "The suggestion note stays with the original prefill when the library changes",
+    const suggestedFields =
+        "[...document.querySelectorAll('#loot-review-detail label > span')].filter(el=>el.textContent.includes('Suggested')).length";
+    assert.equal(
+        await evaluate(suggestedFields),
+        2,
+        "Both prefilled fields stay marked as suggested when the library changes",
     );
     assert(
         !(await evaluate("document.querySelector('#loot-review-detail').textContent.includes('Caphras Stone × 9')")),
         "The suggestion note must not show an unapplied replacement",
     );
     await evaluate("document.querySelector('#review-select-33').click()");
+    assert.equal(await evaluate(suggestedFields), 0, "Manually edited fields are not marked as suggested");
     assert.equal(await evaluate("document.querySelector('#loot-review-detail select').value"), "Caphras Stone");
     assert.equal(await evaluate("document.querySelector('#loot-review-detail input[type=number]').value"), "7");
     await evaluate("document.querySelector('[aria-label=\"Dismiss review entry 34\"]').click()");
