@@ -128,6 +128,7 @@
     pointer-events: none;
 }
 .SessionClock {
+    position: relative;
     display: grid;
     grid-template-columns: auto auto;
     grid-template-areas:
@@ -154,7 +155,6 @@
 }
 .ManualTime {
     grid-area: manual;
-    position: relative;
     font-size: 12px;
     color: var(--muted);
 }
@@ -170,12 +170,13 @@
 .CompletedHours {
     position: absolute;
     z-index: 9;
-    left: 0;
-    top: 28px;
-    width: 270px;
+    right: 0;
+    top: calc(100% + 6px);
+    width: 360px;
     max-width: calc(100vw - 112px);
     padding: 14px;
     display: flex;
+    flex-wrap: wrap;
     align-items: end;
     gap: 8px;
     border: 1px solid var(--line-strong);
@@ -184,7 +185,7 @@
     box-shadow: var(--dialog-shadow);
 }
 .CompletedHours label {
-    flex: 1;
+    flex: 1 1 56px;
     min-width: 0;
 }
 .CompletedHours label span {
@@ -286,6 +287,10 @@
     .SessionClock {
         grid-column: 1 / -1;
         justify-content: start;
+    }
+    .CompletedHours {
+        right: auto;
+        left: 0;
     }
 }
 @media (max-width: 860px) {

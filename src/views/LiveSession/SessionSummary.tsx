@@ -92,6 +92,7 @@ function SessionClock({
 }) {
     const { session, databaseLoaded, dispatch, setCompletedHours, startOrResume } = controller;
     const timeEditable = session.status === "idle" || session.status === "paused";
+    const elapsedSeconds = Math.round(session.elapsedMs / 1_000);
     return (
         <section className={styles.SessionClock} aria-label="Session time">
             <div className={`${styles.Metric} ${styles.ClockReadout}`}>
@@ -157,18 +158,45 @@ function SessionClock({
                         }}
                     >
                         <label>
-                            <span>Completed hours</span>
+                            <span>Hours</span>
                             <input
                                 key={session.elapsedMs}
-                                name="completedHours"
-                                max={Math.floor(Number.MAX_SAFE_INTEGER / 36_000) / 100}
+                                name="hours"
+                                max={Math.floor(Number.MAX_SAFE_INTEGER / 3_600_000)}
                                 type="number"
                                 min="0"
-                                step="0.01"
-                                inputMode="decimal"
-                                required
+                                step="1"
+                                inputMode="numeric"
                                 disabled={!databaseLoaded}
-                                defaultValue={(session.elapsedMs / 3_600_000).toFixed(2)}
+                                defaultValue={Math.floor(elapsedSeconds / 3_600)}
+                            />
+                        </label>
+                        <label>
+                            <span>Minutes</span>
+                            <input
+                                key={session.elapsedMs}
+                                name="minutes"
+                                type="number"
+                                min="0"
+                                max="59"
+                                step="1"
+                                inputMode="numeric"
+                                disabled={!databaseLoaded}
+                                defaultValue={Math.floor(elapsedSeconds / 60) % 60}
+                            />
+                        </label>
+                        <label>
+                            <span>Seconds</span>
+                            <input
+                                key={session.elapsedMs}
+                                name="seconds"
+                                type="number"
+                                min="0"
+                                max="59"
+                                step="1"
+                                inputMode="numeric"
+                                disabled={!databaseLoaded}
+                                defaultValue={elapsedSeconds % 60}
                             />
                         </label>
                         <button className="button" type="submit" disabled={!databaseLoaded}>

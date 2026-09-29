@@ -1244,7 +1244,9 @@ try {
         );
         await setField("[id^=ledger-filter-]", "all");
         await click("Enter hours");
-        await setField('input[name="completedHours"]', "1.5");
+        await setField('input[name="hours"]', "1");
+        await setField('input[name="minutes"]', "30");
+        await setField('input[name="seconds"]', "0");
         await click("Save hours");
         await until("window.__session.elapsedMs === 5400000");
         assert.equal(
@@ -1566,7 +1568,9 @@ try {
         await until("window.__session.entries.length === 4");
         await click("Close manual entry");
         await click("Enter hours");
-        await setField('input[name="completedHours"]', "1");
+        await setField('input[name="hours"]', "1");
+        await setField('input[name="minutes"]', "0");
+        await setField('input[name="seconds"]', "0");
         await click("Save hours");
         await click("Finish");
         await until("window.__session.status === 'finished'");
