@@ -91,11 +91,15 @@ export function useLiveSession(session: SessionState, dispatch: Dispatch<Session
 
     function setCompletedHours(event: FormEvent<HTMLFormElement>) {
         event.preventDefault();
-        const value = new FormData(event.currentTarget).get("completedHours");
-        if (typeof value !== "string" || value.trim() === "") return;
-        const hours = Number(value);
-        const elapsedMs = Math.round(hours * 3_600_000);
-        if (!Number.isFinite(hours) || hours < 0 || !Number.isSafeInteger(elapsedMs)) return;
+        const form = new FormData(event.currentTarget);
+        const hours = Number(form.get("hours") || 0);
+        const minutes = Number(form.get("minutes") || 0);
+        const seconds = Number(form.get("seconds") || 0);
+        const elapsedMs = (hours * 3_600 + minutes * 60 + seconds) * 1_000;
+        if (!Number.isInteger(hours) || hours < 0) return;
+        if (!Number.isInteger(minutes) || minutes < 0 || minutes > 59) return;
+        if (!Number.isInteger(seconds) || seconds < 0 || seconds > 59) return;
+        if (!Number.isSafeInteger(elapsedMs)) return;
         dispatch({ type: "set-elapsed", elapsedMs });
     }
 
