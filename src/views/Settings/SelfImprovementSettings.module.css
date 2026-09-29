@@ -10,8 +10,11 @@
 .Option:first-of-type {
     padding-top: 0;
 }
-.Option strong,
-.Note strong {
+.Option:last-of-type {
+    padding-bottom: 0;
+    border-bottom: 0;
+}
+.Option strong {
     color: var(--text-strong);
     font-size: 13px;
     font-weight: 600;
@@ -71,14 +74,6 @@
 .Option:has(input:disabled) {
     cursor: default;
 }
-.Note {
-    display: grid;
-    gap: 2px;
-    padding: 8px 12px;
-    border-left: 2px solid var(--line-strong);
-    border-radius: 0 var(--control-radius) var(--control-radius) 0;
-    background: color-mix(in srgb, var(--line-strong) 9%, transparent);
-}
 .Actions {
     display: flex;
     flex-wrap: wrap;
@@ -105,16 +100,69 @@
     display: grid;
     gap: 16px;
 }
+.TableScroll {
+    max-width: 100%;
+    overflow-x: auto;
+    overscroll-behavior-x: contain;
+}
+.TableScroll:focus-visible {
+    outline-offset: -3px;
+}
+.TableScroll table {
+    width: 100%;
+    min-width: 440px;
+    table-layout: fixed;
+    border-collapse: collapse;
+    font-size: 12px;
+    font-variant-numeric: tabular-nums;
+}
+.TableScroll caption {
+    padding-bottom: 4px;
+    color: var(--text-soft);
+    font-size: 12px;
+    font-weight: 500;
+    text-align: left;
+}
+.TableScroll th,
+.TableScroll td {
+    padding: 6px 8px;
+    border-bottom: 1px solid var(--row-line);
+    color: var(--text-soft);
+    text-align: right;
+}
+.TableScroll th:first-child {
+    width: 34%;
+    padding-left: 0;
+    text-align: left;
+    font-weight: 500;
+    overflow-wrap: anywhere;
+}
+.TableScroll th:last-child,
+.TableScroll td:last-child {
+    padding-right: 0;
+}
+.TableScroll td:last-child {
+    color: var(--muted);
+}
+.TableScroll td[data-ready="true"] {
+    color: var(--success);
+}
+.TableScroll thead th {
+    border-bottom-color: var(--line);
+    color: var(--muted);
+    font-size: 11px;
+    font-weight: 500;
+    white-space: nowrap;
+}
 .Examples {
     list-style: none;
     margin: 0;
     padding: 0;
-    max-height: 440px;
-    overflow-y: auto;
+    border-top: 1px solid var(--line);
 }
 .Example {
-    padding: 14px 0;
-    border-bottom: 1px solid var(--line);
+    padding: 12px 0;
+    border-bottom: 1px solid var(--row-line);
 }
 .ExampleRow {
     display: flex;
@@ -122,24 +170,40 @@
     flex-wrap: wrap;
     gap: 12px;
 }
+.ExampleImages {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    min-width: 0;
+}
+.ExampleImages canvas {
+    height: 32px;
+}
 .ExampleLabel {
     flex: 1;
     min-width: 140px;
 }
 .ExampleLabel strong {
     display: block;
-    color: var(--text-soft);
+    color: var(--text-strong);
     font-size: 12px;
-    font-weight: 550;
+    font-weight: 500;
 }
 .ExampleLabel span {
     display: block;
-    margin-top: 5px;
+    margin-top: 4px;
     color: var(--muted);
     font-size: 11px;
 }
+.Delete {
+    opacity: 0;
+}
+.Example:hover .Delete,
+.Example:focus-within .Delete {
+    opacity: 1;
+}
 .ExampleDetails {
-    margin-top: 12px;
+    margin-top: 8px;
     color: var(--muted);
     font-size: 11px;
 }
@@ -149,23 +213,34 @@
 }
 .ExampleDetails dl {
     display: grid;
-    gap: 8px;
+    gap: 6px;
+    margin: 8px 0 0;
 }
 .ExampleDetails dl > div {
-    display: flex;
-    justify-content: space-between;
-    flex-wrap: wrap;
-    gap: 8px;
+    display: grid;
+    grid-template-columns: minmax(120px, 180px) minmax(0, 1fr);
+    gap: 12px;
 }
 .ExampleDetails dd {
     margin: 0;
     color: var(--text-soft);
     overflow-wrap: anywhere;
-    min-width: 0;
+}
+.Example .ExampleDetails p {
+    margin: 12px 0 0;
+    font-size: 11px;
 }
 .FrameEvidence {
+    margin-top: 12px;
     padding-top: 12px;
     border-top: 1px solid var(--line);
+}
+.FrameEvidence strong {
+    color: var(--text-soft);
+    font-weight: 500;
+}
+.Example .FrameEvidence p {
+    margin-top: 6px;
 }
 .ExampleDetails pre {
     white-space: pre-wrap;
