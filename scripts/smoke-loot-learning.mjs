@@ -8,7 +8,7 @@ const harness = `
 import React,{useState} from 'react';
 import ReactDOM from 'react-dom/client';
 import {LootReview} from '/src/components/LiveLootCapture/LootReview.tsx';
-import {LearningFeedback} from '/src/components/LiveLootCapture/LiveLootCapture.tsx';
+import {LearningFeedback} from '/src/components/LearningFeedback/LearningFeedback.tsx';
 import {SelfImprovementSettings} from '/src/views/Settings/SelfImprovementSettings.tsx';
 import settingsStyles from '/src/views/Settings/Settings.module.css';
 import {useSelfImprovement} from '/src/hooks/useSelfImprovement.ts';
@@ -219,12 +219,17 @@ try {
     );
     await evaluate("window.failSave=true");
     await button("Add to session");
-    await until("document.body.textContent.includes('Synthetic storage failure')");
-    assert(
-        await evaluate(
-            "document.querySelector('#learning-feedback').textContent.includes('Synthetic storage failure')",
-        ),
-        "The capture strip shows why the example was not saved",
+    const notice = "document.querySelector('[class*=Notices]')";
+    await until(`${notice}?.textContent.includes('(Synthetic storage failure)')`);
+    assert.equal(
+        await evaluate(`${notice}.querySelectorAll('[data-tone]').length`),
+        1,
+        "A save failure stays with its unsaved example instead of a separate error",
+    );
+    assert.equal(
+        await evaluate("document.querySelectorAll('[class*=Notices]').length"),
+        2,
+        "The capture strip and Settings both offer the unsaved example",
     );
     assert.equal(await evaluate("window.added.length"), before + 1, "Storage failure does not undo the drop");
     assert.deepEqual(
@@ -236,28 +241,39 @@ try {
     await until("!!document.querySelector('#review-select-4')");
     await correct(6);
     await until("window.saved.examples.length===2");
-    assert(
-        await evaluate("document.body.textContent.includes('Retry saving example')"),
+    assert.equal(
+        await evaluate(`${notice}?.querySelector('p').textContent`),
+        "A learning example could not be saved. Your drop was added. Retry before closing the app.",
         "A later save must not discard a previous failed example",
     );
-    assert.equal(
-        await evaluate("document.querySelector('#learning-feedback').textContent"),
-        "A learning example could not be saved. Your drop was added.",
-    );
     assert(
-        !(await evaluate("document.querySelector('#self-improvement').textContent.includes('Correction saved')")),
+        !(await evaluate("document.querySelector('#self-improvement [data-tone=success]')")),
         "Settings must not report a saved correction beside an unsaved one",
     );
     await button("Retry save");
     await until("window.saved.examples.length===3");
     assert.equal(await evaluate("window.added.length"), before + 2, "Retry only saves the example");
-    await until("!document.querySelector('#learning-feedback')");
+    await until(`!${notice}`);
+    assert.equal(
+        await evaluate("document.querySelector('#self-improvement .sr-only[aria-live=polite]').textContent"),
+        "Correction saved for self-improvement.",
+        "A retry is announced from Settings too",
+    );
     await evaluate("window.failSave=true;window.addPending(5)");
     await until("!!document.querySelector('#review-select-5')");
     await correct(8);
-    await until("!!document.querySelector('#learning-feedback')");
+    await until(`!!${notice}`);
+    await evaluate("document.querySelector('input[type=checkbox]').click()");
+    await until("window.learningState.enabled===false");
+    assert(await evaluate(`${notice}.querySelector('p').textContent.endsWith('Turn self-improvement on to retry.')`));
+    assert(
+        !(await evaluate("[...document.querySelectorAll('button')].some(b=>b.textContent==='Retry save')")),
+        "Retry is replaced while learning is off",
+    );
+    await evaluate("document.querySelector('input[type=checkbox]').click()");
+    await until("window.learningState.enabled===true");
     await button("Discard");
-    assert.equal(await evaluate("document.querySelector('#learning-feedback')"), null, "Discard clears the notice");
+    assert.equal(await evaluate(notice), null, "Discard clears the notice");
     assert.equal(await evaluate("window.saved.examples.length"), 3, "Discard does not save the example");
     await evaluate("window.failSave=false");
     await evaluate("document.querySelectorAll('input[type=checkbox]')[1].click()");

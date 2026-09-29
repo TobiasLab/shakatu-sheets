@@ -1,8 +1,7 @@
-import type { useSelfImprovement } from "../../hooks/useSelfImprovement";
 import type { LootAlignmentGuide, LootUiScale } from "../../recognition/displayCapture";
-import { Feedback } from "../Feedback/Feedback";
 import { FormField } from "../FormField/FormField";
 import { Icon } from "../Icon/Icon";
+import { LearningFeedback } from "../LearningFeedback/LearningFeedback";
 import { SelectionButton } from "../SelectionButton/SelectionButton";
 import styles from "./LiveLootCapture.module.css";
 import { LootReview } from "./LootReview";
@@ -41,53 +40,6 @@ function AlignmentGuide({
                 />
             ))}
         </div>
-    );
-}
-export function LearningFeedback({ learning }: { learning: ReturnType<typeof useSelfImprovement> }) {
-    const count = learning.failedExampleCount;
-    return (
-        <>
-            {(learning.error || learning.failedExample) && (
-                <div className={styles.LearningFeedback}>
-                    <Feedback
-                        id="learning-feedback"
-                        tone="error"
-                        action={
-                            learning.failedExample && (
-                                <div className={styles.LearningActions}>
-                                    <button
-                                        className="button"
-                                        type="button"
-                                        aria-describedby="learning-feedback"
-                                        disabled={learning.busy || !learning.state.enabled}
-                                        onClick={learning.retrySave}
-                                    >
-                                        Retry save
-                                    </button>
-                                    <button
-                                        className="button subtle"
-                                        type="button"
-                                        aria-describedby="learning-feedback"
-                                        disabled={learning.busy}
-                                        onClick={learning.discardFailedSave}
-                                    >
-                                        Discard
-                                    </button>
-                                </div>
-                            )
-                        }
-                    >
-                        {learning.error ||
-                            (count === 1
-                                ? "A learning example could not be saved. Your drop was added."
-                                : `${count} learning examples could not be saved. Your drops were added.`)}
-                    </Feedback>
-                </div>
-            )}
-            <div className="sr-only" aria-live="polite">
-                {learning.announcement}
-            </div>
-        </>
     );
 }
 export function LiveLootCapture({ controller }: { controller: ReturnType<typeof useLiveLootCapture> }) {
@@ -295,7 +247,11 @@ export function LiveLootCapture({ controller }: { controller: ReturnType<typeof 
                     Local recognition stopped: {recognitionError}
                 </p>
             )}
-            <LearningFeedback learning={controller.learning} />
+            <LearningFeedback
+                learning={controller.learning}
+                onOpenSettings={controller.onOpenSelfImprovement}
+                className={styles.LearningFeedback}
+            />
             {status === "capturing" && (
                 <div
                     id="capture-setup"
