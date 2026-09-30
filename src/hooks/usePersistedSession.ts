@@ -1,7 +1,8 @@
 import { useEffect, useLayoutEffect, useReducer, useRef, useState } from "react";
-import { loadActiveSession, reopenSession, saveSession, supportsTauriApi } from "../api/tauri";
+import { listFinishedSessions, loadActiveSession, reopenSession, saveSession, supportsTauriApi } from "../api/tauri";
 import type { OverlayTimerRequest } from "../components/SessionOverlay/sessionOverlay";
-import { createSession, pauseRestoredSession, reduceSession } from "../domain/session";
+import { grindSpots } from "../data/grindSpots";
+import { createSession, pauseRestoredSession, reduceSession, type SessionState } from "../domain/session";
 
 import { createSessionPersistence } from "./sessionPersistence";
 
@@ -78,13 +79,10 @@ export function usePersistedSession(beforeClose?: () => Promise<void>) {
 
     useEffect(() => {
         let cancelled = false;
-        loadActiveSession()
-            .then((storedSession) => {
+        loadStartingSession()
+            .then((startingSession) => {
                 if (cancelled) return;
-                const restoredSession = storedSession
-                    ? pauseRestoredSession(storedSession, Date.now())
-                    : createSession();
-                dispatch({ type: "hydrate", session: restoredSession });
+                dispatch({ type: "hydrate", session: startingSession });
                 setDatabaseLoaded(true);
                 setDatabaseStatus("ready");
             })
@@ -127,4 +125,23 @@ export function usePersistedSession(beforeClose?: () => Promise<void>) {
     }
 
     return { session, dispatch, databaseLoaded, databaseStatus, databaseError, closing, requestOverlayTimer, reopen };
+}
+
+export async function loadStartingSession(): Promise<SessionState> {
+    const storedSession = await loadActiveSession();
+    if (storedSession) return pauseRestoredSession(storedSession, Date.now());
+    // A new session continues at the last finished session's spot; without history, or when that spot has left the
+    // catalog, it uses the default spot.
+    const history = await listFinishedSessions({
+        region: null,
+        grindSpotId: null,
+        finishedFromMs: null,
+        finishedBeforeMs: null,
+        offset: 0,
+        limit: 1,
+    }).catch(() => null);
+    const lastSession = history?.records[0]?.session;
+    if (!lastSession) return createSession();
+    const knownSpot = grindSpots.some((spot) => spot.id === lastSession.grindSpotId);
+    return knownSpot ? createSession(lastSession.region, lastSession.grindSpotId) : createSession(lastSession.region);
 }
