@@ -67,6 +67,16 @@ describe("session timing", () => {
         expect(getElapsedMs(running, 4_000)).toBe(2_000);
     });
 
+    it("starts new sessions at Aphrodon Temple and keeps the finished session's spot and region", () => {
+        const fresh = createSession();
+        const finished = { ...createSession("na", "zephyros-castle"), status: "finished" as const };
+        const next = reduceSession(finished, { type: "reset" });
+
+        expect(fresh.grindSpotId).toBe("aphrodon-temple");
+        expect(next).toMatchObject({ status: "idle", region: "na", grindSpotId: "zephyros-castle", entries: [] });
+        expect(next.id).not.toBe(finished.id);
+    });
+
     it("only resets finished sessions", () => {
         const running = { ...createSession(), status: "running" as const, startedAt: 1_000 };
 

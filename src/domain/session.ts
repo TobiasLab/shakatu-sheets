@@ -45,12 +45,12 @@ export function isActiveSessionStatus(status: SessionStatus) {
     return status !== "finished";
 }
 
-export function createSession(region: SessionState["region"] = "eu"): SessionState {
+export function createSession(region: SessionState["region"] = "eu", grindSpotId = "aphrodon-temple"): SessionState {
     return {
         id: crypto.randomUUID(),
         status: "idle",
         region,
-        grindSpotId: "sycraia-lower-revamp",
+        grindSpotId,
         startedAt: null,
         elapsedMs: 0,
         entries: [],
@@ -92,7 +92,7 @@ export function reduceSession(state: SessionState, action: SessionAction): Sessi
                 ? state
                 : { ...state, elapsedMs: action.elapsedMs };
         case "reset":
-            return state.status === "finished" ? createSession(state.region) : state;
+            return state.status === "finished" ? createSession(state.region, state.grindSpotId) : state;
         case "hydrate":
             return action.session;
         case "set-region":
