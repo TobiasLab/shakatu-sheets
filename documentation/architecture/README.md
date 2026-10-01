@@ -46,11 +46,13 @@ Garmoth grind tracker. Reserved and uploaded sessions cannot be reopened.
 Rust remains feature-oriented: `persistence` groups SQLite infrastructure with session, market-price, settings, and
 Garmoth-upload storage; `garmoth` separates account settings from uploads. `native_capture/control.rs` owns shared
 capture-token lifecycle, selection validation, sampling, and acknowledgment backpressure. `protocol.rs` owns binary
-encoding, and `diagnostics.rs` owns opt-in aggregate metrics. Linux retains the portal lifecycle (`linux/mod.rs`),
-PipeWire processing (`linux/stream.rs`), and mapped-buffer conversion (`linux/frame.rs`). Windows separates picker/COM
-setup (`windows/mod.rs`), WGC session/frame-pool lifecycle (`windows/capture.rs`), and D3D11 ROI/preview work
-(`windows/frame.rs`). Debug ROI collection separates admission from its writer and tests. `lib.rs` explicitly registers
-commands and shuts down native capture at app exit.
+encoding, and `diagnostics.rs` owns opt-in aggregate metrics and the log sink (stderr on Linux, the rotating
+`capture.log` on Windows, which also records capture lifecycle events). Linux retains the portal lifecycle
+(`linux/mod.rs`), PipeWire processing (`linux/stream.rs`), and mapped-buffer conversion (`linux/frame.rs`). Windows
+separates picker/COM setup (`windows/mod.rs`), WGC session/frame-pool creation and teardown (`windows/session.rs`), the
+frame-processing worker (`windows/capture.rs`), and D3D11 ROI/preview work (`windows/frame.rs`). Debug ROI collection
+separates admission from its writer and tests. `lib.rs` explicitly registers commands and shuts down native capture at
+app exit.
 
 Live loot capture uses a versioned binary channel for a bounded preview and native-resolution normal/rare or search
 regions. Linux crops the mapped PipeWire buffer; Windows reads back only GPU-cropped regions and GPU-reduced previews;

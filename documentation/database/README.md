@@ -88,14 +88,16 @@ being reopened or while running across the upgrade, because those samples cover 
 - Normal saves cannot change finished sessions; the explicit reopen command can return one to a paused state.
 - The History upload command can save a reviewed consumable draft, replacing only tagged expense rows in one transaction after
   comparing the reviewed session snapshot with the database. It preserves all session timestamps, ordinary loot and
-  expenses, and their price snapshots. Unknown upload outcomes block correction. A success marker allows adding missing consumables only and remains
+  expenses, and their unit prices. Unknown upload outcomes block correction. A success marker allows adding missing consumables only and remains
   unchanged; existing consumables on uploaded sessions cannot be replaced. The Garmoth mutex covers this correction,
   upload reservation, and HTTP, and serializes them with deletion. Saved expense changes survive failed requests;
   the result returns the saved snapshot for retry and UI refresh. Global and Agris options are transient upload
   metadata; the last drop-buff selection is a JSON array of Garmoth buff IDs under the `garmoth.buffs` setting. This
   workflow needs no additional migration or index.
-- The explicit delete command removes only finished sessions. Their entries, session-linked price snapshots, and Garmoth
-  upload marker are deleted through foreign-key cascades; unfinished sessions cannot be deleted through this path.
+- The explicit delete command removes only finished sessions. Their entries (including the historical prices kept in
+  `session_entries.unit_price`), net samples, and Garmoth upload marker are deleted through foreign-key cascades;
+  unfinished sessions cannot be deleted through this path. Market imports always write `price_snapshots.session_id` as
+  NULL, so deletion never removes market prices.
 - Money is stored as integer silver values and time as integer milliseconds.
 - Market snapshots are never refreshed automatically or expired based on age.
 - The latest saved row for each region, item, and enhancement level supplies prices for new entries.

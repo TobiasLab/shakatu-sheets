@@ -192,4 +192,5 @@ Before calling a UI change done:
 2. Check it against [What not to do](#what-not-to-do): no nested boxes, no second accent, no explanatory prose.
 3. Confirm that the most important value on the screen is the most prominent thing on it.
 4. Check keyboard access and focus order; confirm nothing scrolls horizontally.
-5. Run the checks listed in `AGENTS.md`, and the browser smoke scripts in `scripts/` when controls or labels moved.
+5. Run the normal verification commands in the [development guide](../development/README.md), and the
+   [browser smoke scripts](../development/README.md#performance-and-ui-verification) when controls or labels moved.
