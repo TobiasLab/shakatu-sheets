@@ -227,9 +227,8 @@ export function GarmothUploadDialog({
                         {usedAgris && (
                             <input
                                 aria-label="Agris amount"
-                                type="number"
-                                min="1"
-                                step="1"
+                                type="text"
+                                inputMode="numeric"
                                 placeholder="Unknown"
                                 value={agrisAmount}
                                 onChange={(event) => setAgrisAmount(event.target.value)}
