@@ -157,7 +157,7 @@ await send("Page.addScriptToEvaluateOnNewDocument", {
                 const fixture = { session: {id:"fixture-finished",status:"finished",region:"eu",grindSpotId:"sycraia-lower-revamp",startedAt:null,elapsedMs:3600000,entries:[{id:"fixture-loot",name:"Ancient Spirit Dust",quantity:12,unitPrice:3000000,valuation:"vendor",saleMultiplier:1,source:"manual",createdAt:1788520000000}]},finishedAt:1788523600000,garmothUploadStatus:null };
                 const source = window.__historyRecords ?? [fixture];
                 const q = args.query;
-                const scope = source.filter(r => r.session.status === "finished" && r.session.region === q.region && (q.finishedFromMs === null || r.finishedAt >= q.finishedFromMs) && (q.finishedBeforeMs === null || r.finishedAt < q.finishedBeforeMs));
+                const scope = source.filter(r => r.session.status === "finished" && (q.region === null || r.session.region === q.region) && (q.finishedFromMs === null || r.finishedAt >= q.finishedFromMs) && (q.finishedBeforeMs === null || r.finishedAt < q.finishedBeforeMs));
                 const groups = new Map();
                 for (const r of scope) {
                     const key = r.session.grindSpotId;
