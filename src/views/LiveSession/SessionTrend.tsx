@@ -89,6 +89,10 @@ export function SessionTrend({ samples, elapsedMs, net }: { samples: TrendSample
                     <i className={styles.TrendCrosshair} style={{ left: `${(x(hoverMs) / WIDTH) * 100}%` }} />
                 )}
             </div>
+            {/* The arrow-key readout is only visual in the caption, so screen readers hear it here. */}
+            <span className="sr-only" aria-live="polite">
+                {hoverMs === null ? "" : `${formatSilver(shownNet, true)} at ${formatDuration(shownMs)}`}
+            </span>
         </figure>
     );
 }

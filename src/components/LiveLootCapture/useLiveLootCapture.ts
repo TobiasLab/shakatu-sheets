@@ -377,7 +377,6 @@ export function useLiveLootCapture({
     const [error, setError] = useState("");
     const [sampledFps, setSampledFps] = useState(0);
     const [previewsEnabled, setPreviewsEnabled] = useState(true);
-    const [previewToggleBusy, setPreviewToggleBusy] = useState(false);
     const [previewToggleError, setPreviewToggleError] = useState("");
     const [sourceDimensions, setSourceDimensions] = useState<SourceDimensions | null>(null);
     const [normalRegionFrameSize, setNormalRegionFrameSize] = useState<SourceDimensions | null>(null);
@@ -967,7 +966,6 @@ export function useLiveLootCapture({
         setSampledFps(0);
         previewsEnabledRef.current = true;
         setPreviewsEnabled(true);
-        setPreviewToggleBusy(false);
         setPreviewToggleError("");
         updateSourceDimensions(null);
         clearRegionPreview("normal");
@@ -1065,7 +1063,6 @@ export function useLiveLootCapture({
         const token = nativeCaptureToken.current;
         if (token === null) return;
         let cancelled = false;
-        setPreviewToggleBusy(true);
         setPreviewToggleError("");
         previewUpdates.current = previewUpdates.current
             .catch(() => undefined)
@@ -1075,9 +1072,6 @@ export function useLiveLootCapture({
             })
             .catch((error: unknown) => {
                 if (!cancelled) setPreviewToggleError(String(error));
-            })
-            .finally(() => {
-                if (!cancelled) setPreviewToggleBusy(false);
             });
         return () => {
             cancelled = true;
@@ -2256,7 +2250,6 @@ export function useLiveLootCapture({
         setDiagnosticsOpen,
         video,
         status,
-        previewToggleBusy,
         togglePreviews,
         previewsEnabled,
         stopCapture,

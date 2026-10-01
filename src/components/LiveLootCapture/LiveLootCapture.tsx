@@ -50,7 +50,6 @@ export function LiveLootCapture({ controller }: { controller: ReturnType<typeof 
         setDiagnosticsOpen,
         video,
         status,
-        previewToggleBusy,
         togglePreviews,
         previewsEnabled,
         stopCapture,
@@ -172,7 +171,6 @@ export function LiveLootCapture({ controller }: { controller: ReturnType<typeof 
                                     ref={setupButton}
                                     aria-expanded={setupOpen}
                                     aria-controls="capture-setup"
-                                    disabled={previewToggleBusy}
                                     onClick={() => void togglePreviews()}
                                 >
                                     {setupOpen ? "Close setup" : "Set up capture"}
