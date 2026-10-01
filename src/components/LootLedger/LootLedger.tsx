@@ -14,10 +14,6 @@ function parseWholeNumber(value: string) {
     return Number(value.replace(/,/g, "").trim());
 }
 
-function displayWholeNumber(value: string) {
-    return /^\d+$/.test(value) ? quantityFormatter.format(Number(value)) : value;
-}
-
 function LedgerEntryRow({
     entry,
     elapsedMs,
@@ -33,39 +29,41 @@ function LedgerEntryRow({
     onRemove: (id: string) => void;
     onUpdate: (id: string, quantity: number, unitPrice: number) => void;
 }) {
-    const [quantity, setQuantity] = useState(String(entry.quantity));
-    const [unitPrice, setUnitPrice] = useState(String(entry.unitPrice));
+    // Only the focused field has a draft, so drops merged into this row never overwrite what the user is typing.
+    const [draft, setDraft] = useState<{ field: "quantity" | "price"; value: string } | null>(null);
     const [error, setError] = useState("");
-    const [editing, setEditing] = useState<"quantity" | "price" | null>(null);
     const icon = getDropIcon(grindSpotId, entry.name);
     const quantityPerHour = calculateQuantityPerHour(entry.quantity, elapsedMs);
     const formattedQuantityRate = quantityPerHour === null ? "—" : quantityRateFormatter.format(quantityPerHour);
 
-    useEffect(() => {
-        setQuantity(String(entry.quantity));
-        setUnitPrice(String(entry.unitPrice));
-    }, [entry.quantity, entry.unitPrice]);
+    function savedValue(field: "quantity" | "price") {
+        return String(field === "quantity" ? entry.quantity : entry.unitPrice);
+    }
+
+    function startEdit(field: "quantity" | "price", input: HTMLInputElement) {
+        const value = savedValue(field);
+        setDraft({ field, value });
+        input.value = value;
+        input.select();
+    }
 
     function commitEdit() {
-        setEditing(null);
-        const parsedQuantity = parseWholeNumber(quantity);
-        const parsedUnitPrice = parseWholeNumber(unitPrice);
+        if (!draft) return;
+        setDraft(null);
+        const parsed = parseWholeNumber(draft.value);
+        const parsedQuantity = draft.field === "quantity" ? parsed : entry.quantity;
+        const parsedUnitPrice = draft.field === "price" ? parsed : entry.unitPrice;
         if (
-            !quantity.trim() ||
-            !unitPrice.trim() ||
+            !draft.value.trim() ||
             !Number.isSafeInteger(parsedQuantity) ||
             parsedQuantity <= 0 ||
             !Number.isSafeInteger(parsedUnitPrice) ||
             parsedUnitPrice < 0
         ) {
-            setQuantity(String(entry.quantity));
-            setUnitPrice(String(entry.unitPrice));
             setError("Edit not saved. Use whole numbers: quantity above 0, price 0 or more.");
             return;
         }
         if (entry.garmothConsumableId !== undefined && !Number.isSafeInteger(parsedQuantity * parsedUnitPrice)) {
-            setQuantity(String(entry.quantity));
-            setUnitPrice(String(entry.unitPrice));
             setError("Edit not saved. The consumable cost is too large.");
             return;
         }
@@ -76,10 +74,9 @@ function LedgerEntryRow({
 
     function handleEditKey(event: KeyboardEvent<HTMLInputElement>) {
         if (event.key === "Enter") event.currentTarget.blur();
-        if (event.key === "Escape") {
+        if (event.key === "Escape" && draft) {
             event.preventDefault();
-            setQuantity(String(entry.quantity));
-            setUnitPrice(String(entry.unitPrice));
+            setDraft({ ...draft, value: savedValue(draft.field) });
             setError("");
         }
     }
@@ -111,15 +108,11 @@ function LedgerEntryRow({
                 <input
                     type="text"
                     inputMode="numeric"
-                    value={editing === "quantity" ? quantity : displayWholeNumber(quantity)}
+                    value={draft?.field === "quantity" ? draft.value : quantityFormatter.format(entry.quantity)}
                     disabled={editingDisabled}
                     aria-label={`Quantity for ${entry.name}`}
-                    onFocus={(event) => {
-                        setEditing("quantity");
-                        event.currentTarget.value = quantity;
-                        event.currentTarget.select();
-                    }}
-                    onChange={(event) => setQuantity(event.target.value)}
+                    onFocus={(event) => startEdit("quantity", event.currentTarget)}
+                    onChange={(event) => setDraft({ field: "quantity", value: event.target.value })}
                     onBlur={commitEdit}
                     onKeyDown={handleEditKey}
                 />
@@ -131,15 +124,11 @@ function LedgerEntryRow({
                 <input
                     type="text"
                     inputMode="numeric"
-                    value={editing === "price" ? unitPrice : displayWholeNumber(unitPrice)}
+                    value={draft?.field === "price" ? draft.value : quantityFormatter.format(entry.unitPrice)}
                     disabled={editingDisabled}
                     aria-label={`Unit price for ${entry.name}`}
-                    onFocus={(event) => {
-                        setEditing("price");
-                        event.currentTarget.value = unitPrice;
-                        event.currentTarget.select();
-                    }}
-                    onChange={(event) => setUnitPrice(event.target.value)}
+                    onFocus={(event) => startEdit("price", event.currentTarget)}
+                    onChange={(event) => setDraft({ field: "price", value: event.target.value })}
                     onBlur={commitEdit}
                     onKeyDown={handleEditKey}
                 />
