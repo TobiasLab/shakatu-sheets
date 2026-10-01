@@ -1,6 +1,6 @@
 import { spawn } from "node:child_process";
 import { once } from "node:events";
-import { readFile, readdir, mkdtemp, rm } from "node:fs/promises";
+import { mkdtemp, readdir, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -16,7 +16,10 @@ const server = spawn(process.execPath, ["node_modules/vite/bin/vite.js", "--host
     stdio: "ignore",
 });
 const browser = spawn(
-    process.env.CHROMIUM ?? (process.platform === "win32" ? `${process.env["ProgramFiles(x86)"] ?? "C:\\Program Files (x86)"}\\Microsoft\\Edge\\Application\\msedge.exe` : "/usr/bin/chromium"),
+    process.env.CHROMIUM ??
+        (process.platform === "win32"
+            ? `${process.env["ProgramFiles(x86)"] ?? "C:\\Program Files (x86)"}\\Microsoft\\Edge\\Application\\msedge.exe`
+            : "/usr/bin/chromium"),
     [
         "--headless=new",
         "--no-sandbox",
@@ -162,7 +165,9 @@ try {
     }
 
     const labeled = new Set(examples.map(({ file }) => file));
-    const unlabeled = (await readdir(dataset)).filter((file) => /\.(png|jpe?g|webp)$/i.test(file) && !labeled.has(file));
+    const unlabeled = (await readdir(dataset)).filter(
+        (file) => /\.(png|jpe?g|webp)$/i.test(file) && !labeled.has(file),
+    );
     console.log(`Metadata: ${correctMetadata}/${examples.length * 2}`);
     console.log(`Quantities: ${correctQuantities}/${totalQuantities}`);
     if (failures.length > 0) console.log(`\nMismatches:\n${failures.join("\n")}`);

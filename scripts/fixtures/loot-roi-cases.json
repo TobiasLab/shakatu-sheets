@@ -1,9 +1,61 @@
 [
-    {"id":"grass-before-notification","run":"run-1788445343157-286346-0001","firstBatchId":1813,"lastBatchId":1826,"events":[{"firstBatchId":1822,"item":"Branch of Abundance","quantity":10}]},
-    {"id":"two-identical-drops","run":"run-1788445343157-286346-0001","firstBatchId":1866,"lastBatchId":1877,"events":[{"firstBatchId":1870,"item":"Branch of Abundance","quantity":7},{"firstBatchId":1870,"item":"Branch of Abundance","quantity":7}]},
-    {"id":"expiry-overlapping-new-loot","run":"run-1788445343157-286346-0001","firstBatchId":2025,"lastBatchId":2036,"events":[{"firstBatchId":2028,"item":"Black Stone","quantity":1},{"firstBatchId":2029,"item":"Branch of Abundance","quantity":7}]},
-    {"id":"identical-drop-overlapping-fade","run":"run-1788445343157-286346-0001","firstBatchId":2865,"lastBatchId":2876,"events":[{"firstBatchId":2869,"item":"Branch of Abundance","quantity":10}]},
-    {"id":"three-fast-drops","run":"run-1788445717167-286346-0002","firstBatchId":4503,"lastBatchId":4514,"events":[{"firstBatchId":4507,"item":"Branch of Abundance","quantity":7},{"firstBatchId":4508,"item":"Ancient Spirit Dust","quantity":2},{"firstBatchId":4509,"item":"Branch of Abundance","quantity":7}]},
-    {"id":"camera-motion-over-rocks","run":"run-1788445717167-286346-0002","firstBatchId":5149,"lastBatchId":5160,"events":[{"firstBatchId":5153,"item":"Branch of Abundance","quantity":10}]},
-    {"id":"bright-grass-without-loot","run":"run-1788445717167-286346-0002","firstBatchId":5404,"lastBatchId":5415,"events":[]}
+    {
+        "id": "grass-before-notification",
+        "run": "run-1788445343157-286346-0001",
+        "firstBatchId": 1813,
+        "lastBatchId": 1826,
+        "events": [{ "firstBatchId": 1822, "item": "Branch of Abundance", "quantity": 10 }]
+    },
+    {
+        "id": "two-identical-drops",
+        "run": "run-1788445343157-286346-0001",
+        "firstBatchId": 1866,
+        "lastBatchId": 1877,
+        "events": [
+            { "firstBatchId": 1870, "item": "Branch of Abundance", "quantity": 7 },
+            { "firstBatchId": 1870, "item": "Branch of Abundance", "quantity": 7 }
+        ]
+    },
+    {
+        "id": "expiry-overlapping-new-loot",
+        "run": "run-1788445343157-286346-0001",
+        "firstBatchId": 2025,
+        "lastBatchId": 2036,
+        "events": [
+            { "firstBatchId": 2028, "item": "Black Stone", "quantity": 1 },
+            { "firstBatchId": 2029, "item": "Branch of Abundance", "quantity": 7 }
+        ]
+    },
+    {
+        "id": "identical-drop-overlapping-fade",
+        "run": "run-1788445343157-286346-0001",
+        "firstBatchId": 2865,
+        "lastBatchId": 2876,
+        "events": [{ "firstBatchId": 2869, "item": "Branch of Abundance", "quantity": 10 }]
+    },
+    {
+        "id": "three-fast-drops",
+        "run": "run-1788445717167-286346-0002",
+        "firstBatchId": 4503,
+        "lastBatchId": 4514,
+        "events": [
+            { "firstBatchId": 4507, "item": "Branch of Abundance", "quantity": 7 },
+            { "firstBatchId": 4508, "item": "Ancient Spirit Dust", "quantity": 2 },
+            { "firstBatchId": 4509, "item": "Branch of Abundance", "quantity": 7 }
+        ]
+    },
+    {
+        "id": "camera-motion-over-rocks",
+        "run": "run-1788445717167-286346-0002",
+        "firstBatchId": 5149,
+        "lastBatchId": 5160,
+        "events": [{ "firstBatchId": 5153, "item": "Branch of Abundance", "quantity": 10 }]
+    },
+    {
+        "id": "bright-grass-without-loot",
+        "run": "run-1788445717167-286346-0002",
+        "firstBatchId": 5404,
+        "lastBatchId": 5415,
+        "events": []
+    }
 ]
