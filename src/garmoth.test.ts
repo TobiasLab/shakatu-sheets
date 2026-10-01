@@ -216,9 +216,12 @@ describe("upload options", () => {
         expect(parseGarmothOptions(true, true, "")).toEqual({ global: true, agris: -1 });
         expect(parseGarmothOptions(false, true, "20000")).toEqual({ global: false, agris: 20000 });
     });
-    it.each(["0", "-1", "1.5", "1e3", "Infinity", "9007199254740992"])("rejects invalid Agris amount %s", (value) => {
-        expect(() => parseGarmothOptions(false, true, value)).toThrow();
-    });
+    it.each(["0", "-1", "1.5", "1e3", "1e", "--", "Infinity", "9007199254740992"])(
+        "rejects invalid Agris amount %s",
+        (value) => {
+            expect(() => parseGarmothOptions(false, true, value)).toThrow();
+        },
+    );
 });
 
 describe("drop buffs", () => {
