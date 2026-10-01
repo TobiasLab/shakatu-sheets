@@ -94,6 +94,8 @@ export function LiveSessionView({
     });
     const finishDialog = useRef<HTMLDialogElement>(null);
     const finishRequest = useRef(0);
+    const completion = useRef<HTMLElement>(null);
+    const focusCompletion = useRef(false);
     const [preparingReview, setPreparingReview] = useState(false);
     const [finishError, setFinishError] = useState("");
     const [dropView, setDropView] = useState<"inventory" | "ledger">("inventory");
@@ -106,6 +108,19 @@ export function LiveSessionView({
             finishRequest.current += 1;
         };
     }, [session.id]);
+
+    function finishSession() {
+        finishDialog.current?.close();
+        focusCompletion.current = true;
+        dispatch({ type: "finish", now: Date.now() });
+    }
+
+    // The dialog returns focus to the Finish button, which disappears once the session is finished.
+    useEffect(() => {
+        if (session.status !== "finished" || !focusCompletion.current) return;
+        focusCompletion.current = false;
+        completion.current?.focus();
+    }, [session.status]);
 
     async function requestFinish() {
         if (preparingReview || !databaseLoaded || session.status === "finished") return;
@@ -120,8 +135,7 @@ export function LiveSessionView({
             if (remaining === null) {
                 setFinishError("Capture changed while preparing review. Keep the session open and try again.");
             } else if (remaining === 0) {
-                finishDialog.current?.close();
-                dispatch({ type: "finish", now: Date.now() });
+                finishSession();
             }
         } catch (error) {
             if (request === finishRequest.current) setFinishError(`Could not finish reading drops: ${String(error)}`);
@@ -187,13 +201,10 @@ export function LiveSessionView({
                     keepSessionOpen();
                     focusLootReview();
                 }}
-                onFinish={() => {
-                    finishDialog.current?.close();
-                    dispatch({ type: "finish", now: Date.now() });
-                }}
+                onFinish={finishSession}
             />
             {session.status === "finished" && (
-                <section className={styles.Completion} aria-label="Session complete">
+                <section ref={completion} className={styles.Completion} aria-label="Session complete" tabIndex={-1}>
                     <div>
                         <strong>Session complete</strong>
                         <span>Review this session in History, or start a new one when you are ready.</span>
