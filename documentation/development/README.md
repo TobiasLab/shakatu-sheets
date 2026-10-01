@@ -95,26 +95,33 @@ chromium --headless --remote-debugging-port=9222 --user-data-dir=/tmp/shakatu-ui
 # In another terminal (Node 22+ for the built-in WebSocket client):
 node scripts/smoke-loot-ui.mjs
 node scripts/smoke-loot-learning.mjs
+node scripts/smoke-loot-review.mjs
 ```
 
-The learning smoke starts its own Vite server and needs only the Chromium instance. It uses synthetic crops and a persistence adapter to check opt-in, suggestions, corrections, failure
+The learning and review smokes start their own Vite servers and need only the Chromium instance. The learning smoke uses synthetic crops and a persistence adapter to check opt-in, suggestions, corrections, failure
 retries, auto-allow controls, deletion, and reset. For synthetic matching overhead, run
 `npx vite-node --script scripts/benchmark-loot-learning.mjs`; see [self-improvement](../architecture/quantity-learning.md)
-for acceptance rules and storage compatibility.
+for acceptance rules and storage compatibility. The review smoke renders the real loot review and finish dialog with
+synthetic captures and checks keyboard selection, corrections, OCR retries, dismissal, focus return, and 1280/640/320px
+layouts in both themes; it saves screenshots only when `UI_SMOKE_OUTPUT` is set.
 
 The test opens and closes its own tab, uses real browser pointer and keyboard events, and verifies navigation/minimization/
 preview and finish behavior, sidebar collapse/expansion and capture navigation, timer persistence isolation, dialog focus and
 Escape dismissal, manual loot and expense entry,
-submission feedback, shared field labels, Settings load retry and local key feedback, preset loading/retry, History empty states and date validation, expense price isolation, new-session draft/filter reset, ledger edits and filters, history filtering, all three themes, and 960/700/640px layouts. Blank-price and
+submission feedback, shared field labels, Settings load retry and local key feedback, preset loading/retry, History empty states and date validation, expense price isolation, new-session draft/filter reset, ledger edits and filters, history filtering, both themes (light and dark), and 960/700/640px layouts. Blank-price and
 Escape regressions verify that rejected/cancelled edits preserve persisted values. Screenshots include capture setup and
 compact entry, history, and settings views. Screenshots go to the OS temporary directory under `shakatu-ui`; set `UI_SMOKE_OUTPUT` to
-choose another directory. `UI_SMOKE_URL` overrides the default Vite URL. The browser fixture does not validate the real
+choose another directory. `UI_SMOKE_URL` overrides the default Vite URL. `UI_SCREENSHOT_ONLY=1` skips the assertions and
+saves only the idle desk screenshot. The browser fixture does not validate the real
 PipeWire portal, Windows capture, the installed webview, Garmoth, or the game's FPS.
 
-Set `UI_SMOKE_BACKEND=linux` or `windows` and `UI_SMOKE_SOURCE=1920x1080` or `2560x1440` to also verify synthetic
-manual startup, explicit normal relocation, rare search/cancellation/confirmation, and the transition to exact ROI capture
-at 80% BDO UI scale. Set `UI_SMOKE_SCALE=100` to exercise 100% native search requests, normal/rare crop sizes, and
-automatic placement. These are synthetic browser fixtures, not native gameplay validation.
+Set `UI_SMOKE_BACKEND=linux` (default) or `windows` (the synthetic Windows capability path) and
+`UI_SMOKE_SOURCE=1920x1080` or `2560x1440` to also verify synthetic manual startup, explicit normal relocation, rare
+search/cancellation/confirmation, and the transition to exact ROI capture at 80% BDO UI scale. Set `UI_SMOKE_SCALE=100`
+to exercise 100% native search requests, normal/rare crop sizes, and automatic placement. In PowerShell, set variables
+with `$env:UI_SMOKE_BACKEND = 'windows'`. These are synthetic browser fixtures, not native Linux, Windows, or gameplay
+validation. Run matrix cases sequentially in one browser: concurrent tabs change document visibility and correctly
+suppress previews in the background case.
 
 Set `UI_SMOKE_SOAK_SECONDS=30` when running `npm run test:ui` to exercise sustained synthetic frame delivery at the current
 16 FPS trial rate. Automatic-placement fixtures supply 12 normal and six rare search frames to cover its rate-aware evaluation
@@ -126,13 +133,17 @@ For detection changes, replay developer ROI samples with `npm run benchmark:loot
 `--annotations scripts/fixtures/loot-roi-2026-09-05.json` so the sample directory can remain untouched. See the [ROI replay documentation](live-loot-benchmark.md#roi-sample-replay)
 for scoring limits and optional JSON reports. Captured PNGs stay outside tracked source.
 
-Use `UI_SMOKE_BACKEND=windows` for the synthetic Windows capability path (in
-PowerShell set `$env:UI_SMOKE_BACKEND = 'windows'`). This remains a browser fixture, not native Windows validation. Run matrix cases sequentially in one browser: concurrent tabs
-change document visibility and correctly suppress previews in the background case.
-
 The ROI replay supports `--sample-step 2 --sample-offset 0|1` for offline sampling sensitivity checks. Reports retain native
 batch IDs and distinguish recorded from replayed frame counts. This does not change gameplay capture settings. See the
 [benchmark guide](live-loot-benchmark.md#regression-fixtures) for reviewed fixtures and reproduction commands.
+
+`npm run benchmark:marni -- /path/to/dataset` (or `MARNI_BENCHMARK_DIR=/path/to/dataset npm run benchmark:marni`)
+replays Marni screenshot imports through the real import UI in headless Chromium. It starts its own Vite server on port
+1422 and a browser on debugging port 9342; set `CHROMIUM` to the browser executable if it is not `/usr/bin/chromium`
+(Linux) or Microsoft Edge's default path (Windows). The dataset directory holds the screenshots and a `manifest.json`
+array of `{ "file", "spot", "duration", "quantities" }` objects: the grind-spot ID, the `HH:MM:SS` duration, and the
+expected slot quantities as strings in slot order. It prints metadata and quantity accuracy, each mismatch, and
+screenshots missing from the manifest. Keep datasets outside the repository.
 
 ## Grind spot catalog
 
@@ -182,7 +193,9 @@ A headless environment without those tools cannot establish native Linux or Wind
 `node scripts/smoke-session-overlay.mjs` runs the actual overlay and Settings components with synthetic native events.
 It checks visibility, timer controls, snapshot publication, opacity, and preferences; item assertions are scoped to the
 overlay so hidden catalogs in Settings cannot affect counts. This browser harness does not replace native drag, DPI,
-always-on-top, or game-capture verification.
+always-on-top, or game-capture verification. The harness prints snapshot and formatting counts for 0, 30, and 300 items.
+`BASELINE=1` skips the performance and later behavior assertions, and `SESSION_PERF_ROOT=/path/to/checkout` serves
+another checkout's sources, so an older build can be measured with the same harness.
 
 #### Native Wayland session overlay
 
