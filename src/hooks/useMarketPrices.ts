@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
     fetchMarketPrices as fetchMarketPriceSnapshots,
     loadMarketPrices,
@@ -13,8 +13,11 @@ export function useMarketPrices(databaseLoaded: boolean, region: SessionState["r
     const [marketPriceRegion, setMarketPriceRegion] = useState<SessionState["region"] | null>(null);
     const [marketError, setMarketError] = useState("");
     const [fetchingPrices, setFetchingPrices] = useState(false);
+    // Changes with each region or grind-spot selection so a slow fetch cannot overwrite prices loaded afterwards.
+    const selection = useRef(0);
 
     useEffect(() => {
+        selection.current += 1;
         if (!databaseLoaded) return;
 
         let cancelled = false;
@@ -58,13 +61,16 @@ export function useMarketPrices(databaseLoaded: boolean, region: SessionState["r
     const usingFallbackPrices = marketPriceRegion !== null && marketPriceRegion !== region;
 
     async function fetchMarketPrices() {
+        const fetchedFor = selection.current;
         setFetchingPrices(true);
         setMarketError("");
         try {
             const snapshots = await fetchMarketPriceSnapshots(region, marketItemIds);
+            if (fetchedFor !== selection.current) return;
             setMarketPrices(snapshots);
             setMarketPriceRegion(region);
         } catch (error) {
+            if (fetchedFor !== selection.current) return;
             const prefix =
                 currentMarketPrices.length > 0 ? "Refresh failed; saved prices are unchanged. " : "Fetch failed. ";
             setMarketError(`${prefix}${String(error)}`);
