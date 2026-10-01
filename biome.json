@@ -13,13 +13,7 @@
             "tsconfig.node.json",
             "vite.config.ts",
             "src/**",
-            "scripts/*loot*.mjs",
-            "scripts/smoke-desktop.mjs",
-            "scripts/smoke-session-overlay.mjs",
-            "scripts/benchmark-session-format.mjs",
-            "scripts/sync-grind-spots.mjs",
-            "scripts/sync-grind-buffs.mjs",
-            "scripts/grind-spots.test.mjs"
+            "scripts/**"
         ]
     },
     "assist": {
@@ -94,7 +88,7 @@
             }
         },
         {
-            "includes": ["**/*.config.ts", "**/*.config.js", "commitlint.config.mjs"],
+            "includes": ["**/*.config.ts"],
             "linter": {
                 "rules": {
                     "style": {
@@ -104,7 +98,7 @@
             }
         },
         {
-            "includes": ["scripts/*loot*.mjs"],
+            "includes": ["scripts/*loot*.mjs", "scripts/benchmark-marni.mjs"],
             "linter": {
                 "rules": {
                     "suspicious": {
