@@ -17,7 +17,7 @@ pub enum LootFont {
 
 #[tauri::command]
 pub fn load_loot_font(state: State<'_, DatabasePath>) -> Result<LootFont, String> {
-    load_loot_font_at_path(&state.0)
+    load_loot_font_at_path(state.path()?)
 }
 
 pub(super) fn load_loot_font_at_path(path: &PathBuf) -> Result<LootFont, String> {
@@ -30,7 +30,7 @@ pub(super) fn load_loot_font_at_path(path: &PathBuf) -> Result<LootFont, String>
 
 #[tauri::command]
 pub fn save_loot_font(font: LootFont, state: State<'_, DatabasePath>) -> Result<(), String> {
-    save_loot_font_at_path(&state.0, font)
+    save_loot_font_at_path(state.path()?, font)
 }
 
 pub(super) fn save_loot_font_at_path(path: &PathBuf, font: LootFont) -> Result<(), String> {

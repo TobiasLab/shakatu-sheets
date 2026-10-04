@@ -111,6 +111,6 @@ pub fn load_market_prices(
     region: Region,
     state: State<'_, DatabasePath>,
 ) -> Result<Vec<MarketPriceSnapshot>, String> {
-    let connection = open_database(&state.0)?;
+    let connection = open_database(state.path()?)?;
     load_market_price_records(&connection, region)
 }

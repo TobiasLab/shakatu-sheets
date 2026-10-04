@@ -26,6 +26,22 @@ use super::{
     settings::{load_setting, save_settings, save_settings_if_unchanged},
 };
 
+#[test]
+fn database_path_reports_why_startup_could_not_open_it() {
+    let opened = super::DatabasePath(Ok(PathBuf::from("/data/shakatu-sheets.sqlite3")));
+    assert_eq!(
+        opened.path().unwrap(),
+        &PathBuf::from("/data/shakatu-sheets.sqlite3")
+    );
+    let failed = super::DatabasePath(Err(
+        "database version 99 is newer than supported version 5".into()
+    ));
+    assert_eq!(
+        failed.path().unwrap_err(),
+        "Could not open the database: database version 99 is newer than supported version 5"
+    );
+}
+
 fn temporary_database() -> (PathBuf, Connection) {
     let nonce = std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)

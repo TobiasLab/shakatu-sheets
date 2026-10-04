@@ -2,14 +2,14 @@ use std::path::PathBuf;
 
 use rusqlite::{params, Connection, OptionalExtension, Transaction};
 use serde::{Deserialize, Serialize};
-use tauri::{AppHandle, Manager, State};
+use tauri::State;
 
 use crate::garmoth::GarmothOperations;
 
 use super::{
     garmoth_uploads::{load_garmoth_upload_status, GarmothUploadStatus},
     market_prices::Region,
-    open_database, timestamp_ms, DatabaseInitError, DatabasePath, MAX_SAFE_INTEGER,
+    open_database, timestamp_ms, DatabasePath, MAX_SAFE_INTEGER,
 };
 
 #[derive(Clone, Copy, Debug, Deserialize, PartialEq, Serialize)]
@@ -779,18 +779,16 @@ pub(crate) fn save_upload_consumables(
 }
 
 #[tauri::command]
-pub fn load_active_session(app: AppHandle) -> Result<Option<SessionRecord>, String> {
-    let Some(state) = app.try_state::<DatabasePath>() else {
-        let error = &app.state::<DatabaseInitError>().0;
-        return Err(format!("Could not open the database: {error}"));
-    };
-    let connection = open_database(&state.0)?;
+pub fn load_active_session(
+    state: State<'_, DatabasePath>,
+) -> Result<Option<SessionRecord>, String> {
+    let connection = open_database(state.path()?)?;
     load_active_session_record(&connection)
 }
 
 #[tauri::command]
 pub fn save_session(session: SessionRecord, state: State<'_, DatabasePath>) -> Result<(), String> {
-    let mut connection = open_database(&state.0)?;
+    let mut connection = open_database(state.path()?)?;
     save_session_record(&mut connection, &session)
 }
 
@@ -799,7 +797,7 @@ pub fn load_session_trend(
     session_id: String,
     state: State<'_, DatabasePath>,
 ) -> Result<Vec<NetSample>, String> {
-    let connection = open_database(&state.0)?;
+    let connection = open_database(state.path()?)?;
     load_session_trend_records(&connection, &session_id)
 }
 
@@ -808,7 +806,7 @@ pub fn list_finished_sessions(
     query: HistoryQuery,
     state: State<'_, DatabasePath>,
 ) -> Result<HistoryResult, String> {
-    let connection = open_database(&state.0)?;
+    let connection = open_database(state.path()?)?;
     list_finished_session_records(&connection, &query)
 }
 
@@ -818,11 +816,11 @@ pub async fn delete_finished_session(
     state: State<'_, DatabasePath>,
     operations: State<'_, GarmothOperations>,
 ) -> Result<(), String> {
-    delete_finished_session_at_path(&state.0, &id, &operations).await
+    delete_finished_session_at_path(state.path()?, &id, &operations).await
 }
 
 #[tauri::command]
 pub fn reopen_session(id: String, state: State<'_, DatabasePath>) -> Result<SessionRecord, String> {
-    let mut connection = open_database(&state.0)?;
+    let mut connection = open_database(state.path()?)?;
     reopen_session_record(&mut connection, &id)
 }

@@ -126,7 +126,7 @@ pub async fn fetch_market_prices(
     state: State<'_, DatabasePath>,
 ) -> Result<Vec<MarketPriceSnapshot>, String> {
     validate_item_ids(&item_ids)?;
-    let database_path = state.0.clone();
+    let database_path = state.path()?.clone();
     let ids = item_ids
         .iter()
         .map(i64::to_string)

@@ -91,7 +91,7 @@ pub async fn quantity_learning(
     operation: LearningOperation,
     state: State<'_, DatabasePath>,
 ) -> Result<QuantityLearning, String> {
-    let path = learning_path(&state.0);
+    let path = learning_path(state.path()?);
     tauri::async_runtime::spawn_blocking(move || operate(&path, operation))
         .await
         .map_err(|error| error.to_string())?

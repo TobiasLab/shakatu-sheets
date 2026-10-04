@@ -27,7 +27,7 @@ pub struct SpotPreferences {
 /// `None` means the theme was never saved in SQLite.
 #[tauri::command]
 pub fn load_theme(state: State<'_, DatabasePath>) -> Result<Option<Theme>, String> {
-    load_theme_at_path(&state.0)
+    load_theme_at_path(state.path()?)
 }
 
 pub(super) fn load_theme_at_path(path: &PathBuf) -> Result<Option<Theme>, String> {
@@ -41,7 +41,7 @@ pub(super) fn load_theme_at_path(path: &PathBuf) -> Result<Option<Theme>, String
 
 #[tauri::command]
 pub fn save_theme(theme: Theme, state: State<'_, DatabasePath>) -> Result<(), String> {
-    save_theme_at_path(&state.0, theme)
+    save_theme_at_path(state.path()?, theme)
 }
 
 pub(super) fn save_theme_at_path(path: &PathBuf, theme: Theme) -> Result<(), String> {
@@ -57,7 +57,7 @@ pub(super) fn save_theme_at_path(path: &PathBuf, theme: Theme) -> Result<(), Str
 pub fn load_spot_preferences(
     state: State<'_, DatabasePath>,
 ) -> Result<Option<SpotPreferences>, String> {
-    load_spot_preferences_at_path(&state.0)
+    load_spot_preferences_at_path(state.path()?)
 }
 
 pub(super) fn load_spot_preferences_at_path(
@@ -77,7 +77,7 @@ pub fn save_spot_preferences(
     preferences: SpotPreferences,
     state: State<'_, DatabasePath>,
 ) -> Result<(), String> {
-    save_spot_preferences_at_path(&state.0, &preferences)
+    save_spot_preferences_at_path(state.path()?, &preferences)
 }
 
 pub(super) fn save_spot_preferences_at_path(
