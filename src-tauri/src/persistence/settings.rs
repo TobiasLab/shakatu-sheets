@@ -1,6 +1,6 @@
 use std::path::PathBuf;
 
-use rusqlite::{params, OptionalExtension, Transaction};
+use rusqlite::{params, OptionalExtension, Transaction, TransactionBehavior};
 
 use super::{open_database, timestamp_ms};
 
@@ -34,7 +34,7 @@ pub(crate) fn save_settings_if_unchanged(
 ) -> Result<bool, String> {
     let mut connection = open_database(path)?;
     let transaction = connection
-        .transaction()
+        .transaction_with_behavior(TransactionBehavior::Immediate)
         .map_err(|error| error.to_string())?;
     let current = transaction
         .query_row(
