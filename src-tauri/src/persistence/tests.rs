@@ -977,6 +977,78 @@ fn consumable_presets_persist_and_invalid_saves_do_not_replace_them() {
     remove_temporary_database(&path);
 }
 
+/// Runs `operation` while a second connection holds a write transaction that commits a change after 200 ms.
+fn with_concurrent_writer<T>(path: &Path, operation: impl FnOnce() -> T) -> T {
+    let (started, wait) = std::sync::mpsc::channel();
+    let writer_path = path.to_path_buf();
+    let writer = std::thread::spawn(move || {
+        let mut connection = open_database(&writer_path).unwrap();
+        let transaction = connection
+            .transaction_with_behavior(rusqlite::TransactionBehavior::Immediate)
+            .unwrap();
+        transaction
+            .execute(
+                "INSERT INTO settings (key, value, updated_at) VALUES ('concurrent', 'write', 0)
+                 ON CONFLICT(key) DO UPDATE SET updated_at = updated_at + 1",
+                [],
+            )
+            .unwrap();
+        started.send(()).unwrap();
+        std::thread::sleep(Duration::from_millis(200));
+        transaction.commit().unwrap();
+    });
+    wait.recv().unwrap();
+    let result = operation();
+    writer.join().unwrap();
+    result
+}
+
+#[test]
+fn read_then_write_operations_wait_for_a_concurrent_writer() {
+    let (path, mut connection) = temporary_database();
+    let finished = session(SessionStatus::Finished);
+    save_session_record(&mut connection, &finished).unwrap();
+    let mut idle = session(SessionStatus::Idle);
+    idle.id = "session-2".into();
+    idle.elapsed_ms = 0;
+    idle.entries.clear();
+    save_session_record(&mut connection, &idle).unwrap();
+    save_settings(&path, &[("guarded", Some("expected"))]).unwrap();
+
+    with_concurrent_writer(&path, || {
+        assert!(save_settings_if_unchanged(
+            &path,
+            "guarded",
+            "expected",
+            &[("guarded", Some("next"))]
+        )
+        .unwrap())
+    });
+    with_concurrent_writer(&path, || {
+        claim_garmoth_upload(&path, &finished.id, false).unwrap();
+    });
+    release_garmoth_upload(&path, &finished.id).unwrap();
+    with_concurrent_writer(&path, || {
+        apply_finished_session_consumables_record(
+            &mut connection,
+            &finished,
+            &[consumable_expense("concurrent-expense")],
+        )
+        .unwrap();
+    });
+    idle.region = Region::Na;
+    with_concurrent_writer(&path, || {
+        save_session_record(&mut connection, &idle).unwrap()
+    });
+    let reopened = with_concurrent_writer(&path, || {
+        reopen_session_record(&mut connection, &finished.id).unwrap()
+    });
+    assert_eq!(reopened.status, SessionStatus::Paused);
+
+    drop(connection);
+    remove_temporary_database(&path);
+}
+
 fn consumable_expense(id: &str) -> SessionEntry {
     SessionEntry {
         id: id.into(),

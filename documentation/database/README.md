@@ -85,6 +85,9 @@ being reopened or while running across the upgrade, because those samples cover 
   historical entries do not identify whether a price originated from the other region's fallback or manual input.
 - A running session is restored as paused, including elapsed time since its last start.
 - Session entries are replaced inside the same transaction as the session update.
+- Operations that read before writing (session save, reopen, History consumable correction, Garmoth upload claim, and
+  the guarded settings save) start `IMMEDIATE` transactions. A concurrent write then makes them wait for the busy
+  timeout instead of failing with a stale read snapshot.
 - Normal saves cannot change finished sessions; the explicit reopen command can return one to a paused state.
 - The History upload command can save a reviewed consumable draft, replacing only tagged expense rows in one transaction after
   comparing the reviewed session snapshot with the database. It preserves all session timestamps, ordinary loot and

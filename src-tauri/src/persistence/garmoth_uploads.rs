@@ -1,6 +1,6 @@
 use std::path::PathBuf;
 
-use rusqlite::{params, Connection, OptionalExtension};
+use rusqlite::{params, Connection, OptionalExtension, TransactionBehavior};
 use serde::Serialize;
 
 use super::{open_database, timestamp_ms};
@@ -43,7 +43,7 @@ pub(crate) fn claim_garmoth_upload(
 ) -> Result<bool, String> {
     let mut connection = open_database(path)?;
     let transaction = connection
-        .transaction()
+        .transaction_with_behavior(TransactionBehavior::Immediate)
         .map_err(|error| error.to_string())?;
     let status = transaction
         .query_row(

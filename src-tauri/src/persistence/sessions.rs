@@ -1,6 +1,6 @@
 use std::path::PathBuf;
 
-use rusqlite::{params, Connection, OptionalExtension, Transaction};
+use rusqlite::{params, Connection, OptionalExtension, Transaction, TransactionBehavior};
 use serde::{Deserialize, Serialize};
 use tauri::State;
 
@@ -178,7 +178,10 @@ pub(super) fn save_session_record(
 ) -> Result<(), String> {
     validate_session(session)?;
 
-    if let Some(existing) = load_session_by_id(connection, &session.id)? {
+    let transaction = connection
+        .transaction_with_behavior(TransactionBehavior::Immediate)
+        .map_err(|error| error.to_string())?;
+    if let Some(existing) = load_session_by_id(&transaction, &session.id)? {
         if existing.status == SessionStatus::Finished {
             return if existing == *session {
                 Ok(())
@@ -190,9 +193,6 @@ pub(super) fn save_session_record(
 
     let now = timestamp_ms();
     let finished_at = (session.status == SessionStatus::Finished).then_some(now);
-    let transaction = connection
-        .transaction()
-        .map_err(|error| error.to_string())?;
     transaction
         .execute(
             "INSERT INTO sessions (
@@ -656,7 +656,7 @@ pub(super) fn reopen_session_record(
     id: &str,
 ) -> Result<SessionRecord, String> {
     let transaction = connection
-        .transaction()
+        .transaction_with_behavior(TransactionBehavior::Immediate)
         .map_err(|error| error.to_string())?;
     let session = load_session_by_id(&transaction, id)?
         .ok_or_else(|| format!("session {id} was not found"))?;
@@ -698,7 +698,7 @@ pub(super) fn apply_finished_session_consumables_record(
     entries: &[SessionEntry],
 ) -> Result<SessionRecord, String> {
     let transaction = connection
-        .transaction()
+        .transaction_with_behavior(TransactionBehavior::Immediate)
         .map_err(|error| error.to_string())?;
     let mut session = load_session_by_id(&transaction, &expected_session.id)?
         .ok_or("The session no longer exists.")?;
