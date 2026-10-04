@@ -88,7 +88,7 @@ pub(super) fn save_at_path(path: &PathBuf, presets: &[ConsumablePreset]) -> Resu
 pub fn load_consumable_presets(
     state: State<'_, DatabasePath>,
 ) -> Result<Vec<ConsumablePreset>, String> {
-    load_at_path(&state.0)
+    load_at_path(state.path()?)
 }
 
 #[tauri::command]
@@ -96,5 +96,5 @@ pub fn save_consumable_presets(
     presets: Vec<ConsumablePreset>,
     state: State<'_, DatabasePath>,
 ) -> Result<(), String> {
-    save_at_path(&state.0, &presets)
+    save_at_path(state.path()?, &presets)
 }

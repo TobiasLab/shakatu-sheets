@@ -257,7 +257,7 @@ pub(crate) async fn upload_garmoth_session(
     operations: State<'_, GarmothOperations>,
 ) -> Result<GarmothUploadResult, String> {
     let _guard = operations.lock().await;
-    upload(&input, &state.0, client()?, API_BASE_URL).await
+    upload(&input, state.path()?, client()?, API_BASE_URL).await
 }
 
 /// Callers hold `GarmothOperations`, which serializes the upload with Garmoth settings changes and finished-session

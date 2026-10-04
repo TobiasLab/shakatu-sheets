@@ -28,10 +28,16 @@ const DATABASE_VERSION: i64 = 5;
 /// JavaScript's `Number.MAX_SAFE_INTEGER`: larger integers cannot cross IPC exactly.
 pub(crate) const MAX_SAFE_INTEGER: i64 = 9_007_199_254_740_991;
 
-pub struct DatabasePath(pub PathBuf);
+/// The database file, or why startup could not open it. Commands report that reason instead of failing opaquely.
+pub struct DatabasePath(pub Result<PathBuf, String>);
 
-/// Managed instead of `DatabasePath` when startup cannot open the database, so the window can report why.
-pub struct DatabaseInitError(pub String);
+impl DatabasePath {
+    pub fn path(&self) -> Result<&PathBuf, String> {
+        self.0
+            .as_ref()
+            .map_err(|error| format!("Could not open the database: {error}"))
+    }
+}
 
 pub fn initialize_database(app: &AppHandle) -> Result<PathBuf, String> {
     let app_data_dir = match std::env::var_os("SHAKATU_DATA_DIR") {

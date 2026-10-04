@@ -8,7 +8,7 @@ const OPACITY_KEY: &str = "session_overlay_opacity";
 
 #[tauri::command]
 pub fn load_overlay_opacity(state: State<'_, DatabasePath>) -> Result<u8, String> {
-    load_overlay_opacity_at_path(&state.0)
+    load_overlay_opacity_at_path(state.path()?)
 }
 
 pub(super) fn load_overlay_opacity_at_path(path: &PathBuf) -> Result<u8, String> {
@@ -20,7 +20,7 @@ pub(super) fn load_overlay_opacity_at_path(path: &PathBuf) -> Result<u8, String>
 
 #[tauri::command]
 pub fn save_overlay_opacity(opacity: u8, state: State<'_, DatabasePath>) -> Result<(), String> {
-    save_overlay_opacity_at_path(&state.0, opacity)
+    save_overlay_opacity_at_path(state.path()?, opacity)
 }
 
 pub(super) fn save_overlay_opacity_at_path(path: &PathBuf, opacity: u8) -> Result<(), String> {
