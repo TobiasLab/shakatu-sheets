@@ -134,16 +134,25 @@ fn validate_session(session: &SessionRecord) -> Result<(), String> {
     if session.id.trim().is_empty() || session.grind_spot_id.trim().is_empty() {
         return Err("session ID and grind spot ID are required".into());
     }
-    if session.elapsed_ms < 0 {
-        return Err("elapsed time cannot be negative".into());
+    if !(0..=MAX_SAFE_INTEGER).contains(&session.elapsed_ms) {
+        return Err("elapsed time must be a non-negative safe integer".into());
     }
     if (session.status == SessionStatus::Running) != session.started_at.is_some() {
         return Err("only running sessions may have a start timestamp".into());
+    }
+    if session
+        .started_at
+        .is_some_and(|started_at| !(0..=MAX_SAFE_INTEGER).contains(&started_at))
+    {
+        return Err("the start timestamp is out of range".into());
     }
 
     for entry in &session.entries {
         if entry.id.trim().is_empty() || entry.name.trim().is_empty() {
             return Err("entry ID and name are required".into());
+        }
+        if !(0..=MAX_SAFE_INTEGER).contains(&entry.created_at) {
+            return Err(format!("invalid creation time for entry {}", entry.id));
         }
         if !entry.quantity.is_finite() || entry.quantity <= 0.0 || entry.quantity.fract() != 0.0 {
             return Err(format!("invalid quantity for entry {}", entry.id));
@@ -257,9 +266,9 @@ pub(super) fn save_session_record(
 
 fn session_elapsed_at(session: &SessionRecord, now: i64) -> i64 {
     match (session.status, session.started_at) {
-        (SessionStatus::Running, Some(started_at)) => {
-            session.elapsed_ms.saturating_add((now - started_at).max(0))
-        }
+        (SessionStatus::Running, Some(started_at)) => session
+            .elapsed_ms
+            .saturating_add(now.saturating_sub(started_at).max(0)),
         _ => session.elapsed_ms,
     }
 }

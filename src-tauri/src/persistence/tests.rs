@@ -977,6 +977,44 @@ fn consumable_presets_persist_and_invalid_saves_do_not_replace_them() {
     remove_temporary_database(&path);
 }
 
+#[test]
+fn rejects_out_of_range_session_times() {
+    let mut connection = database();
+    let valid = session(SessionStatus::Running);
+    save_session_record(&mut connection, &valid).unwrap();
+    const MAX: i64 = 9_007_199_254_740_991;
+
+    let mut edge = valid.clone();
+    edge.elapsed_ms = MAX;
+    edge.started_at = Some(MAX);
+    edge.entries[0].created_at = MAX;
+    save_session_record(&mut connection, &edge).unwrap();
+
+    let mut cases = Vec::new();
+    for elapsed_ms in [-1, MAX + 1] {
+        let mut invalid = valid.clone();
+        invalid.elapsed_ms = elapsed_ms;
+        cases.push(invalid);
+    }
+    for started_at in [-1, MAX + 1, i64::MIN] {
+        let mut invalid = valid.clone();
+        invalid.started_at = Some(started_at);
+        cases.push(invalid);
+    }
+    for created_at in [-1, MAX + 1] {
+        let mut invalid = valid.clone();
+        invalid.entries[0].created_at = created_at;
+        cases.push(invalid);
+    }
+    for invalid in cases {
+        assert!(save_session_record(&mut connection, &invalid).is_err());
+        assert_eq!(
+            load_session_by_id(&connection, &valid.id).unwrap(),
+            Some(edge.clone())
+        );
+    }
+}
+
 /// Runs `operation` while a second connection holds a write transaction that commits a change after 200 ms.
 fn with_concurrent_writer<T>(path: &Path, operation: impl FnOnce() -> T) -> T {
     let (started, wait) = std::sync::mpsc::channel();
