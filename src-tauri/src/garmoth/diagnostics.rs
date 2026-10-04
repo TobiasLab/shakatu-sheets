@@ -135,7 +135,8 @@ pub(crate) async fn inspect_garmoth_consumables(
     operations: State<'_, GarmothOperations>,
 ) -> Result<String, String> {
     let _guard = operations.lock().await;
-    let characters = parse_stored_characters(load_setting(state.path()?, CHARACTERS_SETTING)?)?;
+    let path = state.path()?;
+    let characters = parse_stored_characters(load_setting(path, CHARACTERS_SETTING)?)?;
     if !characters
         .iter()
         .any(|character| character.id == character_id)
@@ -145,7 +146,7 @@ pub(crate) async fn inspect_garmoth_consumables(
     let response = get(
         "/gear-planner/getCharacterBuilds",
         &[("ids", &character_id)],
-        &stored_api_key(state.path()?)?,
+        &stored_api_key(path)?,
         "inspecting consumables",
     )
     .await?;
