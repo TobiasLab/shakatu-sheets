@@ -154,7 +154,11 @@ fn validate_session(session: &SessionRecord) -> Result<(), String> {
         if !(0..=MAX_SAFE_INTEGER).contains(&entry.created_at) {
             return Err(format!("invalid creation time for entry {}", entry.id));
         }
-        if !entry.quantity.is_finite() || entry.quantity <= 0.0 || entry.quantity.fract() != 0.0 {
+        if !entry.quantity.is_finite()
+            || entry.quantity <= 0.0
+            || entry.quantity.fract() != 0.0
+            || entry.quantity > MAX_SAFE_INTEGER as f64
+        {
             return Err(format!("invalid quantity for entry {}", entry.id));
         }
         if let Some(id) = entry.garmoth_consumable_id {
@@ -170,7 +174,7 @@ fn validate_session(session: &SessionRecord) -> Result<(), String> {
                 return Err("invalid consumable expense".into());
             }
         }
-        if entry.unit_price < 0
+        if !(0..=MAX_SAFE_INTEGER).contains(&entry.unit_price)
             || !entry.sale_multiplier.is_finite()
             || !(0.0..=1.0).contains(&entry.sale_multiplier)
         {
@@ -266,9 +270,11 @@ pub(super) fn save_session_record(
 
 fn session_elapsed_at(session: &SessionRecord, now: i64) -> i64 {
     match (session.status, session.started_at) {
+        // Capped so derived times still cross IPC exactly.
         (SessionStatus::Running, Some(started_at)) => session
             .elapsed_ms
-            .saturating_add(now.saturating_sub(started_at).max(0)),
+            .saturating_add(now.saturating_sub(started_at).max(0))
+            .min(MAX_SAFE_INTEGER),
         _ => session.elapsed_ms,
     }
 }
