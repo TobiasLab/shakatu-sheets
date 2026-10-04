@@ -982,7 +982,7 @@ fn rejects_out_of_range_session_times() {
     let mut connection = database();
     let valid = session(SessionStatus::Running);
     save_session_record(&mut connection, &valid).unwrap();
-    const MAX: i64 = 9_007_199_254_740_991;
+    const MAX: i64 = super::MAX_SAFE_INTEGER;
 
     let mut edge = valid.clone();
     edge.elapsed_ms = MAX;
@@ -1006,6 +1006,23 @@ fn rejects_out_of_range_session_times() {
         invalid.entries[0].created_at = created_at;
         cases.push(invalid);
     }
+    for unit_price in [-1, MAX + 1] {
+        let mut invalid = valid.clone();
+        invalid.entries[0].unit_price = unit_price;
+        cases.push(invalid);
+    }
+    let mut invalid = valid.clone();
+    invalid.entries[0].quantity = (MAX + 1) as f64;
+    cases.push(invalid);
+    let mut running_at_limit = edge.clone();
+    running_at_limit.id = "session-at-limit".into();
+    running_at_limit.entries[0].id = "entry-at-limit".into();
+    running_at_limit.started_at = Some(super::timestamp_ms() - 1_000);
+    save_session_record(&mut connection, &running_at_limit).unwrap();
+    let samples = load_session_trend_records(&connection, &running_at_limit.id).unwrap();
+    assert!(!samples.is_empty());
+    assert!(samples.iter().all(|sample| sample.elapsed_ms <= MAX));
+
     for invalid in cases {
         assert!(save_session_record(&mut connection, &invalid).is_err());
         assert_eq!(
