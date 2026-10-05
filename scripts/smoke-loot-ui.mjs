@@ -139,9 +139,17 @@ await send("Page.addScriptToEvaluateOnNewDocument", {
                 return;
             }
             if (command === "load_overlay_opacity") return 100;
-            if (command === "load_theme") return window.__theme ?? null;
+            // StrictMode loads twice, so preference loads fail until the test makes them available again.
+            const preferencesFail = new URLSearchParams(location.search).has("preference-load-failure") && !window.__preferencesAvailable;
+            if (command === "load_theme") {
+                if (preferencesFail) throw Error("Synthetic theme load failure");
+                return window.__theme ?? null;
+            }
             if (command === "save_theme") { window.__theme = args.theme; return; }
-            if (command === "load_spot_preferences") return window.__spotPreferences ?? null;
+            if (command === "load_spot_preferences") {
+                if (preferencesFail) throw Error("Synthetic favorites load failure");
+                return window.__spotPreferences ?? null;
+            }
             if (command === "save_spot_preferences") { window.__spotPreferences = args.preferences; return; }
             if (command === "save_overlay_opacity") return;
             if (command === "load_market_prices") return window.__marketPrices?.[args.region] ?? [];
@@ -1521,6 +1529,34 @@ try {
         await clearHistoryFilters();
         await until(
             'window.__calls.filter(c => c.command === "list_finished_sessions").at(-1)?.args.query.region === "na"',
+        );
+        await send("Page.navigate", { url: `${appUrl}?preference-load-failure=1` });
+        await until("window.__session?.status === 'idle'");
+        await click("Browse all spots");
+        await until(
+            "document.querySelector('dialog[open]')?.textContent.includes('Could not load grind spot favorites')",
+        );
+        await evaluate(
+            "window.__preferencesAvailable = true; window.__spotPreferences = {favorites:['stars-end-revamp'],recent:[]}",
+        );
+        await click("Retry");
+        await until(
+            "!document.querySelector('dialog[open]').textContent.includes('Could not load grind spot favorites')",
+        );
+        await click("Favorites");
+        await until("document.querySelector('dialog[open]').textContent.includes(\"Star's End\")");
+        await click("Close spot browser");
+        await evaluate("window.__preferencesAvailable = false");
+        await click("Settings");
+        await until("document.body.textContent.includes('Could not load theme')");
+        await evaluate("window.__preferencesAvailable = true; window.__theme = 'light'");
+        await click("Retry loading");
+        await until(
+            "document.documentElement.dataset.theme === 'light' && !document.body.textContent.includes('Could not load theme')",
+        );
+        assert(
+            !(await evaluate("window.__calls.some(c => c.command === 'save_theme')")),
+            "Retrying a failed theme load must reload, not save the default theme",
         );
         await send("Page.navigate", { url: `${appUrl}?supplemental-drops=1` });
         await until("window.__session?.status === 'idle'");

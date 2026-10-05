@@ -28,7 +28,7 @@ function Harness() {
     const [pendingReviews, setPendingReviews] = useState(0);
     const opacity = usePersistedSetting(100, loadOverlayOpacity, saveOverlayOpacity, "opacity");
     const lootFont = usePersistedSetting("korean", loadLootFont, saveLootFont, "in-game font", true);
-    const themeSetting = { value: theme, update: setTheme, loaded: true, saving: false, error: "", flush: async () => {} };
+    const themeSetting = { value: theme, update: setTheme, loaded: true, saving: false, error: "", failedTo: null, retry: () => {}, flush: async () => {} };
     const selfImprovement = useSelfImprovement();
     const persisted = usePersistedSession(opacity.flush);
     const spot = getGrindSpot(persisted.session.grindSpotId);
@@ -61,7 +61,7 @@ function Harness() {
     window.showSettings = setSettingsVisible;
     window.openOverlay = overlay.openOverlay;
     return <><p id="publisher-error">{overlay.error}</p>
-        {settingsVisible && <SettingsView selfImprovement={selfImprovement} marketController={marketController} lootFont={lootFont} theme={themeSetting} spotPreferences={{ favorites: [], recent: [] }} onSpotPreferencesChange={() => {}} onOpenCapture={() => {}} overlayOpacity={opacity} />}
+        {settingsVisible && <SettingsView selfImprovement={selfImprovement} marketController={marketController} lootFont={lootFont} theme={themeSetting} spotPreferences={{ favorites: [], recent: [] }} onSpotPreferencesChange={() => {}} spotPreferencesError="" onRetrySpotPreferences={() => {}} onOpenCapture={() => {}} overlayOpacity={opacity} />}
         <SessionOverlay /></>;
 }
 ReactDOM.createRoot(document.getElementById("root")).render(<React.StrictMode><Harness /></React.StrictMode>);

@@ -5,6 +5,7 @@ import { netPerHour, type SpotSummary } from "../../domain/history";
 import type { SessionState } from "../../domain/session";
 import { formatRelativeDay, formatSilver } from "../../format";
 import { DialogHeader } from "../Dialog/DialogHeader";
+import { Feedback } from "../Feedback/Feedback";
 import { Icon } from "../Icon/Icon";
 import { SelectionButton } from "../SelectionButton/SelectionButton";
 import styles from "./GrindSpotPicker.module.css";
@@ -55,6 +56,8 @@ export function GrindSpotPicker({
     region,
     preferences,
     onPreferencesChange,
+    preferencesError,
+    onRetryPreferences,
 }: {
     compact?: boolean;
     locked?: boolean;
@@ -64,6 +67,8 @@ export function GrindSpotPicker({
     onSelect: (id: string) => void;
     preferences: SpotPreferences;
     onPreferencesChange: (preferences: SpotPreferences) => void;
+    preferencesError: string;
+    onRetryPreferences: () => void;
 }) {
     const [query, setQuery] = useState("");
     const [filter, setFilter] = useState<SpotFilter>("All");
@@ -253,6 +258,18 @@ export function GrindSpotPicker({
                         </fieldset>
                     )}
                 </section>
+                {preferencesError && (
+                    <Feedback
+                        tone="error"
+                        action={
+                            <button type="button" className="button" onClick={onRetryPreferences}>
+                                Retry
+                            </button>
+                        }
+                    >
+                        {preferencesError}
+                    </Feedback>
+                )}
                 <div className={styles.Results}>
                     {results.length === 0 ? (
                         <p className={styles.Empty}>
