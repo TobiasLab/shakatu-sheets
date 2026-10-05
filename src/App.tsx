@@ -115,6 +115,8 @@ export function App() {
                         overlay={overlay}
                         spotPreferences={spotPreferences.value}
                         onSpotPreferencesChange={changeSpotPreferences}
+                        spotPreferencesError={spotPreferences.error}
+                        onRetrySpotPreferences={spotPreferences.retry}
                         onOpenHistory={() => setView("history")}
                         visible={view === "live"}
                         captureSetupRequest={captureSetupRequest}
@@ -143,6 +145,8 @@ export function App() {
                         theme={theme}
                         spotPreferences={spotPreferences.value}
                         onSpotPreferencesChange={changeSpotPreferences}
+                        spotPreferencesError={spotPreferences.error}
+                        onRetrySpotPreferences={spotPreferences.retry}
                         onOpenCapture={openCaptureSetup}
                         overlayOpacity={overlayOpacity}
                         lootFont={lootFont}

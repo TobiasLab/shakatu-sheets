@@ -14,31 +14,40 @@ export function usePersistedSetting<T>(
     const [value, setValue] = useState(initial);
     const [loaded, setLoaded] = useState(false);
     const [saving, setSaving] = useState(false);
-    const [error, setError] = useState("");
+    const [failure, setFailure] = useState<{ during: "load" | "save"; message: string } | null>(null);
     const writes = useRef<Promise<unknown>>(Promise.resolve());
-    useEffect(() => {
-        let disposed = false;
+    // Each load or update takes a new number, so a load that finishes late cannot replace a newer value.
+    const latest = useRef(0);
+
+    function reload() {
+        const request = ++latest.current;
+        setFailure(null);
         load().then(
             (saved) => {
-                if (disposed) return;
+                if (request !== latest.current) return;
                 setValue(saved);
                 setLoaded(true);
             },
-            (failure) => {
-                if (disposed) return;
-                setError(`Could not load ${label}: ${String(failure)}`);
+            (error) => {
+                if (request !== latest.current) return;
+                setFailure({ during: "load", message: `Could not load ${label}: ${String(error)}` });
                 if (!requireLoad) setLoaded(true);
             },
         );
+    }
+
+    useEffect(() => {
+        reload();
         return () => {
-            disposed = true;
+            latest.current += 1;
         };
     }, []);
 
     function update(next: T) {
+        latest.current += 1;
         setValue(next);
         setSaving(true);
-        setError("");
+        setFailure(null);
         const writing = writes.current.catch(() => undefined).then(() => save(next));
         writes.current = writing;
         void writing.then(
@@ -48,19 +57,34 @@ export function usePersistedSetting<T>(
                     setLoaded(true);
                 }
             },
-            (failure) => {
+            (error) => {
                 if (writing === writes.current) {
                     setSaving(false);
-                    setError(`Could not save ${label}: ${String(failure)}`);
+                    setFailure({ during: "save", message: `Could not save ${label}: ${String(error)}` });
                 }
             },
         );
         return writing;
     }
 
+    // After a failed load this reloads rather than saving the unconfirmed default over the stored value.
+    function retry() {
+        if (failure?.during === "load") reload();
+        else void update(value);
+    }
+
     async function flush() {
         await writes.current.catch(() => update(value));
     }
 
-    return { value, loaded, saving, error, update, flush };
+    return {
+        value,
+        loaded,
+        saving,
+        error: failure?.message ?? "",
+        failedTo: failure?.during ?? null,
+        update,
+        retry,
+        flush,
+    };
 }

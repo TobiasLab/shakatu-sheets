@@ -27,6 +27,8 @@ export function SettingsView({
     theme,
     spotPreferences,
     onSpotPreferencesChange,
+    spotPreferencesError,
+    onRetrySpotPreferences,
     onOpenCapture,
     overlayOpacity,
     lootFont,
@@ -48,6 +50,8 @@ export function SettingsView({
     theme: PersistedSetting<Theme>;
     spotPreferences: SpotPreferences;
     onSpotPreferencesChange: (preferences: SpotPreferences) => void;
+    spotPreferencesError: string;
+    onRetrySpotPreferences: () => void;
     onOpenCapture: () => void;
     overlayOpacity: PersistedSetting<number>;
     lootFont: PersistedSetting<LootFont>;
@@ -236,6 +240,8 @@ export function SettingsView({
                                         onSelect={changeGrindSpot}
                                         preferences={spotPreferences}
                                         onPreferencesChange={onSpotPreferencesChange}
+                                        preferencesError={spotPreferencesError}
+                                        onRetryPreferences={onRetrySpotPreferences}
                                     />
                                 </div>
                                 {!spotEditable && <p>Grind spot locked for this session.</p>}
@@ -332,12 +338,8 @@ export function SettingsView({
                                 {theme.error && (
                                     <div role="alert" className={styles.Error}>
                                         {theme.error}
-                                        <button
-                                            type="button"
-                                            className="button"
-                                            onClick={() => theme.update(theme.value)}
-                                        >
-                                            Retry save
+                                        <button type="button" className="button" onClick={theme.retry}>
+                                            {theme.failedTo === "load" ? "Retry loading" : "Retry save"}
                                         </button>
                                     </div>
                                 )}
@@ -359,12 +361,8 @@ export function SettingsView({
                                 {overlayOpacity.error && (
                                     <div role="alert" className={styles.Error}>
                                         {overlayOpacity.error}
-                                        <button
-                                            type="button"
-                                            className="button"
-                                            onClick={() => overlayOpacity.update(overlayOpacity.value)}
-                                        >
-                                            Retry save
+                                        <button type="button" className="button" onClick={overlayOpacity.retry}>
+                                            {overlayOpacity.failedTo === "load" ? "Retry loading" : "Retry save"}
                                         </button>
                                     </div>
                                 )}

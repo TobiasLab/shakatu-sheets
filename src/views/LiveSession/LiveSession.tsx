@@ -30,6 +30,8 @@ export function LiveSessionView({
     onOpenSelfImprovement,
     spotPreferences,
     onSpotPreferencesChange,
+    spotPreferencesError,
+    onRetrySpotPreferences,
 }: {
     overlay: { openOverlay: () => Promise<void>; error: string; available: boolean };
     onOpenHistory: () => void;
@@ -43,6 +45,8 @@ export function LiveSessionView({
     captureSetupRequest: number;
     spotPreferences: SpotPreferences;
     onSpotPreferencesChange: (preferences: SpotPreferences) => void;
+    spotPreferencesError: string;
+    onRetrySpotPreferences: () => void;
     onCaptureStatusChange: (status: CaptureSummary) => void;
 }) {
     const { session, dispatch, databaseLoaded, editingDisabled, spotEditable, spot, drops, changeGrindSpot, market } =
@@ -163,6 +167,8 @@ export function LiveSessionView({
                     onSelect={changeGrindSpot}
                     preferences={spotPreferences}
                     onPreferencesChange={onSpotPreferencesChange}
+                    preferencesError={spotPreferencesError}
+                    onRetryPreferences={onRetrySpotPreferences}
                 />
                 <button
                     type="button"
