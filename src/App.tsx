@@ -25,7 +25,6 @@ export function App() {
     });
     const [view, setView] = useState<AppView>("live");
     const theme = usePersistedSetting<Theme>("dark", loadTheme, saveTheme, "theme");
-    // A failed load keeps favorites read-only rather than letting the next pick overwrite them with the empty default.
     const spotPreferences = usePersistedSetting<SpotPreferences>(
         { favorites: [], recent: [] },
         loadSpotPreferences,
@@ -33,9 +32,6 @@ export function App() {
         "grind spot favorites",
         true,
     );
-    const changeSpotPreferences = (next: SpotPreferences) => {
-        if (spotPreferences.loaded) void spotPreferences.update(next);
-    };
     const overlayOpacity = usePersistedSetting(100, loadOverlayOpacity, saveOverlayOpacity, "opacity");
     // Capture must not guess the in-game font, so a failed load stays unready until a font is saved.
     const lootFont = usePersistedSetting<LootFont>("korean", loadLootFont, saveLootFont, "in-game font", true);
@@ -113,10 +109,7 @@ export function App() {
                         lootFont={lootFont.value}
                         lootFontReady={lootFont.loaded && !lootFont.saving && !lootFont.error}
                         overlay={overlay}
-                        spotPreferences={spotPreferences.value}
-                        onSpotPreferencesChange={changeSpotPreferences}
-                        spotPreferencesError={spotPreferences.error}
-                        onRetrySpotPreferences={spotPreferences.retry}
+                        spotPreferences={spotPreferences}
                         onOpenHistory={() => setView("history")}
                         visible={view === "live"}
                         captureSetupRequest={captureSetupRequest}
@@ -143,10 +136,7 @@ export function App() {
                     <SettingsView
                         marketController={liveSession}
                         theme={theme}
-                        spotPreferences={spotPreferences.value}
-                        onSpotPreferencesChange={changeSpotPreferences}
-                        spotPreferencesError={spotPreferences.error}
-                        onRetrySpotPreferences={spotPreferences.retry}
+                        spotPreferences={spotPreferences}
                         onOpenCapture={openCaptureSetup}
                         overlayOpacity={overlayOpacity}
                         lootFont={lootFont}

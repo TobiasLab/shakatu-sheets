@@ -22,13 +22,23 @@ import { isLootFont, type LootFont } from "../../recognition/lootFont";
 import { SelfImprovementSettings } from "./SelfImprovementSettings";
 import styles from "./Settings.module.css";
 
+// After a failed load, Retry reloads instead of saving the unconfirmed default over the stored value.
+function SettingError({ setting }: { setting: Pick<PersistedSetting<unknown>, "error" | "failedTo" | "retry"> }) {
+    if (!setting.error) return null;
+    return (
+        <div role="alert" className={styles.Error}>
+            {setting.error}
+            <button type="button" className="button" onClick={setting.retry}>
+                {setting.failedTo === "load" ? "Retry loading" : "Retry save"}
+            </button>
+        </div>
+    );
+}
+
 export function SettingsView({
     marketController,
     theme,
     spotPreferences,
-    onSpotPreferencesChange,
-    spotPreferencesError,
-    onRetrySpotPreferences,
     onOpenCapture,
     overlayOpacity,
     lootFont,
@@ -48,10 +58,7 @@ export function SettingsView({
         | "changeGrindSpot"
     >;
     theme: PersistedSetting<Theme>;
-    spotPreferences: SpotPreferences;
-    onSpotPreferencesChange: (preferences: SpotPreferences) => void;
-    spotPreferencesError: string;
-    onRetrySpotPreferences: () => void;
+    spotPreferences: PersistedSetting<SpotPreferences>;
     onOpenCapture: () => void;
     overlayOpacity: PersistedSetting<number>;
     lootFont: PersistedSetting<LootFont>;
@@ -238,10 +245,7 @@ export function SettingsView({
                                         region={session.region}
                                         disabled={!spotEditable || !databaseLoaded || market.fetchingPrices}
                                         onSelect={changeGrindSpot}
-                                        preferences={spotPreferences}
-                                        onPreferencesChange={onSpotPreferencesChange}
-                                        preferencesError={spotPreferencesError}
-                                        onRetryPreferences={onRetrySpotPreferences}
+                                        spotPreferences={spotPreferences}
                                     />
                                 </div>
                                 {!spotEditable && <p>Grind spot locked for this session.</p>}
@@ -335,14 +339,7 @@ export function SettingsView({
                                         </label>
                                     ))}
                                 </fieldset>
-                                {theme.error && (
-                                    <div role="alert" className={styles.Error}>
-                                        {theme.error}
-                                        <button type="button" className="button" onClick={theme.retry}>
-                                            {theme.failedTo === "load" ? "Retry loading" : "Retry save"}
-                                        </button>
-                                    </div>
-                                )}
+                                <SettingError setting={theme} />
                                 <label htmlFor="overlay-opacity">Overlay opacity</label>
                                 <div className={styles.OpacitySlider}>
                                     <input
@@ -358,14 +355,7 @@ export function SettingsView({
                                     <output htmlFor="overlay-opacity">{overlayOpacity.value}%</output>
                                 </div>
                                 {overlayOpacity.saving && <p role="status">Saving opacity…</p>}
-                                {overlayOpacity.error && (
-                                    <div role="alert" className={styles.Error}>
-                                        {overlayOpacity.error}
-                                        <button type="button" className="button" onClick={overlayOpacity.retry}>
-                                            {overlayOpacity.failedTo === "load" ? "Retry loading" : "Retry save"}
-                                        </button>
-                                    </div>
-                                )}
+                                <SettingError setting={overlayOpacity} />
                             </div>
                         </section>
                         <section id="capture-preferences" className="panel" aria-labelledby="capture-preferences-title">
@@ -394,18 +384,7 @@ export function SettingsView({
                                     Applies when capture next starts.
                                     {lootFont.saving && " Saving…"}
                                 </p>
-                                {lootFont.error && (
-                                    <div role="alert" className={styles.Error}>
-                                        {lootFont.error}
-                                        <button
-                                            type="button"
-                                            className="button"
-                                            onClick={() => void lootFont.update(lootFont.value)}
-                                        >
-                                            Save selected font
-                                        </button>
-                                    </div>
-                                )}
+                                <SettingError setting={lootFont} />
                                 <button type="button" className="button" onClick={onOpenCapture}>
                                     Go to capture setup
                                 </button>

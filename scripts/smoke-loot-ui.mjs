@@ -1023,7 +1023,7 @@ try {
         await setField("#loot-font", "strong-sword");
         await until("document.body.innerText.includes('Synthetic font save failure')");
         await evaluate("window.__failLootFont = false");
-        await click("Save selected font");
+        await click("Retry save");
         await until(
             "window.__savedLootFont === 'strong-sword' && !document.body.innerText.includes('Synthetic font save failure')",
         );
@@ -1535,6 +1535,10 @@ try {
         await click("Browse all spots");
         await until(
             "document.querySelector('dialog[open]')?.textContent.includes('Could not load grind spot favorites')",
+        );
+        assert(
+            await evaluate("document.querySelector('dialog[open] button[aria-label^=\"Star \"]').disabled"),
+            "Favorites stay read-only while they failed to load",
         );
         await evaluate(
             "window.__preferencesAvailable = true; window.__spotPreferences = {favorites:['stars-end-revamp'],recent:[]}",

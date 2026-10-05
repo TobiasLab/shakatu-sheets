@@ -9,6 +9,7 @@ import { type CaptureSummary, useLiveLootCapture } from "../../components/LiveLo
 import { LootLedger } from "../../components/LootLedger/LootLedger";
 import { createEntry } from "../../domain/session";
 import type { LiveSessionController } from "../../hooks/useLiveSession";
+import type { PersistedSetting } from "../../hooks/usePersistedSetting";
 import type { useSelfImprovement } from "../../hooks/useSelfImprovement";
 import type { LootFont } from "../../recognition/lootFont";
 import { FinishReviewDialog } from "./FinishReviewDialog";
@@ -29,9 +30,6 @@ export function LiveSessionView({
     selfImprovement,
     onOpenSelfImprovement,
     spotPreferences,
-    onSpotPreferencesChange,
-    spotPreferencesError,
-    onRetrySpotPreferences,
 }: {
     overlay: { openOverlay: () => Promise<void>; error: string; available: boolean };
     onOpenHistory: () => void;
@@ -43,10 +41,7 @@ export function LiveSessionView({
     lootFontReady: boolean;
     visible: boolean;
     captureSetupRequest: number;
-    spotPreferences: SpotPreferences;
-    onSpotPreferencesChange: (preferences: SpotPreferences) => void;
-    spotPreferencesError: string;
-    onRetrySpotPreferences: () => void;
+    spotPreferences: PersistedSetting<SpotPreferences>;
     onCaptureStatusChange: (status: CaptureSummary) => void;
 }) {
     const { session, dispatch, databaseLoaded, editingDisabled, spotEditable, spot, drops, changeGrindSpot, market } =
@@ -165,10 +160,7 @@ export function LiveSessionView({
                     locked={!spotEditable}
                     disabled={!spotEditable || !databaseLoaded || market.fetchingPrices || !visible}
                     onSelect={changeGrindSpot}
-                    preferences={spotPreferences}
-                    onPreferencesChange={onSpotPreferencesChange}
-                    preferencesError={spotPreferencesError}
-                    onRetryPreferences={onRetrySpotPreferences}
+                    spotPreferences={spotPreferences}
                 />
                 <button
                     type="button"
