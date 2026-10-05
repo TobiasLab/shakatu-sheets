@@ -61,7 +61,7 @@ function Harness() {
     window.showSettings = setSettingsVisible;
     window.openOverlay = overlay.openOverlay;
     return <><p id="publisher-error">{overlay.error}</p>
-        {settingsVisible && <SettingsView selfImprovement={selfImprovement} marketController={marketController} lootFont={lootFont} theme={themeSetting} spotPreferences={{ favorites: [], recent: [] }} onSpotPreferencesChange={() => {}} spotPreferencesError="" onRetrySpotPreferences={() => {}} onOpenCapture={() => {}} overlayOpacity={opacity} />}
+        {settingsVisible && <SettingsView selfImprovement={selfImprovement} marketController={marketController} lootFont={lootFont} theme={themeSetting} spotPreferences={{ value: { favorites: [], recent: [] }, loaded: true, saving: false, error: "", failedTo: null, update: async () => {}, retry: () => {}, flush: async () => {} }} onOpenCapture={() => {}} overlayOpacity={opacity} />}
         <SessionOverlay /></>;
 }
 ReactDOM.createRoot(document.getElementById("root")).render(<React.StrictMode><Harness /></React.StrictMode>);

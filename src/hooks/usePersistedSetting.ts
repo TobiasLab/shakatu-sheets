@@ -21,12 +21,12 @@ export function usePersistedSetting<T>(
 
     function reload() {
         const request = ++latest.current;
-        setFailure(null);
         load().then(
             (saved) => {
                 if (request !== latest.current) return;
                 setValue(saved);
                 setLoaded(true);
+                setFailure(null);
             },
             (error) => {
                 if (request !== latest.current) return;

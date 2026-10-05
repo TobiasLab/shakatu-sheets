@@ -4,6 +4,7 @@ import { type GrindSpotProfile, getGrindSpot } from "../../data/grindSpots";
 import { netPerHour, type SpotSummary } from "../../domain/history";
 import type { SessionState } from "../../domain/session";
 import { formatRelativeDay, formatSilver } from "../../format";
+import type { PersistedSetting } from "../../hooks/usePersistedSetting";
 import { DialogHeader } from "../Dialog/DialogHeader";
 import { Feedback } from "../Feedback/Feedback";
 import { Icon } from "../Icon/Icon";
@@ -54,10 +55,7 @@ export function GrindSpotPicker({
     compact = false,
     locked = false,
     region,
-    preferences,
-    onPreferencesChange,
-    preferencesError,
-    onRetryPreferences,
+    spotPreferences,
 }: {
     compact?: boolean;
     locked?: boolean;
@@ -65,11 +63,12 @@ export function GrindSpotPicker({
     spot: GrindSpotProfile;
     disabled: boolean;
     onSelect: (id: string) => void;
-    preferences: SpotPreferences;
-    onPreferencesChange: (preferences: SpotPreferences) => void;
-    preferencesError: string;
-    onRetryPreferences: () => void;
+    spotPreferences: PersistedSetting<SpotPreferences>;
 }) {
+    const preferences = spotPreferences.value;
+    // A failed load keeps favorites read-only, so the next pick cannot replace them with the empty default.
+    const preferencesWritable = spotPreferences.loaded;
+    const errorId = useId();
     const [query, setQuery] = useState("");
     const [filter, setFilter] = useState<SpotFilter>("All");
     const dialog = useRef<HTMLDialogElement>(null);
@@ -123,18 +122,24 @@ export function GrindSpotPicker({
     function select(id: string) {
         if (disabled) return;
         onSelect(id);
-        onPreferencesChange(rememberSpot(preferences, id));
+        if (preferencesWritable) void spotPreferences.update(rememberSpot(preferences, id));
         dialog.current?.close();
     }
 
     function toggleFavorite(id: string) {
-        onPreferencesChange({
+        void spotPreferences.update({
             ...preferences,
             favorites: preferences.favorites.includes(id)
                 ? preferences.favorites.filter((favorite) => favorite !== id)
                 : [...preferences.favorites, id],
         });
     }
+
+    const preferencesRetry = (
+        <button type="button" className="button" onClick={spotPreferences.retry}>
+            Retry
+        </button>
+    );
 
     return (
         <section className={compact ? styles.CompactPicker : styles.Picker} aria-label="Grind spot">
@@ -173,6 +178,11 @@ export function GrindSpotPicker({
                     </button>
                 )}
             </div>
+            {spotPreferences.error && spotPreferences.failedTo === "save" && (
+                <Feedback tone="error" action={preferencesRetry}>
+                    {spotPreferences.error}
+                </Feedback>
+            )}
             {!compact && !locked && quickSpotIds(preferences).length > 0 && (
                 <section className={styles.Shortcuts} aria-label="Quick access spots">
                     {quickSpotIds(preferences).map((id) => {
@@ -215,6 +225,7 @@ export function GrindSpotPicker({
                         id={searchId}
                         ref={search}
                         type="search"
+                        aria-describedby={spotPreferences.error ? errorId : undefined}
                         placeholder="Search grind spots…"
                         value={query}
                         onChange={(event) => setQuery(event.target.value)}
@@ -258,16 +269,10 @@ export function GrindSpotPicker({
                         </fieldset>
                     )}
                 </section>
-                {preferencesError && (
-                    <Feedback
-                        tone="error"
-                        action={
-                            <button type="button" className="button" onClick={onRetryPreferences}>
-                                Retry
-                            </button>
-                        }
-                    >
-                        {preferencesError}
+                {spotPreferences.error && (
+                    <Feedback tone="error" id={errorId} action={preferencesRetry}>
+                        {spotPreferences.error}
+                        {!preferencesWritable && " Favorites stay unchanged until they load."}
                     </Feedback>
                 )}
                 <div className={styles.Results}>
@@ -325,6 +330,7 @@ export function GrindSpotPicker({
                                             type="button"
                                             aria-label={`${preferences.favorites.includes(candidate.id) ? "Unstar" : "Star"} ${candidate.name}`}
                                             aria-pressed={preferences.favorites.includes(candidate.id)}
+                                            disabled={!preferencesWritable}
                                             onClick={() => toggleFavorite(candidate.id)}
                                         >
                                             <Icon name="star" size={16} />
