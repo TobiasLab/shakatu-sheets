@@ -1656,6 +1656,15 @@ it.each([
     },
 );
 
+it.each([2, 4] as const)("counts every row when a short gap replaces the whole stack (limit %i)", (emptyFrameLimit) => {
+    const tracker = new LootRowTracker(100, distance, { emptyFrameLimit });
+    for (const rows of [row([1, 2, 3]), row([1, 2, 3]), row([]), row([4, 5, 6]), row([4, 5, 6]), row([4, 5, 6])]) {
+        tracker.push(rows);
+    }
+    const births = tracker.finish().filter(({ baseline }) => !baseline);
+    expect(births.map((track) => track.observations[track.observations.length - 1]?.fingerprint)).toEqual([4, 5, 6]);
+});
+
 it("rejects gradual changes between the spaced OCR frames at 16 FPS", () => {
     const track = {
         id: "drifting",

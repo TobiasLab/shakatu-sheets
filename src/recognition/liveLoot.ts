@@ -1001,15 +1001,17 @@ export function parseLootItem(text: string, dictionary: readonly string[]) {
     if (candidates[0]?.distance > (joinedMarker ? 0.1 : 0.35) || candidates[0]?.distance === candidates[1]?.distance)
         return null;
     const best = candidates[0];
-    if (!best || best.distance === 0) return best?.item ?? null;
+    if (best.distance === 0) return best.item;
     // A clear reading of an item this spot cannot drop (for example "Deboreka Earring" at a spot that drops
     // "Deboreka Ring") must not become the similar dictionary item, so decline when another known item is closer.
     const dictionaryItems = new Set(dictionary.map(normalizeItem));
-    const closerElsewhere = knownLootItems().some(
-        (item) =>
-            !dictionaryItems.has(item) &&
-            editDistance(normalized, item) / Math.max(normalized.length, item.length) < best.distance,
-    );
+    const closerElsewhere = knownLootItems().some((item) => {
+        const longest = Math.max(normalized.length, item.length);
+        // Edit distance is at least the length difference, so most names are ruled out without computing it.
+        if (dictionaryItems.has(item) || Math.abs(normalized.length - item.length) / longest >= best.distance)
+            return false;
+        return editDistance(normalized, item) / longest < best.distance;
+    });
     return closerElsewhere ? null : best.item;
 }
 
