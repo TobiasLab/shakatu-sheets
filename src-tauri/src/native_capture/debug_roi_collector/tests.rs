@@ -195,7 +195,7 @@ fn stop_is_capture_token_scoped_and_idempotent() {
     let settings = settings();
     let (sender, _receiver) = mpsc::sync_channel(1);
     let run = Arc::new(test_run(&temp.0, sender, settings));
-    collector.active.store(Some(run.clone()));
+    *collector.active.lock().unwrap() = Some(run.clone());
 
     assert_eq!(
         collector.stop(8).unwrap().phase,
@@ -221,7 +221,7 @@ fn writer_failure_closes_admission_before_queue_cleanup() {
     let selection = NativeCaptureSelection::Regions { settings };
     let (sender, _receiver) = mpsc::sync_channel(1);
     let run = Arc::new(test_run(&temp.0, sender, settings));
-    collector.active.store(Some(run.clone()));
+    *collector.active.lock().unwrap() = Some(run.clone());
 
     record_write_failure(&run, "PNG encoding failed".to_string());
     collector.enqueue_pair(SampledRoiPair {
@@ -291,10 +291,10 @@ fn startup_reservation_rejects_overlap_and_clears_on_drop() {
     let first = collector.reserve_start(binding).unwrap();
 
     assert!(collector.reserve_start(binding).is_err());
-    assert!(collector.startup.load_full().is_some());
+    assert!(collector.startup.lock().unwrap().is_some());
     drop(first);
 
-    assert!(collector.startup.load_full().is_none());
+    assert!(collector.startup.lock().unwrap().is_none());
     drop(collector.reserve_start(binding).unwrap());
 }
 
@@ -328,13 +328,13 @@ fn installed_run_keeps_startup_reserved_until_revalidation_completes() {
             settings,
         })
         .is_err());
-    assert!(collector.active.load_full().is_some());
+    assert!(collector.active.lock().unwrap().is_some());
     let status = pending.abort(FINISH_CAPTURE_REPLACED);
     assert!(matches!(
         status.phase,
         DebugRoiSampleCollectionPhase::Finalizing | DebugRoiSampleCollectionPhase::Finished
     ));
-    assert!(collector.startup.load_full().is_none());
+    assert!(collector.startup.lock().unwrap().is_none());
     wait_for(&collector, |status| {
         status.phase == DebugRoiSampleCollectionPhase::Finished
     });
@@ -452,7 +452,7 @@ fn sample_uses_the_lock_free_active_run_snapshot() {
     let selection = NativeCaptureSelection::Regions { settings };
     let (sender, receiver) = mpsc::sync_channel(1);
     let run = Arc::new(test_run(&temp.0, sender, settings));
-    collector.active.store(Some(run.clone()));
+    *collector.active.lock().unwrap() = Some(run.clone());
     collector.enqueue_pair(SampledRoiPair {
         capture_id: 4,
         selection,
@@ -494,7 +494,7 @@ fn finish_transition_cannot_be_overwritten_by_startup_activation() {
         });
         barrier.wait();
     });
-    collector.active.store(Some(run.clone()));
+    *collector.active.lock().unwrap() = Some(run.clone());
 
     collector.enqueue_pair(SampledRoiPair {
         capture_id: 4,
@@ -635,7 +635,7 @@ fn ocr_diagnostics_require_a_matching_collection_and_resolve_saved_frames() {
     assert!(!temp.0.join("ocr-issues.jsonl").exists());
     let (sender, _) = mpsc::sync_channel(1);
     let run = Arc::new(test_run(&temp.0, sender, settings()));
-    collector.active.store(Some(run.clone()));
+    *collector.active.lock().unwrap() = Some(run.clone());
     for (key, value) in [
         ("captureToken", serde_json::json!(10)),
         ("collectionPath", serde_json::json!("/unrelated")),
@@ -677,9 +677,7 @@ fn ocr_diagnostics_validate_payloads_and_surface_write_limits_and_errors() {
     let temp = TempDir::new("ocr-validation");
     let collector = DebugRoiSampleCollector::default();
     let (sender, _) = mpsc::sync_channel(1);
-    collector
-        .active
-        .store(Some(Arc::new(test_run(&temp.0, sender, settings()))));
+    *collector.active.lock().unwrap() = Some(Arc::new(test_run(&temp.0, sender, settings())));
     for (key, value) in [
         ("reason", serde_json::json!("unknown")),
         ("count", serde_json::json!(0)),
@@ -717,9 +715,7 @@ fn concurrent_ocr_diagnostics_append_complete_json_lines() {
     let temp = TempDir::new("ocr-concurrent");
     let collector = Arc::new(DebugRoiSampleCollector::default());
     let (sender, _) = mpsc::sync_channel(1);
-    collector
-        .active
-        .store(Some(Arc::new(test_run(&temp.0, sender, settings()))));
+    *collector.active.lock().unwrap() = Some(Arc::new(test_run(&temp.0, sender, settings())));
     let workers: Vec<_> = (0..16)
         .map(|_| {
             let collector = collector.clone();
@@ -745,7 +741,7 @@ fn ocr_diagnostics_preserve_results_while_finalizing_pending_pngs() {
     let run = Arc::new(test_run(&temp.0, sender, settings()));
     run.queued.store(1, Ordering::Release);
     run.request_finish(FINISH_EXPLICIT);
-    collector.active.store(Some(run.clone()));
+    *collector.active.lock().unwrap() = Some(run.clone());
     let issue = || serde_json::from_value(diagnostic_json(&temp.0)).unwrap();
     assert!(collector.log_ocr_issue(issue()).unwrap());
     let log = fs::read_to_string(temp.0.join("ocr-issues.jsonl")).unwrap();
@@ -775,7 +771,7 @@ fn accepted_ocr_diagnostics_validate_quantities_and_pass_metadata() {
         .unwrap());
     let (sender, _) = mpsc::sync_channel(1);
     let run = Arc::new(test_run(&temp.0, sender, settings()));
-    collector.active.store(Some(run.clone()));
+    *collector.active.lock().unwrap() = Some(run.clone());
     value["source"] = serde_json::json!("normal");
     assert!(collector
         .log_ocr_issue(serde_json::from_value(value.clone()).unwrap())
