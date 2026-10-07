@@ -211,6 +211,11 @@ describe("live loot reading consensus", () => {
     });
 
     it("withholds conflicting readings rather than combining item and quantity", () => {
+        // The consensus cases below read the three frames that this row sequence selects for its one new event.
+        const [track] = trackLootRows([row([]), row([1]), row([1]), row([1]), row([1])], 100, distance).filter(
+            ({ baseline }) => !baseline,
+        );
+        expect(selectLootOcrObservations(track, 100, undefined, distance).map(({ frame }) => frame)).toEqual([2, 3, 4]);
         const { consensus } = analyzeLootReadings(
             [["Black Stone x 1"], ["Black Stone x 2"], ["Ancient Spirit Dust x 1"]],
             ["Black Stone", "Ancient Spirit Dust"],
