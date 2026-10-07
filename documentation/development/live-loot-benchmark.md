@@ -127,9 +127,12 @@ as baselines, preserves retained identities when rows shift upward, and confirms
 frame before appending them at the bottom. Each event uses the first three consecutive detected row observations after its
 entrance frame, with adjacent fingerprints required to remain visually consistent. OCR accepts only an item-and-quantity pair supported by at least two distinct frames, so independently
 conflicting item and quantity readings cannot be combined. Labels are joined only after inference for chronological
-scoring. The tracker and end-to-end commands decode packed RGBA frames and call the browser-safe production analyzer,
-tracker, and OCR parsers in `src/recognition/liveLoot.ts`; the benchmark is therefore a replay adapter around the production
-core rather than a separate implementation. Use `--development-only` while tuning.
+scoring. The tracker and end-to-end commands decode packed RGBA frames and call the browser-safe analyzer, tracker, and OCR
+parsers in `src/recognition/liveLoot.ts`, but with the tracker's defaults: projection identity distance, a two-frame
+empty limit, single-frame steps, and three-frame OCR selection without supplementary frames. Live capture configures
+these through `LiveLootCoordinator` instead (row identity distance, a four-frame limit and two-frame steps at 16 FPS, and
+supplementary frames). Use the [ROI sample replay](#roi-sample-replay), which runs the coordinator, to measure the
+production configuration. Use `--development-only` while tuning.
 Profile export is disabled in development-only mode and occurs only after Tesseract terminates, every validation/test
 segment has exact event detection and item-and-quantity recognition with no missed or invented tracks, and at least one
 non-baseline event exists across those held-out splits. A test split alone satisfies the held-out requirement. The V1
