@@ -106,12 +106,12 @@ fn collect(value: &Value, depth: usize, matches: &mut Vec<Value>, truncated: &mu
 
 fn report(body: &[u8], character_id: &str, include_field_names: bool) -> Result<String, String> {
     let response: Value = serde_json::from_slice(body)
-        .map_err(|_| "Garmoth returned invalid character JSON".to_string())?;
+        .map_err(|_| "Garmoth returned invalid character JSON.".to_string())?;
     let rows = response
         .as_array()
         .ok_or("Garmoth returned an unexpected character response")?;
     if rows.len() != 1 || rows[0].get("url").and_then(Value::as_str) != Some(character_id) {
-        return Err("Garmoth did not return the requested character".into());
+        return Err("Garmoth did not return the requested character.".into());
     }
     let mut matches = Vec::new();
     let mut truncated = false;
@@ -124,7 +124,7 @@ fn report(body: &[u8], character_id: &str, include_field_names: bool) -> Result<
         "status": if matches.is_empty() { "no recognized consumable fields" } else { "consumable fields found" },
         "truncated": truncated,
         "fields": matches,
-    })).map_err(|_| "Could not format the consumable report".into())
+    })).map_err(|_| "Could not format the consumable report.".into())
 }
 
 #[tauri::command]
@@ -141,7 +141,7 @@ pub(crate) async fn inspect_garmoth_consumables(
         .iter()
         .any(|character| character.id == character_id)
     {
-        return Err("Select a fetched Garmoth character first".into());
+        return Err("Select a fetched Garmoth character first.".into());
     }
     let response = get(
         "/gear-planner/getCharacterBuilds",

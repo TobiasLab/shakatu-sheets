@@ -44,7 +44,7 @@ pub(super) fn validate_api_key(api_key: &str) -> Result<&str, String> {
             .bytes()
             .any(|byte| byte.is_ascii_whitespace() || byte.is_ascii_control())
     {
-        return Err("enter a valid Garmoth API key".into());
+        return Err("Enter a valid Garmoth API key.".into());
     }
     Ok(api_key)
 }
@@ -56,13 +56,13 @@ fn parse_character_ids(value: &str) -> Result<Vec<String>, String> {
         .map(str::to_string)
         .collect::<Vec<_>>();
     if ids.is_empty() || ids.len() > 20 || ids.iter().any(|id| !valid_character_id(id)) {
-        return Err("enter between 1 and 20 valid character URL IDs".into());
+        return Err("Enter between 1 and 20 valid character URL IDs.".into());
     }
     let mut unique = ids.clone();
     unique.sort();
     unique.dedup();
     if unique.len() != ids.len() {
-        return Err("character IDs must be unique".into());
+        return Err("Character IDs must be unique.".into());
     }
     Ok(ids)
 }
@@ -74,7 +74,7 @@ fn parse_characters(
     let characters = serde_json::from_slice::<Vec<CharacterResponse>>(body)
         .map_err(|error| format!("Garmoth returned an invalid character response: {error}"))?;
     if characters.is_empty() {
-        return Err("Garmoth returned no character builds for those IDs".into());
+        return Err("Garmoth returned no character builds for those IDs.".into());
     }
 
     let mut parsed = Vec::with_capacity(characters.len());
@@ -93,7 +93,7 @@ fn parse_characters(
                 .iter()
                 .any(|existing: &GarmothCharacter| existing.id == character.url)
         {
-            return Err("Garmoth returned invalid character data".into());
+            return Err("Garmoth returned invalid character data.".into());
         }
         parsed.push(GarmothCharacter {
             id: character.url,
@@ -103,7 +103,7 @@ fn parse_characters(
         });
     }
     if parsed.len() != requested_ids.len() {
-        return Err("Garmoth did not return every requested character build".into());
+        return Err("Garmoth did not return every requested character build.".into());
     }
     Ok(parsed)
 }
@@ -112,7 +112,7 @@ fn parse_stored_character_ids(value: Option<String>) -> Result<Vec<String>, Stri
     let Some(value) = value else {
         return Ok(Vec::new());
     };
-    serde_json::from_str(&value).map_err(|_| "saved Garmoth character IDs are invalid".into())
+    serde_json::from_str(&value).map_err(|_| "Saved Garmoth character IDs are invalid.".into())
 }
 
 #[tauri::command]
@@ -129,7 +129,7 @@ pub(crate) async fn load_garmoth_settings(
         .as_ref()
         .is_some_and(|id| !characters.iter().any(|character| character.id == *id))
     {
-        return Err("saved Garmoth character selection was not found".into());
+        return Err("Saved Garmoth character selection was not found.".into());
     }
     Ok(GarmothSettings {
         api_key_configured: load_setting(&connection, API_KEY_SETTING)?.is_some(),
@@ -156,7 +156,7 @@ pub(crate) async fn save_garmoth_api_key(
     )
     .map_err(|error| format!("Garmoth returned an invalid profile response: {error}"))?;
     if profile.id <= 0 {
-        return Err("Garmoth returned an invalid profile response".into());
+        return Err("Garmoth returned an invalid profile response.".into());
     }
 
     save_settings(
@@ -210,7 +210,7 @@ pub(crate) async fn fetch_garmoth_characters(
         ],
     )? {
         return Err(
-            "the Garmoth API key changed while fetching characters; fetch them again".into(),
+            "The Garmoth API key changed while fetching characters; fetch them again.".into(),
         );
     }
     Ok(characters)
@@ -229,7 +229,7 @@ pub(crate) async fn select_garmoth_character(
         .iter()
         .any(|character| character.id == character_id)
     {
-        return Err("select a fetched Garmoth character".into());
+        return Err("Select a fetched Garmoth character.".into());
     }
     save_settings(
         &mut connection,
@@ -269,7 +269,7 @@ mod tests {
                 &["dNTbRAtHn1".into(), "missing-id".into()],
             )
             .unwrap_err(),
-            "Garmoth did not return every requested character build"
+            "Garmoth did not return every requested character build."
         );
     }
 

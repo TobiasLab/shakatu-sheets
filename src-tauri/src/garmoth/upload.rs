@@ -97,7 +97,7 @@ fn validate_upload(input: &GarmothUploadInput) -> Result<(), String> {
         || input.drops.is_empty()
         || input.drops.len() > 200
     {
-        return Err("the Garmoth upload payload is invalid".into());
+        return Err("The Garmoth upload payload is invalid.".into());
     }
     if input
         .agris
@@ -107,7 +107,7 @@ fn validate_upload(input: &GarmothUploadInput) -> Result<(), String> {
     }
     for (key, quantity) in &input.drops {
         let Some((main, sub)) = key.split_once('_') else {
-            return Err("the Garmoth upload contains an invalid drop key".into());
+            return Err("The Garmoth upload contains an invalid drop key.".into());
         };
         if *quantity < 0
             || main.is_empty()
@@ -115,7 +115,7 @@ fn validate_upload(input: &GarmothUploadInput) -> Result<(), String> {
             || !main.bytes().all(|byte| byte.is_ascii_digit())
             || !sub.bytes().all(|byte| byte.is_ascii_digit())
         {
-            return Err("the Garmoth upload contains invalid drops".into());
+            return Err("The Garmoth upload contains invalid drops.".into());
         }
     }
     Ok(())
@@ -131,7 +131,7 @@ fn expected_drops(
         .map(|key| (key.clone(), 0_i64))
         .collect::<BTreeMap<_, _>>();
     if drops.len() != mapping.drops.len() {
-        return Err("the bundled Garmoth drop mappings are invalid".into());
+        return Err("The bundled Garmoth drop mappings are invalid.".into());
     }
     for entry in entries {
         if entry.valuation == Valuation::Expense {
@@ -142,15 +142,15 @@ fn expected_drops(
             continue;
         };
         if entry.quantity >= i64::MAX as f64 {
-            return Err("a session drop quantity is too large for Garmoth".into());
+            return Err("A session drop quantity is too large for Garmoth.".into());
         }
         let quantity = entry.quantity as i64;
         let current = drops
             .get_mut(key)
-            .ok_or_else(|| "the bundled Garmoth drop mappings are invalid".to_string())?;
+            .ok_or_else(|| "The bundled Garmoth drop mappings are invalid.".to_string())?;
         *current = current
             .checked_add(quantity)
-            .ok_or_else(|| "a session drop quantity is too large for Garmoth".to_string())?;
+            .ok_or_else(|| "A session drop quantity is too large for Garmoth.".to_string())?;
     }
     Ok(drops)
 }
@@ -191,17 +191,17 @@ fn verify_session_values(
     session: &SessionRecord,
 ) -> Result<Vec<[i64; 2]>, String> {
     if session.status != SessionStatus::Finished {
-        return Err("only finished sessions can be uploaded".into());
+        return Err("Only finished sessions can be uploaded.".into());
     }
     let mappings =
         serde_json::from_str::<BTreeMap<String, GrindSpotMapping>>(include_str!(concat!(
             env!("CARGO_MANIFEST_DIR"),
             "/../src/data/garmothMappings.json"
         )))
-        .map_err(|_| "the bundled Garmoth mappings are invalid".to_string())?;
+        .map_err(|_| "The bundled Garmoth mappings are invalid.".to_string())?;
     let mapping = mappings
         .get(&session.grind_spot_id)
-        .ok_or_else(|| "the session uses an unsupported Garmoth grind spot".to_string())?;
+        .ok_or_else(|| "The session uses an unsupported Garmoth grind spot.".to_string())?;
     let drops = expected_drops(mapping, &session.entries)?;
     let minutes =
         (session.elapsed_ms / 60_000 + i64::from(session.elapsed_ms % 60_000 >= 30_000)).max(1);
@@ -229,7 +229,7 @@ fn verify_session_values(
         || input.hourly != hourly.round() as i64
         || input.drops != drops
     {
-        return Err("the upload no longer matches the saved session".into());
+        return Err("The upload no longer matches the saved session.".into());
     }
     session_consumables(&session.entries)
 }
@@ -282,11 +282,11 @@ pub(crate) async fn upload(
     let characters = parse_stored_characters(load_setting(&connection, CHARACTERS_SETTING)?)?;
     let selected_id =
         parse_selected_character_id(load_setting(&connection, SELECTED_CHARACTER_SETTING)?)?
-            .ok_or_else(|| "select a Garmoth character in Settings first".to_string())?;
+            .ok_or_else(|| "Select a Garmoth character in Settings first.".to_string())?;
     let character = characters
         .iter()
         .find(|character| character.id == selected_id)
-        .ok_or_else(|| "the selected Garmoth character is no longer available".to_string())?;
+        .ok_or_else(|| "The selected Garmoth character is no longer available.".to_string())?;
     let payload = CreateSessionPayload {
         grindspot_id: input.grindspot_id,
         minutes: input.minutes,
@@ -303,14 +303,14 @@ pub(crate) async fn upload(
         amount: (totals.amount > 0).then_some(totals.amount),
     };
     let body = serde_json::to_vec(&payload)
-        .map_err(|error| format!("could not prepare the Garmoth upload: {error}"))?;
+        .map_err(|error| format!("Could not prepare the Garmoth upload: {error}"))?;
     let request = client
         .post(format!("{base_url}/grind-tracker/sessions/create"))
         .header("apiKey", api_key)
         .header(reqwest::header::CONTENT_TYPE, "application/json")
         .body(body)
         .build()
-        .map_err(|error| format!("could not prepare the Garmoth upload: {error}"))?;
+        .map_err(|error| format!("Could not prepare the Garmoth upload: {error}"))?;
 
     let saved_session = input
         .consumable_entries
@@ -356,7 +356,7 @@ async fn send_upload(
             };
             if restored.is_ok() {
                 return Err(
-                    "could not connect to Garmoth; check your connection and try again".into(),
+                    "Could not connect to Garmoth; check your connection and try again.".into(),
                 );
             }
             return Ok(GarmothUploadOutcome {
