@@ -377,31 +377,27 @@ fn refuses_to_reopen_a_session_reserved_for_garmoth() {
 
 #[test]
 fn transitions_garmoth_upload_reservations_without_duplicates() {
-    let (path, mut connection) = temporary_database();
+    let mut connection = database();
     let finished = session(SessionStatus::Finished);
     save_session_record(&mut connection, &finished).unwrap();
-    drop(connection);
 
-    claim_garmoth_upload(&path, &finished.id, false).unwrap();
+    claim_garmoth_upload(&mut connection, &finished.id, false).unwrap();
     assert_eq!(
-        claim_garmoth_upload(&path, &finished.id, false).unwrap_err(),
+        claim_garmoth_upload(&mut connection, &finished.id, false).unwrap_err(),
         "this session may already exist on Garmoth; check Garmoth before taking further action"
     );
-    release_garmoth_upload(&path, &finished.id).unwrap();
-    claim_garmoth_upload(&path, &finished.id, false).unwrap();
-    finish_garmoth_upload(&path, &finished.id).unwrap();
+    release_garmoth_upload(&connection, &finished.id).unwrap();
+    claim_garmoth_upload(&mut connection, &finished.id, false).unwrap();
+    finish_garmoth_upload(&connection, &finished.id).unwrap();
 
-    let connection = open_database(&path).unwrap();
     assert_eq!(
         load_garmoth_upload_status(&connection, &finished.id).unwrap(),
         Some(GarmothUploadStatus::Success)
     );
-    drop(connection);
     assert_eq!(
-        claim_garmoth_upload(&path, &finished.id, false).unwrap_err(),
+        claim_garmoth_upload(&mut connection, &finished.id, false).unwrap_err(),
         "this session was already uploaded to Garmoth"
     );
-    remove_temporary_database(&path);
 }
 
 #[test]
@@ -462,27 +458,28 @@ fn upgrades_a_populated_version_one_database() {
 
 #[test]
 fn conditionally_saves_settings_only_for_the_expected_key() {
-    let (path, connection) = temporary_database();
-    drop(connection);
-    save_settings(&path, &[("api-key", Some("old"))]).unwrap();
+    let mut connection = database();
+    save_settings(&mut connection, &[("api-key", Some("old"))]).unwrap();
 
     assert!(save_settings_if_unchanged(
-        &path,
+        &mut connection,
         "api-key",
         "old",
         &[("characters", Some("old-account"))],
     )
     .unwrap());
-    save_settings(&path, &[("api-key", Some("new"))]).unwrap();
-    assert!(
-        !save_settings_if_unchanged(&path, "api-key", "old", &[("characters", Some("stale"))],)
-            .unwrap()
-    );
+    save_settings(&mut connection, &[("api-key", Some("new"))]).unwrap();
+    assert!(!save_settings_if_unchanged(
+        &mut connection,
+        "api-key",
+        "old",
+        &[("characters", Some("stale"))],
+    )
+    .unwrap());
     assert_eq!(
-        load_setting(&path, "characters").unwrap().as_deref(),
+        load_setting(&connection, "characters").unwrap().as_deref(),
         Some("old-account")
     );
-    remove_temporary_database(&path);
 }
 
 #[cfg(unix)]
@@ -502,71 +499,73 @@ fn restricts_local_database_permissions() {
 
 #[test]
 fn overlay_opacity_persists_and_rejects_invalid_values() {
-    use super::overlay::{load_overlay_opacity_at_path, save_overlay_opacity_at_path};
+    use super::overlay::{load_overlay_opacity_setting, save_overlay_opacity_setting};
 
-    let (path, connection) = temporary_database();
-    drop(connection);
-    assert_eq!(load_overlay_opacity_at_path(&path).unwrap(), 100);
-    save_overlay_opacity_at_path(&path, 55).unwrap();
+    let mut connection = database();
+    assert_eq!(load_overlay_opacity_setting(&connection).unwrap(), 100);
+    save_overlay_opacity_setting(&mut connection, 55).unwrap();
     for invalid in [0, 24, 101, 255] {
-        assert!(save_overlay_opacity_at_path(&path, invalid).is_err());
-        assert_eq!(load_overlay_opacity_at_path(&path).unwrap(), 55);
+        assert!(save_overlay_opacity_setting(&mut connection, invalid).is_err());
+        assert_eq!(load_overlay_opacity_setting(&connection).unwrap(), 55);
     }
     for value in [25, 100] {
-        save_overlay_opacity_at_path(&path, value).unwrap();
-        assert_eq!(load_overlay_opacity_at_path(&path).unwrap(), value);
+        save_overlay_opacity_setting(&mut connection, value).unwrap();
+        assert_eq!(load_overlay_opacity_setting(&connection).unwrap(), value);
     }
-    save_settings(&path, &[("session_overlay_opacity", Some("invalid"))]).unwrap();
-    assert_eq!(load_overlay_opacity_at_path(&path).unwrap(), 100);
-    remove_temporary_database(&path);
+    save_settings(
+        &mut connection,
+        &[("session_overlay_opacity", Some("invalid"))],
+    )
+    .unwrap();
+    assert_eq!(load_overlay_opacity_setting(&connection).unwrap(), 100);
 }
 
 #[test]
 fn loot_font_defaults_persists_and_rejects_unknown_values() {
-    use super::loot_font::{load_loot_font_at_path, save_loot_font_at_path, LootFont};
-    let (path, connection) = temporary_database();
-    drop(connection);
-    assert_eq!(load_loot_font_at_path(&path).unwrap(), LootFont::Korean);
+    use super::loot_font::{load_loot_font_setting, save_loot_font_setting, LootFont};
+    let mut connection = database();
+    assert_eq!(
+        load_loot_font_setting(&connection).unwrap(),
+        LootFont::Korean
+    );
     for font in [LootFont::StrongSword, LootFont::Korean] {
-        save_loot_font_at_path(&path, font).unwrap();
-        assert_eq!(load_loot_font_at_path(&path).unwrap(), font);
+        save_loot_font_setting(&mut connection, font).unwrap();
+        assert_eq!(load_loot_font_setting(&connection).unwrap(), font);
         assert_eq!(
             serde_json::from_str::<LootFont>(&serde_json::to_string(&font).unwrap()).unwrap(),
             font
         );
     }
     assert!(serde_json::from_str::<LootFont>("\"unknown\"").is_err());
-    save_settings(&path, &[("loot_font", Some("unknown"))]).unwrap();
-    assert!(load_loot_font_at_path(&path).is_err());
-    remove_temporary_database(&path);
+    save_settings(&mut connection, &[("loot_font", Some("unknown"))]).unwrap();
+    assert!(load_loot_font_setting(&connection).is_err());
 }
 
 #[test]
 fn theme_and_spot_preferences_persist_and_reject_invalid_values() {
     use super::preferences::{
-        load_spot_preferences_at_path, load_theme_at_path, save_spot_preferences_at_path,
-        save_theme_at_path, SpotPreferences, Theme,
+        load_spot_preferences_setting, load_theme_setting, save_spot_preferences_setting,
+        save_theme_setting, SpotPreferences, Theme,
     };
-    let (path, connection) = temporary_database();
-    drop(connection);
-    assert_eq!(load_theme_at_path(&path).unwrap(), None);
+    let mut connection = database();
+    assert_eq!(load_theme_setting(&connection).unwrap(), None);
     for theme in [Theme::Light, Theme::Dark] {
-        save_theme_at_path(&path, theme).unwrap();
-        assert_eq!(load_theme_at_path(&path).unwrap(), Some(theme));
+        save_theme_setting(&mut connection, theme).unwrap();
+        assert_eq!(load_theme_setting(&connection).unwrap(), Some(theme));
     }
     assert!(serde_json::from_str::<Theme>("\"moss\"").is_err());
-    save_settings(&path, &[("theme", Some("moss"))]).unwrap();
-    assert!(load_theme_at_path(&path).is_err());
+    save_settings(&mut connection, &[("theme", Some("moss"))]).unwrap();
+    assert!(load_theme_setting(&connection).is_err());
 
-    assert_eq!(load_spot_preferences_at_path(&path).unwrap(), None);
+    assert_eq!(load_spot_preferences_setting(&connection).unwrap(), None);
     let preferences: SpotPreferences = serde_json::from_value(serde_json::json!({
         "favorites": ["garmoth-162", "sycraia-lower-revamp"],
         "recent": ["stars-end-revamp"]
     }))
     .unwrap();
-    save_spot_preferences_at_path(&path, &preferences).unwrap();
+    save_spot_preferences_setting(&mut connection, &preferences).unwrap();
     assert_eq!(
-        load_spot_preferences_at_path(&path).unwrap(),
+        load_spot_preferences_setting(&connection).unwrap(),
         Some(preferences.clone())
     );
     for invalid in [
@@ -576,19 +575,22 @@ fn theme_and_spot_preferences_persist_and_reject_invalid_values() {
         serde_json::json!({"favorites": vec!["spot"; 201], "recent": []}),
     ] {
         let invalid: SpotPreferences = serde_json::from_value(invalid).unwrap();
-        assert!(save_spot_preferences_at_path(&path, &invalid).is_err());
+        assert!(save_spot_preferences_setting(&mut connection, &invalid).is_err());
     }
     assert!(serde_json::from_value::<SpotPreferences>(
         serde_json::json!({"favorites": [], "recent": [], "extra": 1})
     )
     .is_err());
     assert_eq!(
-        load_spot_preferences_at_path(&path).unwrap(),
+        load_spot_preferences_setting(&connection).unwrap(),
         Some(preferences)
     );
-    save_settings(&path, &[("grind_spot_preferences", Some("not json"))]).unwrap();
-    assert!(load_spot_preferences_at_path(&path).is_err());
-    remove_temporary_database(&path);
+    save_settings(
+        &mut connection,
+        &[("grind_spot_preferences", Some("not json"))],
+    )
+    .unwrap();
+    assert!(load_spot_preferences_setting(&connection).is_err());
 }
 
 fn history_query() -> HistoryQuery {
@@ -871,27 +873,25 @@ fn history_index_migration_preserves_populated_version_two_database() {
 
 #[test]
 fn explicit_reupload_keeps_unknown_blocked_and_restores_prior_success() {
-    let (path, mut connection) = temporary_database();
+    let mut connection = database();
     let finished = session(SessionStatus::Finished);
     save_session_record(&mut connection, &finished).unwrap();
-    assert!(!claim_garmoth_upload(&path, &finished.id, false).unwrap());
-    finish_garmoth_upload(&path, &finished.id).unwrap();
-    assert!(claim_garmoth_upload(&path, &finished.id, false).is_err());
-    assert!(claim_garmoth_upload(&path, &finished.id, true).unwrap());
+    assert!(!claim_garmoth_upload(&mut connection, &finished.id, false).unwrap());
+    finish_garmoth_upload(&connection, &finished.id).unwrap();
+    assert!(claim_garmoth_upload(&mut connection, &finished.id, false).is_err());
+    assert!(claim_garmoth_upload(&mut connection, &finished.id, true).unwrap());
     assert_eq!(
         load_garmoth_upload_status(&connection, &finished.id).unwrap(),
         Some(GarmothUploadStatus::Unknown)
     );
-    assert!(claim_garmoth_upload(&path, &finished.id, true).is_err());
+    assert!(claim_garmoth_upload(&mut connection, &finished.id, true).is_err());
     // A connect failure on a repeat restores success instead of removing the old marker.
-    finish_garmoth_upload(&path, &finished.id).unwrap();
+    finish_garmoth_upload(&connection, &finished.id).unwrap();
     assert_eq!(
         load_garmoth_upload_status(&connection, &finished.id).unwrap(),
         Some(GarmothUploadStatus::Success)
     );
     assert!(reopen_session_record(&mut connection, &finished.id).is_err());
-    drop(connection);
-    remove_temporary_database(&path);
 }
 
 #[test]
@@ -948,17 +948,16 @@ fn rejects_invalid_consumable_session_metadata() {
 
 #[test]
 fn consumable_presets_persist_and_invalid_saves_do_not_replace_them() {
-    use super::consumable_presets::{load_at_path, save_at_path, ConsumablePreset};
-    let (path, connection) = temporary_database();
-    drop(connection);
-    assert!(load_at_path(&path).unwrap().is_empty());
+    use super::consumable_presets::{load_presets, save_presets, ConsumablePreset};
+    let mut connection = database();
+    assert!(load_presets(&connection).unwrap().is_empty());
     let value = serde_json::json!({"id":"preset", "name":"Cheapo123", "region":"eu", "items":[
         {"itemId":1411,"name":"Perfume of Envy","quantity":3,"unitPrice":50},
         {"itemId":100001510,"name":"Wind buff","quantity":1,"unitPrice":0}
     ]});
     let preset = serde_json::from_value::<ConsumablePreset>(value.clone()).unwrap();
-    save_at_path(&path, std::slice::from_ref(&preset)).unwrap();
-    assert_eq!(load_at_path(&path).unwrap(), vec![preset.clone()]);
+    save_presets(&mut connection, std::slice::from_ref(&preset)).unwrap();
+    assert_eq!(load_presets(&connection).unwrap(), vec![preset.clone()]);
     for (field, invalid) in [
         ("quantity", 0),
         ("unitPrice", -1),
@@ -968,13 +967,12 @@ fn consumable_presets_persist_and_invalid_saves_do_not_replace_them() {
         let mut changed = value.clone();
         changed["items"][0][field] = serde_json::json!(invalid);
         let invalid = serde_json::from_value::<ConsumablePreset>(changed).unwrap();
-        assert!(save_at_path(&path, &[invalid]).is_err());
-        assert_eq!(load_at_path(&path).unwrap(), vec![preset.clone()]);
+        assert!(save_presets(&mut connection, &[invalid]).is_err());
+        assert_eq!(load_presets(&connection).unwrap(), vec![preset.clone()]);
     }
-    assert!(save_at_path(&path, &[preset.clone(), preset.clone()]).is_err());
-    save_at_path(&path, &[]).unwrap();
-    assert!(load_at_path(&path).unwrap().is_empty());
-    remove_temporary_database(&path);
+    assert!(save_presets(&mut connection, &[preset.clone(), preset.clone()]).is_err());
+    save_presets(&mut connection, &[]).unwrap();
+    assert!(load_presets(&connection).unwrap().is_empty());
 }
 
 #[test]
@@ -1068,11 +1066,11 @@ fn read_then_write_operations_wait_for_a_concurrent_writer() {
     idle.elapsed_ms = 0;
     idle.entries.clear();
     save_session_record(&mut connection, &idle).unwrap();
-    save_settings(&path, &[("guarded", Some("expected"))]).unwrap();
+    save_settings(&mut connection, &[("guarded", Some("expected"))]).unwrap();
 
     with_concurrent_writer(&path, || {
         assert!(save_settings_if_unchanged(
-            &path,
+            &mut connection,
             "guarded",
             "expected",
             &[("guarded", Some("next"))]
@@ -1080,9 +1078,9 @@ fn read_then_write_operations_wait_for_a_concurrent_writer() {
         .unwrap())
     });
     with_concurrent_writer(&path, || {
-        claim_garmoth_upload(&path, &finished.id, false).unwrap();
+        claim_garmoth_upload(&mut connection, &finished.id, false).unwrap();
     });
-    release_garmoth_upload(&path, &finished.id).unwrap();
+    release_garmoth_upload(&connection, &finished.id).unwrap();
     with_concurrent_writer(&path, || {
         apply_finished_session_consumables_record(
             &mut connection,
@@ -1306,7 +1304,7 @@ fn reviewed_upload_keeps_saved_expenses_on_connect_failure_and_can_retry() {
             finished.entries[0].unit_price = 100;
             save_session_record(&mut connection, &finished).unwrap();
             save_settings(
-                &path,
+                &mut connection,
                 &[
                     ("garmoth.api_key", Some("test-key")),
                     (
@@ -1364,14 +1362,14 @@ fn reviewed_upload_keeps_saved_expenses_on_connect_failure_and_can_retry() {
                     .await
                     .is_err()
             );
-            claim_garmoth_upload(&path, &finished.id, false).unwrap();
+            claim_garmoth_upload(&mut connection, &finished.id, false).unwrap();
             drop(guard);
             assert!(pending.await.is_err());
             assert_eq!(
                 load_session_by_id(&connection, &finished.id).unwrap(),
                 Some(finished.clone())
             );
-            release_garmoth_upload(&path, &finished.id).unwrap();
+            release_garmoth_upload(&connection, &finished.id).unwrap();
             let result = serde_json::to_value(
                 upload(&input, &path, client.clone(), &base_url)
                     .await

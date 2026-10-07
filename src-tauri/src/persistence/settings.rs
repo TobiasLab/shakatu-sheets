@@ -1,11 +1,8 @@
-use std::path::PathBuf;
+use rusqlite::{params, Connection, OptionalExtension, Transaction, TransactionBehavior};
 
-use rusqlite::{params, OptionalExtension, Transaction, TransactionBehavior};
+use super::timestamp_ms;
 
-use super::{open_database, timestamp_ms};
-
-pub(crate) fn load_setting(path: &PathBuf, key: &str) -> Result<Option<String>, String> {
-    let connection = open_database(path)?;
+pub(crate) fn load_setting(connection: &Connection, key: &str) -> Result<Option<String>, String> {
     connection
         .query_row("SELECT value FROM settings WHERE key = ?1", [key], |row| {
             row.get(0)
@@ -15,10 +12,9 @@ pub(crate) fn load_setting(path: &PathBuf, key: &str) -> Result<Option<String>, 
 }
 
 pub(crate) fn save_settings(
-    path: &PathBuf,
+    connection: &mut Connection,
     settings: &[(&str, Option<&str>)],
 ) -> Result<(), String> {
-    let mut connection = open_database(path)?;
     let transaction = connection
         .transaction()
         .map_err(|error| error.to_string())?;
@@ -27,12 +23,11 @@ pub(crate) fn save_settings(
 }
 
 pub(crate) fn save_settings_if_unchanged(
-    path: &PathBuf,
+    connection: &mut Connection,
     expected_key: &str,
     expected_value: &str,
     settings: &[(&str, Option<&str>)],
 ) -> Result<bool, String> {
-    let mut connection = open_database(path)?;
     let transaction = connection
         .transaction_with_behavior(TransactionBehavior::Immediate)
         .map_err(|error| error.to_string())?;

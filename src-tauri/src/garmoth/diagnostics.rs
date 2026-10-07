@@ -1,7 +1,7 @@
 use serde_json::{json, Value};
 use tauri::State;
 
-use crate::persistence::{load_setting, DatabasePath};
+use crate::persistence::{load_setting, open_database, DatabasePath};
 
 use super::{get, parse_stored_characters, stored_api_key, GarmothOperations, CHARACTERS_SETTING};
 
@@ -135,8 +135,8 @@ pub(crate) async fn inspect_garmoth_consumables(
     operations: State<'_, GarmothOperations>,
 ) -> Result<String, String> {
     let _guard = operations.lock().await;
-    let path = state.path()?;
-    let characters = parse_stored_characters(load_setting(path, CHARACTERS_SETTING)?)?;
+    let connection = open_database(state.path()?)?;
+    let characters = parse_stored_characters(load_setting(&connection, CHARACTERS_SETTING)?)?;
     if !characters
         .iter()
         .any(|character| character.id == character_id)
@@ -146,7 +146,7 @@ pub(crate) async fn inspect_garmoth_consumables(
     let response = get(
         "/gear-planner/getCharacterBuilds",
         &[("ids", &character_id)],
-        &stored_api_key(path)?,
+        &stored_api_key(&connection)?,
         "inspecting consumables",
     )
     .await?;

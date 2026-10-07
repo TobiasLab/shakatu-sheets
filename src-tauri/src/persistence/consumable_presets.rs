@@ -1,9 +1,10 @@
-use std::{collections::HashSet, path::PathBuf};
+use std::collections::HashSet;
 
+use rusqlite::Connection;
 use serde::{Deserialize, Serialize};
 use tauri::State;
 
-use super::{load_setting, save_settings, DatabasePath, Region, MAX_SAFE_INTEGER};
+use super::{load_setting, open_database, save_settings, DatabasePath, Region, MAX_SAFE_INTEGER};
 
 const SETTING: &str = "consumable_presets";
 
@@ -68,8 +69,8 @@ fn validate(presets: &[ConsumablePreset]) -> Result<(), String> {
     Ok(())
 }
 
-pub(super) fn load_at_path(path: &PathBuf) -> Result<Vec<ConsumablePreset>, String> {
-    let Some(value) = load_setting(path, SETTING)? else {
+pub(super) fn load_presets(connection: &Connection) -> Result<Vec<ConsumablePreset>, String> {
+    let Some(value) = load_setting(connection, SETTING)? else {
         return Ok(Vec::new());
     };
     let presets = serde_json::from_str::<Vec<ConsumablePreset>>(&value)
@@ -78,17 +79,20 @@ pub(super) fn load_at_path(path: &PathBuf) -> Result<Vec<ConsumablePreset>, Stri
     Ok(presets)
 }
 
-pub(super) fn save_at_path(path: &PathBuf, presets: &[ConsumablePreset]) -> Result<(), String> {
+pub(super) fn save_presets(
+    connection: &mut Connection,
+    presets: &[ConsumablePreset],
+) -> Result<(), String> {
     validate(presets)?;
     let value = serde_json::to_string(presets).map_err(|error| error.to_string())?;
-    save_settings(path, &[(SETTING, Some(&value))])
+    save_settings(connection, &[(SETTING, Some(&value))])
 }
 
 #[tauri::command]
 pub fn load_consumable_presets(
     state: State<'_, DatabasePath>,
 ) -> Result<Vec<ConsumablePreset>, String> {
-    load_at_path(state.path()?)
+    load_presets(&open_database(state.path()?)?)
 }
 
 #[tauri::command]
@@ -96,5 +100,5 @@ pub fn save_consumable_presets(
     presets: Vec<ConsumablePreset>,
     state: State<'_, DatabasePath>,
 ) -> Result<(), String> {
-    save_at_path(state.path()?, &presets)
+    save_presets(&mut open_database(state.path()?)?, &presets)
 }

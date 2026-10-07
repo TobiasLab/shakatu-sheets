@@ -1,9 +1,8 @@
-use std::path::PathBuf;
-
+use rusqlite::Connection;
 use serde::{Deserialize, Serialize};
 use tauri::State;
 
-use super::{load_setting, save_settings, DatabasePath};
+use super::{load_setting, open_database, save_settings, DatabasePath};
 
 const THEME_KEY: &str = "theme";
 const SPOT_PREFERENCES_KEY: &str = "grind_spot_preferences";
@@ -27,11 +26,11 @@ pub struct SpotPreferences {
 /// `None` means the theme was never saved in SQLite.
 #[tauri::command]
 pub fn load_theme(state: State<'_, DatabasePath>) -> Result<Option<Theme>, String> {
-    load_theme_at_path(state.path()?)
+    load_theme_setting(&open_database(state.path()?)?)
 }
 
-pub(super) fn load_theme_at_path(path: &PathBuf) -> Result<Option<Theme>, String> {
-    match load_setting(path, THEME_KEY)?.as_deref() {
+pub(super) fn load_theme_setting(connection: &Connection) -> Result<Option<Theme>, String> {
+    match load_setting(connection, THEME_KEY)?.as_deref() {
         None => Ok(None),
         Some("light") => Ok(Some(Theme::Light)),
         Some("dark") => Ok(Some(Theme::Dark)),
@@ -41,15 +40,15 @@ pub(super) fn load_theme_at_path(path: &PathBuf) -> Result<Option<Theme>, String
 
 #[tauri::command]
 pub fn save_theme(theme: Theme, state: State<'_, DatabasePath>) -> Result<(), String> {
-    save_theme_at_path(state.path()?, theme)
+    save_theme_setting(&mut open_database(state.path()?)?, theme)
 }
 
-pub(super) fn save_theme_at_path(path: &PathBuf, theme: Theme) -> Result<(), String> {
+pub(super) fn save_theme_setting(connection: &mut Connection, theme: Theme) -> Result<(), String> {
     let value = match theme {
         Theme::Light => "light",
         Theme::Dark => "dark",
     };
-    save_settings(path, &[(THEME_KEY, Some(value))])
+    save_settings(connection, &[(THEME_KEY, Some(value))])
 }
 
 /// `None` means the grind-spot favorites and recents were never saved in SQLite.
@@ -57,13 +56,13 @@ pub(super) fn save_theme_at_path(path: &PathBuf, theme: Theme) -> Result<(), Str
 pub fn load_spot_preferences(
     state: State<'_, DatabasePath>,
 ) -> Result<Option<SpotPreferences>, String> {
-    load_spot_preferences_at_path(state.path()?)
+    load_spot_preferences_setting(&open_database(state.path()?)?)
 }
 
-pub(super) fn load_spot_preferences_at_path(
-    path: &PathBuf,
+pub(super) fn load_spot_preferences_setting(
+    connection: &Connection,
 ) -> Result<Option<SpotPreferences>, String> {
-    let Some(value) = load_setting(path, SPOT_PREFERENCES_KEY)? else {
+    let Some(value) = load_setting(connection, SPOT_PREFERENCES_KEY)? else {
         return Ok(None);
     };
     let preferences = serde_json::from_str(&value)
@@ -77,16 +76,16 @@ pub fn save_spot_preferences(
     preferences: SpotPreferences,
     state: State<'_, DatabasePath>,
 ) -> Result<(), String> {
-    save_spot_preferences_at_path(state.path()?, &preferences)
+    save_spot_preferences_setting(&mut open_database(state.path()?)?, &preferences)
 }
 
-pub(super) fn save_spot_preferences_at_path(
-    path: &PathBuf,
+pub(super) fn save_spot_preferences_setting(
+    connection: &mut Connection,
     preferences: &SpotPreferences,
 ) -> Result<(), String> {
     validate_spot_preferences(preferences)?;
     let value = serde_json::to_string(preferences).map_err(|error| error.to_string())?;
-    save_settings(path, &[(SPOT_PREFERENCES_KEY, Some(&value))])
+    save_settings(connection, &[(SPOT_PREFERENCES_KEY, Some(&value))])
 }
 
 fn validate_spot_preferences(preferences: &SpotPreferences) -> Result<(), String> {

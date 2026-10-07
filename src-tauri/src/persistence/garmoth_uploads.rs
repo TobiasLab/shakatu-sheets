@@ -1,9 +1,7 @@
-use std::path::PathBuf;
-
 use rusqlite::{params, Connection, OptionalExtension, TransactionBehavior};
 use serde::Serialize;
 
-use super::{open_database, timestamp_ms};
+use super::timestamp_ms;
 
 #[derive(Clone, Copy, Debug, PartialEq, Serialize)]
 #[serde(rename_all = "lowercase")]
@@ -37,11 +35,10 @@ pub(super) fn load_garmoth_upload_status(
 }
 
 pub(crate) fn claim_garmoth_upload(
-    path: &PathBuf,
+    connection: &mut Connection,
     session_id: &str,
     repeat_upload: bool,
 ) -> Result<bool, String> {
-    let mut connection = open_database(path)?;
     let transaction = connection
         .transaction_with_behavior(TransactionBehavior::Immediate)
         .map_err(|error| error.to_string())?;
@@ -85,8 +82,10 @@ pub(crate) fn claim_garmoth_upload(
     Ok(false)
 }
 
-pub(crate) fn finish_garmoth_upload(path: &PathBuf, session_id: &str) -> Result<(), String> {
-    let connection = open_database(path)?;
+pub(crate) fn finish_garmoth_upload(
+    connection: &Connection,
+    session_id: &str,
+) -> Result<(), String> {
     let changed = connection
         .execute(
             "UPDATE garmoth_uploads SET status = 'success', updated_at = ?1
@@ -101,8 +100,10 @@ pub(crate) fn finish_garmoth_upload(path: &PathBuf, session_id: &str) -> Result<
     }
 }
 
-pub(crate) fn release_garmoth_upload(path: &PathBuf, session_id: &str) -> Result<(), String> {
-    let connection = open_database(path)?;
+pub(crate) fn release_garmoth_upload(
+    connection: &Connection,
+    session_id: &str,
+) -> Result<(), String> {
     let changed = connection
         .execute(
             "DELETE FROM garmoth_uploads WHERE session_id = ?1 AND status = 'unknown'",
