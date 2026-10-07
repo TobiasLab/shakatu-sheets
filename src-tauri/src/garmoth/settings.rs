@@ -177,9 +177,9 @@ pub(crate) async fn fetch_garmoth_characters(
     operations: State<'_, GarmothOperations>,
 ) -> Result<Vec<GarmothCharacter>, String> {
     let _guard = operations.lock().await;
+    let character_ids = parse_character_ids(&character_ids)?;
     let mut connection = open_database(state.path()?)?;
     let api_key = stored_api_key(&connection)?;
-    let character_ids = parse_character_ids(&character_ids)?;
     let ids = character_ids
         .iter()
         .map(String::as_str)
