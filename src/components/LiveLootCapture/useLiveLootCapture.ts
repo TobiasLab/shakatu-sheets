@@ -1,10 +1,7 @@
 import { type PointerEvent as ReactPointerEvent, useEffect, useLayoutEffect, useRef, useState } from "react";
 import {
-    type DebugRoiSampleCollectionStatus,
-    debugRoiSampleCollectionStatus,
     type LootCaptureSettings,
     loadLootCaptureSettings,
-    logRoiOcrIssue,
     type NativeCaptureCapabilities,
     type NativeCaptureFrame,
     type NativeCaptureSelection,
@@ -13,9 +10,7 @@ import {
     saveLootCaptureSettings,
     setNativeDisplayCapturePreviewEnabled,
     setNativeDisplayCaptureRegion,
-    startDebugRoiSampleCollection,
     startNativeDisplayCapture,
-    stopDebugRoiSampleCollection,
     stopNativeDisplayCapture,
     supportsTauriApi,
 } from "../../api/tauri";
@@ -59,18 +54,19 @@ import {
     findRareLootGeometry,
     supportsAutomaticLootLocalization,
 } from "../../recognition/liveLootProfiles";
-import {
-    acceptLiveLootReviewEntry,
-    appendLiveLootReviewResult,
-    correctLiveLootReviewEntry,
-    type LiveLootReviewEntry,
-} from "../../recognition/liveLootReview";
+import type { LiveLootReviewEntry } from "../../recognition/liveLootReview";
 import { LIVE_LOOT_SAMPLE_FPS } from "../../recognition/lootCaptureTiming";
 import type { LootFont } from "../../recognition/lootFont";
 import { suggestUnresolvedQuantity } from "../../recognition/quantityLearning";
 import { RARE_LOOT_OCR_SELECTION, RareLootFrameAnalyzer, rareLootDetectionProfile } from "../../recognition/rareLoot";
 import { RareLootLocalizer } from "../../recognition/rareLootLocalization";
-import { RoiOcrDiagnostics, type RoiOcrIssue, roiOcrFailure } from "../../recognition/roiOcrDiagnostics";
+import { RoiOcrDiagnostics, roiOcrFailure } from "../../recognition/roiOcrDiagnostics";
+import {
+    formatSampleCollectionBytes,
+    formatSampleCollectionCountdown,
+    useDebugSampleCollection,
+} from "./useDebugSampleCollection";
+import { resultDescription, useLiveLootReviewQueue } from "./useLiveLootReviewQueue";
 
 type CaptureStatus = "idle" | "requesting" | "connecting" | "capturing";
 type RecognitionStatus = "idle" | "starting" | "active" | "unavailable" | "error";
@@ -85,7 +81,6 @@ type RecognitionPipeline = {
     createRareRecognition: () => { rareCoordinator: LiveLootCoordinator; rareDiagnostics: RoiOcrDiagnostics };
     ocr: LiveLootTesseractOcr;
 };
-type AutomaticRetry = { timerId: number; retriesRemaining: number };
 type OcrSource = LiveLootReviewEntry["source"];
 type OcrPipelineDiagnostics = {
     outstandingJobs: number;
@@ -119,7 +114,6 @@ export type LiveLootCaptureProps = {
     onAcceptRecognition: (itemName: string, quantity: number, source?: "manual" | "recognition") => string | null;
 };
 
-const AUTOMATIC_INSERTION_RETRY_DELAYS = [1_000, 2_000, 4_000] as const;
 const MAX_PENDING_RECOGNITION_FRAMES = 64;
 const NORMAL_MAX_OUTSTANDING_OCR_JOBS = 8;
 const RARE_MAX_OUTSTANDING_OCR_JOBS = 2;
@@ -153,18 +147,6 @@ function formatOcrDuration(diagnostics: OcrWorkerDiagnostics) {
     if (diagnostics.completedJobs === 0) return "Waiting...";
     const average = diagnostics.totalDurationMs / diagnostics.completedJobs;
     return `${(diagnostics.lastDurationMs / 1_000).toFixed(1)}s last / ${(average / 1_000).toFixed(1)}s avg (${diagnostics.completedJobs})`;
-}
-
-function formatSampleCollectionCountdown(deadline: number | null, now: number) {
-    const seconds = Math.max(0, Math.ceil(((deadline ?? now) - now) / 1_000));
-    return `${String(Math.floor(seconds / 60)).padStart(2, "0")}:${String(seconds % 60).padStart(2, "0")}`;
-}
-
-function formatSampleCollectionBytes(bytes: number) {
-    if (bytes >= 1_000_000_000) return `${(bytes / 1_000_000_000).toFixed(2)} GB`;
-    if (bytes >= 1_000_000) return `${(bytes / 1_000_000).toFixed(1)} MB`;
-    if (bytes >= 1_000) return `${(bytes / 1_000).toFixed(1)} KB`;
-    return `${bytes} B`;
 }
 
 function createNativeCaptureToken() {
@@ -250,50 +232,6 @@ function regionsCaptureSelection(
     };
 }
 
-function resultDescription(result: LiveLootRecognitionResult) {
-    if (result.status === "recognized")
-        return `${result.itemName} x ${result.quantity}${result.learnedQuantity ? " (self-improvement)" : ""}`;
-    if (result.status === "failed") return "Local OCR failed for this notification.";
-    if (result.status === "dropped") {
-        const cause =
-            result.reason === "backpressure-summary"
-                ? "the OCR job capacity was full"
-                : result.reason === "result-overflow-summary"
-                  ? "recognition results could not be retained"
-                  : "recognition capacity was exceeded";
-        return `${result.count} notifications dropped because ${cause}.`;
-    }
-    if (result.reason === "insufficient-observations") return "Notification disappeared before three stable frames.";
-    if (result.reason === "item-not-recognized") return "OCR item did not match the active grind spot.";
-    if (result.reason === "quantity-not-recognized") return "OCR did not find a stable quantity suffix.";
-    return "No item and quantity pair reached consensus.";
-}
-
-function resultAnnouncement(
-    entry: LiveLootReviewEntry,
-    automaticRetriesRemaining?: number,
-    manualRetryAttempt?: number,
-) {
-    const source = entry.source === "rare" ? "rare banner" : "normal loot";
-    const description = resultDescription(entry.result);
-    if (entry.accepted && entry.result.status !== "recognized")
-        return `Result ${entry.id + 1}, ${source}: Added to the session.`;
-    if (entry.error && entry.result.status !== "recognized") return `Result ${entry.id + 1}, ${source}: ${entry.error}`;
-    if (entry.result.status !== "recognized") return `Result ${entry.id + 1}, ${source}: ${description}`;
-    if (entry.accepted) return `Result ${entry.id + 1}, ${source}: ${description}. Added to the session.`;
-    if (entry.error) {
-        const nextAction =
-            automaticRetriesRemaining === undefined
-                ? "Select Retry add."
-                : automaticRetriesRemaining > 0
-                  ? `${automaticRetriesRemaining} automatic ${automaticRetriesRemaining === 1 ? "retry remains" : "retries remain"}.`
-                  : "Automatic retries exhausted. Select Retry add.";
-        const attempt = manualRetryAttempt ? `Manual retry ${manualRetryAttempt} failed. ` : "";
-        return `Result ${entry.id + 1}, ${source}: ${description}. ${attempt}Insertion failed: ${entry.error}. ${nextAction}`;
-    }
-    return `Result ${entry.id + 1}, ${source}: ${description}. Automatic insertion is pending.`;
-}
-
 export function useLiveLootCapture({
     lootFont,
     lootFontReady,
@@ -367,18 +305,12 @@ export function useLiveLootCapture({
     const recognitionStartup = useRef<Promise<void> | null>(null);
     const recognitionRequestedRef = useRef(false);
     const ocrDiagnosticsRef = useRef<OcrDiagnostics>(emptyOcrDiagnostics());
-    const sampleCollectionRevision = useRef(0);
     const pendingLocalizationReplay = useRef<LootRoiFrame[]>([]);
     const pendingRecognitionFrames = useRef<LootRoiFrame[]>([]);
     const pendingRareRecognitionFrames = useRef<LootRoiFrame[]>([]);
     const pendingRecognitionOverflowed = useRef(false);
     const localizer = useRef<NormalLootLocalizer | RareLootLocalizer | null>(null);
-    const nextReviewResultId = useRef(0);
-    const reviewResultsRef = useRef<LiveLootReviewEntry[]>([]);
-    const automaticRetries = useRef(new Map<number, AutomaticRetry>());
-    const manualRetryAttempts = useRef(new Map<number, number>());
     const itemDictionaryRef = useRef(itemDictionary);
-    const onAcceptRecognitionRef = useRef(onAcceptRecognition);
     const [status, setStatus] = useState<CaptureStatus>("idle");
     const [error, setError] = useState("");
     const [sampledFps, setSampledFps] = useState(0);
@@ -410,23 +342,17 @@ export function useLiveLootCapture({
     const [recognitionError, setRecognitionError] = useState("");
     const [recognitionReset, setRecognitionReset] = useState(0);
     const [ocrDiagnostics, setOcrDiagnostics] = useState<OcrDiagnostics>(emptyOcrDiagnostics);
-    const [reviewResults, setReviewResults] = useState<LiveLootReviewEntry[]>([]);
-    const [omittedReviewResults, setOmittedReviewResults] = useState(0);
-    const [recognitionAnnouncement, setRecognitionAnnouncement] = useState("");
-    const sampleCollectionRef = useRef<DebugRoiSampleCollectionStatus | null>(null);
-    const diagnosticWrites = useRef(0);
-    const [sampleCollection, setSampleCollectionState] = useState<DebugRoiSampleCollectionStatus | null>(null);
-    const [sampleDiagnosticError, setSampleDiagnosticError] = useState("");
-    const [sampleCollectionBusy, setSampleCollectionBusy] = useState(false);
-    const [sampleCollectionError, setSampleCollectionError] = useState("");
-    const [sampleCollectionNow, setSampleCollectionNow] = useState(Date.now());
-    const [debugSampleCollectionAvailable, setDebugSampleCollectionAvailable] = useState(false);
     const [nativeAppliedSelectionKey, setNativeAppliedSelectionKey] = useState("");
     const [captureCapabilities, setCaptureCapabilities] = useState<NativeCaptureCapabilities | null>(null);
     const lastNativeArrival = useRef<number | null>(null);
     const [sourceWaiting, setSourceWaiting] = useState(false);
     const captureSessionId = useRef(sessionId);
-    const debugSampleCollectionCandidate = import.meta.env.DEV && captureCapabilities?.debugRoiSamples === true;
+    const samples = useDebugSampleCollection({
+        candidate: import.meta.env.DEV && captureCapabilities?.debugRoiSamples === true,
+        font: captureFont,
+        nativeCaptureToken,
+        waitForNativeSelection,
+    });
     useEffect(() => {
         let cancelled = false;
         void nativeCaptureCapabilities()
@@ -447,29 +373,13 @@ export function useLiveLootCapture({
         }
     }, [sessionId]);
     const sessionActive = isActiveSessionStatus(sessionStatus);
+    const review = useLiveLootReviewQueue({ sessionId, sessionActive, databaseLoaded, learning, onAcceptRecognition });
     const captureAllowed = databaseLoaded && sessionActive && captureCapabilities !== null;
 
     useLayoutEffect(() => {
         activeSessionId.current = sessionId;
         itemDictionaryRef.current = itemDictionary;
-        onAcceptRecognitionRef.current = onAcceptRecognition;
-    }, [itemDictionary, onAcceptRecognition, sessionId]);
-
-    useEffect(() => {
-        if (!debugSampleCollectionCandidate) return;
-        let cancelled = false;
-        const revision = ++sampleCollectionRevision.current;
-        void debugRoiSampleCollectionStatus()
-            .then((current) => {
-                if (cancelled || revision !== sampleCollectionRevision.current) return;
-                setDebugSampleCollectionAvailable(true);
-                if (current.phase !== "idle") setSampleCollection(current);
-            })
-            .catch(() => undefined);
-        return () => {
-            cancelled = true;
-        };
-    }, [debugSampleCollectionCandidate]);
+    }, [itemDictionary, sessionId]);
 
     function updateRegion(kind: LootRegionKind, next: NormalizedRegion | null) {
         if (kind === "normal") {
@@ -556,32 +466,6 @@ export function useLiveLootCapture({
         if (uiScaleRef.current !== next) setNativeAppliedSelectionKey("");
         uiScaleRef.current = next;
         setUiScalePercent(next);
-    }
-
-    function setSampleCollection(next: DebugRoiSampleCollectionStatus) {
-        sampleCollectionRef.current = next;
-        setSampleCollectionState(next);
-    }
-    function emitOcrIssue(issue: RoiOcrIssue) {
-        if (diagnosticWrites.current >= 32) {
-            setSampleDiagnosticError("OCR diagnostic queue is full; some OCR logs were dropped.");
-            return;
-        }
-        diagnosticWrites.current += 1;
-        void logRoiOcrIssue({ ...issue, font: captureFont })
-            .catch((error) => {
-                if (mounted.current) setSampleDiagnosticError(`Could not save OCR diagnostics: ${String(error)}`);
-            })
-            .finally(() => {
-                diagnosticWrites.current -= 1;
-            });
-    }
-    function sampleReference(batchId: number) {
-        const run = sampleCollectionRef.current;
-        const captureToken = nativeCaptureToken.current;
-        if (run?.phase !== "running" || !run.path || captureToken === null || Date.now() >= (run.deadlineAtUnixMs ?? 0))
-            return undefined;
-        return { captureToken, collectionPath: run.path, batchId };
     }
 
     function clearLocalization() {
@@ -729,100 +613,6 @@ export function useLiveLootCapture({
         current.rareCoordinator = next.rareCoordinator;
         current.rareDiagnostics = next.rareDiagnostics;
         recordOutstandingOcrJobs("rare", 0);
-    }
-
-    function cancelAutomaticRetry(id: number) {
-        const retry = automaticRetries.current.get(id);
-        if (!retry) return 0;
-        window.clearTimeout(retry.timerId);
-        automaticRetries.current.delete(id);
-        return retry.retriesRemaining;
-    }
-
-    function clearAutomaticRetries() {
-        for (const retry of automaticRetries.current.values()) window.clearTimeout(retry.timerId);
-        automaticRetries.current.clear();
-    }
-
-    function replaceReviewEntry(
-        entry: LiveLootReviewEntry,
-        automaticRetriesRemaining?: number,
-        manualRetryAttempt?: number,
-    ) {
-        let retained = false;
-        const next = reviewResultsRef.current.map((candidate) => {
-            if (candidate.id !== entry.id) return candidate;
-            retained = true;
-            return entry;
-        });
-        if (!retained) return;
-        reviewResultsRef.current = next;
-        setReviewResults(next);
-        setRecognitionAnnouncement(resultAnnouncement(entry, automaticRetriesRemaining, manualRetryAttempt));
-    }
-
-    function scheduleAutomaticRetry(entry: LiveLootReviewEntry, retriesRemaining: number) {
-        if (entry.accepted || entry.result.status !== "recognized" || retriesRemaining < 1) return;
-        cancelAutomaticRetry(entry.id);
-        const retrySessionId = activeSessionId.current;
-        const delayIndex = AUTOMATIC_INSERTION_RETRY_DELAYS.length - retriesRemaining;
-        const timerId = window.setTimeout(() => {
-            const pending = automaticRetries.current.get(entry.id);
-            if (!pending || pending.timerId !== timerId) return;
-            automaticRetries.current.delete(entry.id);
-            if (!mounted.current || activeSessionId.current !== retrySessionId) return;
-            const current = reviewResultsRef.current.find((candidate) => candidate.id === entry.id) ?? entry;
-            const retried = acceptLiveLootReviewEntry(current, onAcceptRecognitionRef.current);
-            replaceReviewEntry(retried, retriesRemaining - 1);
-            if (retried.accepted) manualRetryAttempts.current.delete(entry.id);
-            scheduleAutomaticRetry(retried, retriesRemaining - 1);
-        }, AUTOMATIC_INSERTION_RETRY_DELAYS[delayIndex]);
-        automaticRetries.current.set(entry.id, { timerId, retriesRemaining });
-    }
-
-    function acceptReviewResult(id: number) {
-        const review = reviewResultsRef.current.find((candidate) => candidate.id === id);
-        if (!review || review.accepted || review.result.status !== "recognized") return;
-        const manualRetryAttempt = (manualRetryAttempts.current.get(id) ?? 0) + 1;
-        manualRetryAttempts.current.set(id, manualRetryAttempt);
-        const retried = acceptLiveLootReviewEntry(review, onAcceptRecognitionRef.current);
-        replaceReviewEntry(retried, automaticRetries.current.get(id)?.retriesRemaining, manualRetryAttempt);
-        if (retried.accepted) {
-            cancelAutomaticRetry(id);
-            manualRetryAttempts.current.delete(id);
-        }
-    }
-
-    function correctReviewResult(id: number, itemName: string, quantity: number) {
-        if (!sessionActive || !databaseLoaded) return;
-        const review = reviewResultsRef.current.find((entry) => entry.id === id);
-        if (!review) return;
-        const corrected = correctLiveLootReviewEntry(review, itemName, quantity, (name, count) =>
-            onAcceptRecognitionRef.current(name, count, "manual"),
-        );
-        replaceReviewEntry(corrected);
-        if (!review.accepted && corrected.accepted) {
-            cancelAutomaticRetry(id);
-            learning.learnCorrection(review, quantity, itemName);
-        }
-    }
-
-    function dismissReviewResult(id: number) {
-        cancelAutomaticRetry(id);
-        manualRetryAttempts.current.delete(id);
-        const next = reviewResultsRef.current.filter((entry) => entry.id !== id);
-        reviewResultsRef.current = next;
-        setReviewResults(next);
-        setRecognitionAnnouncement("Dismissed review entry. Session loot is unchanged.");
-    }
-
-    function clearReviewResults() {
-        clearAutomaticRetries();
-        manualRetryAttempts.current.clear();
-        reviewResultsRef.current = [];
-        setReviewResults([]);
-        setOmittedReviewResults(0);
-        setRecognitionAnnouncement("");
     }
 
     function queueSettingsSave(settings: LootCaptureSettings) {
@@ -984,7 +774,7 @@ export function useLiveLootCapture({
         const captureToken = nativeCaptureToken.current;
         nativeCapture.current = false;
         nativeCaptureToken.current = null;
-        sampleCollectionRef.current = null;
+        samples.forgetSampleCollection();
         if (captureToken !== null) void stopNativeDisplayCapture(captureToken);
         stopDisplayCapture(activeStream.current);
         activeStream.current = null;
@@ -1036,7 +826,7 @@ export function useLiveLootCapture({
             if (pipeline) await Promise.all([pipeline.normalCoordinator.finish(), pipeline.rareCoordinator.finish()]);
             if (!mounted.current || activeSessionId.current !== reviewSession || requestId.current !== captureRequest)
                 return null;
-            return reviewResultsRef.current.filter((entry) => !entry.accepted).length;
+            return review.unacceptedReviewCount();
         } finally {
             if (mounted.current && activeSessionId.current === reviewSession && requestId.current === captureRequest)
                 stopCapture();
@@ -1114,37 +904,13 @@ export function useLiveLootCapture({
         }
     }, [regionConfirmed]);
 
-    async function toggleSampleCollection() {
-        const captureToken = nativeCaptureToken.current;
-        if (captureToken === null || sampleCollectionBusy) return;
-        const revision = ++sampleCollectionRevision.current;
-        setSampleCollectionBusy(true);
-        setSampleCollectionError("");
-        try {
-            let next: DebugRoiSampleCollectionStatus;
-            if (sampleCollection?.phase === "running") {
-                sampleCollectionRef.current = null;
-                next = await stopDebugRoiSampleCollection(captureToken);
-            } else {
-                let awaitedSelectionRevision: number;
-                do {
-                    awaitedSelectionRevision = nativeSelectionRevision.current;
-                    await nativeSelectionUpdate.current;
-                } while (awaitedSelectionRevision !== nativeSelectionRevision.current);
-                next = await startDebugRoiSampleCollection(captureToken);
-                setSampleDiagnosticError("");
-            }
-            if (!mounted.current || revision !== sampleCollectionRevision.current) return;
-            setSampleCollection(next);
-            setSampleCollectionNow(Date.now());
-        } catch (collectionError) {
-            if (!mounted.current || revision !== sampleCollectionRevision.current) return;
-            setSampleCollectionError(
-                collectionError instanceof Error ? collectionError.message : String(collectionError),
-            );
-        } finally {
-            if (mounted.current && revision === sampleCollectionRevision.current) setSampleCollectionBusy(false);
-        }
+    /** Resolves once the most recently requested native crop selection has been applied. */
+    async function waitForNativeSelection() {
+        let awaitedSelectionRevision: number;
+        do {
+            awaitedSelectionRevision = nativeSelectionRevision.current;
+            await nativeSelectionUpdate.current;
+        } while (awaitedSelectionRevision !== nativeSelectionRevision.current);
     }
 
     async function startCapture() {
@@ -1237,7 +1003,7 @@ export function useLiveLootCapture({
                                     width: frame.width,
                                     height: frame.height,
                                     pixels: frame.pixels,
-                                    sample: sampleReference(frame.batchId),
+                                    sample: samples.sampleReference(frame.batchId),
                                     captureBatch: { captureToken, batchId: frame.batchId },
                                 });
                             }
@@ -1256,7 +1022,7 @@ export function useLiveLootCapture({
                                     width: frame.width,
                                     height: frame.height,
                                     pixels: frame.pixels,
-                                    sample: sampleReference(frame.batchId),
+                                    sample: samples.sampleReference(frame.batchId),
                                     captureBatch: { captureToken, batchId: frame.batchId },
                                 });
                             }
@@ -1309,7 +1075,7 @@ export function useLiveLootCapture({
                 const captureToken = nativeCaptureToken.current;
                 nativeCapture.current = false;
                 nativeCaptureToken.current = null;
-                sampleCollectionRef.current = null;
+                samples.forgetSampleCollection();
                 if (captureToken !== null) void stopNativeDisplayCapture(captureToken);
             }
             stopDisplayCapture(stream);
@@ -1554,7 +1320,7 @@ export function useLiveLootCapture({
         ? findLiveLootProfile(sourceDimensions.width, sourceDimensions.height, uiScalePercent)
         : null;
     const displayedRecognitionStatus = sourceDimensions && !calibratedProfile ? "unavailable" : recognitionStatus;
-    const pendingReviews = reviewResults.filter((entry) => !entry.accepted).length;
+    const pendingReviews = review.reviewResults.filter((entry) => !entry.accepted).length;
     useEffect(() => {
         const failed = Boolean(error || recognitionError);
         onStatusChange({
@@ -1596,10 +1362,9 @@ export function useLiveLootCapture({
     }, [recognitionRequested]);
 
     useLayoutEffect(() => {
-        nextReviewResultId.current = 0;
         localizer.current?.clear();
         stopRecognition(false);
-        clearReviewResults();
+        review.resetReviewResults();
     }, [grindSpotId, sessionId]);
 
     useEffect(() => {
@@ -1635,10 +1400,7 @@ export function useLiveLootCapture({
                         generation !== recognitionGeneration.current
                     )
                         return;
-                    const id = nextReviewResultId.current;
-                    nextReviewResultId.current += 1;
-                    const pendingEntry: LiveLootReviewEntry = {
-                        id,
+                    review.addReviewResult({
                         source,
                         font: captureFont,
                         learningId: crypto.randomUUID(),
@@ -1652,27 +1414,9 @@ export function useLiveLootCapture({
                               }
                             : undefined,
                         result,
-                        accepted: false,
-                        error: "",
-                    };
-                    const entry = acceptLiveLootReviewEntry(pendingEntry, onAcceptRecognitionRef.current);
-                    const appended = appendLiveLootReviewResult(reviewResultsRef.current, entry);
-                    reviewResultsRef.current = appended.results;
-                    setReviewResults(appended.results);
-                    const retainedIds = new Set(appended.results.map(({ id }) => id));
-                    for (const reviewId of automaticRetries.current.keys()) {
-                        if (!retainedIds.has(reviewId)) cancelAutomaticRetry(reviewId);
-                    }
-                    for (const reviewId of manualRetryAttempts.current.keys()) {
-                        if (!retainedIds.has(reviewId)) manualRetryAttempts.current.delete(reviewId);
-                    }
-                    setRecognitionAnnouncement(resultAnnouncement(entry, AUTOMATIC_INSERTION_RETRY_DELAYS.length));
-                    scheduleAutomaticRetry(entry, AUTOMATIC_INSERTION_RETRY_DELAYS.length);
-                    if (appended.omittedCount > 0) {
-                        setOmittedReviewResults((current) => current + appended.omittedCount);
-                    }
+                    });
                 };
-                const normalDiagnostics = new RoiOcrDiagnostics("normal", generation, emitOcrIssue);
+                const normalDiagnostics = new RoiOcrDiagnostics("normal", generation, samples.emitOcrIssue);
                 const normalCoordinator = new LiveLootCoordinator({
                     font: captureFont,
                     sampleFps: LIVE_LOOT_SAMPLE_FPS,
@@ -1702,7 +1446,7 @@ export function useLiveLootCapture({
                     maxPendingOcrJobs: NORMAL_MAX_OUTSTANDING_OCR_JOBS,
                 });
                 const createRareRecognition = () => {
-                    const rareDiagnostics = new RoiOcrDiagnostics("rare", generation, emitOcrIssue);
+                    const rareDiagnostics = new RoiOcrDiagnostics("rare", generation, samples.emitOcrIssue);
                     const rareAnalyzer = new RareLootFrameAnalyzer(rareGeometry, LIVE_LOOT_SAMPLE_FPS);
                     const rareCoordinator = new LiveLootCoordinator({
                         font: captureFont,
@@ -1760,7 +1504,9 @@ export function useLiveLootCapture({
                 ] as const) {
                     const sample = [...frames].reverse().find((frame) => frame.sample)?.sample;
                     if (sample)
-                        emitOcrIssue(roiOcrFailure(sample, source, generation, "ocr-startup-failure", setupError));
+                        samples.emitOcrIssue(
+                            roiOcrFailure(sample, source, generation, "ocr-startup-failure", setupError),
+                        );
                 }
                 pendingLocalizationReplay.current.length = 0;
                 pendingRecognitionFrames.current.length = 0;
@@ -1993,51 +1739,16 @@ export function useLiveLootCapture({
     useLayoutEffect(() => {
         if (!sessionActive) {
             stopRecognition(false);
-            clearReviewResults();
+            review.clearReviewResults();
         }
     }, [sessionActive]);
 
     useEffect(() => {
         if (!sessionActive) {
-            clearAutomaticRetries();
+            review.clearAutomaticRetries();
             if (status !== "idle") stopCapture();
         }
     }, [sessionActive, status]);
-
-    useEffect(() => {
-        if (
-            !debugSampleCollectionAvailable ||
-            sampleCollectionBusy ||
-            (sampleCollection?.phase !== "running" && sampleCollection?.phase !== "finalizing")
-        )
-            return;
-        let cancelled = false;
-        let timer = 0;
-        const revision = sampleCollectionRevision.current;
-        const refresh = async () => {
-            setSampleCollectionNow(Date.now());
-            try {
-                const next = await debugRoiSampleCollectionStatus();
-                if (cancelled || revision !== sampleCollectionRevision.current) return;
-                setSampleCollection(next);
-                setSampleCollectionError("");
-                if (next.phase === "running" || next.phase === "finalizing") {
-                    timer = window.setTimeout(() => void refresh(), 1_000);
-                }
-            } catch (collectionError) {
-                if (cancelled || revision !== sampleCollectionRevision.current) return;
-                setSampleCollectionError(
-                    collectionError instanceof Error ? collectionError.message : String(collectionError),
-                );
-                timer = window.setTimeout(() => void refresh(), 1_000);
-            }
-        };
-        timer = window.setTimeout(() => void refresh(), 1_000);
-        return () => {
-            cancelled = true;
-            window.clearTimeout(timer);
-        };
-    }, [debugSampleCollectionAvailable, sampleCollection?.phase, sampleCollectionBusy]);
 
     useEffect(() => {
         if (status !== "capturing" || nativeCapture.current) return;
@@ -2194,7 +1905,6 @@ export function useLiveLootCapture({
         return () => {
             mounted.current = false;
             requestId.current += 1;
-            clearAutomaticRetries();
             clearLocalization();
             stopRecognition(false);
             stopDisplayCapture(activeStream.current);
@@ -2238,8 +1948,8 @@ export function useLiveLootCapture({
                   rareRegionConfirmed,
                   captureFont,
               );
-    const sampleCollectionActive = sampleCollection?.phase === "running";
-    const sampleCollectionFinalizing = sampleCollection?.phase === "finalizing";
+    const sampleCollectionActive = samples.sampleCollection?.phase === "running";
+    const sampleCollectionFinalizing = samples.sampleCollection?.phase === "finalizing";
     const sampleCollectionReady =
         nativeCapture.current &&
         normalCaptureRegion !== null &&
@@ -2361,27 +2071,27 @@ export function useLiveLootCapture({
         formatOcrDuration,
         grindSpotName,
         itemDictionary,
-        debugSampleCollectionAvailable,
-        sampleCollectionBusy,
+        debugSampleCollectionAvailable: samples.debugSampleCollectionAvailable,
+        sampleCollectionBusy: samples.sampleCollectionBusy,
         sampleCollectionFinalizing,
         sampleCollectionActive,
         sampleCollectionReady,
-        toggleSampleCollection,
-        sampleCollection,
+        toggleSampleCollection: samples.toggleSampleCollection,
+        sampleCollection: samples.sampleCollection,
         formatSampleCollectionBytes,
         formatSampleCollectionCountdown,
-        sampleCollectionNow,
-        sampleCollectionError: [sampleCollectionError, sampleDiagnosticError].filter(Boolean).join(" "),
+        sampleCollectionNow: samples.sampleCollectionNow,
+        sampleCollectionError: samples.sampleCollectionError,
         normalRegionCanvas,
         rareRegionCanvas,
-        recognitionAnnouncement,
-        reviewResults,
-        clearReviewResults,
-        dismissReviewResult,
+        recognitionAnnouncement: review.recognitionAnnouncement,
+        reviewResults: review.reviewResults,
+        clearReviewResults: review.clearReviewResults,
+        dismissReviewResult: review.dismissReviewResult,
         prepareReview,
-        omittedReviewResults,
+        omittedReviewResults: review.omittedReviewResults,
         resultDescription,
-        acceptReviewResult,
-        correctReviewResult,
+        acceptReviewResult: review.acceptReviewResult,
+        correctReviewResult: review.correctReviewResult,
     };
 }
