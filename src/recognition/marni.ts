@@ -31,7 +31,10 @@ export function parseMarniDuration(text: string): number | null {
 }
 
 function spotWords(value: string) {
-    return value.toLocaleLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+    return value
+        .toLocaleLowerCase()
+        .replace(/[^a-z0-9]+/g, " ")
+        .trim();
 }
 
 export function detectGrindSpot(text: string, fallbackId: string): string {

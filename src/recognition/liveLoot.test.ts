@@ -1380,7 +1380,7 @@ it.each([false, true])("reads additional frames only for unresolved events (unre
     ]);
 });
 
-it("preserves conflicting original OCR evidence when later readings agree", async () => {
+it("keeps conflicting OCR evidence withheld without reading supplementary frames", async () => {
     let calls = 0;
     const results: LiveLootRecognitionResult[] = [];
     const coordinator = new LiveLootCoordinator({
@@ -1395,7 +1395,8 @@ it("preserves conflicting original OCR evidence when later readings agree", asyn
     });
     pushRowSequence(coordinator, [0, 1, 1, 1, 1, 1, 1, 1, 1]);
     await coordinator.finish();
-    expect(calls).toBe(2);
+    // Two confidently different primary readings veto consensus, so agreeing later frames could not change it.
+    expect(calls).toBe(1);
     expect(results).toEqual([
         expect.objectContaining({ status: "withheld", reason: "consensus-withheld", quantity: null }),
     ]);
