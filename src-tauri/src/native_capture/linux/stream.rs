@@ -103,25 +103,21 @@ pub(super) fn run_pipewire(
     let _stop_timer = mainloop.loop_().add_timer(move |_| {
         if control.cancelled.load(Ordering::Acquire) {
             loop_for_timer.quit();
-        } else if let Some(last_source_frame) = last_source_frame.get() {
-            if last_source_frame.elapsed() >= FIRST_FRAME_TIMEOUT {
-                *stream_error_in_timer.borrow_mut() =
-                    Some("The selected monitor stopped producing PipeWire frames.".to_string());
-                loop_for_timer.quit();
-            } else {
-                match control.pending_batch_age() {
-                    Ok(Some(age)) if age >= FRAME_ACK_TIMEOUT => {
-                        *stream_error_in_timer.borrow_mut() = Some(
-                            "The frontend did not acknowledge a native display frame batch within 10 seconds."
-                                .to_string(),
-                        );
-                        loop_for_timer.quit();
-                    }
-                    Ok(_) => {}
-                    Err(error) => {
-                        *stream_error_in_timer.borrow_mut() = Some(error);
-                        loop_for_timer.quit();
-                    }
+        } else if last_source_frame.get().is_some() {
+            // After the first frame a pause is not an error: compositors only send frames when the screen changes, and
+            // the frontend shows the source as waiting.
+            match control.pending_batch_age() {
+                Ok(Some(age)) if age >= FRAME_ACK_TIMEOUT => {
+                    *stream_error_in_timer.borrow_mut() = Some(
+                        "The frontend did not acknowledge a native display frame batch within 10 seconds."
+                            .to_string(),
+                    );
+                    loop_for_timer.quit();
+                }
+                Ok(_) => {}
+                Err(error) => {
+                    *stream_error_in_timer.borrow_mut() = Some(error);
+                    loop_for_timer.quit();
                 }
             }
         } else if connection_started.elapsed() >= FIRST_FRAME_TIMEOUT {

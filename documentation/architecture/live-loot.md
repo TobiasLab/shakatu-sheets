@@ -13,6 +13,11 @@ Protocol V3 transports bounded previews and native-resolution normal, rare, or s
 are acknowledged after consumption. Hiding setup suppresses repeated previews while recognition continues; a new source
 or changed dimensions still produces a metadata preview. Navigation and minimization do not stop recognition.
 
+Native sources send no frames while the screen is static or the game is minimized. After the first frame this is not an
+error on Linux or Windows: the UI reports the source as waiting, and the first frame after a gap of over two seconds
+restarts recognition so rows still on screen count as already seen. Linux skips empty or corrupted PipeWire buffers, and
+each capture closes its own portal connection when it ends, which ends the screen-share session and its indicator.
+
 Recognition supports 2560×1440 and 3440×1440 at 80% or 100% BDO UI scale. Placement is manual by default, with optional
 automatic adjustment for each area. Automatic placement also supports 1920×1080, but that resolution has no calibrated
 recognition profile. Changing scale requires placement confirmation again. BDO UI scale is separate from OS scaling.

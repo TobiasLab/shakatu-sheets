@@ -1031,7 +1031,8 @@ export function useLiveLootCapture({
     useEffect(() => {
         const expectsFrames =
             previewsEnabled || (nativeAppliedSelectionKey !== "" && nativeAppliedSelectionKey !== "null");
-        if (captureCapabilities?.backend !== "windows" || status !== "capturing" || !windowVisible || !expectsFrames) {
+        // Native sources send no frames while the screen is static or the game is minimized; show that as waiting.
+        if (!captureCapabilities?.backend || status !== "capturing" || !windowVisible || !expectsFrames) {
             setSourceWaiting(false);
             return;
         }
@@ -1149,11 +1150,8 @@ export function useLiveLootCapture({
                     (frame) => {
                         if (!mounted.current || currentRequest !== requestId.current) return;
                         const arrival = performance.now();
-                        if (
-                            captureCapabilities?.backend === "windows" &&
-                            lastNativeArrival.current !== null &&
-                            arrival - lastNativeArrival.current > 2_000
-                        ) {
+                        // Rows still on screen after a pause in frames are treated as already counted.
+                        if (lastNativeArrival.current !== null && arrival - lastNativeArrival.current > 2_000) {
                             if (placementModeRef.current === "localizing") localizer.current = createLocalizer();
                             restartRecognition();
                         }
