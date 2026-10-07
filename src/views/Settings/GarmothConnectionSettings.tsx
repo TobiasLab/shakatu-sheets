@@ -32,6 +32,16 @@ export function GarmothConnectionSettings() {
         setSelectedCharacterId(loaded.selectedCharacterId?.toString() ?? "");
     }
 
+    // The action already succeeded when its command returned, so a failed reload must not read as a failed save.
+    async function reloadAfter(success: string) {
+        try {
+            await reloadSettings();
+            setMessage(success);
+        } catch (failure) {
+            setError(`${success} Settings could not be reloaded: ${String(failure)}`);
+        }
+    }
+
     async function readSettings() {
         setSettingsLoading(true);
         setError("");
@@ -59,8 +69,7 @@ export function GarmothConnectionSettings() {
         try {
             await saveGarmothApiKey(apiKey);
             form.reset();
-            await reloadSettings();
-            setMessage("API key validated and saved locally. Fetch your character builds next.");
+            await reloadAfter("API key validated and saved locally. Fetch your character builds next.");
         } catch (failure) {
             setError(String(failure));
         } finally {
@@ -75,8 +84,7 @@ export function GarmothConnectionSettings() {
         setMessage("");
         try {
             await fetchGarmothCharacters(characterIds);
-            await reloadSettings();
-            setMessage("Character builds fetched. Choose the character to use for uploads.");
+            await reloadAfter("Character builds fetched. Choose the character to use for uploads.");
         } catch (failure) {
             setError(String(failure));
         } finally {
@@ -119,8 +127,7 @@ export function GarmothConnectionSettings() {
         setMessage("");
         try {
             await selectGarmothCharacter(selectedCharacterId);
-            await reloadSettings();
-            setMessage("Upload character saved.");
+            await reloadAfter("Upload character saved.");
         } catch (failure) {
             setError(String(failure));
         } finally {
@@ -137,11 +144,13 @@ export function GarmothConnectionSettings() {
                         <h2>Garmoth</h2>
                     </div>
                     <span className={styles.ConnectionStatus}>
-                        {settings?.apiKeyConfigured
-                            ? "Configured"
-                            : settings === null && !error
-                              ? "Loading..."
-                              : "Not configured"}
+                        {settings
+                            ? settings.apiKeyConfigured
+                                ? "Configured"
+                                : "Not configured"
+                            : error
+                              ? "Unavailable"
+                              : "Loading..."}
                     </span>
                 </div>
                 <form className={styles.SettingsForm} onSubmit={saveApiKey}>
@@ -182,7 +191,7 @@ export function GarmothConnectionSettings() {
                     </div>
                 </div>
                 <div className={styles.SettingsForm}>
-                    {!settings?.apiKeyConfigured && (
+                    {settings && !settings.apiKeyConfigured && (
                         <p className={styles.SetupHint}>Connect your API key first to enable character setup.</p>
                     )}
                     <FormField label="Gear Planner character IDs">

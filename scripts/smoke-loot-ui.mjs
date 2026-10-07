@@ -427,6 +427,10 @@ try {
                 "document.querySelector('input[name=apiKey]').closest('form').querySelector('[role=alert]') !== null",
             ),
         );
+        assert(
+            await evaluate("document.body.textContent.includes('Unavailable')"),
+            "A failed settings load must not claim the key is not configured",
+        );
         await evaluate("window.__failSettings = false");
         await click("Retry settings");
         await until("!document.querySelector('input[name=apiKey]').disabled");
