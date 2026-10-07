@@ -1150,8 +1150,14 @@ export function useLiveLootCapture({
                     (frame) => {
                         if (!mounted.current || currentRequest !== requestId.current) return;
                         const arrival = performance.now();
-                        // Rows still on screen after a pause in frames are treated as already counted.
-                        if (lastNativeArrival.current !== null && arrival - lastNativeArrival.current > 2_000) {
+                        // A Windows window source pauses only while minimized, so rows still on screen afterwards are treated
+                        // as already counted. Linux captures the whole monitor and gets frames only when it changes, so the
+                        // first frame after a pause may show a new drop and recognition continues.
+                        if (
+                            captureCapabilities?.backend === "windows" &&
+                            lastNativeArrival.current !== null &&
+                            arrival - lastNativeArrival.current > 2_000
+                        ) {
                             if (placementModeRef.current === "localizing") localizer.current = createLocalizer();
                             restartRecognition();
                         }

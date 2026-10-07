@@ -70,21 +70,15 @@ pub(super) async fn start(
         .portal_connection
         .lock()
         .map_err(|_| "Capture session state is unavailable.")? = Some(connection.clone());
-    if control.cancelled.load(Ordering::Acquire) {
-        close_portal(&control);
-        return Err("Screen sharing was cancelled.".to_string());
-    }
+    ensure_active(&control)?;
     let portal = Screencast::with_connection(connection)
         .await
-        .map_err(|error| portal_error(&control, error))?;
+        .map_err(capture_error)?;
     let session = portal
         .create_session(Default::default())
         .await
-        .map_err(|error| portal_error(&control, error))?;
-    if control.cancelled.load(Ordering::Acquire) {
-        close_portal(&control);
-        return Err("Screen sharing was cancelled.".to_string());
-    }
+        .map_err(capture_error)?;
+    ensure_active(&control)?;
 
     let select_request = portal
         .select_sources(
@@ -95,28 +89,22 @@ pub(super) async fn start(
                 .set_multiple(false),
         )
         .await;
-    if control.cancelled.load(Ordering::Acquire) {
-        close_portal(&control);
-        return Err("Screen sharing was cancelled.".to_string());
-    }
+    ensure_active(&control)?;
     select_request
-        .map_err(|error| portal_error(&control, error))?
+        .map_err(capture_error)?
         .response()
-        .map_err(|error| portal_error(&control, error))?;
+        .map_err(capture_error)?;
 
     let start_request = portal.start(&session, None, Default::default()).await;
-    if control.cancelled.load(Ordering::Acquire) {
-        close_portal(&control);
-        return Err("Screen sharing was cancelled.".to_string());
-    }
+    ensure_active(&control)?;
     let response = start_request
-        .map_err(|error| portal_error(&control, error))?
+        .map_err(capture_error)?
         .response()
-        .map_err(|error| portal_error(&control, error))?;
-    let stream = response.streams().first().ok_or_else(|| {
-        close_portal(&control);
-        "The screen capture portal returned no monitor stream.".to_string()
-    })?;
+        .map_err(capture_error)?;
+    let stream = response
+        .streams()
+        .first()
+        .ok_or("The screen capture portal returned no monitor stream.")?;
     let node_id = stream.pipe_wire_node_id();
     eprintln!(
             "Native display capture portal stream: node_id={node_id}, size={:?}, position={:?}, source_type={:?}",
@@ -127,11 +115,8 @@ pub(super) async fn start(
     let fd = portal
         .open_pipe_wire_remote(&session, Default::default())
         .await
-        .map_err(|error| portal_error(&control, error))?;
-    if control.cancelled.load(Ordering::Acquire) {
-        close_portal(&control);
-        return Err("Screen sharing was cancelled.".to_string());
-    }
+        .map_err(capture_error)?;
+    ensure_active(&control)?;
     // This backend exposes the selected node only after the portal proxies are released. The connection stays open
     // until capture ends, so closing it still ends the portal session.
     drop(session);
@@ -158,16 +143,22 @@ pub(super) async fn start(
         debug_collector.finish_capture(worker_control.capture_id, CAPTURE_ENDED);
         if let Err(error) = result {
             eprintln!("Native display capture stopped: {error}");
-            let _ = errors.send(InvokeResponseBody::Raw(error_frame(&error)));
+            if !worker_control.cancelled.load(Ordering::Acquire) {
+                let _ = errors.send(InvokeResponseBody::Raw(error_frame(&error)));
+            }
         }
     });
     startup_guard.worker_started = true;
     Ok(())
 }
 
-fn portal_error(control: &CaptureControl, error: impl std::fmt::Display) -> String {
-    close_portal(control);
-    capture_error(error)
+/// Startup awaits the portal; a capture stopped or replaced meanwhile must not continue. The startup guard closes the
+/// portal connection when startup returns early.
+fn ensure_active(control: &CaptureControl) -> Result<(), String> {
+    if control.cancelled.load(Ordering::Acquire) {
+        return Err("Screen sharing was cancelled.".to_string());
+    }
+    Ok(())
 }
 
 fn capture_error(error: impl std::fmt::Display) -> String {

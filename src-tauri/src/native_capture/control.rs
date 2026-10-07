@@ -189,6 +189,8 @@ impl Drop for CaptureStartupGuard {
     fn drop(&mut self) {
         if !self.worker_started {
             self.control.finished.store(true, Ordering::Release);
+            #[cfg(target_os = "linux")]
+            close_portal(&self.control);
         }
     }
 }
