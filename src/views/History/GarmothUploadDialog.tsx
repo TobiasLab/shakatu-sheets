@@ -201,7 +201,6 @@ export function GarmothUploadDialog({
                                     onApply={(entries, presetId) => {
                                         setConsumables(entries);
                                         setSelectedPresetId(presetId);
-                                        return true;
                                     }}
                                 />
                             </div>

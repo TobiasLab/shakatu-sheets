@@ -17,7 +17,7 @@ export function ConsumablePresetSelection({
     session: SessionState;
     disabled: boolean;
     selectedId?: string;
-    onApply: (entries: SessionEntry[], presetId: string) => boolean | Promise<boolean>;
+    onApply: (entries: SessionEntry[], presetId: string) => void | Promise<void>;
 }) {
     const [presets, setPresets] = useState<ConsumablePreset[]>([]);
     const [loading, setLoading] = useState(true);
