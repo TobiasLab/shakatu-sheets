@@ -5,8 +5,6 @@ use super::debug_roi_collector::{
 };
 use super::protocol::*;
 use super::NativeCaptureSelection;
-#[cfg(target_os = "linux")]
-use ashpd::desktop::{screencast::Screencast, Session};
 use std::sync::{
     atomic::{AtomicBool, Ordering},
     Arc, Mutex,
@@ -59,8 +57,9 @@ pub(super) struct CaptureControl {
     pub(super) finished: AtomicBool,
     pub(super) preview_enabled: AtomicBool,
     pub(super) batches: Mutex<BatchState>,
+    /// This capture's own D-Bus connection to the screen-cast portal; closing it ends the portal session.
     #[cfg(target_os = "linux")]
-    pub(super) pending_session: Mutex<Option<Arc<Session<Screencast>>>>,
+    pub(super) portal_connection: Mutex<Option<ashpd::zbus::Connection>>,
     pub(super) selection: Mutex<Option<NativeCaptureSelection>>,
     #[cfg(debug_assertions)]
     pub(super) healthy: AtomicBool,
@@ -82,7 +81,7 @@ impl CaptureControl {
             preview_enabled: AtomicBool::new(true),
             batches: Mutex::new(BatchState::default()),
             #[cfg(target_os = "linux")]
-            pending_session: Mutex::new(None),
+            portal_connection: Mutex::new(None),
             selection: Mutex::new(selection),
             #[cfg(debug_assertions)]
             healthy: AtomicBool::new(false),
@@ -420,19 +419,21 @@ pub(super) fn cancel(control: &Arc<CaptureControl>) {
     control.cancelled.store(true, Ordering::Release);
     control.finished.store(true, Ordering::Release);
     #[cfg(target_os = "linux")]
-    close_pending_session(control);
+    close_portal(control);
 }
 
+/// The portal ends a screen-cast session, and the desktop's sharing indicator, only on Close from the connection that
+/// created it or when that connection disconnects, so each capture owns its connection and closes it when it ends.
 #[cfg(target_os = "linux")]
-pub(super) fn close_pending_session(control: &Arc<CaptureControl>) {
-    let session = control
-        .pending_session
+pub(super) fn close_portal(control: &CaptureControl) {
+    let connection = control
+        .portal_connection
         .lock()
         .ok()
-        .and_then(|mut session| session.take());
-    if let Some(session) = session {
+        .and_then(|mut connection| connection.take());
+    if let Some(connection) = connection {
         tauri::async_runtime::spawn(async move {
-            let _ = session.close().await;
+            let _ = connection.close().await;
         });
     }
 }
