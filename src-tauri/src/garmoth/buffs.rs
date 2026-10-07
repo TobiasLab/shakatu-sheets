@@ -26,7 +26,7 @@ pub(super) fn drop_totals(buff_ids: &[i64]) -> Result<DropTotals, String> {
         env!("CARGO_MANIFEST_DIR"),
         "/../src/data/garmothBuffs.json"
     )))
-    .map_err(|_| "the bundled Garmoth buffs are invalid".to_string())?;
+    .map_err(|_| "The bundled Garmoth buffs are invalid.".to_string())?;
     let mut ids = BTreeSet::new();
     let mut groups = BTreeSet::new();
     let mut capped = 0;
@@ -36,14 +36,14 @@ pub(super) fn drop_totals(buff_ids: &[i64]) -> Result<DropTotals, String> {
         let buff = catalog
             .iter()
             .find(|buff| buff.id == *id)
-            .ok_or_else(|| "the upload contains an unknown Garmoth buff".to_string())?;
+            .ok_or_else(|| "The upload contains an unknown Garmoth buff.".to_string())?;
         if !ids.insert(id)
             || buff
                 .group
                 .as_ref()
                 .is_some_and(|group| !groups.insert(group))
         {
-            return Err("choose each buff once, and one tier of each buff".into());
+            return Err("Choose each buff once, and one tier of each buff.".into());
         }
         if buff.uncapped {
             uncapped += buff.rate;

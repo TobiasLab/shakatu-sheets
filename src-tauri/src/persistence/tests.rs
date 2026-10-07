@@ -396,7 +396,7 @@ fn transitions_garmoth_upload_reservations_without_duplicates() {
     );
     assert_eq!(
         claim_garmoth_upload(&mut connection, &finished.id, false).unwrap_err(),
-        "this session was already uploaded to Garmoth"
+        "This session was already uploaded to Garmoth."
     );
     drop(connection);
     remove_temporary_database(&path);

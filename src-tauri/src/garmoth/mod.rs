@@ -45,7 +45,7 @@ pub(super) fn client() -> Result<Client, String> {
         .redirect(Policy::none())
         .user_agent(concat!("shakatu-sheets/", env!("CARGO_PKG_VERSION")))
         .build()
-        .map_err(|error| format!("could not prepare the Garmoth request: {error}"))
+        .map_err(|error| format!("Could not prepare the Garmoth request: {error}"))
 }
 
 pub(super) fn valid_character_id(id: &str) -> bool {
@@ -62,19 +62,19 @@ pub(super) fn parse_stored_characters(
     let Some(value) = value else {
         return Ok(Vec::new());
     };
-    serde_json::from_str(&value).map_err(|_| "saved Garmoth character data is invalid".into())
+    serde_json::from_str(&value).map_err(|_| "Saved Garmoth character data is invalid.".into())
 }
 
 pub(super) fn parse_selected_character_id(value: Option<String>) -> Result<Option<String>, String> {
     if value.as_deref().is_some_and(|id| !valid_character_id(id)) {
-        return Err("saved Garmoth character selection is invalid".into());
+        return Err("Saved Garmoth character selection is invalid.".into());
     }
     Ok(value)
 }
 
 pub(super) fn stored_api_key(connection: &Connection) -> Result<String, String> {
     let api_key = load_setting(connection, API_KEY_SETTING)?
-        .ok_or_else(|| "save a Garmoth API key in Settings first".to_string())?;
+        .ok_or_else(|| "Save a Garmoth API key in Settings first.".to_string())?;
     settings::validate_api_key(&api_key).map(str::to_string)
 }
 
@@ -90,7 +90,7 @@ pub(super) async fn get(
         .header("apiKey", api_key)
         .send()
         .await
-        .map_err(|error| format!("could not reach Garmoth: {}", error.without_url()))?;
+        .map_err(|error| format!("Could not reach Garmoth: {}", error.without_url()))?;
     response_bytes(response, purpose).await
 }
 
@@ -111,16 +111,16 @@ async fn response_bytes(mut response: reqwest::Response, purpose: &str) -> Resul
         .content_length()
         .is_some_and(|length| length > MAX_RESPONSE_BYTES)
     {
-        return Err("Garmoth returned an unexpectedly large response".into());
+        return Err("Garmoth returned an unexpectedly large response.".into());
     }
     let mut body = Vec::new();
     while let Some(chunk) = response
         .chunk()
         .await
-        .map_err(|error| format!("could not read the Garmoth response: {error}"))?
+        .map_err(|error| format!("Could not read the Garmoth response: {error}"))?
     {
         if body.len() + chunk.len() > MAX_RESPONSE_BYTES as usize {
-            return Err("Garmoth returned an unexpectedly large response".into());
+            return Err("Garmoth returned an unexpectedly large response.".into());
         }
         body.extend_from_slice(&chunk);
     }
@@ -173,7 +173,7 @@ mod tests {
                     response_bytes(response, "testing response bounds")
                         .await
                         .unwrap_err(),
-                    "Garmoth returned an unexpectedly large response"
+                    "Garmoth returned an unexpectedly large response."
                 );
                 server.join().unwrap();
             });

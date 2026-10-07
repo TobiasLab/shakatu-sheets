@@ -14,7 +14,7 @@ fn parse_garmoth_upload_status(value: &str) -> Result<GarmothUploadStatus, Strin
     match value {
         "unknown" => Ok(GarmothUploadStatus::Unknown),
         "success" => Ok(GarmothUploadStatus::Success),
-        _ => Err(format!("unknown Garmoth upload status: {value}")),
+        _ => Err(format!("Unknown Garmoth upload status: {value}")),
     }
 }
 
@@ -50,9 +50,9 @@ pub(crate) fn claim_garmoth_upload(
         )
         .optional()
         .map_err(|error| error.to_string())?
-        .ok_or_else(|| "the selected session no longer exists".to_string())?;
+        .ok_or_else(|| "The selected session no longer exists.".to_string())?;
     if status != "finished" {
-        return Err("only finished sessions can be uploaded".into());
+        return Err("Only finished sessions can be uploaded.".into());
     }
     let previous = load_garmoth_upload_status(&transaction, session_id)?;
     if repeat_upload && previous == Some(GarmothUploadStatus::Success) {
@@ -65,7 +65,7 @@ pub(crate) fn claim_garmoth_upload(
     }
     if let Some(status) = previous {
         return Err(match status {
-            GarmothUploadStatus::Success => "this session was already uploaded to Garmoth",
+            GarmothUploadStatus::Success => "This session was already uploaded to Garmoth.",
             GarmothUploadStatus::Unknown => {
                 "this session may already exist on Garmoth; check Garmoth before taking further action"
             }
@@ -96,7 +96,7 @@ pub(crate) fn finish_garmoth_upload(
     if changed == 1 {
         Ok(())
     } else {
-        Err("Garmoth upload reservation disappeared".into())
+        Err("Garmoth upload reservation disappeared.".into())
     }
 }
 
@@ -113,6 +113,6 @@ pub(crate) fn release_garmoth_upload(
     if changed == 1 {
         Ok(())
     } else {
-        Err("Garmoth upload reservation disappeared".into())
+        Err("Garmoth upload reservation disappeared.".into())
     }
 }
