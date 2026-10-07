@@ -32,6 +32,16 @@ describe("Marni screenshot metadata", () => {
         expect(detectGrindSpot("unreadable", "stars-end-revamp")).toBe("stars-end-revamp");
     });
 
+    it("matches full catalog names before keyword guesses", () => {
+        expect(detectGrindSpot("Monster Zone: Sycraia Ruins Upper Zone", "garmoth-202")).toBe("garmoth-202");
+        expect(detectGrindSpot("Monster Zone: Sycraia Ruins Upper Zone", "sycraia-lower-revamp")).toBe("garmoth-202");
+        expect(detectGrindSpot("Monster Zone: Dark Energy Floodlands (Zephyros)", "sycraia-lower-revamp")).toBe(
+            "garmoth-210",
+        );
+        expect(detectGrindSpot("Start the legend now", "magaia-temple")).toBe("magaia-temple");
+        expect(detectGrindSpot("Monster Zone: Stars End", "sycraia-lower-revamp")).toBe("stars-end-revamp");
+    });
+
     it("leaves uncertain or invalid quantities for manual review", () => {
         expect(trustedMarniQuantity("20630")).toBe("20630");
         expect(trustedMarniQuantity("70")).toBe("70");
