@@ -1,5 +1,5 @@
 import { createWorker, OEM, PSM } from "tesseract.js";
-import { type DropTemplate, getGrindSpotDrops } from "../data/grindSpots";
+import { type DropTemplate, getGrindSpotDrops, grindSpots } from "../data/grindSpots";
 
 type LootSlot = { x: number; y: number; size: number };
 type QuantityReading = { quantity: string; confidence: number };
@@ -30,14 +30,25 @@ export function parseMarniDuration(text: string): number | null {
     return Number.isSafeInteger(elapsedMs) && elapsedMs > 0 ? elapsedMs : null;
 }
 
+function spotWords(value: string) {
+    return value.toLocaleLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+}
+
 export function detectGrindSpot(text: string, fallbackId: string): string {
-    const normalized = text.toLocaleLowerCase();
-    if (normalized.includes("sycraia")) return "sycraia-lower-revamp";
-    if (normalized.includes("star") && normalized.includes("end")) return "stars-end-revamp";
-    if (/zephyr(?:u|o)s/.test(normalized)) return "zephyros-castle";
-    if (normalized.includes("aphrodon")) return "aphrodon-temple";
-    if (normalized.includes("hermesia")) return "hermesia-inner-castle";
-    if (normalized.includes("magaia")) return "magaia-temple";
+    const words = ` ${spotWords(text)} `;
+    // A full catalog name is the strongest evidence; the longest one wins, so "Dark Energy Floodlands (Zephyros)"
+    // beats a shorter name it contains.
+    const named = grindSpots
+        .filter((spot) => words.includes(` ${spotWords(spot.name)} `))
+        .sort((left, right) => right.name.length - left.name.length)[0];
+    if (named) return named.id;
+    // Marni names some zones differently ("Sycraia Ruins Lower Zone", "Zephyros Castle"), and OCR may garble the rest.
+    if (words.includes(" sycraia ")) return words.includes(" upper ") ? "garmoth-202" : "sycraia-lower-revamp";
+    if (/ star ?s? ?end /.test(words)) return "stars-end-revamp";
+    if (/ zephyr[ou]s /.test(words) && !words.includes(" floodlands ")) return "zephyros-castle";
+    if (words.includes(" aphrodon ")) return "aphrodon-temple";
+    if (words.includes(" hermesia ")) return "hermesia-inner-castle";
+    if (words.includes(" magaia ")) return "magaia-temple";
     return fallbackId;
 }
 
