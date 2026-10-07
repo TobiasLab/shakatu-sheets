@@ -98,6 +98,7 @@ export function LiveLootCapture({ controller }: { controller: ReturnType<typeof 
         calibratedProfile,
         automaticLocalizationAvailable,
         beginAutomaticLocalization,
+        normalRegionReady,
         regionConfirmed,
         confirmRegion,
         sourceSize,
@@ -575,7 +576,7 @@ export function LiveLootCapture({ controller }: { controller: ReturnType<typeof 
                                                 ? "Saving..."
                                                 : regionConfirmed
                                                   ? "Both areas confirmed"
-                                                  : placementMode === "aligned"
+                                                  : normalRegionReady
                                                     ? "Confirm rare area"
                                                     : "Confirm both areas"}
                                         </button>

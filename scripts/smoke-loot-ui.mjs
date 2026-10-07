@@ -758,7 +758,9 @@ try {
             await until(
                 "window.__calls.filter(c => c.command === 'set_native_display_capture_region').at(-1)?.args.selection?.mode === 'regions'",
             );
-            await click("Confirm both areas");
+            // The rare search leaves the auto-aligned loot stack in place, so only the rare area needs confirming.
+            await until("document.body.textContent.includes('Auto-aligned')");
+            await click("Confirm rare area");
             await until(
                 "window.__calls.filter(c => c.command === 'save_loot_capture_settings').at(-1)?.args.settings.rareRegionConfirmed === true",
             );
