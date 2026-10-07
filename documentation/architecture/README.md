@@ -127,7 +127,7 @@ reopening, loot edits/removals, pause/resume/reset, continued timing while the m
 Always-on-top behavior depends on the desktop compositor; exclusive fullscreen games may cover the window.
 Window behavior follows [Tauri's window API](https://v2.tauri.app/reference/javascript/api/namespacewindow/).
 
-Settings → Garmoth → Inspect consumable data performs an explicit read of the approved character-build endpoint
+In debug builds only, Settings → Garmoth → Inspect consumable data performs an explicit read of the approved character-build endpoint
 for a fetched character. Report version 3 includes the character response structure as well as recognized consumable fields,
 including JSON-encoded objects and arrays. Scalar values and unknown field names are redacted by default.
 An explicit “Include response field names” checkbox reveals unknown keys for review before copying; keys can contain

@@ -78,6 +78,7 @@ pub fn run() {
         persistence::sessions::reopen_session,
         persistence::sessions::save_session,
         garmoth::settings::fetch_garmoth_characters,
+        #[cfg(debug_assertions)]
         garmoth::diagnostics::inspect_garmoth_consumables,
         garmoth::settings::load_garmoth_settings,
         garmoth::settings::save_garmoth_api_key,
