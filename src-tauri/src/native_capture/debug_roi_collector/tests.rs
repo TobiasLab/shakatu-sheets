@@ -445,7 +445,7 @@ fn setup_time_consumes_the_collection_deadline() {
 }
 
 #[test]
-fn sample_uses_the_lock_free_active_run_snapshot() {
+fn sample_uses_the_active_run_snapshot() {
     let temp = TempDir::new("active-snapshot");
     let collector = DebugRoiSampleCollector::default();
     let settings = settings();

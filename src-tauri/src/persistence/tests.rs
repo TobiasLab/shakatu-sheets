@@ -377,7 +377,7 @@ fn refuses_to_reopen_a_session_reserved_for_garmoth() {
 
 #[test]
 fn transitions_garmoth_upload_reservations_without_duplicates() {
-    let mut connection = database();
+    let (path, mut connection) = temporary_database();
     let finished = session(SessionStatus::Finished);
     save_session_record(&mut connection, &finished).unwrap();
 
@@ -398,6 +398,8 @@ fn transitions_garmoth_upload_reservations_without_duplicates() {
         claim_garmoth_upload(&mut connection, &finished.id, false).unwrap_err(),
         "this session was already uploaded to Garmoth"
     );
+    drop(connection);
+    remove_temporary_database(&path);
 }
 
 #[test]
@@ -458,7 +460,7 @@ fn upgrades_a_populated_version_one_database() {
 
 #[test]
 fn conditionally_saves_settings_only_for_the_expected_key() {
-    let mut connection = database();
+    let (path, mut connection) = temporary_database();
     save_settings(&mut connection, &[("api-key", Some("old"))]).unwrap();
 
     assert!(save_settings_if_unchanged(
@@ -480,6 +482,8 @@ fn conditionally_saves_settings_only_for_the_expected_key() {
         load_setting(&connection, "characters").unwrap().as_deref(),
         Some("old-account")
     );
+    drop(connection);
+    remove_temporary_database(&path);
 }
 
 #[cfg(unix)]
