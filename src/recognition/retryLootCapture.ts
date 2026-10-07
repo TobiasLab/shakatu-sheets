@@ -1,6 +1,7 @@
-import { analyzeLootReadings, type LootReviewCapture } from "./liveLoot";
+import type { LootReviewCapture } from "./liveLoot";
 import { createLiveLootTesseractOcr, type LiveLootTesseractOcr, type LiveLootTesseractOcrOptions } from "./liveLootOcr";
 import type { LootFont } from "./lootFont";
+import { analyzeLootReadings } from "./lootReadings";
 
 /** A one-frame suggestion for human review, independent of live capture's temporal consensus. */
 export async function retryLootCapture(

@@ -1,13 +1,13 @@
-import {
-    type LiveLootOcrFrame,
-    type LootFrameEvidence,
-    type LootQuantitySuggestion,
-    type LootReviewCapture,
-    type LootRoiFrame,
-    parseLootQuantity,
+import type {
+    LiveLootOcrFrame,
+    LootFrameEvidence,
+    LootQuantitySuggestion,
+    LootReviewCapture,
+    LootRoiFrame,
 } from "./liveLoot";
 import type { LiveLootReviewEntry } from "./liveLootReview";
 import type { LootFont } from "./lootFont";
+import { parseLootQuantity } from "./lootReadings";
 
 export type LearningProfile = {
     font: LootFont;

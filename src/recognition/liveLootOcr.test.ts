@@ -1,6 +1,6 @@
 import { OEM, PSM } from "tesseract.js";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { analyzeLootReadings, type LiveLootOcrFrame, type LootRoiFrame } from "./liveLoot";
+import type { LiveLootOcrFrame, LootRoiFrame } from "./liveLoot";
 import {
     createLiveLootTesseractOcr,
     type LiveLootOcrCanvas,
@@ -10,6 +10,7 @@ import {
     readLootOcrFrame,
     serializeLiveLootOcrReader,
 } from "./liveLootOcr";
+import { analyzeLootReadings } from "./lootReadings";
 
 function sourceFrame(width = 8, height = 24, fill = 0): LootRoiFrame {
     const pixels = new Uint8ClampedArray(width * height * 4);

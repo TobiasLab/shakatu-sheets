@@ -1,13 +1,8 @@
 import { createWorker, OEM, PSM } from "tesseract.js";
-import {
-    type LiveLootOcrFrame,
-    type LiveLootOcrReader,
-    type LootOcrBounds,
-    type LootRoiFrame,
-    parseLootQuantity,
-} from "./liveLoot";
+import type { LiveLootOcrFrame, LiveLootOcrReader, LootOcrBounds, LootRoiFrame } from "./liveLoot";
 import type { LootFont } from "./lootFont";
 import { writeAntialiasedLootPixels } from "./lootOcrPixels";
+import { parseLootQuantity } from "./lootReadings";
 
 export type LootOcrThreshold = 130 | 150 | 170;
 

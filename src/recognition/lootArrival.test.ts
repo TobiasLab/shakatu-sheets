@@ -1,8 +1,9 @@
 import { describe, expect, it } from "vitest";
 import { LEGACY_LOOT_REGION_SIZES, LOOT_CROP_BOUNDS } from "./displayCapture";
-import { type LootDetectedRows, LootRowTracker, rowBirthCount } from "./liveLoot";
+import type { LootDetectedRows } from "./liveLoot";
 import { findLiveLootProfile } from "./liveLootProfiles";
 import { fadingLootArrivals, type LootRowAppearance, lootRowAppearances, lootRowsFaded } from "./lootArrival";
+import { LootRowTracker, rowBirthCount } from "./lootRowTracker";
 
 const glyph = [0, 100, 200, 0, 150, 70, 0, 180];
 const noise = [150, 0, 0, 180, 0, 0, 170, 0];

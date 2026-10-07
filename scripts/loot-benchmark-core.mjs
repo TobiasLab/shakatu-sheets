@@ -1,11 +1,10 @@
+import { parseLootItem, parseLootQuantity } from "../src/recognition/lootReadings.ts";
 import {
-    parseLootItem,
-    parseLootQuantity,
     rowBirthCount,
     selectLootOcrObservations,
     stackShifted,
     trackLootRows,
-} from "../src/recognition/liveLoot.ts";
+} from "../src/recognition/lootRowTracker.ts";
 
 export { rowBirthCount, stackShifted };
 export const selectOcrObservations = selectLootOcrObservations;

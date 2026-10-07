@@ -128,8 +128,9 @@ frame before appending them at the bottom. Each event uses the first three conse
 entrance frame, with adjacent fingerprints required to remain visually consistent. OCR accepts only an item-and-quantity pair supported by at least two distinct frames, so independently
 conflicting item and quantity readings cannot be combined. Labels are joined only after inference for chronological
 scoring. The tracker and end-to-end commands decode packed RGBA frames and call the browser-safe analyzer, tracker, and OCR
-parsers in `src/recognition/liveLoot.ts`, but with the tracker's defaults: projection identity distance, a two-frame
-empty limit, single-frame steps, and three-frame OCR selection without supplementary frames. Live capture configures
+parsers in `src/recognition/` (`liveLoot.ts`, `lootRowTracker.ts`, `lootReadings.ts`), but with the tracker's
+defaults: projection identity distance, a two-frame empty limit, single-frame steps, and three-frame OCR selection
+without supplementary frames. Live capture configures
 these through `LiveLootCoordinator` instead (row identity distance, a four-frame limit and two-frame steps at 16 FPS, and
 supplementary frames). Use the [ROI sample replay](#roi-sample-replay), which runs the coordinator, to measure the
 production configuration. Use `--development-only` while tuning.
