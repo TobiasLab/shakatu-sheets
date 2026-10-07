@@ -678,7 +678,7 @@ pub(super) fn reopen_session_record(
         return Err("only finished sessions can be reopened".into());
     }
     if load_garmoth_upload_status(&transaction, id)?.is_some() {
-        return Err("sessions sent to Garmoth cannot be reopened".into());
+        return Err("Sessions sent to Garmoth cannot be reopened.".into());
     }
 
     if let Some(active) = load_active_session_record(&transaction)? {

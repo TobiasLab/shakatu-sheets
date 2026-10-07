@@ -30,8 +30,9 @@ Saved market prices are read from SQLite when the selected region or grind-spot 
 invokes the Arsha network request after the user presses the fetch or refresh button. Successful complete responses are
 written as a new set of price snapshots; failed responses do not change saved data.
 
-Garmoth credentials remain in SQLite and are used only by Rust requests. The frontend receives configured state and
-validated character summaries, never the saved key. Character builds are fetched explicitly using the IDs required by
+Garmoth credentials remain in SQLite and are used only by Rust requests. The frontend receives configured state,
+validated character summaries, and whether this build includes the debug-only consumable diagnostics, never the saved
+key. Character builds are fetched explicitly using the IDs required by
 Garmoth's approved endpoint. Finished-session upload previews map profile drop names to Garmoth keys and list rows
 outside the destination spot's export table as omitted. Local entries and full session totals are retained. Backend
 Garmoth operations are serialized so navigation or multiple windows cannot race key replacement, character selection,

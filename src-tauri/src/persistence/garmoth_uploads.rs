@@ -67,7 +67,7 @@ pub(crate) fn claim_garmoth_upload(
         return Err(match status {
             GarmothUploadStatus::Success => "This session was already uploaded to Garmoth.",
             GarmothUploadStatus::Unknown => {
-                "this session may already exist on Garmoth; check Garmoth before taking further action"
+                "This session may already exist on Garmoth; check Garmoth before taking further action."
             }
         }
         .into());

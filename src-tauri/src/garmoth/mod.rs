@@ -106,7 +106,7 @@ async fn response_bytes(mut response: reqwest::Response, purpose: &str) -> Resul
             StatusCode::TOO_MANY_REQUESTS => {
                 "Garmoth is rate limiting requests. Wait before trying again.".into()
             }
-            _ => format!("Garmoth returned {status} while {purpose}"),
+            _ => format!("Garmoth returned {status} while {purpose}."),
         });
     }
     if response

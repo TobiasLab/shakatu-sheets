@@ -364,7 +364,7 @@ fn refuses_to_reopen_a_session_reserved_for_garmoth() {
 
     assert_eq!(
         reopen_session_record(&mut connection, &finished.id).unwrap_err(),
-        "sessions sent to Garmoth cannot be reopened"
+        "Sessions sent to Garmoth cannot be reopened."
     );
     assert_eq!(
         list_finished_session_records(&connection, &history_query())
@@ -384,7 +384,7 @@ fn transitions_garmoth_upload_reservations_without_duplicates() {
     claim_garmoth_upload(&mut connection, &finished.id, false).unwrap();
     assert_eq!(
         claim_garmoth_upload(&mut connection, &finished.id, false).unwrap_err(),
-        "this session may already exist on Garmoth; check Garmoth before taking further action"
+        "This session may already exist on Garmoth; check Garmoth before taking further action."
     );
     release_garmoth_upload(&connection, &finished.id).unwrap();
     claim_garmoth_upload(&mut connection, &finished.id, false).unwrap();

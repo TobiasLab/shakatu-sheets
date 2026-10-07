@@ -198,7 +198,7 @@ await send("Page.addScriptToEvaluateOnNewDocument", {
             }
             if (command === "reopen_session") {
                 const record = window.__historyRecords.find(r => r.session.id === args.id);
-                if (record.garmothUploadStatus !== null) throw Error("sessions sent to Garmoth cannot be reopened");
+                if (record.garmothUploadStatus !== null) throw Error("Sessions sent to Garmoth cannot be reopened.");
                 record.session.status = "paused";
                 return record.session;
             }

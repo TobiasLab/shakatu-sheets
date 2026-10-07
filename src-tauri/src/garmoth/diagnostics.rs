@@ -109,7 +109,7 @@ fn report(body: &[u8], character_id: &str, include_field_names: bool) -> Result<
         .map_err(|_| "Garmoth returned invalid character JSON.".to_string())?;
     let rows = response
         .as_array()
-        .ok_or("Garmoth returned an unexpected character response")?;
+        .ok_or("Garmoth returned an unexpected character response.")?;
     if rows.len() != 1 || rows[0].get("url").and_then(Value::as_str) != Some(character_id) {
         return Err("Garmoth did not return the requested character.".into());
     }
