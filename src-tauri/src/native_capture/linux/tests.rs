@@ -467,13 +467,3 @@ fn benchmark_crop_conversion() {
         scalar.as_secs_f64() / row.as_secs_f64()
     );
 }
-
-#[test]
-fn recognizes_incomplete_pipewire_frames() {
-    // 3 rows of 2 pixels with a 12-byte stride need 2 full strides plus the last row's 8 bytes.
-    assert!(frame_is_complete(32, 2, 3, 12));
-    assert!(frame_is_complete(36, 2, 3, 12));
-    assert!(!frame_is_complete(31, 2, 3, 12));
-    assert!(!frame_is_complete(0, 2, 3, 12));
-    assert!(!frame_is_complete(usize::MAX, 2, 0, 12));
-}

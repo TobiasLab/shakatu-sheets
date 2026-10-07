@@ -31,6 +31,7 @@ pub(super) fn run_pipewire(
     let stream_error_in_callback = stream_error.clone();
     let stream_error_in_process = stream_error.clone();
     let loop_for_error = mainloop.clone();
+    let control_for_state = control.clone();
     let _listener = stream
         .add_local_listener_with_user_data(StreamData {
             format: Default::default(),
@@ -40,10 +41,25 @@ pub(super) fn run_pipewire(
         })
         .state_changed(move |_, _, old, state| {
             eprintln!("Native display capture PipeWire state: {old:?} -> {state:?}");
-            if let pw::stream::StreamState::Error(message) = state {
-                *stream_error_in_callback.borrow_mut() =
-                    Some(format!("PipeWire stream error: {message}"));
-                loop_for_error.quit();
+            if control_for_state.cancelled.load(Ordering::Acquire) {
+                return;
+            }
+            match state {
+                pw::stream::StreamState::Error(message) => {
+                    *stream_error_in_callback.borrow_mut() =
+                        Some(format!("PipeWire stream error: {message}"));
+                    loop_for_error.quit();
+                }
+                // Without a frame timeout, this is how capture notices the user stopped sharing from the desktop or
+                // the shared monitor disappeared: the portal removes the stream's node.
+                pw::stream::StreamState::Unconnected
+                    if !matches!(old, pw::stream::StreamState::Unconnected) =>
+                {
+                    *stream_error_in_callback.borrow_mut() =
+                        Some("Screen sharing ended at the operating-system source.".to_string());
+                    loop_for_error.quit();
+                }
+                _ => {}
             }
         })
         .param_changed(|_, data, id, parameter| {
@@ -166,26 +182,12 @@ fn process_frame(
     let Some(mut buffer) = stream.dequeue_buffer() else {
         return Ok(ControlFlow::Continue(()));
     };
-    if let Some(metrics) = data.diagnostics.as_mut() {
-        metrics.source_frame();
-    }
-    let now = Instant::now();
-    if !sample_due(data.next_sample, now) {
-        return Ok(ControlFlow::Continue(()));
-    }
     let Some(plane) = buffer.datas_mut().first_mut() else {
         return Ok(ControlFlow::Continue(()));
     };
-    let size = data.format.size();
-    if size.width == 0 || size.height == 0 {
-        return Ok(ControlFlow::Continue(()));
-    }
-    let stride = validated_stride(plane.chunk().stride(), size.width)?;
-    let offset = plane.chunk().offset() as usize;
-    let available = plane.chunk().size() as usize;
     // Compositors send an empty or corrupted buffer when they could not record a frame, for example during a display
-    // mode change. Skipping it keeps capture running; it does not count as a source frame.
-    if available == 0
+    // mode change. It is skipped before its layout is read and does not count as a source frame.
+    if plane.chunk().size() == 0
         || plane
             .chunk()
             .flags()
@@ -193,6 +195,20 @@ fn process_frame(
     {
         return Ok(ControlFlow::Continue(()));
     }
+    if let Some(metrics) = data.diagnostics.as_mut() {
+        metrics.source_frame();
+    }
+    let now = Instant::now();
+    if !sample_due(data.next_sample, now) {
+        return Ok(ControlFlow::Continue(()));
+    }
+    let size = data.format.size();
+    if size.width == 0 || size.height == 0 {
+        return Ok(ControlFlow::Continue(()));
+    }
+    let stride = validated_stride(plane.chunk().stride(), size.width)?;
+    let offset = plane.chunk().offset() as usize;
+    let available = plane.chunk().size() as usize;
     let memory_type = plane.type_();
     let Some(source) = plane.data() else {
         return Ok(ControlFlow::Continue(()));
@@ -204,9 +220,6 @@ fn process_frame(
     let pixels = source
         .get(offset..end)
         .ok_or("PipeWire frame offset is outside mapped memory.")?;
-    if !frame_is_complete(pixels.len(), size.width, size.height, stride) {
-        return Ok(ControlFlow::Continue(()));
-    }
     let configured_selection = *control
         .selection
         .lock()
