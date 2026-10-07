@@ -743,6 +743,23 @@ export class LootRowTracker<TFingerprint> {
         return best;
     }
 
+    /** The most stack rows that reappear, in order, at the top of `current`; 0 when no scroll explains the frame. */
+    private scrolledRowsAfterGap(current: LootDetectedRows<TFingerprint>) {
+        for (let retained = Math.min(this.stack.length, current.count) - 1; retained >= 1; retained -= 1) {
+            const sourceOffset = this.stack.length - retained;
+            let total = 0;
+            for (let index = 0; index < retained; index += 1) {
+                const track = this.stack[sourceOffset + index];
+                total += this.identityDistance(
+                    track.observations[track.observations.length - 1]?.fingerprint,
+                    current.observations[index].fingerprint,
+                );
+            }
+            if (total / retained <= 0.1) return retained;
+        }
+        return 0;
+    }
+
     private align(frame: number, current: LootDetectedRows<TFingerprint>, birthCount: number, baseline = false) {
         if (birthCount === 0) {
             if (current.count === 0) return;
@@ -793,6 +810,10 @@ export class LootRowTracker<TFingerprint> {
             if (recovery.distance <= 0.1) {
                 const unmatchedBottom = current.count - recovery.targetOffset - recovery.retained;
                 births = Math.min(births, unmatchedBottom);
+            } else {
+                // The feed may have scrolled during the gap: older rows left the top and new rows entered below.
+                const retained = this.scrolledRowsAfterGap(current);
+                if (retained > 0) births = Math.min(births, current.count - retained);
             }
         }
         this.align(frame, current, births);

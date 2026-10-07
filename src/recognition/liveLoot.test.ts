@@ -1626,6 +1626,28 @@ it.each([2, 3, 4])("retains an identical row through short 16 FPS gaps (%i empty
     expect(tracker.finish().filter(({ baseline }) => !baseline)).toHaveLength(emptyCount < 4 ? 0 : 1);
 });
 
+it.each([
+    [2, 1],
+    [4, 1],
+    [4, 3],
+] as const)(
+    "counts only the new bottom row when the stack shifts during a short gap (limit %i, %i empty samples)",
+    (emptyFrameLimit, emptyCount) => {
+        const tracker = new LootRowTracker(100, distance, { emptyFrameLimit });
+        const sequence = [
+            row([1, 2, 3]),
+            row([1, 2, 3]),
+            ...Array.from({ length: emptyCount }, () => row([])),
+            row([2, 3, 4]),
+            row([2, 3, 4]),
+            row([2, 3, 4]),
+        ];
+        for (const rows of sequence) tracker.push(rows);
+        const births = tracker.finish().filter(({ baseline }) => !baseline);
+        expect(births.map((track) => track.observations[track.observations.length - 1]?.fingerprint)).toEqual([4]);
+    },
+);
+
 it("rejects gradual changes between the spaced OCR frames at 16 FPS", () => {
     const track = {
         id: "drifting",
