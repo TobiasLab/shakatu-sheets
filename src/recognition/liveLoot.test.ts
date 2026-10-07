@@ -271,6 +271,13 @@ describe("live loot replay recognition", () => {
         }
     });
 
+    it("declines a clear reading of an item this spot cannot drop", () => {
+        const dictionary = ["Deboreka Ring", "Black Stone"];
+        expect(parseLootItem("Deboreka Earring x 1", dictionary)).toBeNull();
+        expect(parseLootItem("Deboreka Ring x 1", dictionary)).toBe("Deboreka Ring");
+        expect(parseLootItem("Deb0reka Rlng x 1", dictionary)).toBe("Deboreka Ring");
+    });
+
     it("recognizes joined quantity markers only with a close, unambiguous item match", () => {
         const dictionary = ["Twilight of the End - Earring", "Black Stone", "Ancient Phoenix"];
         expect(parseLootItem("Twilight of the End = Earringsx 1", dictionary)).toBe("Twilight of the End - Earring");
