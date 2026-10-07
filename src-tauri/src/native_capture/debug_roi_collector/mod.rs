@@ -3,14 +3,13 @@ pub use ocr_diagnostics::OcrIssue;
 mod writer;
 use writer::{run_worker, write_manifest};
 
-use arc_swap::ArcSwapOption;
 use serde::Serialize;
 use std::fs::{self, File, OpenOptions};
 use std::io::Write;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicU64, AtomicU8, Ordering};
 use std::sync::mpsc::{self, Receiver, SyncSender, TrySendError};
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, Mutex, MutexGuard, PoisonError};
 use std::thread;
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
@@ -276,20 +275,16 @@ impl Run {
     }
 }
 
+#[derive(Default)]
 pub(super) struct DebugRoiSampleCollector {
-    active: ArcSwapOption<Run>,
-    startup: ArcSwapOption<StartupBinding>,
+    active: Mutex<Option<Arc<Run>>>,
+    startup: Mutex<Option<Arc<StartupBinding>>>,
     next_run_id: AtomicU64,
 }
 
-impl Default for DebugRoiSampleCollector {
-    fn default() -> Self {
-        Self {
-            active: ArcSwapOption::empty(),
-            startup: ArcSwapOption::empty(),
-            next_run_id: AtomicU64::new(0),
-        }
-    }
+/// Holders only read or replace the `Arc`, so a poisoned slot still holds a consistent value.
+fn lock_slot<T>(slot: &Mutex<Option<Arc<T>>>) -> MutexGuard<'_, Option<Arc<T>>> {
+    slot.lock().unwrap_or_else(PoisonError::into_inner)
 }
 
 struct StartupBinding {
@@ -317,7 +312,7 @@ struct StartReservation<'a> {
 
 impl StartReservation<'_> {
     fn install(&mut self, run: Arc<Run>) -> Result<(), String> {
-        let startup = self.collector.startup.load_full();
+        let startup = lock_slot(&self.collector.startup).clone();
         if !startup
             .as_ref()
             .is_some_and(|current| Arc::ptr_eq(current, &self.binding))
@@ -328,22 +323,30 @@ impl StartReservation<'_> {
         if reason != FINISH_NONE {
             run.request_finish(reason);
         }
-        self.collector.active.store(Some(run));
+        *lock_slot(&self.collector.active) = Some(run);
         Ok(())
     }
 
     fn release(mut self) {
-        let expected = Some(self.binding.clone());
-        let _ = self.collector.startup.compare_and_swap(&expected, None);
+        self.clear_startup();
         self.active = false;
+    }
+
+    fn clear_startup(&self) {
+        let mut startup = lock_slot(&self.collector.startup);
+        if startup
+            .as_ref()
+            .is_some_and(|current| Arc::ptr_eq(current, &self.binding))
+        {
+            *startup = None;
+        }
     }
 }
 
 impl Drop for StartReservation<'_> {
     fn drop(&mut self) {
         if self.active {
-            let expected = Some(self.binding.clone());
-            let _ = self.collector.startup.compare_and_swap(&expected, None);
+            self.clear_startup();
         }
     }
 }
@@ -558,10 +561,12 @@ impl DebugRoiSampleCollector {
             capture_token: binding.capture_token,
             abort_reason: AtomicU8::new(FINISH_NONE),
         });
-        let empty: Option<Arc<StartupBinding>> = None;
-        let previous = self.startup.compare_and_swap(&empty, Some(startup.clone()));
-        if previous.is_some() {
-            return Err("A debug ROI sample collection is already active.".to_string());
+        {
+            let mut current = lock_slot(&self.startup);
+            if current.is_some() {
+                return Err("A debug ROI sample collection is already active.".to_string());
+            }
+            *current = Some(startup.clone());
         }
 
         let reservation = StartReservation {
@@ -570,9 +575,7 @@ impl DebugRoiSampleCollector {
             active: true,
         };
         if self
-            .active
-            .load_full()
-            .as_ref()
+            .current_run()
             .is_some_and(|run| run_is_active(run.phase.load(Ordering::Acquire)))
         {
             return Err("A debug ROI sample collection is already active.".to_string());
@@ -581,14 +584,14 @@ impl DebugRoiSampleCollector {
     }
 
     fn current_run(&self) -> Option<Arc<Run>> {
-        self.active.load_full()
+        lock_slot(&self.active).clone()
     }
 
     pub(super) fn stop(
         &self,
         capture_token: u64,
     ) -> Result<DebugRoiSampleCollectionStatus, String> {
-        let startup = self.startup.load_full();
+        let startup = lock_slot(&self.startup).clone();
         if let Some(startup) = startup.as_ref() {
             if startup.capture_token == capture_token {
                 startup.request_abort(FINISH_EXPLICIT);
@@ -611,7 +614,7 @@ impl DebugRoiSampleCollector {
     }
 
     pub(super) fn finish_capture(&self, capture_id: u32, reason: u8) {
-        let startup = self.startup.load_full();
+        let startup = lock_slot(&self.startup).clone();
         if let Some(startup) = startup.as_ref() {
             if startup.capture_id == capture_id {
                 startup.request_abort(reason);

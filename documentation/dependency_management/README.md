@@ -18,8 +18,6 @@ Runtime dependencies are intentionally small:
 - `pipewire` consumes the monitor stream returned by the Linux portal.
 - Linux-only `gtk` and `gtk-layer-shell` (MIT) access Tauri's GTK window to place the session overlay on the Wayland
   `Overlay` layer where the compositor supports it.
-- `arc-swap` (MIT/Apache-2.0) lets capture threads read and replace the debug ROI collector's active run atomically
-  without a mutex.
 - `png` (MIT/Apache-2.0) encodes and decodes self-improvement crops and writes debug ROI samples.
 - `quick-xml` (MIT) reads the normal loot panel position and UI scale from BDO's `gamevariable.xml` in `loot_layout.rs`.
 - Windows-only `windows` 0.61.3 and `windows-future` 0.2.1 (MIT/Apache-2.0) bind the system WGC, D3D11, and WinRT APIs.
