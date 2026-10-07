@@ -57,7 +57,7 @@ export type LootTrack<TFingerprint = LootFingerprint> = {
     observations: Array<LootRowObservation<TFingerprint> & { frame: number }>;
 };
 
-export type LootRecognitionResult = {
+type LootRecognitionResult = {
     eventId: string;
     firstFrame: number;
     selectedFrames: number[];
