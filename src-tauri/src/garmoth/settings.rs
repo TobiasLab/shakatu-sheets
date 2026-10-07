@@ -19,6 +19,8 @@ pub(crate) struct GarmothSettings {
     characters: Vec<GarmothCharacter>,
     selected_character_id: Option<String>,
     buff_ids: Vec<i64>,
+    /// Whether this build includes the consumable diagnostics command (debug builds only).
+    consumable_diagnostics: bool,
 }
 
 #[derive(Deserialize)]
@@ -140,6 +142,7 @@ pub(crate) async fn load_garmoth_settings(
         characters,
         selected_character_id,
         buff_ids: parse_stored_buffs(load_setting(&connection, BUFFS_SETTING)?),
+        consumable_diagnostics: cfg!(debug_assertions),
     })
 }
 

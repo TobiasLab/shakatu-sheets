@@ -7,6 +7,8 @@ use serde::{Deserialize, Serialize};
 use crate::persistence::load_setting;
 
 pub(crate) mod buffs;
+// Research-only consumable diagnostics are not part of release builds.
+#[cfg(debug_assertions)]
 pub(crate) mod diagnostics;
 pub(crate) mod settings;
 pub(crate) mod upload;

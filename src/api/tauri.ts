@@ -40,6 +40,8 @@ export type GarmothSettings = {
     characters: GarmothCharacter[];
     selectedCharacterId: string | null;
     buffIds: number[];
+    /** Debug builds only. */
+    consumableDiagnostics: boolean;
 };
 
 export type GarmothUploadInput = {
