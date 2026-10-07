@@ -1,6 +1,7 @@
 import { type LootUiScale, pixelRegionToNormalized } from "./displayCapture";
 import { type LootSearchFrame, validateSearchFrame } from "./liveLootLocalization";
 import type { LootSampleFps } from "./lootCaptureTiming";
+import { luminance } from "./lootPixels";
 import { COMPACT_RARE_LOOT_GEOMETRY, COMPACT_RARE_LOOT_GEOMETRY_100, type RareLootGeometry } from "./rareLoot";
 
 type Candidate = { x: number; y: number; score: number };
@@ -12,8 +13,6 @@ function locateBanner(frame: LootSearchFrame, geometry: RareLootGeometry): Candi
     const stride = frame.width + 1;
     const warm = new Uint32Array(stride * (frame.height + 1));
     const edges = new Uint32Array(warm.length);
-    const light = (offset: number) =>
-        (frame.pixels[offset] * 77 + frame.pixels[offset + 1] * 150 + frame.pixels[offset + 2] * 29) >> 8;
     for (let y = 0; y < frame.height; y += 1) {
         let warmRow = 0;
         let edgeRow = 0;
@@ -24,7 +23,11 @@ function locateBanner(frame: LootSearchFrame, geometry: RareLootGeometry): Candi
             const b = frame.pixels[offset + 2];
             const gold = r >= 105 && g >= 65 && r - b >= 55 && g - b >= 20;
             if (gold) warmRow += 1;
-            if (gold && y >= borderOffset && light(offset) - light(offset - frame.width * 4 * borderOffset) >= 25)
+            if (
+                gold &&
+                y >= borderOffset &&
+                luminance(frame.pixels, offset) - luminance(frame.pixels, offset - frame.width * 4 * borderOffset) >= 25
+            )
                 edgeRow += 1;
             const index = (y + 1) * stride + x + 1;
             warm[index] = warm[index - stride] + warmRow;

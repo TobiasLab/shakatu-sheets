@@ -1,5 +1,6 @@
 import { normalLootColumn } from "./displayCapture";
 import type { LootDetectedRows, LootDetectionProfile, LootRoiFrame } from "./liveLoot";
+import { chroma, luminance } from "./lootPixels";
 
 export type LootRowAppearance = { contrast: Uint16Array; visibility: number };
 
@@ -10,8 +11,6 @@ export function lootRowAppearances(frame: LootRoiFrame, profile: LootDetectionPr
     const right = normalLootColumn(frame.width, 0.55);
     const halfBand = Math.round(6 * scale);
     const step = Math.round(2 * scale) * 4;
-    const light = (offset: number) =>
-        (frame.pixels[offset] * 77 + frame.pixels[offset + 1] * 150 + frame.pixels[offset + 2] * 29) >> 8;
     return Array.from({ length: profile.maxRows }, (_, slot) => {
         const center = profile.bottomCenter - (profile.maxRows - slot - 1) * profile.spacing;
         const contrast = new Uint16Array(right - left);
@@ -19,16 +18,13 @@ export function lootRowAppearances(frame: LootRoiFrame, profile: LootDetectionPr
         for (let x = left; x < right; x++) {
             for (let y = center - halfBand; y <= center + halfBand; y++) {
                 const offset = (y * frame.width + x) * 4;
-                const red = frame.pixels[offset];
-                const green = frame.pixels[offset + 1];
-                const blue = frame.pixels[offset + 2];
-                if (Math.max(red, green, blue) - Math.min(red, green, blue) > 55) continue;
-                const value = light(offset);
+                if (chroma(frame.pixels, offset) > 55) continue;
+                const value = luminance(frame.pixels, offset);
                 const background = Math.min(
-                    light(offset - step),
-                    light(offset + step),
-                    light(offset - frame.width * step),
-                    light(offset + frame.width * step),
+                    luminance(frame.pixels, offset - step),
+                    luminance(frame.pixels, offset + step),
+                    luminance(frame.pixels, offset - frame.width * step),
+                    luminance(frame.pixels, offset + frame.width * step),
                 );
                 contrast[x - left] += Math.max(0, value - background - 12);
                 peaks[x - left] = Math.max(peaks[x - left], value);

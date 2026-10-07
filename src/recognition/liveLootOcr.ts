@@ -2,6 +2,7 @@ import { createWorker, OEM, PSM } from "tesseract.js";
 import type { LiveLootOcrFrame, LiveLootOcrReader, LootOcrBounds, LootRoiFrame } from "./liveLoot";
 import type { LootFont } from "./lootFont";
 import { writeAntialiasedLootPixels } from "./lootOcrPixels";
+import { chroma, luminance } from "./lootPixels";
 import { parseLootQuantity } from "./lootReadings";
 
 export type LootOcrThreshold = 130 | 150 | 170;
@@ -72,12 +73,11 @@ export function preprocessLootOcrFrame(
         for (let x = left; x < right; x += 1) {
             if (x < 0 || x >= width) continue;
             const sourceOffset = (y * width + x) * 4;
-            const red = pixels[sourceOffset];
-            const green = pixels[sourceOffset + 1];
-            const blue = pixels[sourceOffset + 2];
-            const luminance = (red * 77 + green * 150 + blue * 29) >> 8;
-            const chroma = Math.max(red, green, blue) - Math.min(red, green, blue);
-            if (luminance < threshold || chroma > (textColor === "gold" ? 140 : 65)) continue;
+            if (
+                luminance(pixels, sourceOffset) < threshold ||
+                chroma(pixels, sourceOffset) > (textColor === "gold" ? 140 : 65)
+            )
+                continue;
 
             const targetLeft = padding + (x - left) * scale;
             const targetTop = padding + (y - top) * scale;

@@ -1,5 +1,6 @@
 import type { LootOcrBounds, LootRoiFrame } from "./liveLoot";
 import type { LootOcrThreshold } from "./liveLootOcr";
+import { chroma, luminance } from "./lootPixels";
 
 /** Preserve antialiased text strokes before enlargement; binary masks can lose small digit shapes. */
 export function writeAntialiasedLootPixels(
@@ -22,12 +23,9 @@ export function writeAntialiasedLootPixels(
                 continue;
             }
             const offset = (sourceY * frame.width + x + bounds.left) * 4;
-            const red = frame.pixels[offset];
-            const green = frame.pixels[offset + 1];
-            const blue = frame.pixels[offset + 2];
-            const light = (red * 77 + green * 150 + blue * 29) >> 8;
+            const light = luminance(frame.pixels, offset);
             gray[y * width + x] =
-                Math.max(red, green, blue) - Math.min(red, green, blue) > 65
+                chroma(frame.pixels, offset) > 65
                     ? 255
                     : 255 - Math.max(0, Math.min(255, Math.round(((light - low) * 255) / (235 - low))));
         }
