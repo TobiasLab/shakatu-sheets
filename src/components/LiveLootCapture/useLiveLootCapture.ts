@@ -81,7 +81,8 @@ type RecognitionPipeline = {
     rareDiagnostics: RoiOcrDiagnostics;
     normalCoordinator: LiveLootCoordinator;
     rareCoordinator: LiveLootCoordinator;
-    createRareCoordinator: () => LiveLootCoordinator;
+    /** A fresh rare coordinator with diagnostics that number frames from zero, as the coordinator does. */
+    createRareRecognition: () => { rareCoordinator: LiveLootCoordinator; rareDiagnostics: RoiOcrDiagnostics };
     ocr: LiveLootTesseractOcr;
 };
 type AutomaticRetry = { timerId: number; retriesRemaining: number };
@@ -724,7 +725,9 @@ export function useLiveLootCapture({
         const current = recognition.current;
         if (!current) return;
         current.rareCoordinator.stop();
-        current.rareCoordinator = current.createRareCoordinator();
+        const next = current.createRareRecognition();
+        current.rareCoordinator = next.rareCoordinator;
+        current.rareDiagnostics = next.rareDiagnostics;
         recordOutstandingOcrJobs("rare", 0);
     }
 
@@ -1670,7 +1673,6 @@ export function useLiveLootCapture({
                     }
                 };
                 const normalDiagnostics = new RoiOcrDiagnostics("normal", generation, emitOcrIssue);
-                const rareDiagnostics = new RoiOcrDiagnostics("rare", generation, emitOcrIssue);
                 const normalCoordinator = new LiveLootCoordinator({
                     font: captureFont,
                     sampleFps: LIVE_LOOT_SAMPLE_FPS,
@@ -1699,9 +1701,10 @@ export function useLiveLootCapture({
                     },
                     maxPendingOcrJobs: NORMAL_MAX_OUTSTANDING_OCR_JOBS,
                 });
-                const createRareCoordinator = () => {
+                const createRareRecognition = () => {
+                    const rareDiagnostics = new RoiOcrDiagnostics("rare", generation, emitOcrIssue);
                     const rareAnalyzer = new RareLootFrameAnalyzer(rareGeometry, LIVE_LOOT_SAMPLE_FPS);
-                    return new LiveLootCoordinator({
+                    const rareCoordinator = new LiveLootCoordinator({
                         font: captureFont,
                         sampleFps: LIVE_LOOT_SAMPLE_FPS,
                         profile: rareLootDetectionProfile(rareGeometry),
@@ -1718,13 +1721,13 @@ export function useLiveLootCapture({
                         ocrTextColor: "gold",
                         eventIdPrefix: "rare",
                     });
+                    return { rareCoordinator, rareDiagnostics };
                 };
                 const pipeline = {
                     normalCoordinator,
-                    rareCoordinator: createRareCoordinator(),
-                    createRareCoordinator,
                     normalDiagnostics,
-                    rareDiagnostics,
+                    ...createRareRecognition(),
+                    createRareRecognition,
                     ocr,
                 };
                 recognition.current = pipeline;
