@@ -1,5 +1,5 @@
 import { useRef, useState } from "react";
-import { getGrindSpotDrops, grindSpots } from "../../data/grindSpots";
+import { getGrindSpotDrops, grindSpotName, grindSpots } from "../../data/grindSpots";
 import { createEntry, type SessionEntry } from "../../domain/session";
 import type { LiveSessionController } from "../../hooks/useLiveSession";
 import { type MarniRecognition, recognizeMarniScreenshot } from "../../recognition/marni";
@@ -125,7 +125,7 @@ export function MarniImport({ controller }: { controller: LiveSessionController 
             if (unfetched.size > 0) {
                 // Saved prices cover only the session's grind spot.
                 const names = [...unfetched].join(", ");
-                const spotName = grindSpots.find((spot) => spot.id === draft.grindSpotId)?.name ?? draft.grindSpotId;
+                const spotName = grindSpotName(draft.grindSpotId);
                 problems.push(
                     draft.grindSpotId === session.grindSpotId
                         ? `No saved price for ${names}. Fetch prices in Settings → Market first.`

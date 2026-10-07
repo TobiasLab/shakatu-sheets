@@ -10,7 +10,7 @@ import {
 } from "../../api/tauri";
 import { EmptyState, Feedback } from "../../components/Feedback/Feedback";
 import { SelectionButton } from "../../components/SelectionButton/SelectionButton";
-import { getDropIcon, grindSpots } from "../../data/grindSpots";
+import { grindSpotName, grindSpots } from "../../data/grindSpots";
 import { historyDateBoundary, netPerHour, rankSpots, summarizeHistory } from "../../domain/history";
 import { calculateTotals, type SessionState } from "../../domain/session";
 import { hasRecordedTrend, type TrendSample } from "../../domain/trend";
@@ -20,15 +20,13 @@ import type { DatabaseStatus } from "../../hooks/usePersistedSession";
 import { SessionTrend } from "../LiveSession/SessionTrend";
 import { GarmothUploadDialog } from "./GarmothUploadDialog";
 import styles from "./History.module.css";
+import { RecordedEntries } from "./RecordedEntries";
+import { SpotComparisons } from "./SpotComparisons";
 
 function localDateOffset(days: number) {
     const date = new Date();
     date.setDate(date.getDate() + days);
     return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
-}
-
-function spotName(id: string) {
-    return grindSpots.find((spot) => spot.id === id)?.name ?? id;
 }
 
 export function HistoryView({
@@ -266,7 +264,7 @@ export function HistoryView({
 
     async function deleteRecord(record: FinishedSessionRecord) {
         if (deletingId !== null) return;
-        const name = spotName(record.session.grindSpotId);
+        const name = grindSpotName(record.session.grindSpotId);
         const confirmed = window.confirm(
             `Delete the ${name} session from ${formatTimestamp(record.finishedAt)}? This permanently removes the session and all of its entries.`,
         );
@@ -304,7 +302,15 @@ export function HistoryView({
         }
     }
 
-    const bestRate = Math.max(0, ...comparisonSpots.map((spot) => netPerHour(spot) ?? 0));
+    function uploadStatusLabel() {
+        if (selected?.garmothUploadStatus === "success") return "Uploaded";
+        if (selected?.garmothUploadStatus === "unknown") return "Confirmation unknown";
+        if (!garmothSettingsLoaded) return "Loading connection…";
+        if (!uploadCharacter) return "Connect a character to share";
+        if (uploadPreviewError) return "Upload unavailable";
+        return "Ready for review";
+    }
+
     return (
         <>
             <header className="topbar">
@@ -437,67 +443,12 @@ export function HistoryView({
                 </section>
             )}
             {history && !error && comparisonSpots.length > 0 && (
-                <section className={styles.Comparisons} aria-label="Grind spot comparisons">
-                    <div className={styles.ComparisonHeading}>
-                        <h2>Grind spot comparisons</h2>
-                        <span>
-                            {comparisonSpots.length} {comparisonSpots.length === 1 ? "spot" : "spots"}
-                        </span>
-                    </div>
-                    {/* biome-ignore lint/a11y/noNoninteractiveTabindex: Scrollable tables need keyboard access. */}
-                    <section className={styles.ComparisonScroll} aria-label="Spot earnings table" tabIndex={0}>
-                        <table>
-                            <thead>
-                                <tr>
-                                    <th scope="col">Grind spot</th>
-                                    <th scope="col">Net / hour</th>
-                                    <th scope="col">Sessions</th>
-                                    <th scope="col">Time tracked</th>
-                                    <th scope="col">Recorded net</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {comparisonSpots.map((spot) => {
-                                    const rate = netPerHour(spot);
-                                    return (
-                                        <tr key={spot.grindSpotId} data-selected={grindSpotFilter === spot.grindSpotId}>
-                                            <th scope="row">
-                                                <button
-                                                    type="button"
-                                                    className="button subtle"
-                                                    aria-pressed={grindSpotFilter === spot.grindSpotId}
-                                                    disabled={actionBusy || loading}
-                                                    onClick={() => selectSpot(spot.grindSpotId)}
-                                                >
-                                                    {spotName(spot.grindSpotId)}
-                                                </button>
-                                            </th>
-                                            <td>
-                                                <span className={styles.Rate}>
-                                                    {rate !== null && rate > 0 && bestRate > 0 && (
-                                                        <i
-                                                            aria-hidden="true"
-                                                            style={{ width: `${(rate / bestRate) * 100}%` }}
-                                                        />
-                                                    )}
-                                                    {rate === null ? "—" : `${formatSilver(rate, true)}/h`}
-                                                </span>
-                                            </td>
-                                            <td>
-                                                {spot.sessionCount}
-                                                {spot.zeroDurationCount > 0 && (
-                                                    <small>{spot.sessionCount - spot.zeroDurationCount} timed</small>
-                                                )}
-                                            </td>
-                                            <td>{formatDuration(spot.elapsedMs)}</td>
-                                            <td>{formatSilver(spot.net, true)}</td>
-                                        </tr>
-                                    );
-                                })}
-                            </tbody>
-                        </table>
-                    </section>
-                </section>
+                <SpotComparisons
+                    spots={comparisonSpots}
+                    selectedSpotId={grindSpotFilter}
+                    disabled={actionBusy || loading}
+                    onSelect={selectSpot}
+                />
             )}
             {deleteMessage && <Feedback tone="success">{deleteMessage}</Feedback>}
             {deleteError && <Feedback tone="error">{deleteError}</Feedback>}
@@ -591,7 +542,7 @@ export function HistoryView({
                                             }}
                                         >
                                             <span>
-                                                <strong>{spotName(record.session.grindSpotId)}</strong>
+                                                <strong>{grindSpotName(record.session.grindSpotId)}</strong>
                                                 <small>
                                                     {formatTimestamp(record.finishedAt)} ·{" "}
                                                     {record.session.region.toUpperCase()} ·{" "}
@@ -611,7 +562,7 @@ export function HistoryView({
                                             className={styles.DeleteButton}
                                             type="button"
                                             disabled={actionBusy}
-                                            aria-label={`Delete ${spotName(record.session.grindSpotId)} session from ${formatTimestamp(record.finishedAt)}`}
+                                            aria-label={`Delete ${grindSpotName(record.session.grindSpotId)} session from ${formatTimestamp(record.finishedAt)}`}
                                             ref={(element) => {
                                                 if (element)
                                                     historyDeleteButtons.current.set(record.session.id, element);
@@ -632,7 +583,7 @@ export function HistoryView({
                             <div className="panel-heading">
                                 <div>
                                     <p className="eyebrow">{formatTimestamp(selected.finishedAt)} · Completed</p>
-                                    <h2>{spotName(selected.session.grindSpotId)}</h2>
+                                    <h2>{grindSpotName(selected.session.grindSpotId)}</h2>
                                 </div>
                                 <div className={styles.DetailActions}>
                                     <span>{selected.session.region.toUpperCase()}</span>
@@ -677,65 +628,12 @@ export function HistoryView({
                                     />
                                 )}
                             </div>
-                            {selected.session.entries.length === 0 ? (
-                                <div className={`empty-state ${styles.HistoryEntriesEmpty}`}>
-                                    <strong>No entries recorded</strong>
-                                </div>
-                            ) : (
-                                // biome-ignore lint/a11y/noNoninteractiveTabindex: Read-only recorded items need keyboard scrolling.
-                                <section className={styles.HistoryEntries} aria-label="Recorded items" tabIndex={0}>
-                                    {selected.session.entries.map((entry) => {
-                                        const icon = getDropIcon(selected.session.grindSpotId, entry.name);
-                                        return (
-                                            <div className={styles.HistoryEntry} key={entry.id}>
-                                                {icon ? (
-                                                    <img
-                                                        className={styles.ItemIcon}
-                                                        src={icon}
-                                                        alt=""
-                                                        width={28}
-                                                        height={28}
-                                                    />
-                                                ) : (
-                                                    <div className={`item-swatch ${entry.valuation}`}>
-                                                        {entry.valuation === "expense" ? "−" : "+"}
-                                                    </div>
-                                                )}
-                                                <strong className={styles.EntryName}>{entry.name}</strong>
-                                                <span className={styles.EntryQuantity}>
-                                                    {formatSilver(entry.quantity)}
-                                                </span>
-                                                <span className={styles.EntryPrice}>
-                                                    × {formatSilver(entry.unitPrice)}
-                                                </span>
-                                                <strong
-                                                    className={`${styles.EntryValue} ${entry.valuation === "expense" ? "negative" : ""}`}
-                                                >
-                                                    {entry.valuation === "expense" ? "−" : ""}
-                                                    {formatSilver(entry.quantity * entry.unitPrice, true)}
-                                                </strong>
-                                            </div>
-                                        );
-                                    })}
-                                </section>
-                            )}
+                            <RecordedEntries session={selected.session} />
                             <div className={styles.GarmothUpload}>
                                 <div className={styles.UploadHeading}>
                                     <div>
                                         <span>Garmoth upload</span>
-                                        <strong>
-                                            {selected.garmothUploadStatus === "success"
-                                                ? "Uploaded"
-                                                : selected.garmothUploadStatus === "unknown"
-                                                  ? "Confirmation unknown"
-                                                  : !garmothSettingsLoaded
-                                                    ? "Loading connection…"
-                                                    : !uploadCharacter
-                                                      ? "Connect a character to share"
-                                                      : uploadPreviewError
-                                                        ? "Upload unavailable"
-                                                        : "Ready for review"}
-                                        </strong>
+                                        <strong>{uploadStatusLabel()}</strong>
                                     </div>
                                     {selected.garmothUploadStatus === "unknown" ? null : !garmothSettingsLoaded ? (
                                         <button className="button" type="button" disabled>
