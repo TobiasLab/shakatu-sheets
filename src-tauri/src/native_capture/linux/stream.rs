@@ -187,6 +187,16 @@ fn process_frame(
     let stride = validated_stride(plane.chunk().stride(), size.width)?;
     let offset = plane.chunk().offset() as usize;
     let available = plane.chunk().size() as usize;
+    // Compositors send an empty or corrupted buffer when they could not record a frame, for example during a display
+    // mode change. Skipping it keeps capture running; it does not count as a source frame.
+    if available == 0
+        || plane
+            .chunk()
+            .flags()
+            .contains(spa::buffer::ChunkFlags::CORRUPTED)
+    {
+        return Ok(ControlFlow::Continue(()));
+    }
     let memory_type = plane.type_();
     let Some(source) = plane.data() else {
         return Ok(ControlFlow::Continue(()));
@@ -198,6 +208,9 @@ fn process_frame(
     let pixels = source
         .get(offset..end)
         .ok_or("PipeWire frame offset is outside mapped memory.")?;
+    if !frame_is_complete(pixels.len(), size.width, size.height, stride) {
+        return Ok(ControlFlow::Continue(()));
+    }
     let configured_selection = *control
         .selection
         .lock()

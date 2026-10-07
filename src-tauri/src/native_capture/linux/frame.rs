@@ -141,6 +141,15 @@ pub(super) fn crop_pixel_region_frame(
     Ok(frame)
 }
 
+/// Whether `bytes` cover every row of a 4-byte-per-pixel frame: full strides, then the last row's pixels.
+pub(super) fn frame_is_complete(bytes: usize, width: u32, height: u32, stride: u32) -> bool {
+    (height as usize)
+        .checked_sub(1)
+        .and_then(|rows| rows.checked_mul(stride as usize))
+        .and_then(|rows| rows.checked_add(width as usize * 4))
+        .is_some_and(|needed| bytes >= needed)
+}
+
 pub(super) fn validated_stride(stride: i32, source_width: u32) -> Result<u32, String> {
     let minimum = source_width
         .checked_mul(4)
