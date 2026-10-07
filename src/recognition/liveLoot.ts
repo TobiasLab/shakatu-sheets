@@ -1028,22 +1028,38 @@ function knownLootItems() {
     return knownItems;
 }
 
-function chooseTemporalPairConsensus(readingsByFrame: Array<Array<{ item: string | null; quantity: number | null }>>) {
-    const counts = new Map<string, { count: number; item: string; quantity: number }>();
-    const confidentPairs = new Set<string>();
+type ParsedLootReading = { item: string | null; quantity: number | null };
+
+function framePairs(readings: ParsedLootReading[]) {
+    const unique = new Map<string, { count: number; item: string; quantity: number }>();
+    for (const reading of readings) {
+        if (reading.item === null || reading.quantity === null) continue;
+        const key = `${reading.item}\0${reading.quantity}`;
+        unique.set(key, {
+            item: reading.item,
+            quantity: reading.quantity,
+            count: (unique.get(key)?.count ?? 0) + 1,
+        });
+    }
+    return unique;
+}
+
+/** Item/quantity pairs that a majority of one frame's readings agree on. */
+function confidentLootPairs(readingsByFrame: ParsedLootReading[][]) {
+    const confident = new Set<string>();
     for (const readings of readingsByFrame) {
-        const unique = new Map<string, { count: number; item: string; quantity: number }>();
-        for (const reading of readings) {
-            if (reading.item === null || reading.quantity === null) continue;
-            const key = `${reading.item}\0${reading.quantity}`;
-            unique.set(key, {
-                item: reading.item,
-                quantity: reading.quantity,
-                count: (unique.get(key)?.count ?? 0) + 1,
-            });
+        for (const [key, reading] of framePairs(readings)) {
+            if (reading.count > readings.length / 2) confident.add(key);
         }
-        for (const [key, reading] of unique) {
-            if (reading.count > readings.length / 2) confidentPairs.add(key);
+    }
+    return confident;
+}
+
+function chooseTemporalPairConsensus(readingsByFrame: ParsedLootReading[][]) {
+    const counts = new Map<string, { count: number; item: string; quantity: number }>();
+    const confidentPairs = confidentLootPairs(readingsByFrame);
+    for (const readings of readingsByFrame) {
+        for (const [key, reading] of framePairs(readings)) {
             const current = counts.get(key);
             counts.set(key, { ...reading, count: (current?.count ?? 0) + 1 });
         }
@@ -1072,15 +1088,17 @@ export function analyzeLootReadings(rawReadings: readonly (readonly string[])[],
         })),
     );
     const consensus = chooseTemporalPairConsensus(parsed);
-    if (consensus) return { consensus, reason: null as null };
+    if (consensus) return { consensus, reason: null as null, conflicting: false };
+    // Two frames confidently reading different pairs veto every consensus, and more frames cannot lift that veto.
+    const conflicting = confidentLootPairs(parsed).size > 1;
     const readings = parsed.flat();
     if (!readings.some(({ quantity }) => quantity !== null)) {
-        return { consensus: null, reason: "quantity-not-recognized" as const };
+        return { consensus: null, reason: "quantity-not-recognized" as const, conflicting };
     }
     if (!readings.some(({ item }) => item !== null)) {
-        return { consensus: null, reason: "item-not-recognized" as const };
+        return { consensus: null, reason: "item-not-recognized" as const, conflicting };
     }
-    return { consensus: null, reason: "consensus-withheld" as const };
+    return { consensus: null, reason: "consensus-withheld" as const, conflicting };
 }
 
 const defaultRetainedFrameCount = 4;
@@ -1512,6 +1530,7 @@ export class LiveLootCoordinator {
                     let analysis = analyzeLootReadings(rawReadings, this.options.dictionary);
                     if (
                         !analysis.consensus &&
+                        !analysis.conflicting &&
                         delivery.generation === this.generation &&
                         delivery.frames.length > primaryFrames.length
                     ) {
