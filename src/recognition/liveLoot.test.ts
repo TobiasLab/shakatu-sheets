@@ -7,15 +7,10 @@ import {
     type LootDetectedRows,
     type LootDetectionProfile,
     type LootRoiFrame,
-    LootRowTracker,
     lootFingerprintDistance,
-    parseLootItem,
-    parseLootQuantity,
-    recognizeLootReplay,
-    rowBirthCount,
-    selectLootOcrObservations,
-    trackLootRows,
 } from "./liveLoot";
+import { analyzeLootReadings, parseLootItem, parseLootQuantity } from "./lootReadings";
+import { LootRowTracker, rowBirthCount, selectLootOcrObservations, trackLootRows } from "./lootRowTracker";
 
 const distance = (left: number | undefined, right: number | undefined) => Math.abs((left ?? 0) - (right ?? 0));
 
@@ -192,82 +187,67 @@ describe("live loot event tracking", () => {
     });
 });
 
-describe("live loot replay recognition", () => {
-    it("emits consecutive identical drops as distinct recognized events", async () => {
+describe("live loot reading consensus", () => {
+    it("selects consecutive identical drops as distinct events", () => {
         const rows = [row([]), row([1]), row([1]), row([1, 1]), row([1, 1]), row([1, 1]), row([1, 1])];
-        const results = await recognizeLootReplay({
-            rows,
-            rowThreshold: 100,
-            distance,
-            dictionary: ["Black Stone"],
-            readText: async () => [["Black Stone x 2", "noise"], ["Black Stone x2"], ["Black Stone x 2"]],
-        });
+        const events = trackLootRows(rows, 100, distance)
+            .filter(({ baseline }) => !baseline)
+            .map((track) => ({
+                eventId: track.id,
+                firstFrame: track.firstFrame,
+                selectedFrames: selectLootOcrObservations(track, 100, undefined, distance).map(({ frame }) => frame),
+            }));
 
-        expect(results).toEqual([
-            {
-                eventId: "detected-0001",
-                firstFrame: 1,
-                selectedFrames: [2, 3, 4],
-                itemName: "Black Stone",
-                quantity: 2,
-            },
-            {
-                eventId: "detected-0002",
-                firstFrame: 3,
-                selectedFrames: [4, 5, 6],
-                itemName: "Black Stone",
-                quantity: 2,
-            },
+        expect(events).toEqual([
+            { eventId: "detected-0001", firstFrame: 1, selectedFrames: [2, 3, 4] },
+            { eventId: "detected-0002", firstFrame: 3, selectedFrames: [4, 5, 6] },
         ]);
+        expect(
+            analyzeLootReadings(
+                [["Black Stone x 2", "noise"], ["Black Stone x2"], ["Black Stone x 2"]],
+                ["Black Stone"],
+            ).consensus,
+        ).toMatchObject({ item: "Black Stone", quantity: 2 });
     });
 
-    it("withholds conflicting readings rather than combining item and quantity", async () => {
-        const results = await recognizeLootReplay({
-            rows: [row([]), row([1]), row([1]), row([1]), row([1])],
-            rowThreshold: 100,
-            distance,
-            dictionary: ["Black Stone", "Ancient Spirit Dust"],
-            readText: async () => [["Black Stone x 1"], ["Black Stone x 2"], ["Ancient Spirit Dust x 1"]],
-        });
+    it("withholds conflicting readings rather than combining item and quantity", () => {
+        const { consensus } = analyzeLootReadings(
+            [["Black Stone x 1"], ["Black Stone x 2"], ["Ancient Spirit Dust x 1"]],
+            ["Black Stone", "Ancient Spirit Dust"],
+        );
 
-        expect(results[0]).toMatchObject({ itemName: null, quantity: null });
+        expect(consensus).toBeNull();
     });
 
     it.each(["Branch of Abundance x 4", "Ancient Spirit Dust x 1"])(
         "withholds a temporal majority contradicted consistently by one frame: %s",
-        async (conflict) => {
-            const results = await recognizeLootReplay({
-                rows: [row([]), row([1]), row([1]), row([1]), row([1])],
-                rowThreshold: 100,
-                distance,
-                dictionary: ["Branch of Abundance", "Ancient Spirit Dust"],
-                readText: async () => [
+        (conflict) => {
+            const { consensus } = analyzeLootReadings(
+                [
                     [conflict, conflict, "noise"],
                     ["Branch of Abundance x 6", "Branch of Abundance x &", "noise"],
                     ["Branch of Abundance x 6", "Branch of Abundance x 6", "Branch of Abundance x 6"],
                 ],
-            });
-            expect(results[0]).toMatchObject({ itemName: null, quantity: null });
+                ["Branch of Abundance", "Ancient Spirit Dust"],
+            );
+            expect(consensus).toBeNull();
         },
     );
 
-    it("retains temporal support when a third frame is unreadable or has one conflicting pass", async () => {
+    it("retains temporal support when a third frame is unreadable or has one conflicting pass", () => {
         for (const thirdFrame of [
             ["noise", "noise", "noise"],
             ["Branch of Abundance x 5", "noise", "noise"],
         ]) {
-            const results = await recognizeLootReplay({
-                rows: [row([]), row([1]), row([1]), row([1]), row([1])],
-                rowThreshold: 100,
-                distance,
-                dictionary: ["Branch of Abundance"],
-                readText: async () => [
+            const { consensus } = analyzeLootReadings(
+                [
                     ["Branch of Abundance x 6", "Branch of Abundance x &", "Branch of Abundance x 6"],
                     thirdFrame,
                     ["Branch of Abundance x 6", "Branch of Abundance x B", "Branch of Abundance x"],
                 ],
-            });
-            expect(results[0]).toMatchObject({ itemName: "Branch of Abundance", quantity: 6 });
+                ["Branch of Abundance"],
+            );
+            expect(consensus).toMatchObject({ item: "Branch of Abundance", quantity: 6 });
         }
     });
 
@@ -292,13 +272,9 @@ describe("live loot replay recognition", () => {
         expect(parseLootItem("Black Stonex 1", ["Black Stona", "Black Stoni"])).toBeNull();
     });
 
-    it("recovers the observed rare-banner readings through temporal consensus", async () => {
-        const results = await recognizeLootReplay({
-            rows: [row([]), row([1]), row([1]), row([1]), row([1])],
-            rowThreshold: 100,
-            distance,
-            dictionary: ["Twilight of the End - Earring"],
-            readText: async () => [
+    it("recovers the observed rare-banner readings through temporal consensus", () => {
+        const { consensus } = analyzeLootReadings(
+            [
                 [
                     "*Imiilight. of the End — Earrings 1",
                     "_ Twilight of the End = Earringsx 1",
@@ -315,48 +291,41 @@ describe("live loot replay recognition", () => {
                     "Twilight of the End = Earringx 1",
                 ],
             ],
-        });
-        expect(results[0]).toMatchObject({ itemName: "Twilight of the End - Earring", quantity: 1 });
-    });
-
-    it("recovers a terminal quote without choosing between conflicting quantities", async () => {
-        const replay = (readings: string[][]) =>
-            recognizeLootReplay({
-                rows: [row([]), row([1]), row([1]), row([1]), row([1])],
-                rowThreshold: 100,
-                distance,
-                dictionary: ["Branch of Abundance"],
-                readText: async () => readings,
-            });
-        const recovered = await replay([
-            ["‘Branch of Abundance x10 :", "Branch of Abundance x 10", "Branch of Abundance x 110"],
-            ["Branch of A bundance x10 Lo", "Branch of Abundance x 10", "Branch of Abundance x 10"],
-            ["Branch ol} bundahee £10. 1", "Branch of Abundance x 10 ”", "Branch of Abundance x 110"],
-        ]);
-        expect(recovered[0]).toMatchObject({ itemName: "Branch of Abundance", quantity: 10 });
-        const ambiguous = await replay(
-            Array.from({ length: 3 }, () => [
-                "Branch of Abundance x 10- - i",
-                "Branch of Abundance x 100",
-                "Branch of Abundance x 10",
-            ]),
+            ["Twilight of the End - Earring"],
         );
-        expect(ambiguous[0]).toMatchObject({ itemName: null, quantity: null });
+        expect(consensus).toMatchObject({ item: "Twilight of the End - Earring", quantity: 1 });
     });
 
-    it("withholds a false x110 when cropped x10 readings include terminal dashes", async () => {
-        const results = await recognizeLootReplay({
-            rows: [row([]), row([1]), row([1]), row([1]), row([1])],
-            rowThreshold: 100,
-            distance,
-            dictionary: ["Branch of Abundance"],
-            readText: async () => [
+    it("recovers a terminal quote without choosing between conflicting quantities", () => {
+        const consensus = (readings: string[][]) => analyzeLootReadings(readings, ["Branch of Abundance"]).consensus;
+        expect(
+            consensus([
+                ["‘Branch of Abundance x10 :", "Branch of Abundance x 10", "Branch of Abundance x 110"],
+                ["Branch of A bundance x10 Lo", "Branch of Abundance x 10", "Branch of Abundance x 10"],
+                ["Branch ol} bundahee £10. 1", "Branch of Abundance x 10 ”", "Branch of Abundance x 110"],
+            ]),
+        ).toMatchObject({ item: "Branch of Abundance", quantity: 10 });
+        expect(
+            consensus(
+                Array.from({ length: 3 }, () => [
+                    "Branch of Abundance x 10- - i",
+                    "Branch of Abundance x 100",
+                    "Branch of Abundance x 10",
+                ]),
+            ),
+        ).toBeNull();
+    });
+
+    it("withholds a false x110 when cropped x10 readings include terminal dashes", () => {
+        const { consensus } = analyzeLootReadings(
+            [
                 ["Branch, of Abundance x 10", "Branch of Abundance x 10", "Branch of Abundance x 110"],
                 ["Branch of Abundance x 10", "Branch of Abundance x10", "Branch of Abundance x 110"],
                 [": Branch of Abundance x10 -", "Branch of Abundance x10 -", "Branch of Abundance x 110"],
             ],
-        });
-        expect(results[0]).toMatchObject({ itemName: null, quantity: null });
+            ["Branch of Abundance"],
+        );
+        expect(consensus).toBeNull();
     });
 
     it("parses OCR spacing and common single-one glyph substitutions", () => {

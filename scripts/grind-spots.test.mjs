@@ -1,7 +1,7 @@
 import { existsSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { getDropIcon, getGrindSpotDrops, getMarketItemIds, grindSpots } from "../src/data/grindSpots";
-import { parseLootItem } from "../src/recognition/liveLoot";
+import { parseLootItem } from "../src/recognition/lootReadings";
 
 describe("bundled grind spots", () => {
     it("includes current grind spots and distinct Dehkia variants", () => {
