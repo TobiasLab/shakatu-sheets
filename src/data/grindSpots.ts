@@ -281,6 +281,11 @@ export const grindSpots: GrindSpotProfile[] = [
     ...(importedSpots as GrindSpotProfile[]),
 ];
 
+// Unknown IDs (spots no longer in the catalog) are shown as recorded.
+export function grindSpotName(id: string) {
+    return grindSpots.find((spot) => spot.id === id)?.name ?? id;
+}
+
 export function getGrindSpot(id: string): GrindSpotProfile {
     return grindSpots.find((spot) => spot.id === id) ?? sycraiaLower;
 }
