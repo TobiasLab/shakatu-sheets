@@ -63,19 +63,26 @@ pub(super) async fn start(
         worker_started: false,
     };
 
-    let portal = Screencast::new().await.map_err(capture_error)?;
-    let session = Arc::new(
-        portal
-            .create_session(Default::default())
-            .await
-            .map_err(capture_error)?,
-    );
+    let connection = ashpd::zbus::Connection::session()
+        .await
+        .map_err(capture_error)?;
     *control
-        .pending_session
+        .portal_connection
         .lock()
-        .map_err(|_| "Capture session state is unavailable.")? = Some(session.clone());
+        .map_err(|_| "Capture session state is unavailable.")? = Some(connection.clone());
     if control.cancelled.load(Ordering::Acquire) {
-        close_pending_session(&control);
+        close_portal(&control);
+        return Err("Screen sharing was cancelled.".to_string());
+    }
+    let portal = Screencast::with_connection(connection)
+        .await
+        .map_err(|error| portal_error(&control, error))?;
+    let session = portal
+        .create_session(Default::default())
+        .await
+        .map_err(|error| portal_error(&control, error))?;
+    if control.cancelled.load(Ordering::Acquire) {
+        close_portal(&control);
         return Err("Screen sharing was cancelled.".to_string());
     }
 
@@ -89,7 +96,7 @@ pub(super) async fn start(
         )
         .await;
     if control.cancelled.load(Ordering::Acquire) {
-        close_pending_session(&control);
+        close_portal(&control);
         return Err("Screen sharing was cancelled.".to_string());
     }
     select_request
@@ -99,7 +106,7 @@ pub(super) async fn start(
 
     let start_request = portal.start(&session, None, Default::default()).await;
     if control.cancelled.load(Ordering::Acquire) {
-        close_pending_session(&control);
+        close_portal(&control);
         return Err("Screen sharing was cancelled.".to_string());
     }
     let response = start_request
@@ -107,7 +114,7 @@ pub(super) async fn start(
         .response()
         .map_err(|error| portal_error(&control, error))?;
     let stream = response.streams().first().ok_or_else(|| {
-        close_pending_session(&control);
+        close_portal(&control);
         "The screen capture portal returned no monitor stream.".to_string()
     })?;
     let node_id = stream.pipe_wire_node_id();
@@ -122,15 +129,11 @@ pub(super) async fn start(
         .await
         .map_err(|error| portal_error(&control, error))?;
     if control.cancelled.load(Ordering::Acquire) {
-        close_pending_session(&control);
+        close_portal(&control);
         return Err("Screen sharing was cancelled.".to_string());
     }
-    // This backend exposes the selected node only after the portal proxies are released.
-    control
-        .pending_session
-        .lock()
-        .map_err(|_| "Capture session state is unavailable.")?
-        .take();
+    // This backend exposes the selected node only after the portal proxies are released. The connection stays open
+    // until capture ends, so closing it still ends the portal session.
     drop(session);
     drop(portal);
 
@@ -147,6 +150,7 @@ pub(super) async fn start(
             #[cfg(debug_assertions)]
             debug_collector.clone(),
         );
+        close_portal(&worker_control);
         #[cfg(debug_assertions)]
         worker_control.healthy.store(false, Ordering::Release);
         worker_control.finished.store(true, Ordering::Release);
@@ -161,8 +165,8 @@ pub(super) async fn start(
     Ok(())
 }
 
-fn portal_error(control: &Arc<CaptureControl>, error: impl std::fmt::Display) -> String {
-    close_pending_session(control);
+fn portal_error(control: &CaptureControl, error: impl std::fmt::Display) -> String {
+    close_portal(control);
     capture_error(error)
 }
 
