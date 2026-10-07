@@ -1,13 +1,14 @@
 use std::{collections::BTreeMap, path::PathBuf};
 
-use crate::persistence::sessions::{save_upload_consumables, SessionRecord};
+use crate::persistence::sessions::SessionRecord;
+use rusqlite::Connection;
 use serde::{Deserialize, Serialize};
 use tauri::State;
 
 use crate::persistence::{
-    claim_garmoth_upload, finish_garmoth_upload, load_session_for_upload, load_setting,
-    release_garmoth_upload, save_settings, DatabasePath, SessionEntry, SessionStatus, Valuation,
-    MAX_SAFE_INTEGER,
+    apply_finished_session_consumables_record, claim_garmoth_upload, finish_garmoth_upload,
+    load_session_for_upload, load_setting, open_database, release_garmoth_upload, save_settings,
+    DatabasePath, SessionEntry, SessionStatus, Valuation, MAX_SAFE_INTEGER,
 };
 
 use super::{
@@ -273,13 +274,15 @@ pub(crate) async fn upload(
     // Buffs rarely change between sessions, so the next review starts from the selection submitted here, even when
     // this upload then fails.
     let buffs = serde_json::to_string(&input.buffs).map_err(|error| error.to_string())?;
-    save_settings(path, &[(BUFFS_SETTING, Some(&buffs))])?;
-    let session = load_session_for_upload(path, &input.session_id)?;
+    let mut connection = open_database(path)?;
+    save_settings(&mut connection, &[(BUFFS_SETTING, Some(&buffs))])?;
+    let session = load_session_for_upload(&connection, &input.session_id)?;
     let consumables = reviewed_consumables(input, &session)?;
-    let api_key = stored_api_key(path)?;
-    let characters = parse_stored_characters(load_setting(path, CHARACTERS_SETTING)?)?;
-    let selected_id = parse_selected_character_id(load_setting(path, SELECTED_CHARACTER_SETTING)?)?
-        .ok_or_else(|| "select a Garmoth character in Settings first".to_string())?;
+    let api_key = stored_api_key(&connection)?;
+    let characters = parse_stored_characters(load_setting(&connection, CHARACTERS_SETTING)?)?;
+    let selected_id =
+        parse_selected_character_id(load_setting(&connection, SELECTED_CHARACTER_SETTING)?)?
+            .ok_or_else(|| "select a Garmoth character in Settings first".to_string())?;
     let character = characters
         .iter()
         .find(|character| character.id == selected_id)
@@ -312,9 +315,11 @@ pub(crate) async fn upload(
     let saved_session = input
         .consumable_entries
         .as_ref()
-        .map(|entries| save_upload_consumables(path, &session, entries))
+        .map(|entries| {
+            apply_finished_session_consumables_record(&mut connection, &session, entries)
+        })
         .transpose()?;
-    let outcome = match send_upload(input, path, client, request).await {
+    let outcome = match send_upload(input, &mut connection, client, request).await {
         Ok(outcome) => outcome,
         Err(error) => GarmothUploadOutcome {
             status: GarmothUploadResultStatus::Failed,
@@ -333,11 +338,11 @@ pub(crate) async fn upload(
 
 async fn send_upload(
     input: &GarmothUploadInput,
-    path: &PathBuf,
+    connection: &mut Connection,
     client: reqwest::Client,
     request: reqwest::Request,
 ) -> Result<GarmothUploadOutcome, String> {
-    let was_uploaded = claim_garmoth_upload(path, &input.session_id, input.repeat_upload)?;
+    let was_uploaded = claim_garmoth_upload(connection, &input.session_id, input.repeat_upload)?;
     let response = client.execute(request).await;
 
     let response = match response {
@@ -345,9 +350,9 @@ async fn send_upload(
         // Only a connect failure proves the request was never sent.
         Err(error) if error.is_connect() => {
             let restored = if was_uploaded {
-                finish_garmoth_upload(path, &input.session_id)
+                finish_garmoth_upload(connection, &input.session_id)
             } else {
-                release_garmoth_upload(path, &input.session_id)
+                release_garmoth_upload(connection, &input.session_id)
             };
             if restored.is_ok() {
                 return Err(
@@ -368,7 +373,7 @@ async fn send_upload(
     };
     let status = response.status();
     if status.is_success() {
-        if finish_garmoth_upload(path, &input.session_id).is_err() {
+        if finish_garmoth_upload(connection, &input.session_id).is_err() {
             return Ok(GarmothUploadOutcome {
                 status: GarmothUploadResultStatus::Unknown,
                 message: "Garmoth confirmed the upload, but Shakatu Sheets could not save that confirmation. Check your Garmoth grind tracker; this session will not be retried automatically.".into(),

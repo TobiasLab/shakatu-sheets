@@ -1,7 +1,9 @@
 use serde::{Deserialize, Serialize};
 use tauri::State;
 
-use crate::persistence::{load_setting, save_settings, save_settings_if_unchanged, DatabasePath};
+use crate::persistence::{
+    load_setting, open_database, save_settings, save_settings_if_unchanged, DatabasePath,
+};
 
 use super::{
     buffs::parse_stored_buffs, get, parse_selected_character_id, parse_stored_characters,
@@ -119,10 +121,10 @@ pub(crate) async fn load_garmoth_settings(
     operations: State<'_, GarmothOperations>,
 ) -> Result<GarmothSettings, String> {
     let _guard = operations.lock().await;
-    let path = state.path()?;
-    let characters = parse_stored_characters(load_setting(path, CHARACTERS_SETTING)?)?;
+    let connection = open_database(state.path()?)?;
+    let characters = parse_stored_characters(load_setting(&connection, CHARACTERS_SETTING)?)?;
     let selected_character_id =
-        parse_selected_character_id(load_setting(path, SELECTED_CHARACTER_SETTING)?)?;
+        parse_selected_character_id(load_setting(&connection, SELECTED_CHARACTER_SETTING)?)?;
     if selected_character_id
         .as_ref()
         .is_some_and(|id| !characters.iter().any(|character| character.id == *id))
@@ -130,11 +132,14 @@ pub(crate) async fn load_garmoth_settings(
         return Err("saved Garmoth character selection was not found".into());
     }
     Ok(GarmothSettings {
-        api_key_configured: load_setting(path, API_KEY_SETTING)?.is_some(),
-        character_ids: parse_stored_character_ids(load_setting(path, CHARACTER_IDS_SETTING)?)?,
+        api_key_configured: load_setting(&connection, API_KEY_SETTING)?.is_some(),
+        character_ids: parse_stored_character_ids(load_setting(
+            &connection,
+            CHARACTER_IDS_SETTING,
+        )?)?,
         characters,
         selected_character_id,
-        buff_ids: parse_stored_buffs(load_setting(path, BUFFS_SETTING)?),
+        buff_ids: parse_stored_buffs(load_setting(&connection, BUFFS_SETTING)?),
     })
 }
 
@@ -155,7 +160,7 @@ pub(crate) async fn save_garmoth_api_key(
     }
 
     save_settings(
-        state.path()?,
+        &mut open_database(state.path()?)?,
         &[
             (API_KEY_SETTING, Some(api_key)),
             (CHARACTER_IDS_SETTING, None),
@@ -172,8 +177,8 @@ pub(crate) async fn fetch_garmoth_characters(
     operations: State<'_, GarmothOperations>,
 ) -> Result<Vec<GarmothCharacter>, String> {
     let _guard = operations.lock().await;
-    let path = state.path()?;
-    let api_key = stored_api_key(path)?;
+    let mut connection = open_database(state.path()?)?;
+    let api_key = stored_api_key(&connection)?;
     let character_ids = parse_character_ids(&character_ids)?;
     let ids = character_ids
         .iter()
@@ -191,11 +196,11 @@ pub(crate) async fn fetch_garmoth_characters(
     let ids_json = serde_json::to_string(&character_ids).map_err(|error| error.to_string())?;
     let characters_json = serde_json::to_string(&characters).map_err(|error| error.to_string())?;
     let current_selection =
-        parse_selected_character_id(load_setting(path, SELECTED_CHARACTER_SETTING)?)?;
+        parse_selected_character_id(load_setting(&connection, SELECTED_CHARACTER_SETTING)?)?;
     let selected =
         current_selection.filter(|id| characters.iter().any(|character| character.id == *id));
     if !save_settings_if_unchanged(
-        path,
+        &mut connection,
         API_KEY_SETTING,
         &api_key,
         &[
@@ -218,15 +223,18 @@ pub(crate) async fn select_garmoth_character(
     operations: State<'_, GarmothOperations>,
 ) -> Result<(), String> {
     let _guard = operations.lock().await;
-    let path = state.path()?;
-    let characters = parse_stored_characters(load_setting(path, CHARACTERS_SETTING)?)?;
+    let mut connection = open_database(state.path()?)?;
+    let characters = parse_stored_characters(load_setting(&connection, CHARACTERS_SETTING)?)?;
     if !characters
         .iter()
         .any(|character| character.id == character_id)
     {
         return Err("select a fetched Garmoth character".into());
     }
-    save_settings(path, &[(SELECTED_CHARACTER_SETTING, Some(&character_id))])
+    save_settings(
+        &mut connection,
+        &[(SELECTED_CHARACTER_SETTING, Some(&character_id))],
+    )
 }
 
 #[cfg(test)]

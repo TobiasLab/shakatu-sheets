@@ -20,7 +20,10 @@ pub(crate) use garmoth_uploads::{
     claim_garmoth_upload, finish_garmoth_upload, release_garmoth_upload,
 };
 pub(crate) use market_prices::{save_market_price_records, MarketPriceSnapshot, Region};
-pub(crate) use sessions::{load_session_for_upload, SessionEntry, SessionStatus, Valuation};
+pub(crate) use sessions::{
+    apply_finished_session_consumables_record, load_session_for_upload, SessionEntry,
+    SessionStatus, Valuation,
+};
 pub(crate) use settings::{load_setting, save_settings, save_settings_if_unchanged};
 
 const DATABASE_VERSION: i64 = 5;
@@ -62,7 +65,7 @@ pub fn initialize_database(app: &AppHandle) -> Result<PathBuf, String> {
     Ok(path)
 }
 
-fn open_database(path: &PathBuf) -> Result<Connection, String> {
+pub(crate) fn open_database(path: &PathBuf) -> Result<Connection, String> {
     let connection = Connection::open(path).map_err(|error| error.to_string())?;
     configure_connection(&connection)?;
     secure_database_files(path)?;

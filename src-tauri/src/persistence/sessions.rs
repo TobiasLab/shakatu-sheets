@@ -658,11 +658,10 @@ pub(super) async fn delete_finished_session_at_path(
 }
 
 pub(crate) fn load_session_for_upload(
-    path: &PathBuf,
+    connection: &Connection,
     session_id: &str,
 ) -> Result<SessionRecord, String> {
-    let connection = open_database(path)?;
-    load_session_by_id(&connection, session_id)?
+    load_session_by_id(connection, session_id)?
         .ok_or_else(|| "the selected session no longer exists".into())
 }
 
@@ -707,7 +706,7 @@ pub(super) fn reopen_session_record(
     load_session_by_id(connection, id)?.ok_or_else(|| format!("session {id} disappeared"))
 }
 
-pub(super) fn apply_finished_session_consumables_record(
+pub(crate) fn apply_finished_session_consumables_record(
     connection: &mut Connection,
     expected_session: &SessionRecord,
     entries: &[SessionEntry],
@@ -782,15 +781,6 @@ pub(super) fn apply_finished_session_consumables_record(
     // Keep completion and fallback timestamps unchanged so correction does not move history rows.
     transaction.commit().map_err(|error| error.to_string())?;
     load_session_by_id(connection, &session.id)?.ok_or("The session no longer exists.".into())
-}
-
-pub(crate) fn save_upload_consumables(
-    path: &PathBuf,
-    expected_session: &SessionRecord,
-    entries: &[SessionEntry],
-) -> Result<SessionRecord, String> {
-    let mut connection = open_database(path)?;
-    apply_finished_session_consumables_record(&mut connection, expected_session, entries)
 }
 
 #[tauri::command]

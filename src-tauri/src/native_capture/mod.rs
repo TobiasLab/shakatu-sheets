@@ -25,7 +25,7 @@ use geometry::NormalizedRegion;
 use geometry::PixelRegion;
 pub use geometry::{LootCaptureSettings, NativeCaptureSelection};
 
-use crate::persistence::{load_setting, save_settings, DatabasePath};
+use crate::persistence::{load_setting, open_database, save_settings, DatabasePath};
 
 const LOOT_CAPTURE_SETTINGS_KEY: &str = "loot-capture-settings";
 #[derive(Default)]
@@ -110,7 +110,7 @@ pub fn set_native_display_capture_preview_enabled(
 pub fn load_loot_capture_settings(
     state: tauri::State<'_, DatabasePath>,
 ) -> Result<Option<LootCaptureSettings>, String> {
-    load_setting(state.path()?, LOOT_CAPTURE_SETTINGS_KEY)?
+    load_setting(&open_database(state.path()?)?, LOOT_CAPTURE_SETTINGS_KEY)?
         .map(|value| parse_loot_capture_settings(&value))
         .transpose()
 }
@@ -123,7 +123,7 @@ pub fn save_loot_capture_settings(
     settings.validate()?;
     let value = serde_json::to_string(&settings).map_err(|error| error.to_string())?;
     save_settings(
-        state.path()?,
+        &mut open_database(state.path()?)?,
         &[(LOOT_CAPTURE_SETTINGS_KEY, Some(value.as_str()))],
     )
 }

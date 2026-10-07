@@ -1,6 +1,7 @@
-use std::{path::PathBuf, time::Duration};
+use std::time::Duration;
 
 use reqwest::{redirect::Policy, Client, StatusCode};
+use rusqlite::Connection;
 use serde::{Deserialize, Serialize};
 
 use crate::persistence::load_setting;
@@ -71,8 +72,8 @@ pub(super) fn parse_selected_character_id(value: Option<String>) -> Result<Optio
     Ok(value)
 }
 
-pub(super) fn stored_api_key(path: &PathBuf) -> Result<String, String> {
-    let api_key = load_setting(path, API_KEY_SETTING)?
+pub(super) fn stored_api_key(connection: &Connection) -> Result<String, String> {
+    let api_key = load_setting(connection, API_KEY_SETTING)?
         .ok_or_else(|| "save a Garmoth API key in Settings first".to_string())?;
     settings::validate_api_key(&api_key).map(str::to_string)
 }
