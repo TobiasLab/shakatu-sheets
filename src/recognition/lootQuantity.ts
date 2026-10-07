@@ -1,6 +1,7 @@
 import { normalLootColumn } from "./displayCapture";
 import type { LootOcrBounds, LootRoiFrame } from "./liveLoot";
 import type { LootFont } from "./lootFont";
+import { chroma, luminance } from "./lootPixels";
 
 export type LootQuantityGlyphs = {
     bounds: LootOcrBounds;
@@ -67,14 +68,7 @@ export function locateLootQuantity(
     for (let y = bounds.top; y < bounds.bottom; y += 1) {
         for (let x = bounds.left; x < bounds.right; x += 1) {
             const offset = (y * frame.width + x) * 4;
-            const red = frame.pixels[offset];
-            const green = frame.pixels[offset + 1];
-            const blue = frame.pixels[offset + 2];
-            if (
-                (red * 77 + green * 150 + blue * 29) >> 8 < 150 ||
-                Math.max(red, green, blue) - Math.min(red, green, blue) > 65
-            )
-                continue;
+            if (luminance(frame.pixels, offset) < 150 || chroma(frame.pixels, offset) > 65) continue;
             pixels[(y - bounds.top) * width + x - bounds.left] = 1;
             ink += 1;
         }

@@ -1,6 +1,7 @@
 import { LOOT_CROP_BOUNDS, type LootUiScale } from "./displayCapture";
 import type { LootDetectedRows, LootDetectionProfile, LootFingerprint, LootOcrBounds, LootRoiFrame } from "./liveLoot";
 import type { LootSampleFps } from "./lootCaptureTiming";
+import { luminance } from "./lootPixels";
 
 const SHELL_CONFIRM_RATIO = 0.65;
 const CONFIRMATION_FRAMES = 4;
@@ -175,11 +176,7 @@ function hasBannerBorder(frame: LootRoiFrame, geometry: RareLootGeometry) {
         for (let x = left; x < right; x += 1) {
             const offset = (y * frame.width + x) * 4;
             const above = offset - frame.width * 4 * geometry.borderOffset;
-            const light =
-                (frame.pixels[offset] * 77 + frame.pixels[offset + 1] * 150 + frame.pixels[offset + 2] * 29) >> 8;
-            const background =
-                (frame.pixels[above] * 77 + frame.pixels[above + 1] * 150 + frame.pixels[above + 2] * 29) >> 8;
-            if (light - background >= 25) edgePixels += 1;
+            if (luminance(frame.pixels, offset) - luminance(frame.pixels, above) >= 25) edgePixels += 1;
         }
         if (edgePixels >= geometry.borderMinPixels) return true;
     }

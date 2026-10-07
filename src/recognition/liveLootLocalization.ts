@@ -9,6 +9,7 @@ import {
 } from "./displayCapture";
 import type { LootRoiFrame } from "./liveLoot";
 import type { LootSampleFps } from "./lootCaptureTiming";
+import { isGlyphPixel } from "./lootPixels";
 
 const MAX_HISTORY = 12;
 const MAX_CANDIDATES = 4;
@@ -36,14 +37,9 @@ type Candidate = {
     rowCount: number;
 };
 
-function luminance(pixels: Uint8ClampedArray, offset: number) {
-    return (pixels[offset] * 77 + pixels[offset + 1] * 150 + pixels[offset + 2] * 29) >> 8;
-}
-
 function buildGlyphIntegral(frame: LootSearchFrame, scale: number) {
     const edge = Math.round(2 * scale);
     const margin = Math.round(8 * scale);
-    const step = edge * 4;
     const { pixels, width, height } = frame;
     const stride = width + 1;
     const integral = new Uint32Array(stride * (height + 1));
@@ -51,17 +47,7 @@ function buildGlyphIntegral(frame: LootSearchFrame, scale: number) {
         let rowTotal = 0;
         for (let x = 0; x < width; x += 1) {
             if (x >= edge && x < width - edge && y >= margin && y < height - margin) {
-                const offset = (y * width + x) * 4;
-                const light = luminance(pixels, offset);
-                const chroma =
-                    Math.max(pixels[offset], pixels[offset + 1], pixels[offset + 2]) -
-                    Math.min(pixels[offset], pixels[offset + 1], pixels[offset + 2]);
-                const horizontal = Math.min(luminance(pixels, offset - step), luminance(pixels, offset + step));
-                const vertical = Math.min(
-                    luminance(pixels, offset - width * step),
-                    luminance(pixels, offset + width * step),
-                );
-                if (light >= 115 && chroma <= 55 && light - Math.min(horizontal, vertical) >= 18) rowTotal += 1;
+                if (isGlyphPixel(pixels, width, (y * width + x) * 4, false, scale)) rowTotal += 1;
             }
             integral[(y + 1) * stride + x + 1] = integral[y * stride + x + 1] + rowTotal;
         }

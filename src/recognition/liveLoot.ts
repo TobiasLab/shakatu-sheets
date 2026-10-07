@@ -2,6 +2,7 @@ import { normalLootColumn } from "./displayCapture";
 import { type LootRowAppearance, lootRowAppearances } from "./lootArrival";
 import type { LootSampleFps } from "./lootCaptureTiming";
 import type { LootFont } from "./lootFont";
+import { chroma, isGlyphPixel, luminance } from "./lootPixels";
 import { type LootQuantityGlyphs, locateLootQuantity, lootQuantityDistance } from "./lootQuantity";
 import { analyzeLootReadings } from "./lootReadings";
 import { LootRowTracker, selectLootOcrObservations } from "./lootRowTracker";
@@ -273,24 +274,6 @@ function validateProfile(profile: LootDetectionProfile) {
     }
 }
 
-function luminance(frame: LootRoiFrame, offset: number) {
-    return (frame.pixels[offset] * 77 + frame.pixels[offset + 1] * 150 + frame.pixels[offset + 2] * 29) >> 8;
-}
-
-function isGlyphPixel(frame: LootRoiFrame, offset: number, strict = false, scale = 1) {
-    const { pixels, width } = frame;
-    const light = luminance(frame, offset);
-    const chroma =
-        Math.max(pixels[offset], pixels[offset + 1], pixels[offset + 2]) -
-        Math.min(pixels[offset], pixels[offset + 1], pixels[offset + 2]);
-    const step = Math.round(2 * scale) * 4;
-    const horizontal = Math.min(luminance(frame, offset - step), luminance(frame, offset + step));
-    const vertical = Math.min(luminance(frame, offset - width * step), luminance(frame, offset + width * step));
-    return (
-        light >= (strict ? 140 : 115) && chroma <= (strict ? 25 : 55) && light - Math.min(horizontal, vertical) >= 18
-    );
-}
-
 function rowScore(frame: LootRoiFrame, centerY: number, rowThreshold: number, scale: number) {
     const halfBand = Math.round(6 * scale);
     const edge = Math.round(2 * scale);
@@ -304,10 +287,10 @@ function rowScore(frame: LootRoiFrame, centerY: number, rowThreshold: number, sc
     const textRight = normalLootColumn(frame.width, 0.58);
     for (let y = centerY - halfBand; y <= centerY + halfBand; y += 1) {
         for (let x = left; x < right; x += 1) {
-            if (!isGlyphPixel(frame, (y * frame.width + x) * 4, false, scale)) continue;
+            if (!isGlyphPixel(frame.pixels, frame.width, (y * frame.width + x) * 4, false, scale)) continue;
             score += 1;
             if (x >= textLeft && x < textRight) {
-                if (isGlyphPixel(frame, (y * frame.width + x) * 4, true, scale)) textScore += 1;
+                if (isGlyphPixel(frame.pixels, frame.width, (y * frame.width + x) * 4, true, scale)) textScore += 1;
             }
         }
     }
@@ -316,7 +299,7 @@ function rowScore(frame: LootRoiFrame, centerY: number, rowThreshold: number, sc
         if (y < edge || y >= frame.height - edge) continue;
         surroundingRows += 1;
         for (let x = textLeft; x < textRight; x += 1) {
-            if (isGlyphPixel(frame, (y * frame.width + x) * 4, true, scale)) surrounding += 1;
+            if (isGlyphPixel(frame.pixels, frame.width, (y * frame.width + x) * 4, true, scale)) surrounding += 1;
         }
     }
     // Compare the start of the text with its margins, away from the icon and exposed scenery.
@@ -338,13 +321,10 @@ function rowFingerprint(frame: LootRoiFrame, centerY: number, scale: number, fon
             let brightPixels = 0;
             for (let y = centerY - halfBand; y <= centerY + halfBand; y += 1) {
                 const offset = (y * frame.width + x) * 4;
-                const chroma =
-                    Math.max(frame.pixels[offset], frame.pixels[offset + 1], frame.pixels[offset + 2]) -
-                    Math.min(frame.pixels[offset], frame.pixels[offset + 1], frame.pixels[offset + 2]);
                 if (
-                    luminance(frame, offset) >= 150 &&
-                    chroma <= maximumChroma &&
-                    isGlyphPixel(frame, offset, false, scale)
+                    luminance(frame.pixels, offset) >= 150 &&
+                    chroma(frame.pixels, offset) <= maximumChroma &&
+                    isGlyphPixel(frame.pixels, frame.width, offset, false, scale)
                 )
                     brightPixels += 1;
             }
