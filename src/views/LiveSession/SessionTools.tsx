@@ -23,10 +23,7 @@ export function SessionTools({ controller, visible }: { controller: LiveSessionC
                 <ConsumablePresetPicker
                     session={controller.session}
                     disabled={controller.editingDisabled || !visible}
-                    onApply={(_session, entries) => {
-                        controller.dispatch({ type: "apply-consumables", entries });
-                        return true;
-                    }}
+                    onApply={(entries) => controller.dispatch({ type: "apply-consumables", entries })}
                 />
                 <button
                     className="button"

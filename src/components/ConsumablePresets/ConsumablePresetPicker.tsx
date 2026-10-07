@@ -11,11 +11,12 @@ export function ConsumablePresetPicker({
 }: {
     session: SessionState;
     disabled: boolean;
-    onApply: (snapshot: SessionState, entries: SessionEntry[]) => boolean | Promise<boolean>;
+    onApply: (entries: SessionEntry[]) => void;
 }) {
     const dialog = useRef<HTMLDialogElement>(null);
     const titleId = useId();
-    const [target, setTarget] = useState<SessionState | null>(null);
+    // The selection mounts per opening, so each opening starts without a previous choice.
+    const [open, setOpen] = useState(false);
     useEffect(() => {
         if (disabled) dialog.current?.close();
     }, [disabled]);
@@ -26,7 +27,7 @@ export function ConsumablePresetPicker({
                 type="button"
                 disabled={disabled}
                 onClick={() => {
-                    setTarget(session);
+                    setOpen(true);
                     dialog.current?.showModal();
                 }}
             >
@@ -36,7 +37,7 @@ export function ConsumablePresetPicker({
                 ref={dialog}
                 className={`${dialogStyles.ToolDialog} ${dialogStyles.NarrowDialog}`}
                 aria-labelledby={titleId}
-                onClose={() => setTarget(null)}
+                onClose={() => setOpen(false)}
             >
                 <DialogHeader
                     titleId={titleId}
@@ -44,14 +45,13 @@ export function ConsumablePresetPicker({
                     closeLabel="Close consumable presets"
                     onClose={() => dialog.current?.close()}
                 />
-                {target && (
+                {open && (
                     <ConsumablePresetSelection
-                        session={target}
+                        session={session}
                         disabled={disabled}
-                        onApply={async (entries) => {
-                            const applied = await onApply(target, entries);
-                            if (applied) dialog.current?.close();
-                            return applied;
+                        onApply={(entries) => {
+                            onApply(entries);
+                            dialog.current?.close();
                         }}
                     />
                 )}
