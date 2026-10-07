@@ -264,7 +264,7 @@ export function GarmothConnectionSettings() {
                                 <button
                                     className="button"
                                     type="button"
-                                    disabled={!settings?.apiKeyConfigured || !selectedCharacterId || busy !== null}
+                                    disabled={!settings.apiKeyConfigured || !selectedCharacterId || busy !== null}
                                     onClick={inspectConsumables}
                                 >
                                     {busy === "inspection" ? "Inspecting..." : "Inspect consumable data"}
