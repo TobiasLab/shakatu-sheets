@@ -65,6 +65,14 @@ their session. No existing rows are backfilled; sessions recorded before this mi
 a trend returns no samples for a session created before the migration was applied, even if it gained samples after
 being reopened or while running across the upgrade, because those samples cover only part of the session.
 
+## Migration 6
+
+Migration 6 adds `garmoth_uploads.was_uploaded`, set when a repeat upload turns a `success` row back into `unknown` and
+cleared whenever the row becomes `success` again. When the user settles an unconfirmed upload after checking their
+Garmoth grind tracker, a repeat returns to `success` whatever the answer, because the earlier upload is on Garmoth; only
+a first upload that did not arrive removes the row. Existing rows default to 0, which is correct for every `success`
+row and treats an `unknown` repeat from before the migration as a first upload.
+
 ## Persistence
 
 - The latest unfinished session is loaded at startup.

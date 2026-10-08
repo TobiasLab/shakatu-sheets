@@ -205,7 +205,7 @@ fn learning_does_not_modify_the_session_database_and_main_can_reopen_it() {
         main.query_row("SELECT MAX(version) FROM schema_migrations", [], |r| r
             .get::<_, i64>(0))
             .unwrap(),
-        5
+        6
     );
 }
 

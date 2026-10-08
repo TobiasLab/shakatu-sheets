@@ -57,7 +57,7 @@ pub(crate) fn claim_garmoth_upload(
     let previous = load_garmoth_upload_status(&transaction, session_id)?;
     if repeat_upload && previous == Some(GarmothUploadStatus::Success) {
         transaction.execute(
-            "UPDATE garmoth_uploads SET status = 'unknown', updated_at = ?1 WHERE session_id = ?2",
+            "UPDATE garmoth_uploads SET status = 'unknown', was_uploaded = 1, updated_at = ?1 WHERE session_id = ?2",
             params![timestamp_ms(), session_id],
         ).map_err(|error| error.to_string())?;
         transaction.commit().map_err(|error| error.to_string())?;
@@ -88,7 +88,7 @@ pub(crate) fn finish_garmoth_upload(
 ) -> Result<(), String> {
     let changed = connection
         .execute(
-            "UPDATE garmoth_uploads SET status = 'success', updated_at = ?1
+            "UPDATE garmoth_uploads SET status = 'success', was_uploaded = 0, updated_at = ?1
              WHERE session_id = ?2 AND status = 'unknown'",
             params![timestamp_ms(), session_id],
         )
@@ -100,32 +100,49 @@ pub(crate) fn finish_garmoth_upload(
     }
 }
 
-/// Settles an upload Garmoth never confirmed, after the user checked their Garmoth grind tracker: `uploaded` marks it
-/// uploaded, otherwise the session becomes uploadable again. Callers hold `GarmothOperations`, so an upload still in
-/// flight keeps its reservation.
+/// Settles an upload Garmoth never confirmed, after the user checked their Garmoth grind tracker, and returns the
+/// session's resulting status. A session that arrived, or that an earlier upload already put on Garmoth, is marked
+/// uploaded; otherwise it becomes uploadable again. Callers hold `GarmothOperations`, so an upload still in flight keeps
+/// its reservation.
 pub(crate) fn resolve_unknown_garmoth_upload(
-    connection: &Connection,
+    connection: &mut Connection,
     session_id: &str,
     uploaded: bool,
-) -> Result<(), String> {
-    let changed = if uploaded {
-        connection.execute(
-            "UPDATE garmoth_uploads SET status = 'success', updated_at = ?1
-             WHERE session_id = ?2 AND status = 'unknown'",
-            params![timestamp_ms(), session_id],
-        )
-    } else {
-        connection.execute(
-            "DELETE FROM garmoth_uploads WHERE session_id = ?1 AND status = 'unknown'",
+) -> Result<Option<GarmothUploadStatus>, String> {
+    let transaction = connection
+        .transaction_with_behavior(TransactionBehavior::Immediate)
+        .map_err(|error| error.to_string())?;
+    let was_uploaded = transaction
+        .query_row(
+            "SELECT was_uploaded FROM garmoth_uploads WHERE session_id = ?1 AND status = 'unknown'",
             [session_id],
+            |row| row.get::<_, bool>(0),
         )
-    }
-    .map_err(|error| error.to_string())?;
-    if changed == 1 {
-        Ok(())
+        .optional()
+        .map_err(|error| error.to_string())?
+        .ok_or_else(|| {
+            "This session no longer has an unconfirmed Garmoth upload. Reload History.".to_string()
+        })?;
+    let status = if uploaded || was_uploaded {
+        transaction
+            .execute(
+                "UPDATE garmoth_uploads SET status = 'success', was_uploaded = 0, updated_at = ?1
+             WHERE session_id = ?2",
+                params![timestamp_ms(), session_id],
+            )
+            .map_err(|error| error.to_string())?;
+        Some(GarmothUploadStatus::Success)
     } else {
-        Err("This session no longer has an unconfirmed Garmoth upload. Reload History.".into())
-    }
+        transaction
+            .execute(
+                "DELETE FROM garmoth_uploads WHERE session_id = ?1",
+                [session_id],
+            )
+            .map_err(|error| error.to_string())?;
+        None
+    };
+    transaction.commit().map_err(|error| error.to_string())?;
+    Ok(status)
 }
 
 pub(crate) fn release_garmoth_upload(

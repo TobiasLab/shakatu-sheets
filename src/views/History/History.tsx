@@ -71,6 +71,10 @@ export function HistoryView({
     const uploadButton = useRef<HTMLButtonElement>(null);
     const [uploading, setUploading] = useState(false);
     const [resolvingUpload, setResolvingUpload] = useState(false);
+    // Focus moves after the commit that re-enables or replaces the Garmoth check buttons.
+    const [uploadFocus, setUploadFocus] = useState<"upload" | "on-garmoth" | "not-there" | null>(null);
+    const onGarmothButton = useRef<HTMLButtonElement>(null);
+    const notThereButton = useRef<HTMLButtonElement>(null);
     const [uploadMessage, setUploadMessage] = useState("");
     const [uploadError, setUploadError] = useState("");
     const [settingsError, setSettingsError] = useState("");
@@ -252,6 +256,18 @@ export function HistoryView({
         setRestoreFocus(null);
     }, [deletingId, restoreFocus, pageRecords]);
 
+    useEffect(() => {
+        if (!uploadFocus || resolvingUpload) return;
+        const target =
+            uploadFocus === "upload"
+                ? (uploadButton.current ?? reloadButton.current)
+                : uploadFocus === "on-garmoth"
+                  ? onGarmothButton.current
+                  : notThereButton.current;
+        target?.focus();
+        setUploadFocus(null);
+    }, [resolvingUpload, uploadFocus]);
+
     async function reopenSelected() {
         if (!selected) return;
         setReopening(true);
@@ -309,22 +325,25 @@ export function HistoryView({
         setUploadMessage("");
         setUploadError("");
         try {
-            await resolveGarmothUpload(sessionId, uploaded);
+            const status = await resolveGarmothUpload(sessionId, uploaded);
             setRecords(
                 (current) =>
                     current?.map((record) =>
-                        record.session.id === sessionId
-                            ? { ...record, garmothUploadStatus: uploaded ? "success" : null }
-                            : record,
+                        record.session.id === sessionId ? { ...record, garmothUploadStatus: status } : record,
                     ) ?? null,
             );
             setUploadMessage(
-                uploaded ? "Recorded as uploaded to Garmoth." : "Recorded as not on Garmoth. You can upload it again.",
+                status === null
+                    ? "Recorded as not on Garmoth. You can upload it again."
+                    : uploaded
+                      ? "Recorded as uploaded to Garmoth."
+                      : "Recorded that the repeat upload did not arrive. The session stays uploaded from its earlier upload.",
             );
-            requestAnimationFrame(() => (uploadButton.current ?? reloadButton.current)?.focus());
+            setUploadFocus("upload");
             void loadHistory(false);
         } catch (failure) {
             setUploadError(`Could not record the Garmoth check: ${String(failure)}`);
+            setUploadFocus(uploaded ? "on-garmoth" : "not-there");
         } finally {
             setResolvingUpload(false);
         }
@@ -666,6 +685,7 @@ export function HistoryView({
                                     {selected.garmothUploadStatus === "unknown" ? (
                                         <div className={styles.UploadActions}>
                                             <button
+                                                ref={onGarmothButton}
                                                 className="button"
                                                 type="button"
                                                 disabled={actionBusy}
@@ -674,6 +694,7 @@ export function HistoryView({
                                                 It's on Garmoth
                                             </button>
                                             <button
+                                                ref={notThereButton}
                                                 className="button subtle"
                                                 type="button"
                                                 disabled={actionBusy}

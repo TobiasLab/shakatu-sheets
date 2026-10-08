@@ -43,7 +43,8 @@ it to `success` only after a successful response. A connect failure known to occ
 reservation; a 10-second connect timeout keeps stalled DNS, TCP, and TLS setup in that category; any potentially transmitted request without a success response remains `unknown` because Garmoth does not
 document error semantics or an idempotency contract. The app blocks ambiguous retries and directs the user to check their
 Garmoth grind tracker. Garmoth offers no lookup of past uploads, so History then asks what the user found: "It's on
-Garmoth" marks the session `success`, and "It's not there" removes the marker so the session can be uploaded again.
+Garmoth" marks the session `success`, and "It's not there" removes the marker so the session can be uploaded again,
+unless the unconfirmed upload was a repeat: an earlier upload is on Garmoth, so the session returns to `success`.
 Rust settles only an `unknown` marker and holds the Garmoth operations lock, so an upload still in flight keeps its
 reservation. Reserved and uploaded sessions cannot be reopened.
 
