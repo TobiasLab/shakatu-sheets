@@ -121,9 +121,12 @@ export function selectGarmothCharacter(characterId: string) {
     return invoke<void>("select_garmoth_character", { characterId });
 }
 
-/** Records what the user found on Garmoth for an upload Garmoth never confirmed. */
+/**
+ * Records what the user found on Garmoth for an upload Garmoth never confirmed, and returns the session's new status. An
+ * unconfirmed repeat upload stays `success` either way, because the earlier upload is on Garmoth.
+ */
 export function resolveGarmothUpload(sessionId: string, uploaded: boolean) {
-    return invoke<void>("resolve_garmoth_upload", { sessionId, uploaded });
+    return invoke<"success" | null>("resolve_garmoth_upload", { sessionId, uploaded });
 }
 
 export function uploadGarmothSession(input: GarmothUploadInput) {

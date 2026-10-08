@@ -34,11 +34,11 @@ fn database_path_reports_why_startup_could_not_open_it() {
         &PathBuf::from("/data/shakatu-sheets.sqlite3")
     );
     let failed = super::DatabasePath(Err(
-        "database version 99 is newer than supported version 5".into()
+        "database version 99 is newer than supported version 6".into()
     ));
     assert_eq!(
         failed.path().unwrap_err(),
-        "Could not open the database: database version 99 is newer than supported version 5"
+        "Could not open the database: database version 99 is newer than supported version 6"
     );
 }
 
@@ -454,7 +454,7 @@ fn upgrades_a_populated_version_one_database() {
                 row.get::<_, i64>(0)
             })
             .unwrap(),
-        5
+        6
     );
 }
 
@@ -850,7 +850,7 @@ fn history_rejects_invalid_queries() {
 fn history_index_migration_preserves_populated_version_two_database() {
     let mut connection = database();
     history_fixture(&mut connection, "existing", "spot", 1000, 1000);
-    connection.execute_batch("DROP TABLE session_net_samples; DROP INDEX sessions_finished_region_time_idx; ALTER TABLE session_entries DROP COLUMN garmoth_consumable_id; DELETE FROM schema_migrations WHERE version >= 3;").unwrap();
+    connection.execute_batch("ALTER TABLE garmoth_uploads DROP COLUMN was_uploaded; DROP TABLE session_net_samples; DROP INDEX sessions_finished_region_time_idx; ALTER TABLE session_entries DROP COLUMN garmoth_consumable_id; DELETE FROM schema_migrations WHERE version >= 3;").unwrap();
     migrate(&mut connection).unwrap();
     migrate(&mut connection).unwrap();
     assert_eq!(
@@ -903,7 +903,7 @@ fn consumable_migration_preserves_old_rows_and_finished_price_snapshots() {
     let mut connection = database();
     let finished = session(SessionStatus::Finished);
     save_session_record(&mut connection, &finished).unwrap();
-    connection.execute_batch("DROP TABLE session_net_samples; ALTER TABLE session_entries DROP COLUMN garmoth_consumable_id; DELETE FROM schema_migrations WHERE version >= 4;").unwrap();
+    connection.execute_batch("ALTER TABLE garmoth_uploads DROP COLUMN was_uploaded; DROP TABLE session_net_samples; ALTER TABLE session_entries DROP COLUMN garmoth_consumable_id; DELETE FROM schema_migrations WHERE version >= 4;").unwrap();
     migrate(&mut connection).unwrap();
     migrate(&mut connection).unwrap();
     assert_eq!(
@@ -1248,25 +1248,61 @@ fn resolves_only_unconfirmed_garmoth_uploads() {
     };
 
     unknown(&connection);
-    resolve_unknown_garmoth_upload(&connection, &finished.id, true).unwrap();
+    assert_eq!(
+        resolve_unknown_garmoth_upload(&mut connection, &finished.id, true).unwrap(),
+        Some(GarmothUploadStatus::Success)
+    );
     assert_eq!(
         load_garmoth_upload_status(&connection, &finished.id).unwrap(),
         Some(GarmothUploadStatus::Success)
     );
-    assert!(resolve_unknown_garmoth_upload(&connection, &finished.id, false).is_err());
+    assert!(resolve_unknown_garmoth_upload(&mut connection, &finished.id, false).is_err());
     assert_eq!(
         load_garmoth_upload_status(&connection, &finished.id).unwrap(),
         Some(GarmothUploadStatus::Success)
     );
 
     unknown(&connection);
-    resolve_unknown_garmoth_upload(&connection, &finished.id, false).unwrap();
+    assert_eq!(
+        resolve_unknown_garmoth_upload(&mut connection, &finished.id, false).unwrap(),
+        None
+    );
     assert_eq!(
         load_garmoth_upload_status(&connection, &finished.id).unwrap(),
         None
     );
-    assert!(resolve_unknown_garmoth_upload(&connection, &finished.id, true).is_err());
+    assert!(resolve_unknown_garmoth_upload(&mut connection, &finished.id, true).is_err());
     assert!(!claim_garmoth_upload(&mut connection, &finished.id, false).unwrap());
+}
+
+#[test]
+fn unconfirmed_repeat_upload_keeps_the_earlier_upload_recorded() {
+    let mut connection = database();
+    let finished = session(SessionStatus::Finished);
+    save_session_record(&mut connection, &finished).unwrap();
+    assert!(!claim_garmoth_upload(&mut connection, &finished.id, false).unwrap());
+    finish_garmoth_upload(&connection, &finished.id).unwrap();
+
+    for uploaded in [false, true] {
+        assert!(claim_garmoth_upload(&mut connection, &finished.id, true).unwrap());
+        assert_eq!(
+            load_garmoth_upload_status(&connection, &finished.id).unwrap(),
+            Some(GarmothUploadStatus::Unknown)
+        );
+        assert_eq!(
+            resolve_unknown_garmoth_upload(&mut connection, &finished.id, uploaded).unwrap(),
+            Some(GarmothUploadStatus::Success)
+        );
+    }
+    // A later first-time reservation must not inherit the repeat flag.
+    connection
+        .execute("DELETE FROM garmoth_uploads", [])
+        .unwrap();
+    assert!(!claim_garmoth_upload(&mut connection, &finished.id, false).unwrap());
+    assert_eq!(
+        resolve_unknown_garmoth_upload(&mut connection, &finished.id, false).unwrap(),
+        None
+    );
 }
 
 #[test]

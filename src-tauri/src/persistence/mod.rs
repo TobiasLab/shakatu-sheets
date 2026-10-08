@@ -18,7 +18,7 @@ mod settings;
 
 pub(crate) use garmoth_uploads::{
     claim_garmoth_upload, finish_garmoth_upload, release_garmoth_upload,
-    resolve_unknown_garmoth_upload,
+    resolve_unknown_garmoth_upload, GarmothUploadStatus,
 };
 pub(crate) use market_prices::{save_market_price_records, MarketPriceSnapshot, Region};
 pub(crate) use sessions::{
@@ -27,7 +27,7 @@ pub(crate) use sessions::{
 };
 pub(crate) use settings::{load_setting, save_settings, save_settings_if_unchanged};
 
-const DATABASE_VERSION: i64 = 5;
+const DATABASE_VERSION: i64 = 6;
 
 /// JavaScript's `Number.MAX_SAFE_INTEGER`: larger integers cannot cross IPC exactly.
 pub(crate) const MAX_SAFE_INTEGER: i64 = 9_007_199_254_740_991;
@@ -287,6 +287,23 @@ fn migrate(connection: &mut Connection) -> Result<(), String> {
             .map_err(|error| error.to_string())?;
         transaction.commit().map_err(|error| error.to_string())?;
         current_version = 5;
+    }
+
+    if current_version < 6 {
+        let transaction = connection
+            .transaction()
+            .map_err(|error| error.to_string())?;
+        // An `unknown` upload of a session Garmoth already confirmed once must return to `success`, not disappear.
+        transaction
+            .execute_batch(
+                "ALTER TABLE garmoth_uploads ADD COLUMN was_uploaded INTEGER NOT NULL DEFAULT 0
+                    CHECK (was_uploaded IN (0, 1));
+                 INSERT INTO schema_migrations (version, applied_at)
+                    VALUES (6, unixepoch('subsec') * 1000);",
+            )
+            .map_err(|error| error.to_string())?;
+        transaction.commit().map_err(|error| error.to_string())?;
+        current_version = 6;
     }
 
     if current_version != DATABASE_VERSION {

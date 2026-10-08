@@ -215,8 +215,9 @@ await send("Page.addScriptToEvaluateOnNewDocument", {
             if (command === "resolve_garmoth_upload") {
                 const record = window.__historyRecords.find(r => r.session.id === args.sessionId);
                 if (record.garmothUploadStatus !== "unknown") throw Error("No unconfirmed Garmoth upload.");
-                record.garmothUploadStatus = args.uploaded ? "success" : null;
-                return;
+                if (window.__failResolve) throw Error("Synthetic resolve failure");
+                record.garmothUploadStatus = args.uploaded || record.repeatUpload ? "success" : null;
+                return record.garmothUploadStatus;
             }
             if (command === "upload_garmoth_session") {
                 const record = window.__historyRecords.find(r => r.session.id === args.input.sessionId);
@@ -1679,11 +1680,23 @@ try {
         await until("!document.querySelector('dialog[open]')");
         assert.equal(await evaluate("JSON.stringify(window.__session.entries)"), supplementalEntries);
         // An upload Garmoth never confirmed stays blocked until the user records what their grind tracker shows.
-        for (const [answer, message, nextAction] of [
-            ["It's not there", "Recorded as not on Garmoth. You can upload it again.", "Upload to Garmoth"],
-            ["It's on Garmoth", "Recorded as uploaded to Garmoth.", "Upload again"],
+        for (const [answer, message, focused, setup] of [
+            ["It's not there", "Recorded as not on Garmoth. You can upload it again.", "Upload to Garmoth", ""],
+            ["It's on Garmoth", "Recorded as uploaded to Garmoth.", "Upload again", ""],
+            [
+                "It's not there",
+                "Recorded that the repeat upload did not arrive. The session stays uploaded from its earlier upload.",
+                "Upload again",
+                "window.__historyRecords[0].repeatUpload = true",
+            ],
+            [
+                "It's on Garmoth",
+                "Could not record the Garmoth check: Error: Synthetic resolve failure",
+                "It's on Garmoth",
+                "window.__failResolve = true",
+            ],
         ]) {
-            await evaluate("window.__historyRecords[0].garmothUploadStatus = 'unknown'");
+            await evaluate(`window.__historyRecords[0].garmothUploadStatus = 'unknown'; ${setup}`);
             await click("Reload");
             await until("document.body.innerText.includes('Confirmation unknown')");
             assert.equal(
@@ -1692,7 +1705,7 @@ try {
                 ),
                 false,
             );
-            if (answer === "It's not there") {
+            if (!setup && answer === "It's not there") {
                 await evaluate(
                     "[...document.querySelectorAll('button')].find(b => b.textContent.trim() === \"It's not there\").scrollIntoView({block:'center'})",
                 );
@@ -1700,14 +1713,15 @@ try {
             }
             await click(answer);
             await until(`document.body.innerText.includes(${JSON.stringify(message)})`);
-            await until(`document.activeElement?.textContent.trim() === ${JSON.stringify(nextAction)}`);
+            await until(`document.activeElement?.textContent.trim() === ${JSON.stringify(focused)}`);
         }
         assert.deepEqual(
             await evaluate(
                 "window.__calls.filter(c => c.command === 'resolve_garmoth_upload').map(c => c.args.uploaded)",
             ),
-            [false, true],
+            [false, true, false, true],
         );
+        await evaluate("window.__failResolve = false");
         assert.equal(errors.length, 0, JSON.stringify(errors));
         console.log(
             `UI smoke passed: timer, navigation, capture lifecycle, preview suppression, diagnostics, screenshot state, dialog focus, expense price isolation, new-session reset, ledger editing/filtering, history filters, themes, compact screens. Screenshots: ${output}`,
