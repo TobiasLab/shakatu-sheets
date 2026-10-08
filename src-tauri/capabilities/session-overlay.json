@@ -10,6 +10,8 @@
     "core:window:allow-hide",
     "core:window:allow-start-dragging",
     "core:window:allow-is-minimized",
-    "core:window:allow-is-visible"
+    "core:window:allow-is-visible",
+    "allow-session-overlay-uses-layer-shell",
+    "allow-adjust-session-overlay"
   ]
 }
