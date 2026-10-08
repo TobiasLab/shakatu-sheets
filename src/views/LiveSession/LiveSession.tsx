@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { type RefObject, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { Feedback } from "../../components/Feedback/Feedback";
 import { GrindSpotPicker } from "../../components/GrindSpotPicker/GrindSpotPicker";
 import type { SpotPreferences } from "../../components/GrindSpotPicker/preferences";
@@ -30,6 +30,7 @@ export function LiveSessionView({
     selfImprovement,
     onOpenSelfImprovement,
     spotPreferences,
+    stopCaptureRef,
 }: {
     overlay: { openOverlay: () => Promise<void>; error: string; available: boolean };
     onOpenHistory: () => void;
@@ -43,6 +44,8 @@ export function LiveSessionView({
     captureSetupRequest: number;
     spotPreferences: PersistedSetting<SpotPreferences>;
     onCaptureStatusChange: (status: CaptureSummary) => void;
+    /** Filled with the capture's stop function so closing the window can stop recognition before the final save. */
+    stopCaptureRef: RefObject<(() => void) | null>;
 }) {
     const { session, dispatch, databaseLoaded, editingDisabled, spotEditable, spot, drops, changeGrindSpot, market } =
         controller;
@@ -79,6 +82,9 @@ export function LiveSessionView({
         grindSpotName: spot.name,
         itemDictionary: drops.map((drop) => drop.name),
         onAcceptRecognition: acceptCapturedLoot,
+    });
+    useLayoutEffect(() => {
+        stopCaptureRef.current = capture.stopCapture;
     });
     const finishDialog = useRef<HTMLDialogElement>(null);
     const finishRequest = useRef(0);
