@@ -445,6 +445,11 @@
     font-size: 13px;
     font-weight: 600;
 }
+.UploadActions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
 .UploadPreview {
     display: flex;
     gap: 4px 14px;

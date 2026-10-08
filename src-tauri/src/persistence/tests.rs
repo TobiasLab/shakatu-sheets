@@ -12,7 +12,7 @@ use super::{
     configure_connection,
     garmoth_uploads::{
         claim_garmoth_upload, finish_garmoth_upload, load_garmoth_upload_status,
-        release_garmoth_upload, GarmothUploadStatus,
+        release_garmoth_upload, resolve_unknown_garmoth_upload, GarmothUploadStatus,
     },
     market_prices::{load_market_price_records, MarketPriceSnapshot, Region},
     migrate, open_database,
@@ -1231,6 +1231,42 @@ fn history_consumable_correction_rejects_unknown_unfinished_and_invalid_rows() {
         load_session_by_id(&connection, &finished.id).unwrap(),
         Some(finished)
     );
+}
+
+#[test]
+fn resolves_only_unconfirmed_garmoth_uploads() {
+    let mut connection = database();
+    let finished = session(SessionStatus::Finished);
+    save_session_record(&mut connection, &finished).unwrap();
+    let unknown = |connection: &Connection| {
+        connection
+            .execute(
+                "INSERT OR REPLACE INTO garmoth_uploads (session_id,status,updated_at) VALUES (?1,'unknown',0)",
+                [&finished.id],
+            )
+            .unwrap();
+    };
+
+    unknown(&connection);
+    resolve_unknown_garmoth_upload(&connection, &finished.id, true).unwrap();
+    assert_eq!(
+        load_garmoth_upload_status(&connection, &finished.id).unwrap(),
+        Some(GarmothUploadStatus::Success)
+    );
+    assert!(resolve_unknown_garmoth_upload(&connection, &finished.id, false).is_err());
+    assert_eq!(
+        load_garmoth_upload_status(&connection, &finished.id).unwrap(),
+        Some(GarmothUploadStatus::Success)
+    );
+
+    unknown(&connection);
+    resolve_unknown_garmoth_upload(&connection, &finished.id, false).unwrap();
+    assert_eq!(
+        load_garmoth_upload_status(&connection, &finished.id).unwrap(),
+        None
+    );
+    assert!(resolve_unknown_garmoth_upload(&connection, &finished.id, true).is_err());
+    assert!(!claim_garmoth_upload(&mut connection, &finished.id, false).unwrap());
 }
 
 #[test]

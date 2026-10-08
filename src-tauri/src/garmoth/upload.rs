@@ -7,8 +7,9 @@ use tauri::State;
 
 use crate::persistence::{
     apply_finished_session_consumables_record, claim_garmoth_upload, finish_garmoth_upload,
-    load_session_for_upload, load_setting, open_database, release_garmoth_upload, save_settings,
-    DatabasePath, SessionEntry, SessionStatus, Valuation, MAX_SAFE_INTEGER,
+    load_session_for_upload, load_setting, open_database, release_garmoth_upload,
+    resolve_unknown_garmoth_upload, save_settings, DatabasePath, SessionEntry, SessionStatus,
+    Valuation, MAX_SAFE_INTEGER,
 };
 
 use super::{
@@ -259,6 +260,18 @@ pub(crate) async fn upload_garmoth_session(
 ) -> Result<GarmothUploadResult, String> {
     let _guard = operations.lock().await;
     upload(&input, state.path()?, client()?, API_BASE_URL).await
+}
+
+#[tauri::command]
+pub(crate) async fn resolve_garmoth_upload(
+    session_id: String,
+    uploaded: bool,
+    state: State<'_, DatabasePath>,
+    operations: State<'_, GarmothOperations>,
+) -> Result<(), String> {
+    let _guard = operations.lock().await;
+    let connection = open_database(state.path()?)?;
+    resolve_unknown_garmoth_upload(&connection, &session_id, uploaded)
 }
 
 /// Callers hold `GarmothOperations`, which serializes the upload with Garmoth settings changes and finished-session

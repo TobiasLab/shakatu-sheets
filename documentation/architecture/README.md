@@ -42,7 +42,10 @@ Uploads are explicit and single-shot. Rust reserves a session as `unknown` befor
 it to `success` only after a successful response. A connect failure known to occur before transmission releases the
 reservation; a 10-second connect timeout keeps stalled DNS, TCP, and TLS setup in that category; any potentially transmitted request without a success response remains `unknown` because Garmoth does not
 document error semantics or an idempotency contract. The app blocks ambiguous retries and directs the user to check their
-Garmoth grind tracker. Reserved and uploaded sessions cannot be reopened.
+Garmoth grind tracker. Garmoth offers no lookup of past uploads, so History then asks what the user found: "It's on
+Garmoth" marks the session `success`, and "It's not there" removes the marker so the session can be uploaded again.
+Rust settles only an `unknown` marker and holds the Garmoth operations lock, so an upload still in flight keeps its
+reservation. Reserved and uploaded sessions cannot be reopened.
 
 Rust remains feature-oriented: `persistence` groups SQLite infrastructure with session, market-price, settings, and
 Garmoth-upload storage; `garmoth` separates account settings from uploads. Database commands are async and run their
@@ -216,7 +219,7 @@ account-preset fetching remains unverified. No authenticated research or live up
 
 Confirmed uploads expose “Upload again” with a duplicate-session confirmation.
 An explicit IPC flag allows Rust to atomically reserve a previously successful upload again. Unknown outcomes remain
-blocked. A pre-transmission connect failure restores the previous success marker; a potentially transmitted failure
+blocked until the user records the result of their Garmoth check. A pre-transmission connect failure restores the previous success marker; a potentially transmitted failure
 leaves it unknown. General finished-session editing and reopen restrictions remain intact; adding missing consumables
 before an explicit repeat upload is the narrow correction described above. Repeated uploads create a new remote session,
 not an update to the previous one.

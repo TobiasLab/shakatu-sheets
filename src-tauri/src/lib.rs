@@ -83,6 +83,7 @@ pub fn run() {
         garmoth::settings::load_garmoth_settings,
         garmoth::settings::save_garmoth_api_key,
         garmoth::settings::select_garmoth_character,
+        garmoth::upload::resolve_garmoth_upload,
         garmoth::upload::upload_garmoth_session,
         market::fetch_market_prices,
         loot_layout::read_normal_loot_layout,
