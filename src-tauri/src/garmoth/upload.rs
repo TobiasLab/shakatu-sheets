@@ -625,7 +625,7 @@ mod tests {
             assert!(session_consumables(&[invalid]).is_err());
         }
         let mut overflowing = expense;
-        overflowing.quantity = 9_007_199_254_740_991.0;
+        overflowing.quantity = crate::persistence::MAX_SAFE_INTEGER as f64;
         assert!(session_consumables(&[overflowing.clone(), overflowing]).is_err());
     }
 
