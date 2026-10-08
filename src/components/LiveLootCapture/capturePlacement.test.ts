@@ -149,11 +149,8 @@ describe("capture placement", () => {
     });
 
     it("captures both areas when confirming and confirms them only after the placement is saved", () => {
-        const searching = placed([{ type: "begin-search", searchRegion: region(0.5) }], confirmed);
-        const pending = placed([{ type: "end-search" }, { type: "move", region: region(0.4) }, { type: "confirm" }], {
-            ...searching,
-            normalCaptureRegion: null,
-        });
+        const moved = placed([{ type: "move", region: region(0.4) }], confirmed);
+        const pending = placed([{ type: "confirm" }], { ...moved, normalCaptureRegion: null, rareCaptureRegion: null });
 
         expect(pending).toMatchObject({ normalCaptureRegion: region(0.4), rareCaptureRegion: region(0.2) });
         expect(pending.normalConfirmed).toBe(false);
@@ -202,7 +199,12 @@ describe("capture placement", () => {
             normalConfirmed: false,
             rareConfirmed: false,
         });
-        expect(placed([{ type: "release" }], confirmed)).toEqual({ ...initialCapturePlacement, uiScale: 80 });
+        const scaledRare = { ...confirmed, uiScale: 100 as const, activeKind: "rare" as const };
+        expect(placed([{ type: "release" }], scaledRare)).toEqual({
+            ...initialCapturePlacement,
+            uiScale: 100,
+            activeKind: "rare",
+        });
     });
 
     it.each<[string, Partial<CapturePlacement>, boolean]>([
