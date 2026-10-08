@@ -25,7 +25,7 @@ export const supplementalDrops = importedSupplementalDrops as DropTemplate[];
 function market(name: string, itemId: number): DropTemplate {
     return {
         name,
-        icon: `/items/${itemId}.webp`,
+        icon: `/items/garmoth/${itemId}.webp`,
         garmothKey: `${itemId}_0`,
         valuation: "market",
         unitPrice: null,
@@ -36,7 +36,7 @@ function market(name: string, itemId: number): DropTemplate {
 function enhancement(name: string, iconId: number, subKey: number): DropTemplate {
     return {
         name,
-        icon: `/items/${iconId}.webp`,
+        icon: `/items/garmoth/${iconId}.webp`,
         garmothKey: `${iconId}_${subKey}`,
         valuation: "market",
         unitPrice: null,
@@ -46,7 +46,7 @@ function enhancement(name: string, iconId: number, subKey: number): DropTemplate
 function vendor(name: string, iconId: number | string, unitPrice: number, garmothMainKey = iconId): DropTemplate {
     return {
         name,
-        icon: `/items/${iconId}.${typeof iconId === "number" ? "webp" : "png"}`,
+        icon: typeof iconId === "number" ? `/items/garmoth/${iconId}.webp` : `/items/${iconId}.png`,
         garmothKey: `${garmothMainKey}_0`,
         valuation: "vendor",
         unitPrice,
