@@ -260,7 +260,9 @@ export function HistoryView({
         if (!uploadFocus || resolvingUpload) return;
         const target =
             uploadFocus === "upload"
-                ? (uploadButton.current ?? reloadButton.current)
+                ? uploadButton.current && !uploadButton.current.disabled
+                    ? uploadButton.current
+                    : reloadButton.current
                 : uploadFocus === "on-garmoth"
                   ? onGarmothButton.current
                   : notThereButton.current;

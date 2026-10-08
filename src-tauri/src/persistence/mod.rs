@@ -297,7 +297,7 @@ fn migrate(connection: &mut Connection) -> Result<(), String> {
         transaction
             .execute_batch(
                 "ALTER TABLE garmoth_uploads ADD COLUMN was_uploaded INTEGER NOT NULL DEFAULT 0
-                    CHECK (was_uploaded IN (0, 1));
+                    CHECK (was_uploaded = 0 OR (was_uploaded = 1 AND status = 'unknown'));
                  INSERT INTO schema_migrations (version, applied_at)
                     VALUES (6, unixepoch('subsec') * 1000);",
             )

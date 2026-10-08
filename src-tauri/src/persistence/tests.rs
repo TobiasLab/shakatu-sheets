@@ -1364,6 +1364,153 @@ fn history_consumable_correction_rolls_back_failed_insertions() {
 }
 
 #[test]
+fn migration_six_treats_existing_upload_rows_as_first_uploads() {
+    let mut connection = database();
+    let uploaded = session(SessionStatus::Finished);
+    let mut unconfirmed = session(SessionStatus::Finished);
+    unconfirmed.id = "unconfirmed".into();
+    unconfirmed.entries.clear();
+    for record in [&uploaded, &unconfirmed] {
+        save_session_record(&mut connection, record).unwrap();
+    }
+    connection
+        .execute_batch(
+            "ALTER TABLE garmoth_uploads DROP COLUMN was_uploaded;
+             DELETE FROM schema_migrations WHERE version = 6;",
+        )
+        .unwrap();
+    for (id, status) in [(&uploaded.id, "success"), (&unconfirmed.id, "unknown")] {
+        connection
+            .execute(
+                "INSERT INTO garmoth_uploads (session_id, status, updated_at) VALUES (?1, ?2, 0)",
+                [id.as_str(), status],
+            )
+            .unwrap();
+    }
+
+    migrate(&mut connection).unwrap();
+
+    let flags: i64 = connection
+        .query_row("SELECT SUM(was_uploaded) FROM garmoth_uploads", [], |row| {
+            row.get(0)
+        })
+        .unwrap();
+    assert_eq!(flags, 0);
+    assert_eq!(
+        resolve_unknown_garmoth_upload(&mut connection, &unconfirmed.id, false).unwrap(),
+        None
+    );
+    assert_eq!(
+        load_garmoth_upload_status(&connection, &uploaded.id).unwrap(),
+        Some(GarmothUploadStatus::Success)
+    );
+    // The repeat flag only ever accompanies an unconfirmed upload.
+    assert!(connection
+        .execute(
+            "UPDATE garmoth_uploads SET was_uploaded = 1 WHERE session_id = ?1",
+            [&uploaded.id],
+        )
+        .is_err());
+}
+
+#[test]
+fn unconfirmed_repeat_upload_stays_recorded_through_the_upload_command() {
+    tokio::runtime::Builder::new_current_thread()
+        .enable_all()
+        .build()
+        .unwrap()
+        .block_on(async {
+            use crate::garmoth::upload::{upload, GarmothUploadInput};
+            let (path, mut connection) = temporary_database();
+            let mut finished = session(SessionStatus::Finished);
+            finished.grind_spot_id = "stars-end-revamp".into();
+            finished.elapsed_ms = 3_600_000;
+            finished.entries[0].name = "Corrupted Sanguine Crystal".into();
+            finished.entries[0].quantity = 10.0;
+            finished.entries[0].unit_price = 100;
+            save_session_record(&mut connection, &finished).unwrap();
+            save_settings(
+                &mut connection,
+                &[
+                    ("garmoth.api_key", Some("test-key")),
+                    (
+                        "garmoth.characters",
+                        Some(r#"[{"id":"character","name":"Test","classId":8,"spec":null}]"#),
+                    ),
+                    ("garmoth.selected_character_id", Some("character")),
+                ],
+            )
+            .unwrap();
+            let mut drops = serde_json::from_str::<serde_json::Value>(include_str!(
+                "../../../src/data/garmothMappings.json"
+            ))
+            .unwrap()["stars-end-revamp"]["drops"]
+                .as_object()
+                .unwrap()
+                .values()
+                .map(|key| (key.as_str().unwrap().to_string(), 0_i64))
+                .collect::<std::collections::BTreeMap<_, _>>();
+            drops.insert("56339_0".into(), 10);
+            let input: GarmothUploadInput = serde_json::from_value(serde_json::json!({
+                "sessionId": finished.id, "expectedSession": finished, "grindspotId": 200,
+                "minutes": 60, "hourly": 1000, "total": 1000, "drops": drops, "global": true,
+                "agris": -1, "repeatUpload": true
+            }))
+            .unwrap();
+            assert!(!claim_garmoth_upload(&mut connection, &finished.id, false).unwrap());
+            finish_garmoth_upload(&connection, &finished.id).unwrap();
+            let client = reqwest::Client::builder()
+                .no_proxy()
+                .timeout(Duration::from_millis(500))
+                .build()
+                .unwrap();
+
+            // A repeat that cannot connect was never sent, so the earlier upload stays recorded.
+            let closed = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+            let closed_url = format!("http://{}", closed.local_addr().unwrap());
+            drop(closed);
+            let result = serde_json::to_value(
+                upload(&input, &path, client.clone(), &closed_url).await.unwrap(),
+            )
+            .unwrap();
+            assert_eq!(result["status"], "failed");
+            assert_eq!(
+                load_garmoth_upload_status(&connection, &finished.id).unwrap(),
+                Some(GarmothUploadStatus::Success)
+            );
+
+            // A repeat Garmoth rejects may have been recorded, so it waits for the user's check as a repeat.
+            let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+            let server_url = format!("http://{}", listener.local_addr().unwrap());
+            let server = std::thread::spawn(move || {
+                use std::io::{Read, Write};
+                let (mut stream, _) = listener.accept().unwrap();
+                let mut request = [0; 65536];
+                let _ = stream.read(&mut request);
+                stream
+                    .write_all(b"HTTP/1.1 500 Internal Server Error\r\nContent-Length: 0\r\nConnection: close\r\n\r\n")
+                    .unwrap();
+            });
+            let result = serde_json::to_value(
+                upload(&input, &path, client.clone(), &server_url).await.unwrap(),
+            )
+            .unwrap();
+            server.join().unwrap();
+            assert_eq!(result["status"], "unknown");
+            assert_eq!(
+                load_garmoth_upload_status(&connection, &finished.id).unwrap(),
+                Some(GarmothUploadStatus::Unknown)
+            );
+            assert_eq!(
+                resolve_unknown_garmoth_upload(&mut connection, &finished.id, false).unwrap(),
+                Some(GarmothUploadStatus::Success)
+            );
+            drop(connection);
+            remove_temporary_database(&path);
+        });
+}
+
+#[test]
 fn reviewed_upload_keeps_saved_expenses_on_connect_failure_and_can_retry() {
     tokio::runtime::Builder::new_current_thread()
         .enable_all()
