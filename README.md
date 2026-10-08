@@ -35,4 +35,7 @@ On Arch-derived systems, build Linux bundles with `npm run bundle:linux`. The `N
 
 ## License
 
-Shakatu Sheets is licensed under the GNU Affero General Public License v3.0 only. See `LICENSE`.
+Copyright (C) 2026 Shakatu Sheets contributors.
+
+Shakatu Sheets is licensed under the GNU Affero General Public License, version 3 only (`AGPL-3.0-only`). The full
+license text is in `LICENSE`. This program is distributed WITHOUT ANY WARRANTY; see the license for details.
