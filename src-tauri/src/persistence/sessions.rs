@@ -9,7 +9,7 @@ use crate::garmoth::GarmothOperations;
 use super::{
     garmoth_uploads::{load_garmoth_upload_status, GarmothUploadStatus},
     market_prices::Region,
-    open_database, timestamp_ms, DatabasePath, MAX_SAFE_INTEGER,
+    open_database, run_database, timestamp_ms, DatabasePath, MAX_SAFE_INTEGER,
 };
 
 #[derive(Clone, Copy, Debug, Deserialize, PartialEq, Serialize)]
@@ -784,35 +784,43 @@ pub(crate) fn apply_finished_session_consumables_record(
 }
 
 #[tauri::command]
-pub fn load_active_session(
+pub async fn load_active_session(
     state: State<'_, DatabasePath>,
 ) -> Result<Option<SessionRecord>, String> {
-    let connection = open_database(state.path()?)?;
-    load_active_session_record(&connection)
+    run_database(state, |connection| load_active_session_record(connection)).await
 }
 
 #[tauri::command]
-pub fn save_session(session: SessionRecord, state: State<'_, DatabasePath>) -> Result<(), String> {
-    let mut connection = open_database(state.path()?)?;
-    save_session_record(&mut connection, &session)
+pub async fn save_session(
+    session: SessionRecord,
+    state: State<'_, DatabasePath>,
+) -> Result<(), String> {
+    run_database(state, move |connection| {
+        save_session_record(connection, &session)
+    })
+    .await
 }
 
 #[tauri::command]
-pub fn load_session_trend(
+pub async fn load_session_trend(
     session_id: String,
     state: State<'_, DatabasePath>,
 ) -> Result<Vec<NetSample>, String> {
-    let connection = open_database(state.path()?)?;
-    load_session_trend_records(&connection, &session_id)
+    run_database(state, move |connection| {
+        load_session_trend_records(connection, &session_id)
+    })
+    .await
 }
 
 #[tauri::command]
-pub fn list_finished_sessions(
+pub async fn list_finished_sessions(
     query: HistoryQuery,
     state: State<'_, DatabasePath>,
 ) -> Result<HistoryResult, String> {
-    let connection = open_database(state.path()?)?;
-    list_finished_session_records(&connection, &query)
+    run_database(state, move |connection| {
+        list_finished_session_records(connection, &query)
+    })
+    .await
 }
 
 #[tauri::command]
@@ -825,7 +833,12 @@ pub async fn delete_finished_session(
 }
 
 #[tauri::command]
-pub fn reopen_session(id: String, state: State<'_, DatabasePath>) -> Result<SessionRecord, String> {
-    let mut connection = open_database(state.path()?)?;
-    reopen_session_record(&mut connection, &id)
+pub async fn reopen_session(
+    id: String,
+    state: State<'_, DatabasePath>,
+) -> Result<SessionRecord, String> {
+    run_database(state, move |connection| {
+        reopen_session_record(connection, &id)
+    })
+    .await
 }

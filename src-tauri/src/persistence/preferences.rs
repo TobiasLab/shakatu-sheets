@@ -2,7 +2,7 @@ use rusqlite::Connection;
 use serde::{Deserialize, Serialize};
 use tauri::State;
 
-use super::{load_setting, open_database, save_settings, DatabasePath};
+use super::{load_setting, run_database, save_settings, DatabasePath};
 
 const THEME_KEY: &str = "theme";
 const SPOT_PREFERENCES_KEY: &str = "grind_spot_preferences";
@@ -25,8 +25,8 @@ pub struct SpotPreferences {
 
 /// `None` means the theme was never saved in SQLite.
 #[tauri::command]
-pub fn load_theme(state: State<'_, DatabasePath>) -> Result<Option<Theme>, String> {
-    load_theme_setting(&open_database(state.path()?)?)
+pub async fn load_theme(state: State<'_, DatabasePath>) -> Result<Option<Theme>, String> {
+    run_database(state, |connection| load_theme_setting(connection)).await
 }
 
 pub(super) fn load_theme_setting(connection: &Connection) -> Result<Option<Theme>, String> {
@@ -39,8 +39,11 @@ pub(super) fn load_theme_setting(connection: &Connection) -> Result<Option<Theme
 }
 
 #[tauri::command]
-pub fn save_theme(theme: Theme, state: State<'_, DatabasePath>) -> Result<(), String> {
-    save_theme_setting(&mut open_database(state.path()?)?, theme)
+pub async fn save_theme(theme: Theme, state: State<'_, DatabasePath>) -> Result<(), String> {
+    run_database(state, move |connection| {
+        save_theme_setting(connection, theme)
+    })
+    .await
 }
 
 pub(super) fn save_theme_setting(connection: &mut Connection, theme: Theme) -> Result<(), String> {
@@ -53,10 +56,13 @@ pub(super) fn save_theme_setting(connection: &mut Connection, theme: Theme) -> R
 
 /// `None` means the grind-spot favorites and recents were never saved in SQLite.
 #[tauri::command]
-pub fn load_spot_preferences(
+pub async fn load_spot_preferences(
     state: State<'_, DatabasePath>,
 ) -> Result<Option<SpotPreferences>, String> {
-    load_spot_preferences_setting(&open_database(state.path()?)?)
+    run_database(state, |connection| {
+        load_spot_preferences_setting(connection)
+    })
+    .await
 }
 
 pub(super) fn load_spot_preferences_setting(
@@ -72,11 +78,14 @@ pub(super) fn load_spot_preferences_setting(
 }
 
 #[tauri::command]
-pub fn save_spot_preferences(
+pub async fn save_spot_preferences(
     preferences: SpotPreferences,
     state: State<'_, DatabasePath>,
 ) -> Result<(), String> {
-    save_spot_preferences_setting(&mut open_database(state.path()?)?, &preferences)
+    run_database(state, move |connection| {
+        save_spot_preferences_setting(connection, &preferences)
+    })
+    .await
 }
 
 pub(super) fn save_spot_preferences_setting(

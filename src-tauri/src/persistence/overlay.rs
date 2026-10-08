@@ -1,13 +1,13 @@
 use rusqlite::Connection;
 use tauri::State;
 
-use super::{load_setting, open_database, save_settings, DatabasePath};
+use super::{load_setting, run_database, save_settings, DatabasePath};
 
 const OPACITY_KEY: &str = "session_overlay_opacity";
 
 #[tauri::command]
-pub fn load_overlay_opacity(state: State<'_, DatabasePath>) -> Result<u8, String> {
-    load_overlay_opacity_setting(&open_database(state.path()?)?)
+pub async fn load_overlay_opacity(state: State<'_, DatabasePath>) -> Result<u8, String> {
+    run_database(state, |connection| load_overlay_opacity_setting(connection)).await
 }
 
 pub(super) fn load_overlay_opacity_setting(connection: &Connection) -> Result<u8, String> {
@@ -18,8 +18,14 @@ pub(super) fn load_overlay_opacity_setting(connection: &Connection) -> Result<u8
 }
 
 #[tauri::command]
-pub fn save_overlay_opacity(opacity: u8, state: State<'_, DatabasePath>) -> Result<(), String> {
-    save_overlay_opacity_setting(&mut open_database(state.path()?)?, opacity)
+pub async fn save_overlay_opacity(
+    opacity: u8,
+    state: State<'_, DatabasePath>,
+) -> Result<(), String> {
+    run_database(state, move |connection| {
+        save_overlay_opacity_setting(connection, opacity)
+    })
+    .await
 }
 
 pub(super) fn save_overlay_opacity_setting(

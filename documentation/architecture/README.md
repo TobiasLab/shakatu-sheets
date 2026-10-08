@@ -45,7 +45,10 @@ document error semantics or an idempotency contract. The app blocks ambiguous re
 Garmoth grind tracker. Reserved and uploaded sessions cannot be reopened.
 
 Rust remains feature-oriented: `persistence` groups SQLite infrastructure with session, market-price, settings, and
-Garmoth-upload storage; `garmoth` separates account settings from uploads. `native_capture/control.rs` owns shared
+Garmoth-upload storage; `garmoth` separates account settings from uploads. Database commands are async and run their
+SQLite work through `run_database` on a blocking thread, because synchronous Tauri commands run on the main thread and a
+slow disk or a wait on another connection's write would freeze the window. The frontend already orders writes to the same
+data, so commands may run concurrently. `native_capture/control.rs` owns shared
 capture-token lifecycle, selection validation, sampling, and acknowledgment backpressure. `protocol.rs` owns binary
 encoding, and `diagnostics.rs` owns opt-in aggregate metrics and the log sink (stderr on Linux, the rotating
 `capture.log` on Windows, which also records capture lifecycle events). Linux retains the portal lifecycle

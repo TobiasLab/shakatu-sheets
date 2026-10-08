@@ -4,7 +4,7 @@ use std::{
 };
 
 use rusqlite::Connection;
-use tauri::{AppHandle, Manager};
+use tauri::{AppHandle, Manager, State};
 
 pub(crate) mod consumable_presets;
 mod garmoth_uploads;
@@ -63,6 +63,18 @@ pub fn initialize_database(app: &AppHandle) -> Result<PathBuf, String> {
     let mut connection = open_database(&path)?;
     migrate(&mut connection)?;
     Ok(path)
+}
+
+/// Runs a command's database work on a blocking thread. Synchronous Tauri commands run on the main thread, where a slow
+/// disk or a wait for another connection's write would freeze the window.
+pub(crate) async fn run_database<T: Send + 'static>(
+    state: State<'_, DatabasePath>,
+    work: impl FnOnce(&mut Connection) -> Result<T, String> + Send + 'static,
+) -> Result<T, String> {
+    let path = state.path()?.clone();
+    tauri::async_runtime::spawn_blocking(move || work(&mut open_database(&path)?))
+        .await
+        .map_err(|error| error.to_string())?
 }
 
 pub(crate) fn open_database(path: &PathBuf) -> Result<Connection, String> {

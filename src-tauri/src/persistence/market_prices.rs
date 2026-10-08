@@ -4,7 +4,7 @@ use rusqlite::{params, Connection};
 use serde::{Deserialize, Serialize};
 use tauri::State;
 
-use super::{open_database, DatabasePath};
+use super::{open_database, run_database, DatabasePath};
 
 #[derive(Clone, Copy, Debug, Deserialize, PartialEq, Serialize)]
 #[serde(rename_all = "lowercase")]
@@ -107,10 +107,12 @@ pub(crate) fn save_market_price_records(
 }
 
 #[tauri::command]
-pub fn load_market_prices(
+pub async fn load_market_prices(
     region: Region,
     state: State<'_, DatabasePath>,
 ) -> Result<Vec<MarketPriceSnapshot>, String> {
-    let connection = open_database(state.path()?)?;
-    load_market_price_records(&connection, region)
+    run_database(state, move |connection| {
+        load_market_price_records(connection, region)
+    })
+    .await
 }
