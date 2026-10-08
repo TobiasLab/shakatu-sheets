@@ -25,7 +25,7 @@ use geometry::NormalizedRegion;
 use geometry::PixelRegion;
 pub use geometry::{LootCaptureSettings, NativeCaptureSelection};
 
-use crate::persistence::{load_setting, open_database, save_settings, DatabasePath};
+use crate::persistence::{load_setting, run_database, save_settings, DatabasePath};
 
 const LOOT_CAPTURE_SETTINGS_KEY: &str = "loot-capture-settings";
 #[derive(Default)]
@@ -107,25 +107,31 @@ pub fn set_native_display_capture_preview_enabled(
 }
 
 #[tauri::command]
-pub fn load_loot_capture_settings(
+pub async fn load_loot_capture_settings(
     state: tauri::State<'_, DatabasePath>,
 ) -> Result<Option<LootCaptureSettings>, String> {
-    load_setting(&open_database(state.path()?)?, LOOT_CAPTURE_SETTINGS_KEY)?
-        .map(|value| parse_loot_capture_settings(&value))
-        .transpose()
+    run_database(state, |connection| {
+        load_setting(connection, LOOT_CAPTURE_SETTINGS_KEY)?
+            .map(|value| parse_loot_capture_settings(&value))
+            .transpose()
+    })
+    .await
 }
 
 #[tauri::command]
-pub fn save_loot_capture_settings(
+pub async fn save_loot_capture_settings(
     settings: LootCaptureSettings,
     state: tauri::State<'_, DatabasePath>,
 ) -> Result<(), String> {
     settings.validate()?;
     let value = serde_json::to_string(&settings).map_err(|error| error.to_string())?;
-    save_settings(
-        &mut open_database(state.path()?)?,
-        &[(LOOT_CAPTURE_SETTINGS_KEY, Some(value.as_str()))],
-    )
+    run_database(state, move |connection| {
+        save_settings(
+            connection,
+            &[(LOOT_CAPTURE_SETTINGS_KEY, Some(value.as_str()))],
+        )
+    })
+    .await
 }
 
 #[tauri::command]

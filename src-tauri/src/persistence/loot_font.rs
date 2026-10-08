@@ -2,7 +2,7 @@ use rusqlite::Connection;
 use serde::{Deserialize, Serialize};
 use tauri::State;
 
-use super::{load_setting, open_database, save_settings, DatabasePath};
+use super::{load_setting, run_database, save_settings, DatabasePath};
 
 const FONT_KEY: &str = "loot_font";
 
@@ -15,8 +15,8 @@ pub enum LootFont {
 }
 
 #[tauri::command]
-pub fn load_loot_font(state: State<'_, DatabasePath>) -> Result<LootFont, String> {
-    load_loot_font_setting(&open_database(state.path()?)?)
+pub async fn load_loot_font(state: State<'_, DatabasePath>) -> Result<LootFont, String> {
+    run_database(state, |connection| load_loot_font_setting(connection)).await
 }
 
 pub(super) fn load_loot_font_setting(connection: &Connection) -> Result<LootFont, String> {
@@ -28,8 +28,11 @@ pub(super) fn load_loot_font_setting(connection: &Connection) -> Result<LootFont
 }
 
 #[tauri::command]
-pub fn save_loot_font(font: LootFont, state: State<'_, DatabasePath>) -> Result<(), String> {
-    save_loot_font_setting(&mut open_database(state.path()?)?, font)
+pub async fn save_loot_font(font: LootFont, state: State<'_, DatabasePath>) -> Result<(), String> {
+    run_database(state, move |connection| {
+        save_loot_font_setting(connection, font)
+    })
+    .await
 }
 
 pub(super) fn save_loot_font_setting(

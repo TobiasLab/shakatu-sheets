@@ -4,7 +4,7 @@ use rusqlite::Connection;
 use serde::{Deserialize, Serialize};
 use tauri::State;
 
-use super::{load_setting, open_database, save_settings, DatabasePath, Region, MAX_SAFE_INTEGER};
+use super::{load_setting, run_database, save_settings, DatabasePath, Region, MAX_SAFE_INTEGER};
 
 const SETTING: &str = "consumable_presets";
 
@@ -89,16 +89,16 @@ pub(super) fn save_presets(
 }
 
 #[tauri::command]
-pub fn load_consumable_presets(
+pub async fn load_consumable_presets(
     state: State<'_, DatabasePath>,
 ) -> Result<Vec<ConsumablePreset>, String> {
-    load_presets(&open_database(state.path()?)?)
+    run_database(state, |connection| load_presets(connection)).await
 }
 
 #[tauri::command]
-pub fn save_consumable_presets(
+pub async fn save_consumable_presets(
     presets: Vec<ConsumablePreset>,
     state: State<'_, DatabasePath>,
 ) -> Result<(), String> {
-    save_presets(&mut open_database(state.path()?)?, &presets)
+    run_database(state, move |connection| save_presets(connection, &presets)).await
 }
