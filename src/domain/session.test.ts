@@ -5,6 +5,7 @@ import {
     createSession,
     getElapsedMs,
     isActiveSessionStatus,
+    mergedEntryQuantity,
     pauseRestoredSession,
     reduceSession,
     type SessionEntry,
@@ -155,6 +156,19 @@ describe("session entries", () => {
         });
 
         expect(updated.entries).toEqual([other, { ...first, quantity: 5, createdAt: 2 }]);
+    });
+
+    it("counts only the entries an addition merges with toward its combined quantity", () => {
+        const entries = [
+            entry({ id: "same", quantity: 2 }),
+            entry({ id: "consumable", quantity: 40, garmothConsumableId: 7 }),
+            entry({ id: "priced", quantity: 50, unitPrice: 200 }),
+        ];
+
+        expect(mergedEntryQuantity(entries, entry({ id: "new", quantity: 3 }))).toBe(5);
+        expect(mergedEntryQuantity(entries, entry({ id: "new", quantity: Number.MAX_SAFE_INTEGER }))).toBeGreaterThan(
+            Number.MAX_SAFE_INTEGER,
+        );
     });
 
     it("keeps entries with different unit prices separate", () => {

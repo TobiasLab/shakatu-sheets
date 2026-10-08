@@ -7,7 +7,7 @@ import { LiveLootCapture } from "../../components/LiveLootCapture/LiveLootCaptur
 import { focusLootReview } from "../../components/LiveLootCapture/LootReview";
 import { type CaptureSummary, useLiveLootCapture } from "../../components/LiveLootCapture/useLiveLootCapture";
 import { LootLedger } from "../../components/LootLedger/LootLedger";
-import { createEntry } from "../../domain/session";
+import { createEntry, mergedEntryQuantity } from "../../domain/session";
 import type { LiveSessionController } from "../../hooks/useLiveSession";
 import type { PersistedSetting } from "../../hooks/usePersistedSetting";
 import type { useSelfImprovement } from "../../hooks/useSelfImprovement";
@@ -57,21 +57,10 @@ export function LiveSessionView({
         if (unitPrice === null || !Number.isSafeInteger(unitPrice) || unitPrice < 0) {
             return "No valid price is available. Fetch prices in Settings → Market or add this item manually.";
         }
-        const combinedQuantity = session.entries.reduce(
-            (total, entry) =>
-                entry.name === drop.name && entry.valuation === drop.valuation && entry.unitPrice === unitPrice
-                    ? total + entry.quantity
-                    : total,
-            quantity,
-        );
-        if (!Number.isSafeInteger(combinedQuantity)) return "The combined item quantity is too large.";
-        dispatch({
-            type: "add-entry",
-            entry: {
-                ...createEntry(drop.name, quantity, unitPrice, drop.valuation),
-                source,
-            },
-        });
+        const entry = { ...createEntry(drop.name, quantity, unitPrice, drop.valuation), source };
+        if (!Number.isSafeInteger(mergedEntryQuantity(session.entries, entry)))
+            return "The combined item quantity is too large.";
+        dispatch({ type: "add-entry", entry });
         return null;
     }
 
