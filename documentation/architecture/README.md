@@ -131,6 +131,17 @@ is inert; Esc closes a dialog and system window shortcuts keep working.
 The overlay uses a separate capability for events, hiding, dragging, and minimized-state inspection.
 Native layer placement commands accept calls only from the session overlay and only when layer-shell is active.
 
+`src-tauri/build.rs` declares every app command, which makes each one require an `allow-<command>` permission. The
+main window's capability grants every command except overlay placement; the overlay's grants only the layer-shell query
+and overlay placement, so a compromised overlay cannot read the database, the Garmoth key, or capture. Add a new command
+to `build.rs` and to the capability of each window that calls it. The generated permission files are not committed.
+
+The built app runs under a content security policy: scripts, workers, fonts, and network requests are limited to the
+app's own assets and Tauri IPC. Tesseract needs `'wasm-unsafe-eval'`, Marni import previews use `data:` and `blob:`
+images, and React's style attributes need `'unsafe-inline'` styles, which is why Tauri may not add nonces to `style-src`
+(a nonce would make WebKit ignore `'unsafe-inline'`). The Vite dev server runs without the policy because its
+refresh preamble and websocket need inline scripts and `ws:` connections.
+
 Browser preview disables the pop-out button. Desktop verification should cover dragging and resizing, hiding and
 reopening, loot edits/removals, pause/resume/reset, continued timing while the main window is minimized, and app exit.
 Always-on-top behavior depends on the desktop compositor; exclusive fullscreen games may cover the window.
