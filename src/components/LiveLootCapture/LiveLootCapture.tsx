@@ -62,16 +62,10 @@ export function LiveLootCapture({ controller }: { controller: ReturnType<typeof 
         error,
         previewToggleError,
         recognitionError,
-        previewsEnabledRef,
         savingRegion,
-        draggingRegion,
-        placementModeRef,
-        activeRegionKindRef,
-        updateCaptureRegion,
-        moveRegion,
-        beginRegionDrag,
-        normalRegionRef,
-        rareRegionRef,
+        startRegionDrag,
+        dragRegion,
+        endRegionDrag,
         canvas,
         sourceSupported,
         placementMode,
@@ -261,54 +255,10 @@ export function LiveLootCapture({ controller }: { controller: ReturnType<typeof 
                         <div className={styles.Preview}>
                             <div
                                 className={styles.PreviewStage}
-                                onPointerDown={(event) => {
-                                    if (
-                                        !previewsEnabledRef.current ||
-                                        savingRegion ||
-                                        event.button !== 0 ||
-                                        !event.isPrimary
-                                    )
-                                        return;
-                                    beginRegionDrag(event);
-                                    draggingRegion.current = true;
-                                    if (placementModeRef.current !== "localizing") {
-                                        updateCaptureRegion(activeRegionKindRef.current, null);
-                                    }
-                                    event.currentTarget.setPointerCapture(event.pointerId);
-                                    moveRegion(event);
-                                }}
-                                onPointerMove={(event) => {
-                                    if (previewsEnabledRef.current && draggingRegion.current) moveRegion(event);
-                                }}
-                                onPointerUp={(event) => {
-                                    if (!draggingRegion.current) return;
-                                    draggingRegion.current = false;
-                                    const kind = activeRegionKindRef.current;
-                                    updateCaptureRegion(
-                                        kind,
-                                        placementModeRef.current === "localizing"
-                                            ? null
-                                            : kind === "normal"
-                                              ? normalRegionRef.current
-                                              : rareRegionRef.current,
-                                    );
-                                    if (event.currentTarget.hasPointerCapture(event.pointerId)) {
-                                        event.currentTarget.releasePointerCapture(event.pointerId);
-                                    }
-                                }}
-                                onPointerCancel={() => {
-                                    if (!draggingRegion.current) return;
-                                    draggingRegion.current = false;
-                                    const kind = activeRegionKindRef.current;
-                                    updateCaptureRegion(
-                                        kind,
-                                        placementModeRef.current === "localizing"
-                                            ? null
-                                            : kind === "normal"
-                                              ? normalRegionRef.current
-                                              : rareRegionRef.current,
-                                    );
-                                }}
+                                onPointerDown={startRegionDrag}
+                                onPointerMove={dragRegion}
+                                onPointerUp={endRegionDrag}
+                                onPointerCancel={endRegionDrag}
                             >
                                 <canvas ref={canvas} aria-label="Sampled capture preview" />
                                 {sourceSupported && placementMode === "localizing" && searchRegion && (
