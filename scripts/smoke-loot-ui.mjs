@@ -1513,7 +1513,6 @@ try {
         assert(await evaluate("document.querySelector('#market select').disabled"));
         assert(await evaluate("document.querySelector('#market [aria-label=\"Grind spot\"] button').disabled"));
         assert(await evaluate("document.querySelector('#region-locked').textContent.includes('Start a new session')"));
-        await evaluate("window.dispatchEvent(new Event('shakatu-stop-capture'))");
         assert.equal(errors.length, 0, JSON.stringify(errors));
         await send("Page.navigate", { url: `${appUrl}?history-startup=1` });
         await until('typeof window.__restoreHistorySession === "function"');
