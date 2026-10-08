@@ -212,6 +212,12 @@ await send("Page.addScriptToEvaluateOnNewDocument", {
                 return { apiKeyConfigured: window.__keyConfigured ?? false, characterIds: [], characters: [], selectedCharacterId: null };
             }
             if (command === "save_garmoth_api_key") { window.__keyConfigured = true; return; }
+            if (command === "resolve_garmoth_upload") {
+                const record = window.__historyRecords.find(r => r.session.id === args.sessionId);
+                if (record.garmothUploadStatus !== "unknown") throw Error("No unconfirmed Garmoth upload.");
+                record.garmothUploadStatus = args.uploaded ? "success" : null;
+                return;
+            }
             if (command === "upload_garmoth_session") {
                 const record = window.__historyRecords.find(r => r.session.id === args.input.sessionId);
                 record.garmothUploadStatus = "success";
@@ -1672,6 +1678,36 @@ try {
         assert.equal("rate" in upload, false, "Rust derives the drop rate from the buffs");
         await until("!document.querySelector('dialog[open]')");
         assert.equal(await evaluate("JSON.stringify(window.__session.entries)"), supplementalEntries);
+        // An upload Garmoth never confirmed stays blocked until the user records what their grind tracker shows.
+        for (const [answer, message, nextAction] of [
+            ["It's not there", "Recorded as not on Garmoth. You can upload it again.", "Upload to Garmoth"],
+            ["It's on Garmoth", "Recorded as uploaded to Garmoth.", "Upload again"],
+        ]) {
+            await evaluate("window.__historyRecords[0].garmothUploadStatus = 'unknown'");
+            await click("Reload");
+            await until("document.body.innerText.includes('Confirmation unknown')");
+            assert.equal(
+                await evaluate(
+                    "[...document.querySelectorAll('button')].some(b => /^Upload (to Garmoth|again)$/.test(b.textContent.trim()))",
+                ),
+                false,
+            );
+            if (answer === "It's not there") {
+                await evaluate(
+                    "[...document.querySelectorAll('button')].find(b => b.textContent.trim() === \"It's not there\").scrollIntoView({block:'center'})",
+                );
+                await screenshot("garmoth-unconfirmed-upload");
+            }
+            await click(answer);
+            await until(`document.body.innerText.includes(${JSON.stringify(message)})`);
+            await until(`document.activeElement?.textContent.trim() === ${JSON.stringify(nextAction)}`);
+        }
+        assert.deepEqual(
+            await evaluate(
+                "window.__calls.filter(c => c.command === 'resolve_garmoth_upload').map(c => c.args.uploaded)",
+            ),
+            [false, true],
+        );
         assert.equal(errors.length, 0, JSON.stringify(errors));
         console.log(
             `UI smoke passed: timer, navigation, capture lifecycle, preview suppression, diagnostics, screenshot state, dialog focus, expense price isolation, new-session reset, ledger editing/filtering, history filters, themes, compact screens. Screenshots: ${output}`,

@@ -26,7 +26,9 @@ Implemented behavior:
    class and specialization. Global-data sharing is opt-in and defaults off.
 6. Durable per-session upload state guards retries; successful uploads can be repeated after explicit confirmation.
    Connect failures before transmission may be retried explicitly; timed-out, interrupted, or server-failed requests are
-   marked unknown and never retried automatically because Garmoth provides no idempotency contract.
+   marked unknown and never retried automatically because Garmoth provides no idempotency contract. After checking
+   their Garmoth grind tracker, the user records whether the session arrived, which marks it uploaded or allows a new
+   upload.
 
 The endpoint documentation does not define character-build or upload success response bodies. The client validates the
 documented character fields it consumes and treats any successful upload HTTP status as confirmation. Do not perform a

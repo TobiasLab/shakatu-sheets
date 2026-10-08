@@ -7,6 +7,7 @@ import {
     listFinishedSessions,
     loadGarmothSettings,
     loadSessionTrend,
+    resolveGarmothUpload,
 } from "../../api/tauri";
 import { EmptyState, Feedback } from "../../components/Feedback/Feedback";
 import { SelectionButton } from "../../components/SelectionButton/SelectionButton";
@@ -69,6 +70,7 @@ export function HistoryView({
     const [uploadReview, setUploadReview] = useState<FinishedSessionRecord | null>(null);
     const uploadButton = useRef<HTMLButtonElement>(null);
     const [uploading, setUploading] = useState(false);
+    const [resolvingUpload, setResolvingUpload] = useState(false);
     const [uploadMessage, setUploadMessage] = useState("");
     const [uploadError, setUploadError] = useState("");
     const [settingsError, setSettingsError] = useState("");
@@ -175,7 +177,7 @@ export function HistoryView({
     const uploadCharacter = garmothSettings?.characters.find(
         (character) => character.id === garmothSettings.selectedCharacterId,
     );
-    const actionBusy = uploading || reopening || deletingId !== null;
+    const actionBusy = uploading || resolvingUpload || reopening || deletingId !== null;
     const dateError = fromDate && toDate && fromDate > toDate ? "The From date must be on or before the To date." : "";
     function clearFilters() {
         resetPage();
@@ -299,6 +301,32 @@ export function HistoryView({
             void loadHistory(false);
         } finally {
             setDeletingId((current) => (current === record.session.id ? null : current));
+        }
+    }
+
+    async function resolveUnknownUpload(sessionId: string, uploaded: boolean) {
+        setResolvingUpload(true);
+        setUploadMessage("");
+        setUploadError("");
+        try {
+            await resolveGarmothUpload(sessionId, uploaded);
+            setRecords(
+                (current) =>
+                    current?.map((record) =>
+                        record.session.id === sessionId
+                            ? { ...record, garmothUploadStatus: uploaded ? "success" : null }
+                            : record,
+                    ) ?? null,
+            );
+            setUploadMessage(
+                uploaded ? "Recorded as uploaded to Garmoth." : "Recorded as not on Garmoth. You can upload it again.",
+            );
+            requestAnimationFrame(() => (uploadButton.current ?? reloadButton.current)?.focus());
+            void loadHistory(false);
+        } catch (failure) {
+            setUploadError(`Could not record the Garmoth check: ${String(failure)}`);
+        } finally {
+            setResolvingUpload(false);
         }
     }
 
@@ -635,7 +663,26 @@ export function HistoryView({
                                         <span>Garmoth upload</span>
                                         <strong>{uploadStatusLabel()}</strong>
                                     </div>
-                                    {selected.garmothUploadStatus === "unknown" ? null : !garmothSettingsLoaded ? (
+                                    {selected.garmothUploadStatus === "unknown" ? (
+                                        <div className={styles.UploadActions}>
+                                            <button
+                                                className="button"
+                                                type="button"
+                                                disabled={actionBusy}
+                                                onClick={() => void resolveUnknownUpload(selected.session.id, true)}
+                                            >
+                                                It's on Garmoth
+                                            </button>
+                                            <button
+                                                className="button subtle"
+                                                type="button"
+                                                disabled={actionBusy}
+                                                onClick={() => void resolveUnknownUpload(selected.session.id, false)}
+                                            >
+                                                It's not there
+                                            </button>
+                                        </div>
+                                    ) : !garmothSettingsLoaded ? (
                                         <button className="button" type="button" disabled>
                                             Loading settings...
                                         </button>
@@ -692,8 +739,9 @@ export function HistoryView({
                                 {uploadPreviewError && <Feedback tone="error">{uploadPreviewError}</Feedback>}
                                 {selected.garmothUploadStatus === "unknown" && !uploadError && (
                                     <p className={styles.UploadError} role="alert">
-                                        The upload outcome is unknown. Check your Garmoth grind tracker; automatic and
-                                        manual retries are blocked to avoid a duplicate.
+                                        Garmoth did not confirm this upload. Check your Garmoth grind tracker, then
+                                        record whether the session is there. Uploading again stays blocked until then to
+                                        avoid a duplicate.
                                     </p>
                                 )}
                                 {selected.garmothUploadStatus === "success" && (

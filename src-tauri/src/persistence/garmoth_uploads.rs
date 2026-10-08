@@ -100,6 +100,34 @@ pub(crate) fn finish_garmoth_upload(
     }
 }
 
+/// Settles an upload Garmoth never confirmed, after the user checked their Garmoth grind tracker: `uploaded` marks it
+/// uploaded, otherwise the session becomes uploadable again. Callers hold `GarmothOperations`, so an upload still in
+/// flight keeps its reservation.
+pub(crate) fn resolve_unknown_garmoth_upload(
+    connection: &Connection,
+    session_id: &str,
+    uploaded: bool,
+) -> Result<(), String> {
+    let changed = if uploaded {
+        connection.execute(
+            "UPDATE garmoth_uploads SET status = 'success', updated_at = ?1
+             WHERE session_id = ?2 AND status = 'unknown'",
+            params![timestamp_ms(), session_id],
+        )
+    } else {
+        connection.execute(
+            "DELETE FROM garmoth_uploads WHERE session_id = ?1 AND status = 'unknown'",
+            [session_id],
+        )
+    }
+    .map_err(|error| error.to_string())?;
+    if changed == 1 {
+        Ok(())
+    } else {
+        Err("This session no longer has an unconfirmed Garmoth upload. Reload History.".into())
+    }
+}
+
 pub(crate) fn release_garmoth_upload(
     connection: &Connection,
     session_id: &str,

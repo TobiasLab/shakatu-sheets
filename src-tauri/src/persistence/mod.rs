@@ -18,6 +18,7 @@ mod settings;
 
 pub(crate) use garmoth_uploads::{
     claim_garmoth_upload, finish_garmoth_upload, release_garmoth_upload,
+    resolve_unknown_garmoth_upload,
 };
 pub(crate) use market_prices::{save_market_price_records, MarketPriceSnapshot, Region};
 pub(crate) use sessions::{
