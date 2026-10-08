@@ -50,7 +50,6 @@ export function usePersistedSession(beforeClose?: () => Promise<void>) {
                     if (closingRef.current) return;
                     closingRef.current = true;
                     setClosing(true);
-                    window.dispatchEvent(new Event("shakatu-stop-capture"));
                     try {
                         await beforeCloseRef.current?.();
                         await persistenceQueue.current.flush();

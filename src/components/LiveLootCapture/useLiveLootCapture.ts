@@ -841,12 +841,6 @@ export function useLiveLootCapture({
     }
 
     useEffect(() => {
-        const stop = () => stopCapture();
-        window.addEventListener("shakatu-stop-capture", stop);
-        return () => window.removeEventListener("shakatu-stop-capture", stop);
-    }, []);
-
-    useEffect(() => {
         const expectsFrames =
             previewsEnabled || (nativeAppliedSelectionKey !== "" && nativeAppliedSelectionKey !== "null");
         // Native sources send no frames while the screen is static or the game is minimized; show that as waiting.

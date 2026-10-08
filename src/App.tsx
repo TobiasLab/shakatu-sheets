@@ -1,4 +1,4 @@
-import { useLayoutEffect, useState } from "react";
+import { useLayoutEffect, useRef, useState } from "react";
 import { loadLootFont, saveLootFont } from "./api/lootFont";
 import { loadSpotPreferences, loadTheme, saveSpotPreferences, saveTheme, type Theme } from "./api/preferences";
 import { loadOverlayOpacity, saveOverlayOpacity } from "./api/sessionOverlay";
@@ -37,7 +37,9 @@ export function App() {
     const lootFont = usePersistedSetting<LootFont>("korean", loadLootFont, saveLootFont, "in-game font", true);
     const selfImprovement = useSelfImprovement();
     const [showSelfImprovement, setShowSelfImprovement] = useState(false);
+    const stopCaptureRef = useRef<(() => void) | null>(null);
     const persistedSession = usePersistedSession(async () => {
+        stopCaptureRef.current?.();
         const flushes = [overlayOpacity.flush(), lootFont.flush(), theme.flush(), spotPreferences.flush()];
         // Without a loaded database a failing save must not keep the window open; pending saves still get their chance.
         if (persistedSession.databaseLoaded) await Promise.all(flushes);
@@ -114,6 +116,7 @@ export function App() {
                         visible={view === "live"}
                         captureSetupRequest={captureSetupRequest}
                         onCaptureStatusChange={setCaptureStatus}
+                        stopCaptureRef={stopCaptureRef}
                     />
                 </div>
                 {view === "history" ? (
