@@ -946,7 +946,7 @@ fn rejects_invalid_consumable_session_metadata() {
         assert!(save_session_record(&mut connection, &record).is_err());
     }
     record.entries[0].garmoth_consumable_id = Some(1411);
-    record.entries[0].unit_price = 9_007_199_254_740_991;
+    record.entries[0].unit_price = super::MAX_SAFE_INTEGER;
     assert!(save_session_record(&mut connection, &record).is_err());
 }
 
