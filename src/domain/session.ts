@@ -149,15 +149,9 @@ export function reduceSession(state: SessionState, action: SessionAction): Sessi
         }
         case "add-entry": {
             if (state.status === "finished") return state;
-            const matchingEntries = state.entries.filter(
-                (entry) =>
-                    entry.garmothConsumableId === action.entry.garmothConsumableId &&
-                    entry.name === action.entry.name &&
-                    entry.valuation === action.entry.valuation &&
-                    entry.unitPrice === action.entry.unitPrice,
-            );
+            const matchingEntries = state.entries.filter((entry) => entriesMerge(entry, action.entry));
             if (matchingEntries.length === 0) return { ...state, entries: [...state.entries, action.entry] };
-            const quantity = matchingEntries.reduce((total, entry) => total + entry.quantity, action.entry.quantity);
+            const quantity = mergedEntryQuantity(state.entries, action.entry);
             if (!Number.isSafeInteger(quantity)) return state;
             const existing = matchingEntries[0];
             const matchingIds = new Set(matchingEntries.map((entry) => entry.id));
@@ -203,6 +197,25 @@ export function reduceSession(state: SessionState, action: SessionAction): Sessi
         default:
             return state;
     }
+}
+
+type MergeableEntry = Pick<SessionEntry, "garmothConsumableId" | "name" | "valuation" | "unitPrice" | "quantity">;
+
+function entriesMerge(left: MergeableEntry, right: MergeableEntry) {
+    return (
+        left.garmothConsumableId === right.garmothConsumableId &&
+        left.name === right.name &&
+        left.valuation === right.valuation &&
+        left.unitPrice === right.unitPrice
+    );
+}
+
+/** The quantity `entry` reaches once added to the entries it merges with; adding is refused unless it is safe. */
+export function mergedEntryQuantity(entries: SessionEntry[], entry: MergeableEntry) {
+    return entries.reduce(
+        (total, candidate) => (entriesMerge(candidate, entry) ? total + candidate.quantity : total),
+        entry.quantity,
+    );
 }
 
 export function pauseRestoredSession(session: SessionState, now: number): SessionState {

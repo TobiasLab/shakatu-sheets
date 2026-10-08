@@ -1,6 +1,12 @@
 import { type Dispatch, type FormEvent, useEffect, useState } from "react";
 import { type DropTemplate, getGrindSpot, getGrindSpotDrops, getMarketItemIds } from "../data/grindSpots";
-import { createEntry, type SessionAction, type SessionState, type Valuation } from "../domain/session";
+import {
+    createEntry,
+    mergedEntryQuantity,
+    type SessionAction,
+    type SessionState,
+    type Valuation,
+} from "../domain/session";
 import { useMarketPrices } from "./useMarketPrices";
 
 export function useLiveSession(session: SessionState, dispatch: Dispatch<SessionAction>, databaseLoaded: boolean) {
@@ -70,16 +76,10 @@ export function useLiveSession(session: SessionState, dispatch: Dispatch<Session
             !Number.isSafeInteger(parsedPrice)
         )
             return "Enter a name, a positive whole quantity, and a whole silver price of 0 or more.";
-        const combinedQuantity = session.entries.reduce(
-            (total, entry) =>
-                entry.name === name && entry.valuation === valuation && entry.unitPrice === parsedPrice
-                    ? total + entry.quantity
-                    : total,
-            parsedQuantity,
-        );
-        if (!Number.isSafeInteger(combinedQuantity))
+        const entry = createEntry(name, parsedQuantity, parsedPrice, valuation);
+        if (!Number.isSafeInteger(mergedEntryQuantity(session.entries, entry)))
             return "The combined quantity is too large. This entry was not added.";
-        dispatch({ type: "add-entry", entry: createEntry(name, parsedQuantity, parsedPrice, valuation) });
+        dispatch({ type: "add-entry", entry });
         setQuantity("1");
         return null;
     }
