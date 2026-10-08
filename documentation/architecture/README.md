@@ -75,8 +75,9 @@ the current structure.
 
 
 The grind desk stays mounted when History or Settings is selected. Its `useLiveLootCapture` hook owns capture,
-placement, and recognition; area placement changes go through the pure, tested reducer in `capturePlacement.ts`. The hook composes `useLiveLootReviewQueue` (automatic insertion, retries, correction, and
-dismissal) and the development-only `useDebugSampleCollection`; the component renders setup and review controls. `SessionTools` owns native
+placement, and recognition; area placement changes go through the pure, tested reducer in `capturePlacement.ts`. The
+hook composes `useLiveLootReviewQueue` (automatic insertion, retries, correction, and dismissal) and the
+development-only `useDebugSampleCollection`; the component renders setup and review controls. `SessionTools` owns native
 entry/import dialogs and keeps their contents mounted when closed. Ledger search, filters, draft edits, and submission feedback
 are transient presentation state. History totals cover every matching completed session, independently of the visible page. Finishing a session or
 explicitly stopping capture or replacing the session tears the pipeline down. Navigation and minimization do not stop recognition. Preview
