@@ -514,6 +514,8 @@ export async function recognizeMarniScreenshot(
         langPath: ocrBase.href,
         cacheMethod: "none",
         gzip: true,
+        // The content security policy allows workers only from the app's own files, not blob: URLs.
+        workerBlobURL: false,
     });
 
     try {
