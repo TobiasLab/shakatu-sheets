@@ -163,7 +163,10 @@ function createNativeCaptureToken() {
     return nextNativeCaptureToken;
 }
 
-function drawFrame(canvas: HTMLCanvasElement | null, frame: NativeCaptureFrame) {
+/** A captured crop, delivered by native capture or cut from the browser fallback's video. */
+type CapturedFrame = Omit<NativeCaptureFrame, "captureId" | "batchId">;
+
+function drawFrame(canvas: HTMLCanvasElement | null, frame: CapturedFrame) {
     if (!canvas) return;
     if (canvas.width !== frame.width || canvas.height !== frame.height) {
         canvas.width = frame.width;
@@ -178,11 +181,7 @@ function clearCanvas(canvas: HTMLCanvasElement | null) {
     canvas.height = 0;
 }
 
-function frameMatchesRegion(
-    frame: NativeCaptureFrame,
-    region: NormalizedRegion | null,
-    source: SourceDimensions | null,
-) {
+function frameMatchesRegion(frame: CapturedFrame, region: NormalizedRegion | null, source: SourceDimensions | null) {
     if (!source || !region) return false;
     const pixels = normalizedRegionToPixels(region, source.width, source.height);
     return (
@@ -257,9 +256,7 @@ export function useLiveLootCapture({
     const canvas = useRef<HTMLCanvasElement>(null);
     const normalRegionCanvas = useRef<HTMLCanvasElement>(null);
     const rareRegionCanvas = useRef<HTMLCanvasElement>(null);
-    const pausedNormalRegionCanvas = useRef<HTMLCanvasElement | null>(null);
-    const pausedRareRegionCanvas = useRef<HTMLCanvasElement | null>(null);
-    const searchRegionCanvas = useRef<HTMLCanvasElement | null>(null);
+    const browserCropCanvas = useRef<HTMLCanvasElement | null>(null);
     const activeStream = useRef<MediaStream | null>(null);
     const nativeCapture = useRef(false);
     const nativeCaptureToken = useRef<number | null>(null);
@@ -388,11 +385,9 @@ export function useLiveLootCapture({
         if (kind === "normal") {
             setNormalRegionFrameSize(null);
             clearCanvas(normalRegionCanvas.current);
-            clearCanvas(pausedNormalRegionCanvas.current);
         } else {
             setRareRegionFrameSize(null);
             clearCanvas(rareRegionCanvas.current);
-            clearCanvas(pausedRareRegionCanvas.current);
         }
     }
 
@@ -410,10 +405,6 @@ export function useLiveLootCapture({
         pendingRecognitionFrames.current.length = 0;
         pendingRareRecognitionFrames.current.length = 0;
         pendingRecognitionOverflowed.current = false;
-        if (searchRegionCanvas.current) {
-            searchRegionCanvas.current.width = 0;
-            searchRegionCanvas.current.height = 0;
-        }
     }
 
     function recordOutstandingOcrJobs(source: OcrSource, outstandingJobs: number) {
@@ -598,10 +589,6 @@ export function useLiveLootCapture({
         localizer.current = null;
         place({ type: "lock-search", region, defaultRare });
         clearRegionPreview("normal");
-        if (searchRegionCanvas.current) {
-            searchRegionCanvas.current.width = 0;
-            searchRegionCanvas.current.height = 0;
-        }
         if (recognition.current) {
             for (const frame of replayFrames) pushRecognitionFrame(frame);
         } else {
@@ -798,6 +785,54 @@ export function useLiveLootCapture({
         } while (awaitedSelectionRevision !== nativeSelectionRevision.current);
     }
 
+    /** Shows a captured crop and passes it to localization or to its area's recognizer. */
+    function receiveCapturedFrame(frame: CapturedFrame, captureBatch?: { captureToken: number; batchId: number }) {
+        if (frame.kind === "preview") {
+            if (previewsEnabledRef.current) drawFrame(canvas.current, frame);
+            return;
+        }
+        const current = placementRef.current;
+        if (frame.kind === "search-region") {
+            if (
+                current.mode !== "localizing" ||
+                !frameMatchesRegion(frame, current.searchRegion, sourceDimensionsRef.current)
+            )
+                return;
+            pushLocalizationFrame({
+                width: frame.width,
+                height: frame.height,
+                pixels: frame.pixels,
+                sourceWidth: frame.sourceWidth,
+                sourceHeight: frame.sourceHeight,
+                cropX: frame.cropX,
+                cropY: frame.cropY,
+            });
+            return;
+        }
+        const kind: LootRegionKind = frame.kind === "region" ? "normal" : "rare";
+        const captureRegion = kind === "normal" ? current.normalCaptureRegion : current.rareCaptureRegion;
+        if (current.mode === "localizing" || !frameMatchesRegion(frame, captureRegion, sourceDimensionsRef.current))
+            return;
+        const setFrameSize = kind === "normal" ? setNormalRegionFrameSize : setRareRegionFrameSize;
+        setFrameSize((currentSize) =>
+            currentSize?.width === frame.width && currentSize.height === frame.height
+                ? currentSize
+                : { width: frame.width, height: frame.height },
+        );
+        if (previewsEnabledRef.current) {
+            drawFrame(kind === "normal" ? normalRegionCanvas.current : rareRegionCanvas.current, frame);
+        }
+        if (!regionIsReady(kind)) return;
+        const recognitionFrame: LootRoiFrame = {
+            width: frame.width,
+            height: frame.height,
+            pixels: frame.pixels,
+            ...(captureBatch && { sample: samples.sampleReference(captureBatch.batchId), captureBatch }),
+        };
+        if (kind === "normal") pushRecognitionFrame(recognitionFrame);
+        else pushRareRecognitionFrame(recognitionFrame);
+    }
+
     async function startCapture() {
         setSetupOpen(true);
         if (!captureAllowed || !lootFontReady) return;
@@ -853,78 +888,7 @@ export function useLiveLootCapture({
                             if (captureCapabilities?.backend === "windows") place({ type: "unconfirm" });
                             updateSourceDimensions({ width: frame.sourceWidth, height: frame.sourceHeight });
                         }
-                        if (frame.kind === "preview") {
-                            if (previewsEnabledRef.current) drawFrame(canvas.current, frame);
-                        } else if (frame.kind === "search-region") {
-                            if (
-                                placementRef.current.mode !== "localizing" ||
-                                !frameMatchesRegion(
-                                    frame,
-                                    placementRef.current.searchRegion,
-                                    sourceDimensionsRef.current,
-                                )
-                            )
-                                return;
-                            pushLocalizationFrame({
-                                width: frame.width,
-                                height: frame.height,
-                                pixels: frame.pixels,
-                                sourceWidth: frame.sourceWidth,
-                                sourceHeight: frame.sourceHeight,
-                                cropX: frame.cropX,
-                                cropY: frame.cropY,
-                            });
-                        } else if (frame.kind === "region") {
-                            if (placementRef.current.mode === "localizing") return;
-                            if (
-                                !frameMatchesRegion(
-                                    frame,
-                                    placementRef.current.normalCaptureRegion,
-                                    sourceDimensionsRef.current,
-                                )
-                            )
-                                return;
-                            setNormalRegionFrameSize((currentSize) =>
-                                currentSize?.width === frame.width && currentSize.height === frame.height
-                                    ? currentSize
-                                    : { width: frame.width, height: frame.height },
-                            );
-                            if (previewsEnabledRef.current) drawFrame(normalRegionCanvas.current, frame);
-                            if (regionIsReady("normal")) {
-                                pushRecognitionFrame({
-                                    width: frame.width,
-                                    height: frame.height,
-                                    pixels: frame.pixels,
-                                    sample: samples.sampleReference(frame.batchId),
-                                    captureBatch: { captureToken, batchId: frame.batchId },
-                                });
-                            }
-                        } else {
-                            if (placementRef.current.mode === "localizing") return;
-                            if (
-                                !frameMatchesRegion(
-                                    frame,
-                                    placementRef.current.rareCaptureRegion,
-                                    sourceDimensionsRef.current,
-                                )
-                            )
-                                return;
-                            setRareRegionFrameSize((currentSize) =>
-                                currentSize?.width === frame.width && currentSize.height === frame.height
-                                    ? currentSize
-                                    : { width: frame.width, height: frame.height },
-                            );
-                            if (previewsEnabledRef.current) drawFrame(rareRegionCanvas.current, frame);
-                            if (regionIsReady("rare")) {
-                                pushRareRecognitionFrame({
-                                    width: frame.width,
-                                    height: frame.height,
-                                    pixels: frame.pixels,
-                                    sample: samples.sampleReference(frame.batchId),
-                                    captureBatch: { captureToken, batchId: frame.batchId },
-                                });
-                            }
-                        }
+                        receiveCapturedFrame(frame, { captureToken, batchId: frame.batchId });
                     },
                     (message) => {
                         if (!mounted.current || currentRequest !== requestId.current) return;
@@ -1667,86 +1631,17 @@ export function useLiveLootCapture({
                 clearRegionPreview("rare");
             }
             if (!sourceChanged && isSupportedLootSource(preview.videoWidth, preview.videoHeight)) {
-                const localizingAtSampleStart = placementRef.current.mode === "localizing";
-                if (localizingAtSampleStart) {
-                    const selectedSearch = placementRef.current.searchRegion;
-                    if (selectedSearch) {
-                        try {
-                            const pixels = normalizedRegionToPixels(
-                                selectedSearch,
-                                preview.videoWidth,
-                                preview.videoHeight,
-                            );
-                            if (
-                                pixels.width === LOOT_SEARCH_REGION_SIZE.width &&
-                                pixels.height === LOOT_SEARCH_REGION_SIZE.height
-                            ) {
-                                const searchCanvas = searchRegionCanvas.current ?? document.createElement("canvas");
-                                searchRegionCanvas.current = searchCanvas;
-                                if (
-                                    searchCanvas.width !== LOOT_SEARCH_REGION_SIZE.width ||
-                                    searchCanvas.height !== LOOT_SEARCH_REGION_SIZE.height
-                                ) {
-                                    searchCanvas.width = LOOT_SEARCH_REGION_SIZE.width;
-                                    searchCanvas.height = LOOT_SEARCH_REGION_SIZE.height;
-                                }
-                                const searchContext = searchCanvas.getContext("2d");
-                                searchContext?.drawImage(
-                                    preview,
-                                    pixels.x,
-                                    pixels.y,
-                                    LOOT_SEARCH_REGION_SIZE.width,
-                                    LOOT_SEARCH_REGION_SIZE.height,
-                                    0,
-                                    0,
-                                    LOOT_SEARCH_REGION_SIZE.width,
-                                    LOOT_SEARCH_REGION_SIZE.height,
-                                );
-                                if (searchContext) {
-                                    const frame = searchContext.getImageData(
-                                        0,
-                                        0,
-                                        LOOT_SEARCH_REGION_SIZE.width,
-                                        LOOT_SEARCH_REGION_SIZE.height,
-                                    );
-                                    pushLocalizationFrame({
-                                        width: LOOT_SEARCH_REGION_SIZE.width,
-                                        height: LOOT_SEARCH_REGION_SIZE.height,
-                                        pixels: frame.data,
-                                        sourceWidth: preview.videoWidth,
-                                        sourceHeight: preview.videoHeight,
-                                        cropX: pixels.x,
-                                        cropY: pixels.y,
-                                    });
-                                }
-                            }
-                        } catch (frameError) {
-                            clearLocalization();
-                            restartRecognition();
-                            place({ type: "end-search" });
-                            setError(frameError instanceof Error ? frameError.message : String(frameError));
-                        }
-                    }
-                }
-                const drawBrowserRegion = (kind: LootRegionKind) => {
-                    if (localizingAtSampleStart) return;
-                    const selected = placementRegion(placementRef.current, kind);
-                    let crop: HTMLCanvasElement | null;
-                    if (previewsEnabledRef.current) {
-                        crop = kind === "normal" ? normalRegionCanvas.current : rareRegionCanvas.current;
-                    } else {
-                        const pausedCrop = kind === "normal" ? pausedNormalRegionCanvas : pausedRareRegionCanvas;
-                        crop = pausedCrop.current ?? document.createElement("canvas");
-                        pausedCrop.current = crop;
-                    }
-                    if (!selected || !crop) return;
-                    const pixels = normalizedRegionToPixels(selected, preview.videoWidth, preview.videoHeight);
+                const cropVideo = (kind: CapturedFrame["kind"], region: NormalizedRegion): CapturedFrame => {
+                    const pixels = normalizedRegionToPixels(region, preview.videoWidth, preview.videoHeight);
+                    browserCropCanvas.current ??= document.createElement("canvas");
+                    const crop = browserCropCanvas.current;
                     if (crop.width !== pixels.width || crop.height !== pixels.height) {
                         crop.width = pixels.width;
                         crop.height = pixels.height;
                     }
-                    const cropContext = crop.getContext("2d");
-                    cropContext?.drawImage(
+                    const context = crop.getContext("2d");
+                    if (!context) throw new Error("The capture preview cannot be read.");
+                    context.drawImage(
                         preview,
                         pixels.x,
                         pixels.y,
@@ -1757,27 +1652,42 @@ export function useLiveLootCapture({
                         pixels.width,
                         pixels.height,
                     );
-                    if (cropContext && regionIsReady(kind)) {
-                        try {
-                            const frame = cropContext.getImageData(0, 0, pixels.width, pixels.height);
-                            const recognitionFrame = { width: pixels.width, height: pixels.height, pixels: frame.data };
-                            if (kind === "normal") pushRecognitionFrame(recognitionFrame);
-                            else pushRareRecognitionFrame(recognitionFrame);
-                        } catch (frameError) {
-                            stopRecognition(false);
-                            setRecognitionStatus("error");
-                            setRecognitionError(frameError instanceof Error ? frameError.message : String(frameError));
-                        }
-                    }
-                    const setFrameSize = kind === "normal" ? setNormalRegionFrameSize : setRareRegionFrameSize;
-                    setFrameSize((current) =>
-                        current?.width === pixels.width && current.height === pixels.height
-                            ? current
-                            : { width: pixels.width, height: pixels.height },
-                    );
+                    return {
+                        kind,
+                        width: pixels.width,
+                        height: pixels.height,
+                        pixels: context.getImageData(0, 0, pixels.width, pixels.height).data,
+                        sourceWidth: preview.videoWidth,
+                        sourceHeight: preview.videoHeight,
+                        cropX: pixels.x,
+                        cropY: pixels.y,
+                    };
                 };
-                drawBrowserRegion("normal");
-                drawBrowserRegion("rare");
+                const { mode, searchRegion, normalCaptureRegion, rareCaptureRegion } = placementRef.current;
+                if (mode === "localizing") {
+                    try {
+                        const search = searchRegion && cropVideo("search-region", searchRegion);
+                        if (
+                            search?.width === LOOT_SEARCH_REGION_SIZE.width &&
+                            search.height === LOOT_SEARCH_REGION_SIZE.height
+                        )
+                            receiveCapturedFrame(search);
+                    } catch (frameError) {
+                        clearLocalization();
+                        restartRecognition();
+                        place({ type: "end-search" });
+                        setError(frameError instanceof Error ? frameError.message : String(frameError));
+                    }
+                } else {
+                    try {
+                        if (normalCaptureRegion) receiveCapturedFrame(cropVideo("region", normalCaptureRegion));
+                        if (rareCaptureRegion) receiveCapturedFrame(cropVideo("rare-region", rareCaptureRegion));
+                    } catch (frameError) {
+                        stopRecognition(false);
+                        setRecognitionStatus("error");
+                        setRecognitionError(frameError instanceof Error ? frameError.message : String(frameError));
+                    }
+                }
             }
             recordSample();
         }, 1000 / LIVE_LOOT_SAMPLE_FPS);

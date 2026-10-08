@@ -64,7 +64,8 @@ app exit.
 
 Live loot capture uses a versioned binary channel for a bounded preview and native-resolution normal/rare or search
 regions. Linux crops the mapped PipeWire buffer; Windows reads back only GPU-cropped regions and GPU-reduced previews;
-browser capture crops its hidden video frame. Pixels remain transient except for explicit debug ROI collection and
+browser capture crops its hidden video frame into the same frames, so one handler previews them and routes them to
+localization or recognition. Pixels remain transient except for explicit debug ROI collection and
 opt-in [self-improvement examples](quantity-learning.md). SQLite stores normalized rectangles, UI scale,
 and source dimensions. The capability command chooses the native backend and reports unavailable capture without
 user-agent detection. Windows source replacement requires fresh confirmation of saved placement hints.
