@@ -256,7 +256,8 @@ export function useLiveLootCapture({
     const canvas = useRef<HTMLCanvasElement>(null);
     const normalRegionCanvas = useRef<HTMLCanvasElement>(null);
     const rareRegionCanvas = useRef<HTMLCanvasElement>(null);
-    const browserCropCanvas = useRef<HTMLCanvasElement | null>(null);
+    // One canvas per crop kind, so the browser fallback does not reallocate between differently sized crops.
+    const browserCropCanvases = useRef(new Map<CapturedFrame["kind"], HTMLCanvasElement>());
     const activeStream = useRef<MediaStream | null>(null);
     const nativeCapture = useRef(false);
     const nativeCaptureToken = useRef<number | null>(null);
@@ -1633,8 +1634,8 @@ export function useLiveLootCapture({
             if (!sourceChanged && isSupportedLootSource(preview.videoWidth, preview.videoHeight)) {
                 const cropVideo = (kind: CapturedFrame["kind"], region: NormalizedRegion): CapturedFrame => {
                     const pixels = normalizedRegionToPixels(region, preview.videoWidth, preview.videoHeight);
-                    browserCropCanvas.current ??= document.createElement("canvas");
-                    const crop = browserCropCanvas.current;
+                    const crop = browserCropCanvases.current.get(kind) ?? document.createElement("canvas");
+                    browserCropCanvases.current.set(kind, crop);
                     if (crop.width !== pixels.width || crop.height !== pixels.height) {
                         crop.width = pixels.width;
                         crop.height = pixels.height;
@@ -1679,13 +1680,19 @@ export function useLiveLootCapture({
                         setError(frameError instanceof Error ? frameError.message : String(frameError));
                     }
                 } else {
-                    try {
-                        if (normalCaptureRegion) receiveCapturedFrame(cropVideo("region", normalCaptureRegion));
-                        if (rareCaptureRegion) receiveCapturedFrame(cropVideo("rare-region", rareCaptureRegion));
-                    } catch (frameError) {
-                        stopRecognition(false);
-                        setRecognitionStatus("error");
-                        setRecognitionError(frameError instanceof Error ? frameError.message : String(frameError));
+                    for (const [kind, frameKind, region] of [
+                        ["normal", "region", normalCaptureRegion],
+                        ["rare", "rare-region", rareCaptureRegion],
+                    ] as const) {
+                        // Reading pixels back is costly; skip it when nothing would show or recognize them.
+                        if (!region || (!previewsEnabledRef.current && !regionIsReady(kind))) continue;
+                        try {
+                            receiveCapturedFrame(cropVideo(frameKind, region));
+                        } catch (frameError) {
+                            stopRecognition(false);
+                            setRecognitionStatus("error");
+                            setRecognitionError(frameError instanceof Error ? frameError.message : String(frameError));
+                        }
                     }
                 }
             }
@@ -1809,7 +1816,6 @@ export function useLiveLootCapture({
         error,
         previewToggleError,
         recognitionError,
-        previewsEnabledRef,
         savingRegion,
         startRegionDrag,
         dragRegion,

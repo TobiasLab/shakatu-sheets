@@ -148,19 +148,74 @@ describe("capture placement", () => {
         });
     });
 
-    it("confirms both areas only after the placement is saved", () => {
-        const moved = placed([{ type: "move", region: region(0.4) }], confirmed);
-        const pending = placed([{ type: "confirm" }], { ...moved, normalCaptureRegion: null });
+    it("captures both areas when confirming and confirms them only after the placement is saved", () => {
+        const searching = placed([{ type: "begin-search", searchRegion: region(0.5) }], confirmed);
+        const pending = placed([{ type: "end-search" }, { type: "move", region: region(0.4) }, { type: "confirm" }], {
+            ...searching,
+            normalCaptureRegion: null,
+        });
 
-        expect(pending).toMatchObject({ normalCaptureRegion: region(0.4), normalConfirmed: false });
+        expect(pending).toMatchObject({ normalCaptureRegion: region(0.4), rareCaptureRegion: region(0.2) });
+        expect(pending.normalConfirmed).toBe(false);
         expect(placed([{ type: "confirmed" }], pending)).toMatchObject({ normalConfirmed: true, rareConfirmed: true });
     });
 
-    it("reports only changes that alter what native capture delivers", () => {
-        expect(captureSelectionChanged(confirmed, placed([{ type: "select", kind: "rare" }], confirmed))).toBe(false);
-        expect(captureSelectionChanged(confirmed, placed([{ type: "move", region: region(0.4) }], confirmed))).toBe(
-            true,
+    it("keeps searching when the search area is dragged or the searched loot stack is nudged", () => {
+        const searching = placed([{ type: "begin-search", searchRegion: region(0.5) }], confirmed);
+
+        expect(
+            placed([{ type: "move-search", region: region(0.3), searchRegion: region(0.6) }], searching),
+        ).toMatchObject({
+            mode: "localizing",
+            normalRegion: region(0.3),
+            normalCaptureRegion: null,
+            searchRegion: region(0.6),
+            rareConfirmed: true,
+        });
+        expect(placed([{ type: "move", region: region(0.3) }], searching)).toMatchObject({
+            mode: "localizing",
+            searchRegion: region(0.5),
+        });
+    });
+
+    it("returns a cancelled loot stack search to unconfirmed manual placement", () => {
+        const aligned = { ...confirmed, mode: "aligned" as const };
+        const cancelled = placed(
+            [{ type: "begin-search", searchRegion: region(0.5) }, { type: "end-search" }],
+            aligned,
         );
-        expect(captureSelectionChanged(confirmed, placed([{ type: "release" }], confirmed))).toBe(true);
+
+        expect(cancelled).toMatchObject({ mode: "manual", normalConfirmed: false, normalCaptureRegion: region(0.1) });
+    });
+
+    it("places an imported loot stack for confirmation and forgets placement on release", () => {
+        const rare = placed([{ type: "select", kind: "rare" }], confirmed);
+        expect(placed([{ type: "import-layout", region: region(0.7) }], rare)).toMatchObject({
+            mode: "manual",
+            activeKind: "normal",
+            normalRegion: region(0.7),
+            normalCaptureRegion: region(0.7),
+            normalConfirmed: false,
+            rareConfirmed: true,
+        });
+        expect(placed([{ type: "unconfirm" }], confirmed)).toMatchObject({
+            normalConfirmed: false,
+            rareConfirmed: false,
+        });
+        expect(placed([{ type: "release" }], confirmed)).toEqual({ ...initialCapturePlacement, uiScale: 80 });
+    });
+
+    it.each<[string, Partial<CapturePlacement>, boolean]>([
+        ["selected area", { activeKind: "rare" }, false],
+        ["loot stack confirmation", { normalConfirmed: false }, false],
+        ["placed area only", { normalRegion: region(0.4) }, false],
+        ["mode", { mode: "aligned" }, true],
+        ["UI scale", { uiScale: 100 }, true],
+        ["rare confirmation", { rareConfirmed: false }, true],
+        ["loot stack crop", { normalCaptureRegion: region(0.4) }, true],
+        ["rare crop", { rareCaptureRegion: null }, true],
+        ["search area", { searchRegion: region(0.5) }, true],
+    ])("reports whether a change to the %s alters what native capture delivers", (_, change, changed) => {
+        expect(captureSelectionChanged(confirmed, { ...confirmed, ...change })).toBe(changed);
     });
 });
