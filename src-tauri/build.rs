@@ -3,6 +3,7 @@
 // them, so their permissions grant nothing there.
 const COMMANDS: &[&str] = &[
     "session_overlay_uses_layer_shell",
+    "session_overlay_supports_opacity",
     "adjust_session_overlay",
     "delete_finished_session",
     "list_finished_sessions",

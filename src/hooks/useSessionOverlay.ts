@@ -2,7 +2,7 @@ import { isTauri } from "@tauri-apps/api/core";
 import { emit, emitTo, listen } from "@tauri-apps/api/event";
 import { Window } from "@tauri-apps/api/window";
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
-import { sessionOverlayUsesLayerShell } from "../api/sessionOverlay";
+import { sessionOverlaySupportsOpacity, sessionOverlayUsesLayerShell } from "../api/sessionOverlay";
 import {
     OVERLAY_READY,
     OVERLAY_STATE,
@@ -22,15 +22,30 @@ export function useSessionOverlay(
     const latest = useRef(snapshot);
     const visible = useRef(false);
     const [error, setError] = useState("");
+    const [supportsOpacity, setSupportsOpacity] = useState(false);
     useLayoutEffect(() => {
         timerHandler.current = onTimerRequest;
     }, [onTimerRequest]);
     useEffect(() => {
-        latest.current = { session, theme, timerEnabled, opacity, pendingReviews };
+        if (!isTauri()) return;
+        let disposed = false;
+        void sessionOverlaySupportsOpacity()
+            .then((supported) => {
+                if (!disposed) setSupportsOpacity(supported);
+            })
+            .catch((error) => {
+                if (!disposed) setError(String(error));
+            });
+        return () => {
+            disposed = true;
+        };
+    }, []);
+    useEffect(() => {
+        latest.current = { session, theme, timerEnabled, opacity: supportsOpacity ? opacity : 100, pendingReviews };
         if (isTauri() && visible.current) {
             void emitTo("session-overlay", OVERLAY_STATE, latest.current).catch((error) => setError(String(error)));
         }
-    }, [session, theme, timerEnabled, opacity, pendingReviews]);
+    }, [session, theme, timerEnabled, opacity, supportsOpacity, pendingReviews]);
     useEffect(() => {
         if (!isTauri()) return;
         let disposed = false;
@@ -83,5 +98,5 @@ export function useSessionOverlay(
             setError(`Could not open overlay: ${String(error)}`);
         }
     }
-    return { openOverlay, error, available: isTauri() };
+    return { openOverlay, error, available: isTauri(), supportsOpacity };
 }

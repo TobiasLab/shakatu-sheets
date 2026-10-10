@@ -53,7 +53,7 @@ export function SettingsView({
     theme: PersistedSetting<Theme>;
     spotPreferences: PersistedSetting<SpotPreferences>;
     onOpenCapture: () => void;
-    overlayOpacity: PersistedSetting<number>;
+    overlayOpacity: PersistedSetting<number> | null;
     lootFont: PersistedSetting<LootFont>;
     selfImprovement: ReturnType<typeof useSelfImprovement>;
     showSelfImprovement?: boolean;
@@ -217,22 +217,26 @@ export function SettingsView({
                                     ))}
                                 </fieldset>
                                 <SettingError setting={theme} />
-                                <label htmlFor="overlay-opacity">Overlay opacity</label>
-                                <div className={styles.OpacitySlider}>
-                                    <input
-                                        id="overlay-opacity"
-                                        type="range"
-                                        min="25"
-                                        max="100"
-                                        step="5"
-                                        value={overlayOpacity.value}
-                                        disabled={!overlayOpacity.loaded}
-                                        onChange={(event) => overlayOpacity.update(event.target.valueAsNumber)}
-                                    />
-                                    <output htmlFor="overlay-opacity">{overlayOpacity.value}%</output>
-                                </div>
-                                {overlayOpacity.saving && <p role="status">Saving opacity…</p>}
-                                <SettingError setting={overlayOpacity} />
+                                {overlayOpacity && (
+                                    <>
+                                        <label htmlFor="overlay-opacity">Overlay opacity</label>
+                                        <div className={styles.OpacitySlider}>
+                                            <input
+                                                id="overlay-opacity"
+                                                type="range"
+                                                min="25"
+                                                max="100"
+                                                step="5"
+                                                value={overlayOpacity.value}
+                                                disabled={!overlayOpacity.loaded}
+                                                onChange={(event) => overlayOpacity.update(event.target.valueAsNumber)}
+                                            />
+                                            <output htmlFor="overlay-opacity">{overlayOpacity.value}%</output>
+                                        </div>
+                                        {overlayOpacity.saving && <p role="status">Saving opacity…</p>}
+                                        <SettingError setting={overlayOpacity} />
+                                    </>
+                                )}
                             </div>
                         </section>
                         <section id="capture-preferences" className="panel" aria-labelledby="capture-preferences-title">

@@ -117,6 +117,11 @@ Start, pause, and resume buttons send requests to the main window, which validat
 and close/load status before dispatching the existing session action. Requests receive an acknowledgement or an error;
 the overlay never owns a second session timer. Finished sessions have no timer controls.
 Settings → Appearance controls opacity from 25–100%, fading the entire overlay through a transparent native window.
+On Linux the overlay window is opaque, and Settings hides the opacity control. With WebKitGTK 2.54 on NVIDIA
+(Hyprland), hovering a button in the transparent overlay left only that button drawn. Forcing full-window repaints
+did not help, but an opaque window did. Setup therefore creates the overlay from its `tauri.conf.json` entry
+(`"create": false`) and overrides only `transparent`. `session_overlay_supports_opacity` reports the same constant, and
+the main window sends full opacity in snapshots when the overlay is opaque, so a stored value has no effect there.
 The main window loads and saves this preference in SQLite and previews changes in overlay snapshots. Saves are ordered
 and pending saves are awaited before closing; hiding the overlay or leaving Settings does not interrupt persistence.
 Position and size are not persisted by the app.
