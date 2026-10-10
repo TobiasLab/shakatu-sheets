@@ -117,9 +117,6 @@ Start, pause, and resume buttons send requests to the main window, which validat
 and close/load status before dispatching the existing session action. Requests receive an acknowledgement or an error;
 the overlay never owns a second session timer. Finished sessions have no timer controls.
 Settings → Appearance controls opacity from 25–100%, fading the entire overlay through a transparent native window.
-On Linux, every change repaints the whole overlay window. With partial repaints, a hover committed a new transparent
-buffer that declared only the hovered button as damaged, and KDE Plasma then showed only that button. The overlay is
-small, so full repaints are cheap; the main window keeps GTK's partial repaints.
 The main window loads and saves this preference in SQLite and previews changes in overlay snapshots. Saves are ordered
 and pending saves are awaited before closing; hiding the overlay or leaving Settings does not interrupt persistence.
 Position and size are not persisted by the app.

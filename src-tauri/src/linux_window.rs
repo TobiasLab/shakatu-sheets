@@ -1,4 +1,4 @@
-use gtk::{cairo, gdk, gdk::WindowTypeHint, glib::object::ObjectType, prelude::*};
+use gtk::{gdk::WindowTypeHint, prelude::*};
 use gtk_layer_shell::{Edge, KeyboardMode, Layer, LayerShell};
 use tauri::Manager;
 
@@ -9,16 +9,6 @@ pub(crate) fn configure_session_overlay(app: &tauri::AppHandle) -> tauri::Result
         return Ok(false);
     };
     let window = overlay.gtk_window()?;
-    window.connect_realize(|window| {
-        if let Some(surface) = window.window() {
-            unsafe {
-                gdk::ffi::gdk_window_set_invalidate_handler(
-                    surface.as_ptr(),
-                    Some(invalidate_whole_window),
-                )
-            };
-        }
-    });
     if !gtk_layer_shell::is_supported() {
         window.set_type_hint(WindowTypeHint::Utility);
         return Ok(false);
@@ -81,22 +71,6 @@ pub(crate) fn configure_session_overlay(app: &tauri::AppHandle) -> tauri::Result
             }
         });
     Ok(true)
-}
-
-// A hover otherwise commits a new transparent buffer that declares only the
-// hovered control as damaged. KDE Plasma then showed just that control and
-// dropped the rest of the overlay, so every change repaints the whole surface.
-unsafe extern "C" fn invalidate_whole_window(
-    window: *mut gdk::ffi::GdkWindow,
-    region: *mut cairo::ffi::cairo_region_t,
-) {
-    let mut whole = cairo::ffi::cairo_rectangle_int_t {
-        x: 0,
-        y: 0,
-        width: gdk::ffi::gdk_window_get_width(window),
-        height: gdk::ffi::gdk_window_get_height(window),
-    };
-    cairo::ffi::cairo_region_union_rectangle(region, &mut whole);
 }
 
 fn monitor(window: &gtk::ApplicationWindow) -> Option<gtk::gdk::Monitor> {
