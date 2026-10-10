@@ -216,7 +216,8 @@ listed above, and distribution packages must include its runtime library.
 Open the pop-out, focus BDO in borderless fullscreen, Alt-Tab away/back, and minimize the main app. Check that the overlay
 remains visible without taking keyboard focus when opened. Drag and release the header to move it; drag and release
 the bottom-right handle to resize. Arrow keys on these handles move/resize, Shift increases the step, and Escape cancels
-a drag. The display button cycles monitors. Check different monitor scales, hiding/reopening, timer controls, opacity,
+a drag. The display button cycles monitors. Hover each header button and check that the whole overlay stays visible.
+Check different monitor scales, hiding/reopening, timer controls, opacity,
 and capture regions (the visible overlay must not obscure loot being recognized). Verify compositor shortcuts remain
 usable. Game behavior on KDE still requires testing on the gaming machine.
 
@@ -230,6 +231,12 @@ verified starting the timer, moving from (24, 24) to (204, 124), resizing from 3
 with geometry preserved. The display button moved it to a second output; changing that output to scale 3 clamped the
 window to its 266×200 logical area, and disabling the output returned it to the remaining display. Protocol logs
 confirmed layer 3 (`Overlay`). This validates native integration on Sway; KDE/BDO and packaged builds remain unverified.
+
+On October 10, 2026, the same setup showed that hovering an overlay button committed a new SHM buffer whose only
+`wl_surface.damage` was the button (for example `damage(327, 9, 24, 24)`). Sway rendered this correctly, but it matches
+the report on KDE Plasma that only the hovered button stayed visible. With the full-window invalidate handler, every
+overlay commit declares `damage(0, 0, 360, 250)`. Check the damage with `WAYLAND_DEBUG=1` and grep for the overlay's
+`wl_surface@N.damage`. The KDE result itself still needs checking on the gaming machine.
 
 Implementation references: [GTK Layer Shell](https://wmww.github.io/gtk-layer-shell/),
 [supported desktops](https://github.com/wmww/gtk-layer-shell#supported-desktops), and
