@@ -133,6 +133,8 @@ function installTauriMock() {
                     return;
                 case "session_overlay_uses_layer_shell":
                     return window.__layerShell ?? false;
+                case "session_overlay_supports_opacity":
+                    return window.__supportsOpacity ?? true;
                 case "adjust_session_overlay":
                     if (window.__failPlacement) throw Error("Synthetic placement failure");
                     return;
@@ -239,7 +241,7 @@ try {
     await send("Page.enable");
     await send("Runtime.enable");
     await send("Page.addScriptToEvaluateOnNewDocument", {
-        source: `window.__layerShell = ${Boolean(process.env.OVERLAY_LAYER_SHELL)}; (${installTauriMock.toString()})();`,
+        source: `window.__layerShell = ${Boolean(process.env.OVERLAY_LAYER_SHELL)}; window.__supportsOpacity = ${!process.env.OVERLAY_OPAQUE}; (${installTauriMock.toString()})();`,
     });
     await server.listen();
     await send("Page.navigate", { url: server.resolvedUrls.local[0] });
@@ -510,7 +512,8 @@ try {
             })()`);
         }
         await setOpacity(25);
-        await until('document.querySelector("main").style.opacity === "0.25"');
+        // An opaque overlay (Linux) receives full opacity whatever the saved setting.
+        await until(`document.querySelector("main").style.opacity === "${process.env.OVERLAY_OPAQUE ? "1" : "0.25"}"`);
         await setOpacity(80);
         await setOpacity(55);
         await evaluate("window.showSettings(false)");

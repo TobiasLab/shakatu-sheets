@@ -216,13 +216,15 @@ listed above, and distribution packages must include its runtime library.
 Open the pop-out, focus BDO in borderless fullscreen, Alt-Tab away/back, and minimize the main app. Check that the overlay
 remains visible without taking keyboard focus when opened. Drag and release the header to move it; drag and release
 the bottom-right handle to resize. Arrow keys on these handles move/resize, Shift increases the step, and Escape cancels
-a drag. The display button cycles monitors. Check different monitor scales, hiding/reopening, timer controls, opacity,
-and capture regions (the visible overlay must not obscure loot being recognized). Verify compositor shortcuts remain
+a drag. The display button cycles monitors. Hover each header button and check that the whole overlay stays drawn
+(the transparent overlay failed this on WebKitGTK 2.54 with NVIDIA). Check different monitor scales, hiding/reopening,
+timer controls, that Settings shows no opacity control on Linux, and capture regions (the visible overlay must not obscure loot being recognized). Verify compositor shortcuts remain
 usable. Game behavior on KDE still requires testing on the gaming machine.
 
 `OVERLAY_LAYER_SHELL=1 node scripts/smoke-session-overlay.mjs` exercises the layer placement UI, focus policy, and command
-failures with synthetic native APIs; omit the variable to test the standard window path. Native compositor testing is
-separate from this browser smoke.
+failures with synthetic native APIs; omit the variable to test the standard window path. `OVERLAY_OPAQUE=1` reports
+that the overlay cannot fade, as on Linux, and checks that an opacity change still reaches the overlay as full opacity.
+Native compositor testing is separate from this browser smoke.
 
 Native verification on September 20, 2026 used the real Tauri app in an isolated headless Sway 1.9 session with
 GTK Layer Shell 0.8.2. The pop-out rendered above a separately focused fullscreen GTK window. Native pointer input

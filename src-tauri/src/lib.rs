@@ -19,6 +19,7 @@ pub fn run() {
         )));
         app.manage(garmoth::GarmothOperations::default());
         app.manage(native_capture::NativeCaptureState::default());
+        session_overlay_window::create(app.handle())?;
         #[cfg(target_os = "linux")]
         app.manage(session_overlay_window::OverlayWindowMode(
             linux_window::configure_session_overlay(app.handle())?,
@@ -58,6 +59,7 @@ pub fn run() {
 
     let builder = builder.invoke_handler(tauri::generate_handler![
         session_overlay_window::session_overlay_uses_layer_shell,
+        session_overlay_window::session_overlay_supports_opacity,
         session_overlay_window::adjust_session_overlay,
         persistence::sessions::delete_finished_session,
         persistence::sessions::list_finished_sessions,

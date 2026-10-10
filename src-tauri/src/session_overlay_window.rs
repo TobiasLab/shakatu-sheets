@@ -1,5 +1,28 @@
+// WebKitGTK 2.54 with NVIDIA drew only the hovered control of the transparent
+// overlay, so on Linux the overlay is opaque and cannot fade.
+const TRANSPARENT: bool = cfg!(not(target_os = "linux"));
+
 #[derive(Default)]
 pub(crate) struct OverlayWindowMode(pub bool);
+
+pub(crate) fn create(app: &tauri::AppHandle) -> tauri::Result<()> {
+    let config = app
+        .config()
+        .app
+        .windows
+        .iter()
+        .find(|window| window.label == "session-overlay")
+        .ok_or(tauri::Error::WindowNotFound)?;
+    tauri::WebviewWindowBuilder::from_config(app, config)?
+        .transparent(TRANSPARENT)
+        .build()?;
+    Ok(())
+}
+
+#[tauri::command]
+pub(crate) fn session_overlay_supports_opacity() -> bool {
+    TRANSPARENT
+}
 
 #[derive(serde::Deserialize)]
 #[serde(rename_all = "camelCase")]

@@ -15,6 +15,7 @@
     "core:window:allow-start-dragging",
     "core:window:allow-toggle-maximize",
     "allow-session-overlay-uses-layer-shell",
+    "allow-session-overlay-supports-opacity",
     "allow-delete-finished-session",
     "allow-list-finished-sessions",
     "allow-load-session-trend",

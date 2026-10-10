@@ -141,7 +141,7 @@ export function App() {
                         theme={theme}
                         spotPreferences={spotPreferences}
                         onOpenCapture={openCaptureSetup}
-                        overlayOpacity={overlayOpacity}
+                        overlayOpacity={overlay.supportsOpacity ? overlayOpacity : null}
                         lootFont={lootFont}
                         selfImprovement={selfImprovement}
                         showSelfImprovement={showSelfImprovement}

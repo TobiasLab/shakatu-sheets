@@ -139,6 +139,7 @@ await send("Page.addScriptToEvaluateOnNewDocument", {
                 return;
             }
             if (command === "load_overlay_opacity") return 100;
+            if (command === "session_overlay_supports_opacity") return true;
             // StrictMode loads twice, so preference loads fail until the test makes them available again.
             const preferencesFail = new URLSearchParams(location.search).has("preference-load-failure") && !window.__preferencesAvailable;
             if (command === "load_theme") {

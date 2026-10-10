@@ -120,6 +120,7 @@ row and treats an `unknown` repeat from before the migration as a first upload.
   table. The API key is never returned to the frontend after it is saved. On Unix, the application-data directory and
   SQLite files are restricted to the current user.
 - Overlay opacity uses the `session_overlay_opacity` setting (integer percent, 25–100; default 100). No migration is needed.
+  Linux ignores a stored value because its overlay window is opaque.
 - The theme uses the `theme` setting (`light` or `dark`; default dark). Grind-spot favorites and the eight most recent
   spots use `grind_spot_preferences`, a JSON object of spot ID arrays. Earlier builds kept both in browser storage; the
   first load without a SQLite value saves the browser value to SQLite and then removes it. No migration is needed.
