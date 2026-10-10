@@ -34,7 +34,7 @@ export function useSessionOverlay(
                 if (!disposed) setSupportsOpacity(supported);
             })
             .catch((error) => {
-                if (!disposed) setError(String(error));
+                if (!disposed) setError(`Could not check overlay opacity support: ${String(error)}`);
             });
         return () => {
             disposed = true;
