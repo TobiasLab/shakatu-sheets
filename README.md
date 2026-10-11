@@ -105,12 +105,12 @@ Live recognition reads the loot notifications at the side of your screen. It cur
 | Setting | Supported values |
 | --- | --- |
 | Game language | English |
-| Resolution | 2560×1440 or 3440×1440 |
+| Resolution | 1920×1080, 2560×1440, or 3440×1440 |
 | BDO UI scale | 80% or 100% |
 | Loot font | Korean (default) or Strong Sword |
 
-1920×1080 is not supported for recognition yet. You can place the capture areas, but no recognition profile has been
-calibrated for that resolution, so capture runs in preview-only mode.
+1920×1080 uses the same recognition settings as 1440p, because BDO draws loot notifications at the same pixel size for
+a given UI scale. It is supported but not yet verified on real gameplay, so please report drops it misses or misreads.
 
 How it works:
 

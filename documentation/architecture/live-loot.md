@@ -21,9 +21,11 @@ recognition continues. Linux ends capture when the portal removes the stream (sh
 monitor disconnected), skips empty or corrupted PipeWire buffers, and closes each capture's own portal connection when
 it ends, which ends the screen-share session and its indicator.
 
-Recognition supports 2560×1440 and 3440×1440 at 80% or 100% BDO UI scale. Placement is manual by default, with optional
-automatic adjustment for each area. Automatic placement also supports 1920×1080, but that resolution has no calibrated
-recognition profile. Changing scale requires placement confirmation again. BDO UI scale is separate from OS scaling.
+Recognition and automatic placement support 1920×1080, 2560×1440, and 3440×1440 at 80% or 100% BDO UI scale. BDO draws
+loot at the same native pixel size for a given UI scale, so all three sources share the recognition settings calibrated
+at 3440×1440. 1920×1080 is supported but not yet verified on gameplay recordings. Placement is manual by default, with
+optional automatic adjustment for each area. Changing scale requires placement confirmation again. BDO UI scale is
+separate from OS scaling.
 
 | Native capture geometry | 80% | 100% |
 | --- | --- | --- |
@@ -92,7 +94,8 @@ Reviewed recordings provide regression coverage, not complete session recall or 
 can be missed between samples; an unchanged full stack cannot prove how many identical arrivals occurred. Confident
 OCR mistakes remain possible despite consensus. Keep independent held-out recordings separate from development cases.
 
-Evidence includes 3440×1440 normal loot at both scales and Strong Sword recordings at 80%. Native 2560×1440 gameplay,
-100% rare-banner calibration, Strong Sword gameplay at 100%, and native Windows gameplay need further validation.
+Evidence includes 3440×1440 normal loot at both scales and Strong Sword recordings at 80%. Native 1920×1080 and
+2560×1440 gameplay, 100% rare-banner calibration, Strong Sword gameplay at 100%, and native Windows gameplay need
+further validation.
 Synthetic geometry tests, cross-compilation, and offline replay do not establish live throughput or gameplay impact.
 Use the [performance protocol](../development/performance.md) for those measurements.

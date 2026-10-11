@@ -18,7 +18,7 @@ const capture = {
 
 test.each([
     ["version", { version: 2 }],
-    ["resolution", { sourceDimensions: { width: 1920, height: 1080 } }],
+    ["resolution", { sourceDimensions: { width: 1280, height: 720 } }],
     ["UI scale", { uiScalePercent: 90 }],
     ["sample rate", { targetFps: 30 }],
     ["font", { font: "unknown" }, "invalid font"],

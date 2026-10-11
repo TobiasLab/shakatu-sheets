@@ -9,7 +9,7 @@ fullscreen, HDR, ARM64, and capture of protected content are outside the release
 The implementation is ready for native validation, **not verified Windows release support**. This Linux workspace can
 build the complete Windows executable and check shared behavior, but cannot run D3D11, WebView2, the picker, or BDO.
 The six requested resolution/scale combinations remain native acceptance targets. Recognition is enabled at
-3440×1440 and 2560×1440 with 80% and 100% BDO UI scale; 1920×1080 remains preview-only. The 80% calibration comes from
+3440×1440, 2560×1440, and 1920×1080 with 80% and 100% BDO UI scale. The 80% calibration comes from
 3440×1440, and the 100% geometry is derived from it. Reviewed 3440×1440 normal-loot recordings cover both scales;
 native Windows gameplay validation remains pending. Rare detection remains
 provisional. See [capture profiles and validation limits](../architecture/live-loot.md).
@@ -274,9 +274,9 @@ version for every hardware run. Use a release build for performance and a debug 
 | Samples | Record a complete 30-minute paired run, explicit early stop, source resize/replacement, unwritable path, and queue-pressure stop. Manifests/PNG batch IDs match, stopping drains admitted pairs, and Windows replay agrees with Linux. No collector API in release. |
 | Data/installer | Clean standard user, Unicode/spaces in profile path, runtime present/absent, offline runtime-present install; upgrade with data, close immediately after ledger edit, forced termination/reopen, SQLite error/retry, and uninstall/reinstall data retention. Check signed public artifacts. |
 
-The 3440×1440 and 2560×1440 profiles share normal and rare OCR settings at each UI scale because their native ROI pixel
-geometry is the same. Add distinct settings in `src/recognition/liveLootProfiles.ts` only when that geometry changes.
-OCR at 1920×1080 remains unavailable pending calibration. Reusing settings does not establish measured gameplay accuracy;
+All three resolutions share normal and rare OCR settings at each UI scale because BDO draws loot at the same native
+pixel size for a given UI scale. Add distinct settings in `src/recognition/liveLootProfiles.ts` only when that geometry
+changes. Reused settings do not establish measured gameplay accuracy: 1920×1080 has no gameplay recordings yet, and
 this repository has no labeled Windows corpus for the hardware acceptance checks above.
 
 Manual placement is the default. **Adjust automatically** searches the selected normal or rare area using the same

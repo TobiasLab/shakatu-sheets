@@ -17,34 +17,77 @@ describe("findLiveLootProfile", () => {
         });
     });
 
-    it("shares native normal and rare geometry across the two 1440p aspect ratios", () => {
-        const ultrawide = findLiveLootProfile(3440, 1440, 80);
-        const widescreen = findLiveLootProfile(2560, 1440, 80);
-        expect(widescreen).toMatchObject({
-            capture: { sourceWidth: 2560, sourceHeight: 1440, uiScalePercent: 80, sampleFps: 8 },
-        });
-        expect(widescreen?.profile).toBe(ultrawide?.profile);
-        expect(findLiveLootProfile(2560, 1440, 80)).toBe(widescreen);
-        expect(findRareLootGeometry(2560, 1440, 80)).not.toBeNull();
-        expect(findRareLootGeometry(2560, 1440, 80)).toBe(findRareLootGeometry(3440, 1440, 80));
-        expect(findRareLootGeometry(1920, 1080, 80)).toBeNull();
+    it("shares native normal and rare geometry across every supported source", () => {
+        for (const uiScale of [80, 100] as const) {
+            const ultrawide = findLiveLootProfile(3440, 1440, uiScale);
+            for (const [width, height] of [
+                [2560, 1440],
+                [1920, 1080],
+            ]) {
+                const profile = findLiveLootProfile(width, height, uiScale);
+                expect(profile).toMatchObject({
+                    capture: { sourceWidth: width, sourceHeight: height, uiScalePercent: uiScale, sampleFps: 8 },
+                });
+                expect(profile?.profile).toBe(ultrawide?.profile);
+                expect(findLiveLootProfile(width, height, uiScale)).toBe(profile);
+                expect(findRareLootGeometry(width, height, uiScale)).not.toBeNull();
+                expect(findRareLootGeometry(width, height, uiScale)).toBe(findRareLootGeometry(3440, 1440, uiScale));
+            }
+        }
     });
 
-    it("provides native 100% normal and rare geometry for both 1440p widths", () => {
-        for (const width of [2560, 3440]) {
-            expect(findLiveLootProfile(width, 1440, 100)).toMatchObject({
-                capture: { sourceWidth: width, uiScalePercent: 100 },
+    it("keeps the source dimensions on legacy profiles", () => {
+        for (const [width, height] of [
+            [3440, 1440],
+            [2560, 1440],
+            [1920, 1080],
+        ]) {
+            expect(findLiveLootProfile(width, height, 80, true)).toMatchObject({
+                capture: { sourceWidth: width, sourceHeight: height, uiScalePercent: 80 },
+                profile: { width: 362, height: 311 },
+            });
+            expect(findLiveLootProfile(width, height, 100, true)).toMatchObject({
+                capture: { sourceWidth: width, sourceHeight: height, uiScalePercent: 100 },
+                profile: { width: 453, height: 389 },
+            });
+            expect(findRareLootGeometry(width, height, 80, true)).toBe(findRareLootGeometry(3440, 1440, 80, true));
+            expect(findRareLootGeometry(width, height, 100, true)).toBe(findRareLootGeometry(3440, 1440, 100, true));
+        }
+    });
+
+    it("returns null for unsupported sources", () => {
+        for (const [width, height] of [
+            [1280, 720],
+            [2561, 1440],
+            [1920, 1200],
+            [3840, 2160],
+        ]) {
+            for (const uiScale of [80, 100] as const) {
+                expect(findLiveLootProfile(width, height, uiScale)).toBeNull();
+                expect(findLiveLootProfile(width, height, uiScale, true)).toBeNull();
+                expect(findRareLootGeometry(width, height, uiScale)).toBeNull();
+                expect(findRareLootGeometry(width, height, uiScale, true)).toBeNull();
+            }
+        }
+    });
+
+    it("provides native 100% normal and rare geometry for every supported source", () => {
+        for (const [width, height] of [
+            [3440, 1440],
+            [2560, 1440],
+            [1920, 1080],
+        ]) {
+            expect(findLiveLootProfile(width, height, 100)).toMatchObject({
+                capture: { sourceWidth: width, sourceHeight: height, uiScalePercent: 100 },
                 profile: { width: 341, height: 226, bottomCenter: 211, spacing: 49, pixelScale: 1.25 },
             });
-            expect(findRareLootGeometry(width, 1440, 100)).toMatchObject({ width: 425, height: 90 });
+            expect(findRareLootGeometry(width, height, 100)).toMatchObject({ width: 425, height: 90 });
         }
-        expect(findLiveLootProfile(1920, 1080, 80)).toBeNull();
-        expect(findLiveLootProfile(1920, 1080, 100)).toBeNull();
     });
 });
 
 describe("localization availability", () => {
-    it("allows automatic localization independently of OCR profile availability", () => {
+    it("allows automatic localization for every supported source", () => {
         for (const [width, height] of [
             [3440, 1440],
             [2560, 1440],
