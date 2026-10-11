@@ -5,11 +5,14 @@ A local-first silver-per-hour tracker for Black Desert Online, for Windows and L
 Shakatu Sheets times your grind sessions, values your loot at Central Market prices, and can read drops off your screen
 as they happen. Everything is stored on your computer. Nothing leaves it unless you press a button that says so.
 
+![The grind desk during a live session: silver per hour, session net, net-over-time trend, and recognized drops](documentation/screenshots/grind-desk.png)
+
 [![Support me on Ko-fi](https://ko-fi.com/img/githubbutton_sm.svg)](https://ko-fi.com/V3Z427UAJQ)
 
 ## Contents
 
 - [Features](#features)
+- [Screenshots](#screenshots)
 - [Platform support](#platform-support)
 - [Live loot recognition](#live-loot-recognition)
 - [Privacy and data](#privacy-and-data)
@@ -41,8 +44,21 @@ as they happen. Everything is stored on your computer. Nothing leaves it unless 
 
 - Live recognition of normal and rare loot notifications through screen capture and local OCR.
 - Uncertain drops wait in a **Needs attention** queue for you to confirm or correct, instead of being guessed.
-- Optional self-improvement that learns item names and quantities from your own corrections. Off by default.
 - Import of cropped Marni loot tracker screenshots (80%, 100%, or 120% UI scale) with an editable review step.
+
+**Self-improvement**
+
+The reader can learn from the drops you correct, so it gets better at your setup over time. It is off by default; turn
+on **Learn from my corrections** in **Settings → Self-improvement**.
+
+- Each correction you confirm in **Needs attention** teaches item names and quantities separately, so learning
+  Black Stone ×6 also helps with Black Stone ×9.
+- Learned suggestions prefill the correction form and are marked **Suggested**. Nothing is added until you confirm it.
+- The optional **Auto allow** setting resolves drops that ordinary OCR could not, but only when learned examples agree
+  across at least three frames and nothing conflicts.
+- Examples are small text crops stored on your device. You can inspect or delete them one by one, or reset everything.
+
+![Needs attention with a learned suggestion: the saved capture, the text crops kept for learning, and a suggested item and quantity](documentation/screenshots/needs-attention.png)
 
 **History**
 
@@ -54,6 +70,16 @@ as they happen. Everything is stored on your computer. Nothing leaves it unless 
 
 - Optional uploads of completed sessions to your [Garmoth](https://garmoth.com) grind tracker.
 - Dark and light themes, keyboard navigation, and screen-reader labels.
+
+## Screenshots
+
+**History.** Totals, grind spot comparisons, and a receipt for each completed session.
+
+![Session history with totals, grind spot comparisons, and a session receipt](documentation/screenshots/history.png)
+
+**Session overlay.** A compact, always-on-top view of the running session to keep over the game.
+
+<img src="documentation/screenshots/overlay.png" alt="The compact session overlay with silver per hour, session net, timer, and drop counts" width="360">
 
 ## Platform support
 
@@ -83,7 +109,8 @@ Live recognition reads the loot notifications at the side of your screen. It cur
 | BDO UI scale | 80% or 100% |
 | Loot font | Korean (default) or Strong Sword |
 
-1920×1080 can place the capture areas but has no calibrated recognition yet.
+1920×1080 is not supported for recognition yet. You can place the capture areas, but no recognition profile has been
+calibrated for that resolution, so capture runs in preview-only mode.
 
 How it works:
 
