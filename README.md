@@ -239,7 +239,7 @@ Ko-fi:
 
 ## Acknowledgements
 
-- [Garmoth](https://garmoth.com), for permission to use its grind-spot data and API. This project would not be possible without Skou.
+- [Garmoth](https://garmoth.com), for permission to use its grind-spot data and API. This project would not be possible without Skou. Check out the official Garmoth app if you want a more refined Windows-experience.
 - [Arsha](https://api.arsha.io), for the Central Market price API.
 - [Tesseract.js](https://github.com/naptha/tesseract.js), for local OCR.
 - [Tauri](https://tauri.app), for the application framework.
