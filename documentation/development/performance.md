@@ -1,7 +1,7 @@
 # Capture performance verification
 
 Offline OCR replay and browser fixtures do not measure gameplay cost. Use this protocol for native release acceptance;
-see [Windows release gates](windows.md#release-gates) for platform-specific checks.
+see the [Windows validation checklist](windows.md#validation-checklist) for platform-specific checks.
 
 ## Game-impact protocol
 

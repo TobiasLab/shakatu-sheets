@@ -66,8 +66,8 @@ git switch -c feat/short-description origin/main
 ```
 
 Use `fix/short-description` for bug fixes. Keep each branch focused on one change and its documentation and tests.
-Run the relevant verification before opening a pull request into `main`. Agents commit and push only when requested,
-and rebase-merge after checks pass and the user authorizes the merge.
+Run the relevant verification before opening a pull request into `main`. Pull requests are rebase-merged after the
+checks pass. See [`CONTRIBUTING.md`](../../CONTRIBUTING.md) for commit conventions and guidelines.
 
 After merging, preserve any unrelated local changes, return to `main`, and update it:
 
@@ -129,8 +129,8 @@ cadence. This is
 separate from the real-game 30-minute resource/recognition acceptance run.
 
 
-For detection changes, replay developer ROI samples with `npm run benchmark:loot:roi -- /path/to/dev-samples/live-loot --ocr`. Add `--validation` for the reserved split. For the refreshed September 5 corpus, pass
-`--annotations scripts/fixtures/loot-roi-2026-09-05.json` so the sample directory can remain untouched. See the [ROI replay documentation](live-loot-benchmark.md#roi-sample-replay)
+For detection changes, replay developer ROI samples with `npm run benchmark:loot:roi -- /path/to/dev-samples/live-loot --ocr`. Add `--validation` for the reserved split. To score a corpus that has a reviewed fixture,
+pass `--annotations scripts/fixtures/<fixture>.json` so the sample directory can remain untouched. See the [ROI replay documentation](live-loot-benchmark.md#roi-sample-replay)
 for scoring limits and optional JSON reports. Captured PNGs stay outside tracked source.
 
 The ROI replay supports `--sample-step 2 --sample-offset 0|1` for offline sampling sensitivity checks. Reports retain native
@@ -199,11 +199,11 @@ another checkout's sources, so an older build can be measured with the same harn
 
 #### Native Wayland session overlay
 
-The earlier utility-window experiment did not keep the pop-out above BDO on KDE/XWayland. Supported native Wayland
-sessions now use GTK Layer Shell's `Overlay` layer. The backend is selected from GTK/protocol capabilities, not desktop
+A standard utility window does not stay above BDO on KDE/XWayland, so supported native Wayland sessions use GTK Layer
+Shell's `Overlay` layer. The backend is selected from GTK/protocol capabilities, not desktop
 name strings. X11/XWayland and unsupported compositors retain a standard utility window.
 
-Test with the native Wayland backend (remove the earlier `GDK_BACKEND=x11` override):
+Test with the native Wayland backend:
 
 ```sh
 GDK_BACKEND=wayland npm run tauri dev
@@ -219,19 +219,15 @@ the bottom-right handle to resize. Arrow keys on these handles move/resize, Shif
 a drag. The display button cycles monitors. Hover each header button and check that the whole overlay stays drawn
 (the transparent overlay failed this on WebKitGTK 2.54 with NVIDIA). Check different monitor scales, hiding/reopening,
 timer controls, that Settings shows no opacity control on Linux, and capture regions (the visible overlay must not obscure loot being recognized). Verify compositor shortcuts remain
-usable. Game behavior on KDE still requires testing on the gaming machine.
+usable. Behavior over the game differs between compositors, so note which one you tested.
 
 `OVERLAY_LAYER_SHELL=1 node scripts/smoke-session-overlay.mjs` exercises the layer placement UI, focus policy, and command
 failures with synthetic native APIs; omit the variable to test the standard window path. `OVERLAY_OPAQUE=1` reports
 that the overlay cannot fade, as on Linux, and checks that an opacity change still reaches the overlay as full opacity.
 Native compositor testing is separate from this browser smoke.
 
-Native verification on September 20, 2026 used the real Tauri app in an isolated headless Sway 1.9 session with
-GTK Layer Shell 0.8.2. The pop-out rendered above a separately focused fullscreen GTK window. Native pointer input
-verified starting the timer, moving from (24, 24) to (204, 124), resizing from 360×250 to 460×330, and hiding/reopening
-with geometry preserved. The display button moved it to a second output; changing that output to scale 3 clamped the
-window to its 266×200 logical area, and disabling the output returned it to the remaining display. Protocol logs
-confirmed layer 3 (`Overlay`). This validates native integration on Sway; KDE/BDO and packaged builds remain unverified.
+The layer-shell placement, resizing, output switching, and output-scale clamping have been verified natively on
+headless Sway with GTK Layer Shell 0.8.2; BDO itself cannot run there.
 
 Implementation references: [GTK Layer Shell](https://wmww.github.io/gtk-layer-shell/),
 [supported desktops](https://github.com/wmww/gtk-layer-shell#supported-desktops), and
