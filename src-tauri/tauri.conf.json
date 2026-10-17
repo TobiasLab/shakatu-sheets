@@ -57,6 +57,11 @@
   "bundle": {
     "active": true,
     "targets": "all",
+    "license": "AGPL-3.0-only",
+    "resources": {
+      "../LICENSE": "LICENSE",
+      "../THIRD_PARTY_NOTICES.md": "THIRD_PARTY_NOTICES.md"
+    },
     "linux": {
       "deb": {
         "depends": ["libgtk-layer-shell0 (>= 0.6)"]

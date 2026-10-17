@@ -28,6 +28,10 @@ Runtime dependencies are intentionally small:
 Biome, TypeScript, Vite, and Vitest are development tools. Add a dependency only when existing platform APIs or current
 dependencies cannot solve the requirement clearly. Commit both npm and Cargo lockfiles.
 
+`THIRD_PARTY_NOTICES.md` lists the license texts of the frontend and OCR components shipped with the app; the Tauri
+bundle installs it and `LICENSE` with every package. When adding, upgrading, or vendoring a shipped frontend or OCR
+component, update its entry. Rust crates are summarized there by license rather than reproduced.
+
 WebKitGTK 2.52 does not reliably complete the Linux ScreenCast portal lifecycle. Linux capture therefore uses `ashpd`
 and PipeWire directly. Windows uses WGC and GPU ROI copies; browser development retains Web display capture.
 Platform dependencies are target-scoped. SQLite is bundled and Rustls/AWS-LC requires a native C toolchain; Windows
