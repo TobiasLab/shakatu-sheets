@@ -250,6 +250,7 @@ Copyright (C) 2026 Shakatu Sheets contributors.
 
 Shakatu Sheets is licensed under the GNU Affero General Public License, version 3 only (`AGPL-3.0-only`). The full
 license text is in [`LICENSE`](LICENSE). This program is distributed WITHOUT ANY WARRANTY; see the license for details.
+Bundled third-party components and their licenses are listed in [`THIRD_PARTY_NOTICES.md`](THIRD_PARTY_NOTICES.md).
 
 Black Desert and all related game content, names, and item artwork are trademarks or copyrighted material of Pearl
 Abyss Corp. and are not covered by this license. Shakatu Sheets is a fan-made tool and is not affiliated with or endorsed
