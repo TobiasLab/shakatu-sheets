@@ -19,8 +19,18 @@ CLAUDE.md
 mocks/
 # Local gameplay ROI images and OCR issue logs
 /dev-samples/
-# Claude Code worktrees are full checkouts of other branches
-/.claude/worktrees/
+# Gameplay recordings and app databases can contain personal data
+*.mp4
+*.mkv
+*.webm
+*.sqlite
+*.sqlite3
+*.sqlite3-*
+*.db
+# Local Claude Code state, including worktrees that are full checkouts of other branches
+/.claude/
+# Local UI screenshot harness output
+/.redesign-screens/
 
 # Editor directories and files
 .vscode/*
