@@ -174,7 +174,7 @@ label that the user can rename. Unknown positive IDs are preserved, never treate
 
 Users enter explicit total quantities for the session and integer silver unit prices (including an explicit zero for
 free buffs). The second element of a Garmoth consumable pair is treated as quantity, consistent with the captured
-one-hour website request and the user's explanation of three 20-minute perfumes. No duration scaling or market-price
+one-hour website request, where three 20-minute perfumes were recorded as quantity 3. No duration scaling or market-price
 fetch occurs. Saved presets remember the reviewed quantities and prices per region; users must review them for each
 session. A preset is not an hourly schedule. Settings manages the library independently of the active session.
 The grind desk's Apply preset dialog and History's upload-review dialog share the same preset-selection component
@@ -227,7 +227,7 @@ IDs across price snapshots. Plain manual expenses affect net totals but are not 
 without tagged expenses send an empty array. The upload preview shows the number of distinct consumables. Net totals
 continue to use stored expense prices; the remote treatment of costs may differ and must be checked in Garmoth.
 
-The user confirmed that the external API accepts the nested pairs below without `consumable_build`:
+The external API was confirmed to accept the nested pairs below without `consumable_build`:
 
 ```json
 {"consumables": [[99999900, 1], [9692, 1], [1411, 3], [1407, 3], [761879, 1], [767969, 1], [100001510, 1]]}

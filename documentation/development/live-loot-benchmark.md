@@ -184,7 +184,8 @@ events with the suggestion they would receive, and fails the command on any wron
 ## Regression fixtures
 
 Use `--annotations scripts/fixtures/<fixture>.json` to select reviewed labels without modifying a source corpus.
-The corresponding original recordings are required; the fixture files contain no pixels.
+The corresponding original recordings are required; the fixture files contain no pixels. These recordings are the
+maintainer's and are not published, so contributors without them should benchmark recordings of their own.
 
 | Fixture | Coverage |
 | --- | --- |
