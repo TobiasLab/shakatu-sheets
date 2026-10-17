@@ -214,21 +214,11 @@ Shakatu Sheets never uploads automatically. Sharing to Garmoth's global data is 
 
 ## Contributing
 
-Bug reports and pull requests are welcome. When reporting a recognition problem, include your OS, desktop or Windows
-version, resolution, BDO UI scale, and loot font.
+Bug reports and pull requests are welcome. [`CONTRIBUTING.md`](CONTRIBUTING.md) explains what to include in a bug
+report, the branch and commit conventions, coding guidelines, and the checks to run. The
+[documentation](documentation/README.md) covers architecture, the database schema, product behavior, and development.
 
-The [documentation](documentation/README.md) covers architecture, the database schema, product behavior, and the
-[development setup and branch workflow](documentation/development/README.md). Before opening a pull request, run:
-
-```sh
-npm run check
-npm test
-npm run build
-cd src-tauri
-cargo fmt --check
-cargo test
-cargo clippy --all-targets --all-features -- -D warnings
-```
+To report a security problem, follow [`SECURITY.md`](SECURITY.md) instead of opening a public issue.
 
 ## Support the project
 
