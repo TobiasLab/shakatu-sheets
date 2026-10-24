@@ -1459,9 +1459,10 @@ fn unconfirmed_repeat_upload_stays_recorded_through_the_upload_command() {
             .unwrap();
             assert!(!claim_garmoth_upload(&mut connection, &finished.id, false).unwrap());
             finish_garmoth_upload(&connection, &finished.id).unwrap();
+            // Windows retries a refused loopback connection for about two seconds before failing.
             let client = reqwest::Client::builder()
                 .no_proxy()
-                .timeout(Duration::from_millis(500))
+                .timeout(Duration::from_secs(5))
                 .build()
                 .unwrap();
 
@@ -1556,9 +1557,10 @@ fn reviewed_upload_keeps_saved_expenses_on_connect_failure_and_can_retry() {
             let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
             let address = listener.local_addr().unwrap();
             drop(listener);
+            // Windows retries a refused loopback connection for about two seconds before failing.
             let client = reqwest::Client::builder()
                 .no_proxy()
-                .timeout(Duration::from_millis(100))
+                .timeout(Duration::from_secs(5))
                 .build()
                 .unwrap();
             let base_url = format!("http://{address}");

@@ -653,8 +653,9 @@ mod tests {
                 let listener = TcpListener::bind("127.0.0.1:0").unwrap();
                 let closed_address = listener.local_addr().unwrap();
                 drop(listener);
+                // Windows retries a refused loopback connection for about two seconds before failing.
                 let connect_error = Client::builder()
-                    .timeout(Duration::from_millis(100))
+                    .timeout(Duration::from_secs(5))
                     .build()
                     .unwrap()
                     .get(format!("http://{closed_address}"))
