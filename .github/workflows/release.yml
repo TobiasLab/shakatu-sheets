@@ -1,0 +1,63 @@
+name: Release
+
+# A pushed v* tag builds the packages and attaches them to a draft GitHub release for review. Pull requests that
+# change this workflow, and manual runs, build the same packages as workflow artifacts without creating a release.
+on:
+  push:
+    tags: ["v*"]
+  pull_request:
+    paths: [.github/workflows/release.yml]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: Build (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # The oldest supported Ubuntu runner keeps the packages' glibc requirement low.
+          - os: ubuntu-22.04
+            args: --bundles deb,rpm,appimage
+          - os: windows-latest
+            args: ""
+    runs-on: ${{ matrix.os }}
+    env:
+      AWS_LC_SYS_PREBUILT_NASM: 1
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .node-version
+          cache: npm
+      - name: Check the tag matches the app version
+        if: startsWith(github.ref, 'refs/tags/')
+        shell: bash
+        run: |
+          version=$(node -p "require('./src-tauri/tauri.conf.json').version")
+          if [ "$GITHUB_REF_NAME" != "v$version" ]; then
+            echo "Tag $GITHUB_REF_NAME does not match app version $version." >&2
+            exit 1
+          fi
+      - name: Install Linux dependencies
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libayatana-appindicator3-dev librsvg2-dev libxdo-dev \
+            libgtk-layer-shell-dev libpipewire-0.3-dev clang
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+        with:
+          workspaces: src-tauri
+      - run: npm ci
+      - uses: tauri-apps/tauri-action@1deb371b0cd8bd54025b384f1cd735e725c4060f # action-v1.0.0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tagName: ${{ startsWith(github.ref, 'refs/tags/') && github.ref_name || '' }}
+          releaseName: Shakatu Sheets __VERSION__
+          releaseDraft: true
+          args: ${{ matrix.args }}
+          uploadWorkflowArtifacts: true
