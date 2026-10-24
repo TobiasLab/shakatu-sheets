@@ -19,8 +19,8 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          # The oldest supported Ubuntu runner keeps the packages' glibc requirement low.
-          - os: ubuntu-22.04
+          # Ubuntu 22.04's PipeWire is too old for the pipewire crate, so Linux packages need glibc 2.39 or newer.
+          - os: ubuntu-24.04
             args: --bundles deb,rpm,appimage
           - os: windows-latest
             args: ""

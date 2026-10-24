@@ -77,8 +77,9 @@ cargo test
 cargo clippy --all-targets --all-features -- -D warnings
 ```
 
-Say in the pull request which platforms you tested on. If you could not test something, such as Windows or a specific
-desktop, say so.
+CI runs the same checks on Ubuntu and Windows for every pull request, and a pull request can only be merged once they
+pass. CI cannot exercise screen capture, the overlay, or the game, so say in the pull request which platforms you
+tested on. If you could not test something, such as Windows or a specific desktop, say so.
 
 ## License
 
