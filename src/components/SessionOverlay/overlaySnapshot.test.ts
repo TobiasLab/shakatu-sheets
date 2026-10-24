@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { createEntry } from "../../domain/session";
-import { aggregateDrops, formatOverlaySilver } from "./sessionOverlay";
+import { aggregateDrops, formatOverlaySilver } from "./overlaySnapshot";
 
 describe("overlay drops", () => {
     it("combines quantities across prices and sources while excluding expenses", () => {
