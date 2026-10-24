@@ -146,7 +146,8 @@ game file it ever reads is a `gamevariable.xml` you select yourself, to find you
 ## Installation
 
 Pre-built downloads will be published on the [Releases](https://github.com/TobiasLab/shakatu-sheets/releases) page.
-Until then, build from source.
+Until then, build from source. The Linux packages require glibc 2.39 or newer (Ubuntu 24.04, Debian 13, or a current
+Fedora or Arch); on older distributions, build from source.
 
 ### Prerequisites
 

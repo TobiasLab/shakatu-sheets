@@ -19,7 +19,6 @@ npm ci
 npm run tauri dev
 ```
 
-Development builds and verification run locally. No GitHub Actions workflow is configured.
 For an optimized executable without creating an installer, run this from the repository root:
 
 ```sh
@@ -42,6 +41,11 @@ cargo fmt --check
 cargo test
 cargo clippy --all-targets --all-features -- -D warnings
 ```
+
+The [CI workflow](../../.github/workflows/ci.yml) runs the same checks on every pull request and push to `main`: the
+frontend checks on Ubuntu, and rustfmt, Clippy, and the Rust tests on both Ubuntu and Windows. It does not run the
+browser smoke suites, the desktop smoke, or the recognition benchmarks, which need a browser, a graphical session, or
+private recordings.
 
 Build an AppImage on Arch-derived Linux distributions with:
 
@@ -77,6 +81,30 @@ git pull --ff-only
 ```
 
 The normal flow is `main` → feature branch → PR into `main`, with no intermediate integration or promotion branch.
+
+## Releases
+
+The [release workflow](../../.github/workflows/release.yml) builds the deb, rpm, and AppImage packages on Ubuntu 24.04
+and the per-user NSIS installer on Windows. Ubuntu 22.04's PipeWire 0.3.48 is too old for the `pipewire` crate, so the
+Linux packages require glibc 2.39 or newer (Ubuntu 24.04, Debian 13, or a current Fedora or Arch). To publish a
+release:
+
+1. In a pull request, set the new version in `package.json`, `src-tauri/Cargo.toml`, and `src-tauri/tauri.conf.json`,
+   and refresh the lockfiles (`npm install --package-lock-only`, and `cargo update --workspace` in `src-tauri`).
+2. After it merges, tag the merge commit on `main` and push the tag:
+
+   ```sh
+   git switch main
+   git pull --ff-only
+   git tag v0.2.0
+   git push origin v0.2.0
+   ```
+
+3. The workflow checks that the tag matches the version in `tauri.conf.json`, builds every package, and attaches them
+   to a **draft** release. Review the assets and notes on GitHub, then publish the draft.
+
+Windows packages are not code-signed, so SmartScreen warns on first launch. Pull requests that change the release
+workflow, and manual runs from the Actions tab, build the same packages as workflow artifacts without a release.
 
 
 ## Performance and UI verification
