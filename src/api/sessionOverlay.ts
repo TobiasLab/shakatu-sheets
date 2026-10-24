@@ -5,7 +5,7 @@ import {
     OVERLAY_TIMER_RESULT,
     type OverlayTimerAction,
     type OverlayTimerResult,
-} from "../components/SessionOverlay/sessionOverlay";
+} from "../components/SessionOverlay/overlaySnapshot";
 
 export function loadOverlayOpacity() {
     return invoke<number>("load_overlay_opacity");

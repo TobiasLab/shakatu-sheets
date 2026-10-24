@@ -8,7 +8,6 @@ import { formatDuration, formatSilver } from "../../format";
 import { useElapsedTime } from "../../hooks/useElapsedTime";
 import { Icon } from "../Icon/Icon";
 import { OverlayTimerButton } from "./OverlayTimerButton";
-import styles from "./SessionOverlay.module.css";
 import {
     aggregateDrops,
     formatOverlaySilver,
@@ -16,7 +15,8 @@ import {
     OVERLAY_STATE,
     OVERLAY_VISIBILITY_CHANGED,
     type OverlaySnapshot,
-} from "./sessionOverlay";
+} from "./overlaySnapshot";
+import styles from "./SessionOverlay.module.css";
 import { useOverlayPlacement } from "./useOverlayPlacement";
 
 const quantityFormatter = new Intl.NumberFormat("de-DE", { maximumFractionDigits: 0 });

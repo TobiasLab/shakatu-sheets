@@ -11,7 +11,7 @@ import {
     OVERLAY_VISIBILITY_CHANGED,
     type OverlaySnapshot,
     type OverlayTimerRequest,
-} from "../components/SessionOverlay/sessionOverlay";
+} from "../components/SessionOverlay/overlaySnapshot";
 
 export function useSessionOverlay(
     snapshot: OverlaySnapshot,

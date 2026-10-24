@@ -1,6 +1,6 @@
 import { useEffect, useLayoutEffect, useReducer, useRef, useState } from "react";
 import { listFinishedSessions, loadActiveSession, reopenSession, saveSession, supportsTauriApi } from "../api/tauri";
-import type { OverlayTimerRequest } from "../components/SessionOverlay/sessionOverlay";
+import type { OverlayTimerRequest } from "../components/SessionOverlay/overlaySnapshot";
 import { grindSpots } from "../data/grindSpots";
 import { createSession, pauseRestoredSession, reduceSession, type SessionState } from "../domain/session";
 
