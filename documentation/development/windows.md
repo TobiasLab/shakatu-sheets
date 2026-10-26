@@ -214,6 +214,8 @@ disabled too.
 
 `tauri.windows.conf.json` creates a per-user NSIS installer and downloads the Evergreen WebView2 bootstrapper if needed.
 Existing WebView2 permits offline app use; a fresh machine without the runtime needs a connection during installation.
+Its `app.windows` array replaces the one in `tauri.conf.json` instead of merging with it, so window changes must be made
+in both files. The session overlay must keep `"create": false` in both, because startup creates it in code.
 For an optimized executable without an installer, run `npm run tauri -- build --no-bundle -- --locked` from the
 repository root. The result is `src-tauri/target/release/shakatu-sheets.exe`. Use `npm run tauri dev` for debug builds
 and ROI sample collection.
