@@ -57,3 +57,23 @@ pub(crate) fn adjust_session_overlay(
         Err("Wayland overlay placement is unavailable on this platform".into())
     }
 }
+
+#[cfg(test)]
+mod tests {
+    #[test]
+    fn every_platform_config_leaves_overlay_creation_to_startup() {
+        for config in [
+            include_str!("../tauri.conf.json"),
+            include_str!("../tauri.windows.conf.json"),
+        ] {
+            let config: serde_json::Value = serde_json::from_str(config).unwrap();
+            let overlay = config["app"]["windows"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .find(|window| window["label"] == "session-overlay")
+                .unwrap();
+            assert_eq!(overlay["create"], false);
+        }
+    }
+}
