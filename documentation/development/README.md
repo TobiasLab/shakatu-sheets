@@ -6,7 +6,8 @@ and outstanding validation, see [Windows support](windows.md). Install locked de
 Linux builds also require GTK Layer Shell 0.6 or later (`libgtk-layer-shell-dev` on Debian/Ubuntu,
 `gtk-layer-shell-devel` on Fedora, or `gtk-layer-shell` on Arch). The library must be available at runtime too.
 Linux builds require the PipeWire development headers (`libpipewire-0.3-dev` on Debian/Ubuntu or `pipewire-devel` on
-Fedora) and Clang for the Rust PipeWire bindings' generated FFI.
+Fedora) and Clang for the Rust PipeWire bindings' generated FFI. The executable links both libraries, so the deb and rpm
+packages in `tauri.conf.json` declare them as runtime dependencies.
 
 The offline live-loot video benchmark additionally requires FFmpeg. Benchmark videos and generated frames must not be
 committed. Development builds can write 30-minute normal and rare ROI samples under the ignored
