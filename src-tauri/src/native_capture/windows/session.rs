@@ -195,6 +195,11 @@ fn create(
     };
     optional_setting(resources.session.SetIsCursorCaptureEnabled(false))
         .map_err(|e| capture_error("disabling cursor capture", e))?;
+    if let Err(error) = optional_setting(resources.session.SetIsBorderRequired(false)) {
+        log_lifecycle(&format!(
+            "Capture border setting rejected: {error}; keeping the border"
+        ));
+    }
     let producer_limited =
         update_interval_supported(resources.session.SetMinUpdateInterval(TimeSpan {
             Duration: (SAMPLE_INTERVAL.as_nanos() / 100) as i64,

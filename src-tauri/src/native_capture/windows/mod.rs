@@ -9,11 +9,14 @@ use std::sync::atomic::Ordering;
 use std::time::Duration;
 use tauri::ipc::{Channel, InvokeResponseBody};
 use windows::{
-    core::Interface,
+    core::{h, Interface},
+    Foundation::Metadata::ApiInformation,
     Graphics::Capture::{
-        Direct3D11CaptureFramePool, GraphicsCaptureItem, GraphicsCapturePicker,
-        GraphicsCaptureSession, IDirect3D11CaptureFramePoolStatics2,
+        Direct3D11CaptureFramePool, GraphicsCaptureAccess, GraphicsCaptureAccessKind,
+        GraphicsCaptureItem, GraphicsCapturePicker, GraphicsCaptureSession,
+        IDirect3D11CaptureFramePoolStatics2,
     },
+    Security::Authorization::AppCapabilityAccess::AppCapabilityAccessStatus,
     Win32::{
         System::WinRT::{RoInitialize, RoUninitialize, RO_INIT_MULTITHREADED},
         UI::Shell::IInitializeWithWindow,
@@ -112,6 +115,8 @@ async fn start_capture(
         control: control.clone(),
         worker_started: false,
     };
+    // Awaited after installation so a stop during the request cancels the picker.
+    request_borderless_access().await;
     let (sender, receiver) = tokio::sync::oneshot::channel();
     let owner = window.clone();
     let picker_control = control.clone();
@@ -205,6 +210,33 @@ async fn start_capture(
     });
     guard.worker_started = true;
     Ok(())
+}
+
+// Windows 11 hides the yellow capture border only after borderless access is
+// granted; Windows 10 always draws it. The border is cosmetic, so failures are
+// logged and capture continues with it.
+async fn request_borderless_access() {
+    let supported = ApiInformation::IsPropertyPresent(
+        h!("Windows.Graphics.Capture.GraphicsCaptureSession"),
+        h!("IsBorderRequired"),
+    );
+    if !matches!(supported, Ok(true)) {
+        return;
+    }
+    let status =
+        match GraphicsCaptureAccess::RequestAccessAsync(GraphicsCaptureAccessKind::Borderless) {
+            Ok(operation) => operation.await,
+            Err(error) => Err(error),
+        };
+    match status {
+        Ok(AppCapabilityAccessStatus::Allowed) => {}
+        Ok(status) => log_lifecycle(&format!(
+            "Borderless capture access was not granted: {status:?}"
+        )),
+        Err(error) => log_lifecycle(&format!(
+            "Borderless capture access request failed: {error}"
+        )),
+    }
 }
 
 // Must be called on the UI thread that opened the picker. None means pending;

@@ -94,6 +94,11 @@ WinRT capture objects must be used from the apartment that created them; using t
   The minimum update interval is best effort: absent interfaces or rejected settings use the shared 16 FPS consumer
   gate, with unexpected rejections logged. Other capture setup failures still propagate. The free-threaded pool
   requires Windows 10 version 1809 or newer; capability probing reports this requirement explicitly.
+- Windows draws a yellow border around a captured monitor or window. Where `IsBorderRequired` exists (build 20348
+  and newer, which includes Windows 11), each capture start awaits `GraphicsCaptureAccess::RequestAccessAsync(Borderless)`
+  on the async command thread before opening the picker, and session setup sets `IsBorderRequired(false)`, as OBS
+  does. The border is cosmetic, so a denied request or rejected setting is logged and capture continues with the
+  border. Windows 10 always shows it.
 - Errors name the individual failing operation and include `[wgc-ui-2]`. Startup logs record the actual Windows
   build, capture revision, thread IDs, session setup/cleanup, and first-frame arrival. Logs contain no pixels or
   source/window names. When investigating a failure, read the complete error or the capture log described below.
