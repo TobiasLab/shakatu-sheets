@@ -31,7 +31,7 @@ const COMMANDS: &[&str] = &[
     "resolve_garmoth_upload",
     "upload_garmoth_session",
     "fetch_market_prices",
-    "read_normal_loot_layout",
+    "read_loot_layout",
     "native_capture_capabilities",
     "acknowledge_native_display_frame",
     "load_loot_capture_settings",

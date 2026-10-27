@@ -185,15 +185,34 @@ describe("capture placement", () => {
         expect(cancelled).toMatchObject({ mode: "manual", normalConfirmed: false, normalCaptureRegion: region(0.1) });
     });
 
-    it("places an imported loot stack for confirmation and forgets placement on release", () => {
+    it("places imported areas for confirmation and forgets placement on release", () => {
         const rare = placed([{ type: "select", kind: "rare" }], confirmed);
-        expect(placed([{ type: "import-layout", region: region(0.7) }], rare)).toMatchObject({
+        expect(placed([{ type: "import-layout", normal: region(0.7), rare: region(0.6) }], rare)).toMatchObject({
             mode: "manual",
             activeKind: "normal",
             normalRegion: region(0.7),
             normalCaptureRegion: region(0.7),
+            rareRegion: region(0.6),
+            rareCaptureRegion: region(0.6),
+            normalConfirmed: false,
+            rareConfirmed: false,
+        });
+        expect(placed([{ type: "import-layout", normal: region(0.7), rare: null }], rare)).toMatchObject({
+            activeKind: "normal",
+            normalRegion: region(0.7),
+            rareRegion: region(0.2),
+            rareCaptureRegion: region(0.2),
             normalConfirmed: false,
             rareConfirmed: true,
+        });
+        expect(placed([{ type: "import-layout", normal: null, rare: region(0.6) }], confirmed)).toMatchObject({
+            mode: "manual",
+            activeKind: "rare",
+            normalRegion: region(0.1),
+            normalCaptureRegion: region(0.1),
+            rareRegion: region(0.6),
+            rareCaptureRegion: region(0.6),
+            rareConfirmed: false,
         });
         expect(placed([{ type: "unconfirm" }], confirmed)).toMatchObject({
             normalConfirmed: false,

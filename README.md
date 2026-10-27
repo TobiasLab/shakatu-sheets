@@ -116,7 +116,7 @@ How it works:
 
 1. Start capture and choose your monitor (or the game window on Windows) in the system picker.
 2. Position the normal and rare loot areas in setup, or use **Adjust automatically**, then confirm them. You can also
-   import the normal loot position from your game's `gamevariable.xml`.
+   import both positions from your game's `gamevariable.xml`.
 3. Grind. Drops are added to the ledger as they appear. Anything uncertain goes to **Needs attention**.
 
 Recognition only looks for items that can drop at the selected grind spot. It reads several frames per drop and adds

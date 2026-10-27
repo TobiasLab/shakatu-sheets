@@ -86,7 +86,7 @@ export function LiveLootCapture({ controller }: { controller: ReturnType<typeof 
         nudgeSelectedRegion,
         uiScalePercent,
         changeUiScale,
-        importNormalLootLayout,
+        importLootLayout,
         importingLayout,
         layoutImportMessage,
         calibratedProfile,
@@ -463,18 +463,18 @@ export function LiveLootCapture({ controller }: { controller: ReturnType<typeof 
                                     </div>
                                 )}
                                 <details className={styles.LayoutImport}>
-                                    <summary>Import loot stack position from BDO</summary>
+                                    <summary>Import loot positions from BDO</summary>
                                     <div>
                                         <p>
                                             Choose gamevariable.xml from Documents / Black Desert / UserCache / your
-                                            account folder. This updates the loot stack position only.
+                                            account folder. This updates the loot stack and rare loot positions.
                                         </p>
                                         <label className={`button ${styles.FileButton}`}>
                                             {importingLayout ? "Reading layout..." : "Choose layout file"}
                                             <input
                                                 type="file"
                                                 accept=".xml"
-                                                aria-label="Import normal loot position from gamevariable.xml"
+                                                aria-label="Import loot positions from gamevariable.xml"
                                                 aria-busy={importingLayout}
                                                 aria-disabled={importingLayout}
                                                 disabled={
@@ -488,7 +488,7 @@ export function LiveLootCapture({ controller }: { controller: ReturnType<typeof 
                                                 onChange={(event) => {
                                                     const file = event.currentTarget.files?.[0];
                                                     event.currentTarget.value = "";
-                                                    void importNormalLootLayout(file);
+                                                    void importLootLayout(file);
                                                 }}
                                             />
                                         </label>

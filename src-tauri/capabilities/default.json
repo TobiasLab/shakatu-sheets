@@ -42,7 +42,7 @@
     "allow-resolve-garmoth-upload",
     "allow-upload-garmoth-session",
     "allow-fetch-market-prices",
-    "allow-read-normal-loot-layout",
+    "allow-read-loot-layout",
     "allow-native-capture-capabilities",
     "allow-acknowledge-native-display-frame",
     "allow-load-loot-capture-settings",

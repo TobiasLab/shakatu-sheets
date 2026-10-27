@@ -4,28 +4,38 @@ use serde::Serialize;
 const MAX_XML_BYTES: usize = 2 * 1024 * 1024;
 const INVALID_XML: &str =
     "Could not read the XML. Choose Black Desert's account-level gamevariable.xml.";
+const NORMAL_PANEL: &str = "159";
+const RARE_PANEL: &str = "161";
+
+#[derive(Debug, PartialEq, Serialize)]
+#[serde(tag = "status", rename_all = "camelCase")]
+pub enum PanelPosition {
+    Found { x: f64, y: f64 },
+    Unavailable { message: String },
+}
 
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
-pub struct LootLayoutPosition {
-    x: f64,
-    y: f64,
+pub struct LootLayout {
+    normal: PanelPosition,
+    rare: PanelPosition,
     ui_scale_percent: u32,
 }
 
 #[tauri::command]
-pub fn read_normal_loot_layout(xml: String) -> Result<LootLayoutPosition, String> {
+pub fn read_loot_layout(xml: String) -> Result<LootLayout, String> {
     parse_layout(&xml)
 }
 
-fn parse_layout(xml: &str) -> Result<LootLayoutPosition, String> {
+fn parse_layout(xml: &str) -> Result<LootLayout, String> {
     if xml.len() > MAX_XML_BYTES {
         return Err("The settings file is too large (maximum 2 MiB).".into());
     }
     // BDO writes several top-level elements rather than one XML document root.
     let mut reader = Reader::from_str(xml.trim_start_matches('\u{feff}'));
     let mut path: Vec<Vec<u8>> = Vec::new();
-    let mut position = None;
+    let mut normal = None;
+    let mut rare = None;
     let mut scale = None;
     let mut layouts = 0;
     loop {
@@ -61,27 +71,18 @@ fn parse_layout(xml: &str) -> Result<LootLayoutPosition, String> {
                             .find(|(k, _)| k == key)
                             .map(|(_, v)| v.as_str())
                     };
-                    if panel && get(b"Index") == Some("159") {
-                        if position.is_some() {
-                            return Err(
-                                "The settings file contains more than one normal loot position."
-                                    .into(),
-                            );
+                    let slot = match get(b"Index") {
+                        Some(NORMAL_PANEL) if panel => Some((&mut normal, "loot stack")),
+                        Some(RARE_PANEL) if panel => Some((&mut rare, "rare loot")),
+                        _ => None,
+                    };
+                    if let Some((slot, label)) = slot {
+                        if slot.is_some() {
+                            return Err(format!(
+                                "The settings file contains more than one {label} position."
+                            ));
                         }
-                        if get(b"IsShow") == Some("false") {
-                            return Err("Normal loot notifications are hidden in this layout. Enable them in BDO and save again.".into());
-                        }
-                        let number = |key| {
-                            get(key)
-                                .and_then(|v| v.parse::<f64>().ok())
-                                .filter(|v| v.is_finite() && (0.0..=1.0).contains(v))
-                        };
-                        let x = number(b"RelativePosX").ok_or("The file has no valid normal loot position. Choose the account-level gamevariable.xml, not a character file.")?;
-                        let y = number(b"RelativePosY").ok_or("The file has no valid normal loot position. Choose the account-level gamevariable.xml, not a character file.")?;
-                        if x == 0.0 && y == 0.0 {
-                            return Err("The normal loot position has not been saved. Move it in BDO's Edit UI and save first.".into());
-                        }
-                        position = Some((x, y));
+                        *slot = Some(panel_position(&get, label));
                     }
                     if ui_scale {
                         if scale.is_some() {
@@ -109,44 +110,96 @@ fn parse_layout(xml: &str) -> Result<LootLayoutPosition, String> {
     if !path.is_empty() || layouts != 1 {
         return Err(INVALID_XML.into());
     }
-    let (x, y) = position.ok_or(
-        "No normal loot position was found. Choose Black Desert's account-level gamevariable.xml.",
-    )?;
-    Ok(LootLayoutPosition {
-        x,
-        y,
+    let normal = normal.unwrap_or_else(|| missing("loot stack"));
+    let rare = rare.unwrap_or_else(|| missing("rare loot"));
+    if let (
+        PanelPosition::Unavailable { message: normal },
+        PanelPosition::Unavailable { message: rare },
+    ) = (&normal, &rare)
+    {
+        return Err(format!(
+            "{normal} {rare} Choose Black Desert's account-level gamevariable.xml, not a character file."
+        ));
+    }
+    Ok(LootLayout {
+        normal,
+        rare,
         ui_scale_percent: scale
             .ok_or("The file has no UI scale. Choose the account-level gamevariable.xml.")?,
     })
+}
+
+/// A hidden, unsaved, or invalid panel only skips that panel, so the other one can still be imported.
+fn panel_position<'a>(get: &impl Fn(&[u8]) -> Option<&'a str>, label: &str) -> PanelPosition {
+    if get(b"IsShow") == Some("false") {
+        return PanelPosition::Unavailable {
+            message: format!(
+                "The {label} notification is hidden in this layout. Enable it in BDO and save again."
+            ),
+        };
+    }
+    let number = |key| {
+        get(key)
+            .and_then(|v| v.parse::<f64>().ok())
+            .filter(|v| v.is_finite() && (0.0..=1.0).contains(v))
+    };
+    let (Some(x), Some(y)) = (number(b"RelativePosX"), number(b"RelativePosY")) else {
+        return PanelPosition::Unavailable {
+            message: format!("The file has no valid {label} position."),
+        };
+    };
+    if x == 0.0 && y == 0.0 {
+        return PanelPosition::Unavailable {
+            message: format!(
+                "The {label} position has not been saved. Move it in BDO's Edit UI and save first."
+            ),
+        };
+    }
+    PanelPosition::Found { x, y }
+}
+
+fn missing(label: &str) -> PanelPosition {
+    PanelPosition::Unavailable {
+        message: format!("No {label} position was found."),
+    }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
 
-    fn layout(panel: &str) -> String {
+    fn layout(panels: &str) -> String {
         format!(
-            r#"<UIData Version="2">{panel}</UIData><GameOptionGlobal><UiScale Value="0.8"/></GameOptionGlobal>"#
+            r#"<UIData Version="2">{panels}</UIData><GameOptionGlobal><UiScale Value="0.8"/></GameOptionGlobal>"#
         )
     }
-    const PANEL: &str = r#"<UIData Index="159" IsShow="true" PendingType="LeftBottom" PosX="657" PosY="136" RelativePosX="0.1934883744" RelativePosY="0.8073292375"/>"#;
+    const NORMAL: &str = r#"<UIData Index="159" IsShow="true" PendingType="LeftBottom" PosX="657" PosY="136" RelativePosX="0.1934883744" RelativePosY="0.8073292375"/>"#;
+    const RARE: &str = r#"<UIData Index="161" IsShow="true" PendingType="LeftTop" PosX="96" PosY="483" RelativePosX="0.07112970948" RelativePosY="0.3039378822"/>"#;
+
+    fn found(position: &PanelPosition) -> (f64, f64) {
+        match position {
+            PanelPosition::Found { x, y } => (*x, *y),
+            PanelPosition::Unavailable { message } => panic!("{message}"),
+        }
+    }
 
     #[test]
-    fn reads_active_position_without_using_anchor_offsets_or_presets() {
+    fn reads_both_active_positions_without_using_anchor_offsets_or_presets() {
         let xml = format!(
-            r#"{}<UISettingPreset><UISettingPreset0 Index="159" RelativePosX="0.9" RelativePosY="0.1"/></UISettingPreset>"#,
-            layout(PANEL)
+            r#"{}<UISettingPreset><UISettingPreset0 Index="159" RelativePosX="0.9" RelativePosY="0.1"/><UISettingPreset1 Index="161" RelativePosX="0.9" RelativePosY="0.1"/></UISettingPreset>"#,
+            layout(&format!("{NORMAL}{RARE}"))
         );
         let result = parse_layout(&xml).unwrap();
-        assert_eq!(result.x, 0.1934883744);
-        assert_eq!(result.y, 0.8073292375);
+        assert_eq!(found(&result.normal), (0.1934883744, 0.8073292375));
+        assert_eq!(found(&result.rare), (0.07112970948, 0.3039378822));
         assert_eq!(result.ui_scale_percent, 80);
-        assert_eq!(
-            parse_layout(&xml.replace("LeftBottom", "RightBottom"))
-                .unwrap()
-                .x,
-            result.x
-        );
+        let moved = parse_layout(
+            &xml.replace("LeftBottom", "RightBottom")
+                .replace("LeftTop", "RightTop"),
+        )
+        .unwrap();
+        assert_eq!(moved.normal, result.normal);
+        assert_eq!(moved.rare, result.rare);
         assert_eq!(
             parse_layout(&xml.replace("Value=\"0.8\"", "Value=\"1.0\""))
                 .unwrap()
@@ -156,30 +209,51 @@ mod tests {
     }
 
     #[test]
-    fn rejects_character_files_missing_hidden_and_unsaved_panels() {
-        for panel in [
+    fn imports_one_panel_when_the_other_is_missing_hidden_unsaved_or_invalid() {
+        for rare in [
             String::new(),
-            r#"<UIData Index="159" IsShow="true"/>"#.into(),
-            PANEL.replace("true", "false"),
-            PANEL
-                .replace("0.1934883744", "0")
-                .replace("0.8073292375", "0"),
-            PANEL.replace("159", "161"),
+            r#"<UIData Index="161" IsShow="true"/>"#.into(),
+            RARE.replace("true", "false"),
+            RARE.replace("0.07112970948", "0")
+                .replace("0.3039378822", "0"),
+            RARE.replace("0.07112970948", "NaN"),
         ] {
-            assert!(parse_layout(&layout(&panel)).is_err());
+            let result = parse_layout(&layout(&format!("{NORMAL}{rare}"))).unwrap();
+            assert!(matches!(result.normal, PanelPosition::Found { .. }));
+            assert!(matches!(result.rare, PanelPosition::Unavailable { .. }));
+        }
+        let result = parse_layout(&layout(RARE)).unwrap();
+        assert!(matches!(result.normal, PanelPosition::Unavailable { .. }));
+        assert_eq!(found(&result.rare), (0.07112970948, 0.3039378822));
+    }
+
+    #[test]
+    fn rejects_files_without_any_usable_panel() {
+        for panels in [
+            String::new(),
+            r#"<UIData Index="159" IsShow="true"/><UIData Index="161" IsShow="true"/>"#.into(),
+            format!(
+                "{}{}",
+                NORMAL.replace("true", "false"),
+                RARE.replace("true", "false")
+            ),
+            NORMAL.replace("159", "160"),
+        ] {
+            assert!(parse_layout(&layout(&panels)).is_err());
         }
     }
 
     #[test]
     fn rejects_invalid_coordinates_scale_and_ambiguous_layouts() {
         for value in ["NaN", "inf", "-0.1", "1.1", "", "garbage"] {
-            assert!(parse_layout(&layout(&PANEL.replace("0.1934883744", value))).is_err());
+            assert!(parse_layout(&layout(&NORMAL.replace("0.1934883744", value))).is_err());
         }
-        let xml = layout(PANEL);
+        let xml = layout(&format!("{NORMAL}{RARE}"));
         for invalid in [
-            xml.replace("0.8", "0.9"),
+            xml.replace("Value=\"0.8\"", "Value=\"0.9\""),
             xml.replace("<UiScale Value=\"0.8\"/>", ""),
-            layout(&format!("{PANEL}{PANEL}")),
+            layout(&format!("{NORMAL}{NORMAL}{RARE}")),
+            layout(&format!("{NORMAL}{RARE}{RARE}")),
             format!("{xml}<UIData/>"),
             xml.replace("RelativePosX=", "RelativePosY="),
             xml.replace("</UIData>", "</Wrong>"),

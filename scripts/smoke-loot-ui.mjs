@@ -274,10 +274,11 @@ await send("Page.addScriptToEvaluateOnNewDocument", {
                 setTimeout(window.__emitFrame,50);
                 return;
             }
-            if (command === "read_normal_loot_layout") {
-                if (args.xml === '<wrong-scale/>') return {x:0.2,y:0.7,uiScalePercent:${uiScale === 80 ? 100 : 80}};
+            if (command === "read_loot_layout") {
+                const panels = {normal:{status:'found',x:0.2,y:0.7},rare:{status:'found',x:0.3,y:0.4}};
+                if (args.xml === '<wrong-scale/>') return {...panels,uiScalePercent:${uiScale === 80 ? 100 : 80}};
                 if (args.xml !== '<layout-fixture/>') throw new Error('Invalid layout fixture');
-                return {x:0.2,y:0.7,uiScalePercent:${uiScale}};
+                return {...panels,uiScalePercent:${uiScale}};
             }
             if (command === "plugin:window|is_minimized") return window.__minimized;
             if (command === "plugin:window|is_maximized") return window.__maximized;
@@ -572,33 +573,35 @@ try {
             }
             await click("Loot stack");
             await evaluate(
-                "[...document.querySelectorAll('summary')].find(s => s.textContent === 'Import loot stack position from BDO').focus()",
+                "[...document.querySelectorAll('summary')].find(s => s.textContent === 'Import loot positions from BDO').focus()",
             );
             await press(" ", "Space", 32);
             await until(
-                "[...document.querySelectorAll('summary')].find(s => s.textContent === 'Import loot stack position from BDO').parentElement.open",
+                "[...document.querySelectorAll('summary')].find(s => s.textContent === 'Import loot positions from BDO').parentElement.open",
             );
             await press("Tab", "Tab", 9);
             await until("document.activeElement?.tagName === 'INPUT'");
             assert.equal(
                 await evaluate("document.activeElement?.getAttribute('aria-label')"),
-                "Import normal loot position from gamevariable.xml",
+                "Import loot positions from gamevariable.xml",
                 "Opening import with the keyboard must make the file chooser the next tab stop",
             );
             const beforeImport = await evaluate(
                 "window.__calls.filter(c => c.command === 'set_native_display_capture_region').at(-1).args.selection.settings",
             );
             await evaluate(`(() => {
-                const input = document.querySelector('input[aria-label="Import normal loot position from gamevariable.xml"]');
+                const input = document.querySelector('input[aria-label="Import loot positions from gamevariable.xml"]');
                 const transfer = new DataTransfer();
                 transfer.items.add(new File(['<layout-fixture/>'], 'gamevariable.xml', {type:'application/xml'}));
                 input.files = transfer.files;
                 input.dispatchEvent(new Event('change', {bubbles:true}));
             })()`);
-            await until("document.body.textContent.includes('Normal area moved to the saved layout position')");
+            await until(
+                "document.body.textContent.includes('Loot stack and rare loot areas moved to the saved layout positions')",
+            );
             assert.equal(
                 await evaluate("document.activeElement?.getAttribute('aria-label')"),
-                "Import normal loot position from gamevariable.xml",
+                "Import loot positions from gamevariable.xml",
                 "Reading a layout must preserve keyboard focus on the file chooser",
             );
             await until(
@@ -607,7 +610,16 @@ try {
             const imported = await evaluate(
                 "window.__calls.filter(c => c.command === 'set_native_display_capture_region').at(-1).args.selection.settings",
             );
-            assert.deepEqual(imported.rareRegion, beforeImport.rareRegion);
+            assert.equal(
+                Math.round(imported.rareRegion.x * sourceWidth),
+                Math.round(0.3 * sourceWidth - (uiScale === 80 ? 170 : 212.5)),
+            );
+            assert.equal(
+                Math.round(imported.rareRegion.y * sourceHeight),
+                Math.round(0.4 * sourceHeight - (uiScale === 80 ? 36 : 45)),
+            );
+            assert.equal(imported.rareRegion.width, beforeImport.rareRegion.width);
+            assert.equal(imported.rareRegion.height, beforeImport.rareRegion.height);
             assert.equal(
                 Math.round(imported.region.x * sourceWidth),
                 Math.round(0.2 * sourceWidth - (uiScale === 80 ? 136 : 170.5)) + (uiScale === 80 ? 25 : 31),
@@ -687,7 +699,7 @@ try {
                 ["<wrong-scale/>", "Select that scale in capture setup before importing."],
             ]) {
                 await evaluate(`(() => {
-                    const input = document.querySelector('input[aria-label="Import normal loot position from gamevariable.xml"]');
+                    const input = document.querySelector('input[aria-label="Import loot positions from gamevariable.xml"]');
                     const transfer = new DataTransfer();
                     transfer.items.add(new File([${JSON.stringify(contents)}], 'gamevariable.xml'));
                     input.files = transfer.files;
