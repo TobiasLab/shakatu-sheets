@@ -1447,6 +1447,35 @@ it("releases supplementary frames and suppresses late results when stopped durin
     expect(results).toEqual([]);
 });
 
+it.each([false, true])(
+    "reads adjacent 16 FPS frames from a row that disappears early (enabled: %s)",
+    async (enabled) => {
+        const calls: number[][] = [];
+        const results: LiveLootRecognitionResult[] = [];
+        const coordinator = new LiveLootCoordinator({
+            sampleFps: 16,
+            profile: streamingProfile,
+            dictionary: ["Black Stone"],
+            ocrSelection: { windowFrames: 6, maximumFrameCount: 5, consecutiveWhenEnded: enabled },
+            readText: async (frames) => {
+                calls.push(frames.map(({ frame }) => frame));
+                return frames.map(() => ["Black Stone x 2"]);
+            },
+            onResult: (result) => results.push(result),
+        });
+        pushRowSequence(coordinator, [0, 1, 1, 1, 1, 0, 0, 0, 0, 0]);
+        await coordinator.finish();
+        expect(calls).toEqual(enabled ? [[2, 3, 4]] : []);
+        expect(results).toEqual([
+            expect.objectContaining(
+                enabled
+                    ? { status: "recognized", quantity: 2, selectedFrames: [2, 3, 4] }
+                    : { status: "withheld", reason: "insufficient-observations" },
+            ),
+        ]);
+    },
+);
+
 it.each([false, true])("preserves OCR timing and read limits at 16 FPS (unresolved: %s)", async (unresolved) => {
     const calls: number[][] = [];
     const results: LiveLootRecognitionResult[] = [];
