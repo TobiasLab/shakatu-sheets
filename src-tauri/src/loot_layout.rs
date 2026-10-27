@@ -38,6 +38,8 @@ fn parse_layout(xml: &str) -> Result<LootLayout, String> {
     let mut rare = None;
     let mut scale = None;
     let mut layouts = 0;
+    // Character files list the panels without coordinates.
+    let mut has_coordinates = false;
     loop {
         let event = reader.read_event().map_err(|_| INVALID_XML)?;
         let is_start = matches!(event, Event::Start(_));
@@ -82,6 +84,7 @@ fn parse_layout(xml: &str) -> Result<LootLayout, String> {
                                 "The settings file contains more than one {label} position."
                             ));
                         }
+                        has_coordinates |= get(b"RelativePosX").is_some();
                         *slot = Some(panel_position(&get, label));
                     }
                     if ui_scale {
@@ -117,9 +120,12 @@ fn parse_layout(xml: &str) -> Result<LootLayout, String> {
         PanelPosition::Unavailable { message: rare },
     ) = (&normal, &rare)
     {
-        return Err(format!(
-            "{normal} {rare} Choose Black Desert's account-level gamevariable.xml, not a character file."
-        ));
+        let hint = if has_coordinates {
+            ""
+        } else {
+            " Choose Black Desert's account-level gamevariable.xml, not a character file."
+        };
+        return Err(format!("{normal} {rare}{hint}"));
     }
     Ok(LootLayout {
         normal,
@@ -241,6 +247,18 @@ mod tests {
         ] {
             assert!(parse_layout(&layout(&panels)).is_err());
         }
+        let character_file = parse_layout(&layout(
+            r#"<UIData Index="159" IsShow="true"/><UIData Index="161" IsShow="true"/>"#,
+        ))
+        .unwrap_err();
+        assert!(character_file.ends_with("not a character file."));
+        let hidden = parse_layout(&layout(&format!(
+            "{}{}",
+            NORMAL.replace("true", "false"),
+            RARE.replace("true", "false")
+        )))
+        .unwrap_err();
+        assert!(hidden.ends_with("Enable it in BDO and save again."));
     }
 
     #[test]
