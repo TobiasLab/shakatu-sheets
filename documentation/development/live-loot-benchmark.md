@@ -131,9 +131,9 @@ scoring. The tracker and end-to-end commands decode packed RGBA frames and call 
 parsers in `src/recognition/` (`liveLoot.ts`, `lootRowTracker.ts`, `lootReadings.ts`), but with the tracker's
 defaults: projection identity distance, a two-frame empty limit, single-frame steps, and three-frame OCR selection
 without supplementary frames. Live capture configures
-these through `LiveLootCoordinator` instead (row identity distance, a four-frame limit and two-frame steps at 16 FPS, and
-supplementary frames). Use the [ROI sample replay](#roi-sample-replay), which runs the coordinator, to measure the
-production configuration. Use `--development-only` while tuning.
+these through `LiveLootCoordinator` instead (row identity distance, a four-frame limit and two-frame steps at 16 FPS,
+adjacent frames for rows that end early, and supplementary frames). Use the [ROI sample replay](#roi-sample-replay),
+which runs the coordinator, to measure the production configuration. Use `--development-only` while tuning.
 Profile export is disabled in development-only mode and occurs only after Tesseract terminates, every validation/test
 segment has exact event detection and item-and-quantity recognition with no missed or invented tracks, and at least one
 non-baseline event exists across those held-out splits. A test split alone satisfies the held-out requirement. The V1

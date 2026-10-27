@@ -44,8 +44,10 @@ counted as arrivals. Event IDs track appearances, including repeated identical d
 legitimate loot. Faint glyph movement and confirmed stack displacement provide arrival evidence as older rows fade.
 Digit shapes refine ambiguous row assignments but do not independently establish a new drop.
 
-Normal OCR reads three stable observations spaced 125 ms apart after the entrance delay. Up to two supplementary frames
-are read only for unresolved results. Consensus considers all readings and retains the veto on confidently conflicting
+Normal OCR reads three stable observations spaced 125 ms apart after the entrance delay. At 16 FPS, a row that ends
+before spaced evidence exists, because the whole stack fades, a game window covers it, or capture finishes, is read
+from three adjacent stable frames instead of being withheld. This never replaces spaced evidence. Up to two
+supplementary frames are read only for unresolved results. Consensus considers all readings and retains the veto on confidently conflicting
 item/quantity pairs. There is no standalone single-frame or two-frame acceptance. Normal and rare jobs share one local
 Tesseract worker, with at most eight outstanding normal jobs and two rare jobs, including active work.
 
