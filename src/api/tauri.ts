@@ -369,8 +369,12 @@ export function logRoiOcrIssue(issue: RoiOcrIssue) {
     return invoke<boolean>("log_debug_roi_ocr_issue", { issue });
 }
 
-export function readNormalLootLayout(xml: string): Promise<{ x: number; y: number; uiScalePercent: LootUiScale }> {
-    return invoke("read_normal_loot_layout", { xml });
+export type LootLayoutPanel = { status: "found"; x: number; y: number } | { status: "unavailable"; message: string };
+
+export function readLootLayout(
+    xml: string,
+): Promise<{ normal: LootLayoutPanel; rare: LootLayoutPanel; uiScalePercent: LootUiScale }> {
+    return invoke("read_loot_layout", { xml });
 }
 
 export function inspectGarmothConsumables(characterId: string, includeFieldNames = false) {

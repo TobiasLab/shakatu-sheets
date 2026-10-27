@@ -6,7 +6,7 @@ import {
     type NativeCaptureFrame,
     type NativeCaptureSelection,
     nativeCaptureCapabilities,
-    readNormalLootLayout,
+    readLootLayout,
     saveLootCaptureSettings,
     setNativeDisplayCapturePreviewEnabled,
     setNativeDisplayCaptureRegion,
@@ -948,7 +948,7 @@ export function useLiveLootCapture({
         }
     }
 
-    async function importNormalLootLayout(file: File | undefined) {
+    async function importLootLayout(file: File | undefined) {
         const source = sourceDimensionsRef.current;
         if (!file || savingRegion || layoutImportBusy.current || !source || !previewsEnabledRef.current) return;
         const captureRequest = requestId.current;
@@ -964,21 +964,37 @@ export function useLiveLootCapture({
         setLayoutImportMessage("");
         try {
             if (file.size > 2 * 1024 * 1024) throw new Error("The settings file is too large (maximum 2 MiB).");
-            const position = await readNormalLootLayout(await file.text());
+            const layout = await readLootLayout(await file.text());
             if (!stillCurrent()) return;
-            if (position.uiScalePercent !== scale) {
+            if (layout.uiScalePercent !== scale) {
                 throw new Error(
-                    `This file uses ${position.uiScalePercent}% UI scale. Select that scale in capture setup before importing.`,
+                    `This file uses ${layout.uiScalePercent}% UI scale. Select that scale in capture setup before importing.`,
                 );
             }
-            const next = positionNormalLootFromLayout(position.x, position.y, source.width, source.height, scale);
+            const { normal, rare } = layout;
             clearLocalization();
             restartRecognition();
-            place({ type: "import-layout", region: next });
+            place({
+                type: "import-layout",
+                normal:
+                    normal.status === "found"
+                        ? positionNormalLootFromLayout(normal.x, normal.y, source.width, source.height, scale)
+                        : null,
+                rare:
+                    rare.status === "found"
+                        ? positionLootRegion(rare.x, rare.y, source.width, source.height, scale, "rare")
+                        : null,
+            });
             clearRegionPreview("normal");
+            clearRegionPreview("rare");
             setError("");
+            const check = "Check the preview, adjust if needed, then confirm both areas.";
             setLayoutImportMessage(
-                "Normal area moved to the saved layout position. Check the item-name rows in the preview, adjust if needed, then confirm both areas.",
+                normal.status === "unavailable"
+                    ? `Rare loot area moved to the saved layout position. The loot stack was not moved: ${normal.message} ${check}`
+                    : rare.status === "unavailable"
+                      ? `Loot stack area moved to the saved layout position. Rare loot was not moved: ${rare.message} ${check}`
+                      : `Loot stack and rare loot areas moved to the saved layout positions. ${check}`,
             );
         } catch (failure) {
             if (stillCurrent()) setLayoutImportMessage(failure instanceof Error ? failure.message : String(failure));
@@ -1840,7 +1856,7 @@ export function useLiveLootCapture({
         nudgeSelectedRegion,
         uiScalePercent,
         changeUiScale,
-        importNormalLootLayout,
+        importLootLayout,
         importingLayout,
         layoutImportMessage,
         calibratedProfile,

@@ -145,23 +145,32 @@ Text, quantity, and rare banner coordinates are translated to preserve the origi
 Saved larger crops are migrated on load, preserving their text placement. Historical ROI recordings retain their original
 geometry for replay. Confirm both areas after positioning.
 
-### Importing normal loot placement
+### Importing loot placement
 
-Capture setup offers **Import normal loot position**. Select the account-level
+Capture setup offers **Import loot positions from BDO**. Select the account-level
 `Documents/Black Desert/UserCache/<account>/gamevariable.xml`, with a capture source selected and previews enabled.
 The file is read only on request; its contents and path are not saved or uploaded. Confirming the placement saves
 only the existing capture-region settings. The same import is available on Linux for a copied settings file.
 
-The Rust parser reads the active `UIData` entry with `Index="159"`, identified by a controlled normal-notification
-movement in reference settings snapshots. It ignores saved presets and uses `RelativePosX`/`RelativePosY` as the
-saved panel anchor, with the current capture dimensions and calibrated crop size. Both coordinates receive the
-text-alignment correction below. Anchored `PosX`/`PosY` are not screen
+The Rust parser reads the active `UIData` entries with `Index="159"` (loot stack) and `Index="161"` (rare loot).
+Index 159 was identified by a controlled normal-notification movement in reference settings snapshots. Index 161 was
+identified by matching a reference file against a confirmed rare crop from a recording on the same 3440×1440/80% setup.
+The parser ignores saved presets and uses `RelativePosX`/`RelativePosY` as the
+saved panel anchor, with the current capture dimensions and calibrated crop size. Both loot stack coordinates receive
+the text-alignment correction below. Anchored `PosX`/`PosY` are not screen
 coordinates; the observed move switched from `RightBottom` to `LeftBottom`. Saved display dimensions are not
 used because they differed from the gameplay layout in the reference files. This assumes the captured source covers
 the game viewport; a monitor capture with a smaller game window may need manual adjustment.
 
-Only the normal placement moves. Rare placement is preserved, recognition is reset, and the user checks the preview
-before confirming. The XML-to-text correction moves the crop right 25 and down 21 source pixels at 80% UI scale. This is
+Both areas move when their panels are usable. A hidden, unsaved, missing, or invalid panel leaves that area where it
+was and the import message says why; the import fails only when neither panel is usable. Recognition is reset, and the
+user checks the preview before confirming.
+
+The rare crop is centered on the saved rare panel position without a correction. The reference entry
+(`RelativePosX="0.07112970948"`, `RelativePosY="0.3039378822"`, `PendingType="LeftTop"`) places the 340×72 crop at
+`(75, 402)`; the confirmed crop was `(78, 401)`. The 100% placement and other resolutions have not been checked in game.
+
+The loot stack XML-to-text correction moves the crop right 25 and down 21 source pixels at 80% UI scale. This is
 based on a 3440×1440 reference placement: XML produced `(3023, 1073)` and automatic placement produced `(3048, 1094)`,
 both 272×180. The corrected import matches that automatic placement at `(3048, 1094)`. The correction scales with BDO UI
 scale, not resolution or monitor DPI: right 31 and down 26 pixels at 100% (rounded after multiplying by 1.25).
@@ -169,8 +178,8 @@ That 100% correction is extrapolated; other resolutions, moved panels, and actua
 validation. The regression test uses the reference `Index="159"` entry
 (`RelativePosX="0.9183720946"`, `RelativePosY="0.8078845143"`, `PendingType="RightBottom"`).
 
-Character files without coordinates, hidden or unsaved panels, duplicate active entries, invalid coordinates, unsupported
-UI scales, and files over 2 MiB are rejected. The XML scale must match the selected capture scale. Selecting another
+Files where neither panel is usable (such as character files without coordinates), duplicate active entries,
+unsupported UI scales, and files over 2 MiB are rejected. The XML scale must match the selected capture scale. Selecting another
 source or resizing during the read discards the result.
 
 Coordinates refer to physical pixels within the selected capture item. Windows display scaling and BDO's UI scale are

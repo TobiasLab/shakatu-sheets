@@ -255,6 +255,14 @@ describe("visible loot guide placement", () => {
     }
 });
 
+describe("rare loot XML placement", () => {
+    it("centers the rare crop on the saved panel position from the 3440x1440/80% XML layout", () => {
+        // Reference Index="161" entry: LeftTop, PosX=96, PosY=483. The confirmed crop in a recording was (78, 401).
+        const region = positionLootRegion(0.07112970948, 0.3039378822, 3440, 1440, 80, "rare");
+        expect(normalizedRegionToPixels(region, 3440, 1440)).toEqual({ x: 75, y: 402, width: 340, height: 72 });
+    });
+});
+
 describe("normal loot XML placement", () => {
     it("matches the reported automatic placement from the 3440x1440/80% XML layout", () => {
         // Reported Index="159" entry: RightBottom, PosX=-331, PosY=136.

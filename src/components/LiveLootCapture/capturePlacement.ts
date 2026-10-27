@@ -46,7 +46,8 @@ export type PlacementAction =
     | { type: "end-search" }
     /** The search found the selected area. `defaultRare` places the rare area if it has never been placed. */
     | { type: "lock-search"; region: NormalizedRegion; defaultRare: NormalizedRegion }
-    | { type: "import-layout"; region: NormalizedRegion }
+    /** Areas read from the game's saved layout; an area the layout lacks is null and keeps its placement. */
+    | { type: "import-layout"; normal: NormalizedRegion | null; rare: NormalizedRegion | null }
     /** Confirming starts capturing both areas as placed; `confirmed` follows once the placement is saved. */
     | { type: "confirm" }
     | { type: "confirmed" }
@@ -227,16 +228,22 @@ export function reducePlacement(placement: CapturePlacement, action: PlacementAc
                 rareCaptureRegion: rareRegion,
             };
         }
-        case "import-layout":
+        case "import-layout": {
+            const normalRegion = action.normal ?? placement.normalRegion;
+            const rareRegion = action.rare ?? placement.rareRegion;
             return {
                 ...placement,
                 searchRegion: null,
                 mode: "manual",
-                activeKind: "normal",
-                normalRegion: action.region,
-                normalCaptureRegion: action.region,
+                activeKind: action.normal ? "normal" : "rare",
+                normalRegion,
+                rareRegion,
+                normalCaptureRegion: normalRegion,
+                rareCaptureRegion: rareRegion,
                 normalConfirmed: false,
+                rareConfirmed: action.rare ? false : placement.rareConfirmed,
             };
+        }
         case "confirm":
             return {
                 ...placement,
