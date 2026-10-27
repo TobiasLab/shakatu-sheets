@@ -1,6 +1,6 @@
 [package]
 name = "shakatu-sheets"
-version = "0.1.0"
+version = "0.1.1"
 description = "Local-first Black Desert Online silver-per-hour tracker"
 license = "AGPL-3.0-only"
 edition = "2021"
