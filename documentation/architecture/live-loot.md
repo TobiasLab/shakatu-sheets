@@ -44,6 +44,12 @@ counted as arrivals. Event IDs track appearances, including repeated identical d
 legitimate loot. Faint glyph movement and confirmed stack displacement provide arrival evidence as older rows fade.
 Digit shapes refine ambiguous row assignments but do not independently establish a new drop.
 
+New drops appear at full brightness, and a row stays bright for about one second before it fades. Fading text can
+change a row's projection enough to look like a replacement, so a birth that keeps the row count needs a brightened
+bottom row or the old bottom row moved up; otherwise a dimming bottom row or a stack about to shrink is treated as a
+fade. Conversely, a short detector gap normally keeps a row's identity, but a bottom row that was fading before the gap
+and returns brighter is a new identical drop. A refreshed bottom row without a detector gap is not yet counted.
+
 Normal OCR reads three stable observations spaced 125 ms apart after the entrance delay. Up to two supplementary frames
 are read only for unresolved results. Consensus considers all readings and retains the veto on confidently conflicting
 item/quantity pairs. There is no standalone single-frame or two-frame acceptance. Normal and rare jobs share one local

@@ -129,6 +129,41 @@ export function fadingLootArrivals<T>(
     }
 }
 
+/**
+ * New drops appear at full brightness. Without a new row, fading text can change a row's projection enough to look
+ * like a replacement. A birth that keeps the row count needs a brightened bottom row, or the old bottom row moved up
+ * `births` slots, which either keeps its brightness or brightens the slot it moves into. Without that evidence, a
+ * dimmer bottom row or a stack that shrinks next is a fade, not an arrival.
+ */
+export function fadeWithoutArrival<T>(
+    previous: LootDetectedRows<T>,
+    current: LootDetectedRows<T>,
+    next: LootDetectedRows<T> | undefined,
+    births: number,
+) {
+    const before = previous.appearances;
+    const now = current.appearances;
+    if (!before || !now || current.count > previous.count) return false;
+    const bottom = before.length - 1;
+    const old = before[bottom].visibility;
+    const moved = now[bottom - births];
+    if (now[bottom].visibility >= old * 1.1) return false;
+    if (
+        moved &&
+        ((moved.visibility >= old * 0.85 && moved.visibility <= old * 1.1) ||
+            moved.visibility > before[bottom - births].visibility * 1.1)
+    )
+        return false;
+    return now[bottom].visibility < old * 0.9 || (next !== undefined && next.count < current.count);
+}
+
+/** A fading row cannot return at full brightness after a short detector gap, so a brighter bottom row is a new drop. */
+export function lootRowRefreshed<T>(before: LootDetectedRows<T>, after: LootDetectedRows<T>) {
+    const old = before.appearances?.[before.appearances.length - 1]?.visibility;
+    const now = after.appearances?.[after.appearances.length - 1]?.visibility;
+    return old !== undefined && now !== undefined && old < now * 0.9;
+}
+
 /** When only the top fades away, the surviving bottom rows keep their event identities. */
 export function lootRowsFaded<T>(previous: LootDetectedRows<T>, current: LootDetectedRows<T>) {
     const before = previous.appearances;

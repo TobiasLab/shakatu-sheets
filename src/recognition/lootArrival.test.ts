@@ -2,7 +2,14 @@ import { describe, expect, it } from "vitest";
 import { LEGACY_LOOT_REGION_SIZES, LOOT_CROP_BOUNDS } from "./displayCapture";
 import type { LootDetectedRows } from "./liveLoot";
 import { findLiveLootProfile } from "./liveLootProfiles";
-import { fadingLootArrivals, type LootRowAppearance, lootRowAppearances, lootRowsFaded } from "./lootArrival";
+import {
+    fadeWithoutArrival,
+    fadingLootArrivals,
+    type LootRowAppearance,
+    lootRowAppearances,
+    lootRowRefreshed,
+    lootRowsFaded,
+} from "./lootArrival";
 import { LootRowTracker, rowBirthCount } from "./lootRowTracker";
 
 const glyph = [0, 100, 200, 0, 150, 70, 0, 180];
@@ -115,6 +122,67 @@ describe("fading loot arrivals", () => {
         sample.appearances = undefined;
         expect(fadingLootArrivals(sample, sample, sample)).toBe(0);
         expect(lootRowsFaded(sample, sample)).toBe(false);
+        expect(fadeWithoutArrival(sample, sample, rows(1, [30, 30, 30, 30, 230]), 1)).toBe(false);
+    });
+});
+
+describe("identical rows across a short detector gap", () => {
+    function arrivals(frames: LootDetectedRows<number>[]) {
+        const tracker = new LootRowTracker(196, distance);
+        for (const frame of frames) tracker.push(frame);
+        return tracker.finish().filter((track) => !track.baseline).length;
+    }
+    const empty = { ...rows(0, [30, 30, 30, 30, 30]), appearances: undefined };
+    const bright = rows(1, [30, 30, 30, 30, 228]);
+
+    it("counts a fresh identical row after the previous one faded out", () => {
+        const fading = rows(1, [30, 30, 30, 30, 169]);
+        expect(lootRowRefreshed(fading, bright)).toBe(true);
+        expect(arrivals([empty, bright, bright, fading, empty, bright, bright, empty, empty])).toBe(2);
+    });
+
+    it("keeps one identity when a bright row drops out for a frame", () => {
+        expect(lootRowRefreshed(bright, bright)).toBe(false);
+        expect(arrivals([empty, bright, bright, empty, bright, bright, empty, empty])).toBe(1);
+    });
+});
+
+describe("fades without arrivals", () => {
+    it("rejects a lone row that only dims", () => {
+        const before = rows(1, [90, 100, 118, 141, 185]);
+        const current = rows(1, [91, 95, 109, 124, 145]);
+        expect(fadeWithoutArrival(before, current, current, 1)).toBe(true);
+    });
+
+    it("rejects an unchanged bright bottom row while the stack is about to shrink", () => {
+        const before = rows(2, [99, 101, 94, 148, 228]);
+        const current = rows(2, [100, 101, 94, 148, 228]);
+        expect(fadeWithoutArrival(before, current, rows(1, [100, 101, 94, 80, 228]), 1)).toBe(true);
+        expect(fadeWithoutArrival(before, current, current, 1)).toBe(false);
+    });
+
+    it("keeps a dimmer colored row that pushes a fading bottom row into a darker slot", () => {
+        const before = rows(2, [30, 35, 90, 137, 200]);
+        const current = rows(2, [36, 60, 100, 159, 213]);
+        expect(fadeWithoutArrival(before, current, rows(1, [29, 47, 79, 131, 213]), 1)).toBe(false);
+    });
+
+    it("keeps a new row that pushes a dimming bottom row up while the stack grows", () => {
+        const before = rows(2, [74, 100, 101, 168, 228]);
+        const current = rows(2, [73, 100, 140, 183, 228]);
+        expect(fadeWithoutArrival(before, current, rows(3, [73, 100, 140, 183, 228]), 1)).toBe(false);
+    });
+
+    it("keeps a brightened bottom row, a moved bottom row, and a growing stack", () => {
+        const faded = rows(1, [83, 108, 89, 92, 140]);
+        const refreshed = rows(1, [75, 88, 88, 115, 228]);
+        expect(fadeWithoutArrival(faded, refreshed, rows(0, [75, 88, 88, 90, 100]), 1)).toBe(false);
+        const full = rows(3, [74, 75, 154, 226, 228]);
+        const shifted = rows(3, [76, 128, 225, 228, 228]);
+        expect(fadeWithoutArrival(full, shifted, rows(2, [76, 90, 160, 228, 228]), 1)).toBe(false);
+        expect(fadeWithoutArrival(rows(1, [90, 90, 90, 90, 228]), rows(2, [90, 90, 90, 150, 228]), undefined, 1)).toBe(
+            false,
+        );
     });
 });
 
