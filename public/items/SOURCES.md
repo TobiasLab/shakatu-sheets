@@ -8,6 +8,9 @@ existing ones:
 - https://assets.garmoth.com/
 
 The icons for the hand-written grind spot profiles were retrieved on 2026-08-30 for Garmoth grind spots 194, 200, 201,
-213, 214, and 215. `artifact.png`, used for artifact drops, was added in commit b4dffba without a recorded source.
+213, 214, and 215. `4918.webp` (Magical Shard), which the grind-tracker API does not list, was retrieved on 2026-10-28
+from `https://assets.garmoth.com/img/new_icon/03_etc/07_productmaterial/00004918.webp`. `artifact.png`, used for
+artifact drops and for shared event items without a bundled icon, was added in commit b4dffba without a recorded
+source.
 
 The artwork belongs to Pearl Abyss Corp. and is not covered by the project license. See `THIRD_PARTY_NOTICES.md`.

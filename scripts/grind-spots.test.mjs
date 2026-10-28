@@ -1,6 +1,12 @@
 import { existsSync } from "node:fs";
 import { describe, expect, it } from "vitest";
-import { getDropIcon, getGrindSpotDrops, getMarketItemIds, grindSpots } from "../src/data/grindSpots";
+import {
+    getDropIcon,
+    getGrindSpotDrops,
+    getMarketItemIds,
+    grindSpots,
+    supplementalDrops,
+} from "../src/data/grindSpots";
 import { parseLootItem } from "../src/recognition/lootReadings";
 
 describe("bundled grind spots", () => {
@@ -31,15 +37,7 @@ describe("bundled grind spots", () => {
         for (const spot of grindSpots) {
             const drops = getGrindSpotDrops(spot.id);
             const names = drops.map((drop) => drop.name);
-            for (const name of [
-                "Laila's Petal",
-                "Pure Forest Breath",
-                "Cron Stone",
-                "Sharp Black Crystal Shard",
-                "Magical Shard",
-                "Box of 100 Cron Stones",
-                "[Event] Purified Devil's Box",
-            ]) {
+            for (const { name } of supplementalDrops) {
                 expect(names.filter((candidate) => candidate === name)).toHaveLength(1);
                 expect(parseLootItem(`${name} x 2`, names)).toBe(name);
                 expect(existsSync(`public${getDropIcon(spot.id, name)}`)).toBe(true);

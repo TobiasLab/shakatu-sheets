@@ -42,6 +42,8 @@ function drop(key) {
 const refreshedSupplementalDrops = supplementalDrops.map((item) =>
     metadata.drops[item.garmothKey] ? drop(item.garmothKey) : item,
 );
+const curatedDrops = supplementalDrops.filter((item) => !metadata.drops[item.garmothKey]);
+if (curatedDrops.length) console.info(`Kept curated shared items: ${curatedDrops.map((item) => item.name).join(", ")}`);
 const spots = Object.values(metadata.spots)
     .filter(
         (spot) =>
