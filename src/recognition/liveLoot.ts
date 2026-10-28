@@ -217,7 +217,7 @@ export type LiveLootOcrReader = (
     signal: AbortSignal,
 ) => Promise<readonly (readonly string[])[]>;
 
-export const NORMAL_LOOT_OCR_SELECTION = { windowFrames: 6, maximumFrameCount: 5, consecutiveWhenEnded: true } as const;
+export const NORMAL_LOOT_OCR_SELECTION = { windowFrames: 6, maximumFrameCount: 5 } as const;
 
 export type LootOcrSelectionOptions = {
     windowFrames?: number;
@@ -245,8 +245,7 @@ export type LiveLootCoordinatorOptions = {
     maxPendingResults?: number;
     retainedFrameCount?: number;
     analyzeFrame?: LiveLootFrameAnalyzer;
-    /** `consecutiveWhenEnded` reads adjacent frames from a row that ends before spaced evidence exists. */
-    ocrSelection?: Omit<LootOcrSelectionOptions, "frameStep"> & { consecutiveWhenEnded?: boolean };
+    ocrSelection?: Omit<LootOcrSelectionOptions, "frameStep">;
     ocrBounds?: LootOcrBounds;
     ocrTextColor?: "white" | "gold";
     eventIdPrefix?: string;
@@ -492,7 +491,6 @@ export class LiveLootCoordinator {
     private readonly abortController = new AbortController();
     private readonly analyzeFrame: LiveLootFrameAnalyzer;
     private readonly ocrSelection: LootOcrSelectionOptions;
-    private readonly consecutiveWhenEnded: boolean;
     private readonly ocrFrameCount: number;
     private pendingSummary: LootSummaryDelivery | undefined;
     private activeOcrDelivery: LootOcrDelivery | undefined;
@@ -584,7 +582,6 @@ export class LiveLootCoordinator {
             windowFrames,
             maximumFrameCount,
         };
-        this.consecutiveWhenEnded = options.ocrSelection?.consecutiveWhenEnded ?? false;
         this.ocrFrameCount = ocrFrameCount;
         this.tracker = new LootRowTracker(options.profile.rowThreshold, lootFingerprintDistance, {
             retainHistory: false,
@@ -717,23 +714,12 @@ export class LiveLootCoordinator {
                     ((this.ocrSelection.windowFrames ?? 3) - 1) * (this.ocrSelection.frameStep ?? 1)
         )
             return false;
-        const retained = { ...track, observations: track.observations.filter(({ frame }) => this.frames.has(frame)) };
-        let selected = selectLootOcrObservations(
-            retained,
+        const selected = selectLootOcrObservations(
+            { ...track, observations: track.observations.filter(({ frame }) => this.frames.has(frame)) },
             this.options.profile.rowThreshold,
             this.ocrSelection,
             lootFingerprintDistance,
         );
-        // At 16 FPS a stack that fades or is covered quickly, or a capture that finishes, can end a row before
-        // spaced evidence exists.
-        // Adjacent frames still need the full frame count and the same consensus; this only replaces a withheld result.
-        if (flush && this.consecutiveWhenEnded && selected.length < this.ocrFrameCount)
-            selected = selectLootOcrObservations(
-                retained,
-                this.options.profile.rowThreshold,
-                { ...this.ocrSelection, frameStep: 1, delayFrames: 1 },
-                lootFingerprintDistance,
-            );
         if (selected.length < this.ocrFrameCount) return false;
 
         const metadata = this.resultMetadata(
