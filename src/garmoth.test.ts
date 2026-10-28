@@ -138,8 +138,9 @@ describe("buildGarmothUpload", () => {
         const preview = buildGarmothUpload(session);
         expect(preview.omittedEntries).toEqual(supplementalDrops.map((drop) => drop.name));
         expect(preview.input.drops).toEqual(original.input.drops);
-        // Two each of Laila's Petal and Cron Stone, plus three market items at 2 × 2,330,000 after tax.
-        expect(preview.input.total).toBe(original.input.total + 7_000_000 + Math.round(3 * 4_660_000 * 0.845));
+        // Two each of Laila's Petal, Cron Stone and Box of 100 Cron Stones, plus three market items at 2 × 2,330,000
+        // after tax.
+        expect(preview.input.total).toBe(original.input.total + 607_000_000 + Math.round(3 * 4_660_000 * 0.845));
         expect(getGarmothUploadNotice(preview)).toContain("Session totals still include these items.");
         expect(getGarmothUploadNotice(preview)).not.toContain("Reopen");
     });
