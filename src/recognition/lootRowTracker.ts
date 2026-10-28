@@ -6,7 +6,7 @@ import type {
     LootRowObservation,
     LootTrack,
 } from "./liveLoot";
-import { fadingLootArrivals, lootRowsFaded } from "./lootArrival";
+import { fadeWithoutArrival, fadingLootArrivals, lootRowRefreshed, lootRowsFaded } from "./lootArrival";
 
 export function stackShifted<TFingerprint>(
     previous: TFingerprint[],
@@ -31,10 +31,11 @@ export function rowBirthCount<TFingerprint>(
     rowThreshold: number,
     distance: FingerprintDistance<TFingerprint>,
 ) {
-    return Math.max(
+    const births = Math.max(
         projectionBirthCount(previous, current, next, rowThreshold, distance),
         fadingLootArrivals(previous, current, next),
     );
+    return births > 0 && fadeWithoutArrival(previous, current, next, births) ? 0 : births;
 }
 
 function projectionBirthCount<TFingerprint>(
@@ -179,6 +180,7 @@ export class LootRowTracker<TFingerprint> {
     private emptyFrames = 0;
     private frameCount = 0;
     private previous: LootDetectedRows<TFingerprint> | undefined;
+    private lastVisible: LootDetectedRows<TFingerprint> | undefined;
     private pending: { frame: number; rows: LootDetectedRows<TFingerprint> } | undefined;
     private finished = false;
 
@@ -342,7 +344,12 @@ export class LootRowTracker<TFingerprint> {
         ) {
             births = 0;
         }
-        if (this.emptyFrames > 0 && this.emptyFrames < this.emptyFrameLimit && this.stack.length > 0) {
+        if (
+            this.emptyFrames > 0 &&
+            this.emptyFrames < this.emptyFrameLimit &&
+            this.stack.length > 0 &&
+            !(this.lastVisible && lootRowRefreshed(this.lastVisible, current))
+        ) {
             const recovery = this.bestTrackAlignment(current);
             if (recovery.distance <= 0.1) {
                 const unmatchedBottom = current.count - recovery.targetOffset - recovery.retained;
@@ -359,6 +366,7 @@ export class LootRowTracker<TFingerprint> {
             if (this.emptyFrames >= this.emptyFrameLimit) this.replaceStack([]);
         } else {
             this.emptyFrames = 0;
+            this.lastVisible = current;
         }
         this.previous = current;
         this.pending = undefined;
@@ -372,6 +380,7 @@ export class LootRowTracker<TFingerprint> {
             this.align(frame, rows, rows.count, true);
             this.emptyFrames = rows.count === 0 ? 1 : 0;
             this.previous = rows;
+            if (rows.count > 0) this.lastVisible = rows;
             return;
         }
         this.processPending(rows);
@@ -415,6 +424,7 @@ export class LootRowTracker<TFingerprint> {
         this.endedTracks.length = 0;
         this.releasedTracks.clear();
         this.previous = undefined;
+        this.lastVisible = undefined;
         this.pending = undefined;
         this.finished = true;
     }
