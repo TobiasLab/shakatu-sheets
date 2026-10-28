@@ -42,7 +42,7 @@
         "icon": "/items/artifact.png",
         "garmothKey": "860318_0",
         "valuation": "vendor",
-        "unitPrice": 0
+        "unitPrice": 300000000
     },
     {
         "name": "[Event] Purified Devil's Box",

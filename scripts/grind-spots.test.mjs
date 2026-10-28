@@ -57,8 +57,8 @@ describe("bundled grind spots", () => {
             for (const [name, unitPrice] of [
                 ["Laila's Petal", 500_000],
                 ["Cron Stone", 3_000_000],
-                // Opening the box shows its Cron Stones as separate loot, so the box itself adds nothing.
-                ["Box of 100 Cron Stones", 0],
+                // Opening the box shows no loot notification, so the box carries its 100 Cron Stones.
+                ["Box of 100 Cron Stones", 300_000_000],
                 ["[Event] Purified Devil's Box", 0],
             ]) {
                 expect(drops.find((drop) => drop.name === name)).toMatchObject({ valuation: "vendor", unitPrice });

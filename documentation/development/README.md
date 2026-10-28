@@ -212,8 +212,9 @@ their event ends, because every extra name is another possible near match for re
 these curated records by their `garmothKey`. Garmoth's metadata omits most event items, so a record whose key Garmoth
 does not list is kept as written; use the game's `<item id>_<sub id>` key and a bundled icon, falling back to
 `/items/artifact.png`. A market item's ID must be listed on the Central Market, because a price fetch fails when Arsha
-does not return every requested item. A box whose contents appear as separate loot when opened is valued at 0 so its
-contents are counted once. Existing spot entries take precedence and are not duplicated.
+does not return every requested item. Value a box at its contents when opening it shows no loot notification, as with
+Box of 100 Cron Stones; a box whose contents appear as separate loot would be valued at 0 so they are counted once.
+Existing spot entries take precedence and are not duplicated.
 The backend upload manifest remains limited to each spot's own table. Items outside that table (including custom
 loot) are omitted from Garmoth's item list without blocking the upload. The review lists omitted items; local entries
 and full session totals are retained, including in the total and hourly income sent to Garmoth.
