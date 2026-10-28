@@ -1565,15 +1565,13 @@ try {
         );
         await click("Grind desk");
         await click("Add loot or expense");
-        const supplementalNames = ["Laila's Petal", "Pure Forest Breath", "[Event] Bountiful Autumn Lunchbox"];
+        const supplementalNames = ["Laila's Petal", "Pure Forest Breath", "Cron Stone"];
         for (const [index, name] of supplementalNames.entries()) {
             await setField('dialog[open] input[type="search"]', name);
-            await until(
-                "document.querySelectorAll('dialog[open] [aria-label$=\"loot items\"] button[aria-pressed]').length === 1",
-            );
-            await evaluate(
-                "document.querySelector('dialog[open] [aria-label$=\"loot items\"] button[aria-pressed]').click()",
-            );
+            // "Cron Stone" also matches "Box of 100 Cron Stones", so pick the exact result.
+            const result = `[...document.querySelectorAll('dialog[open] [aria-label$="loot items"] button[aria-pressed]')].find(b => b.querySelector('strong')?.textContent === ${JSON.stringify(name)})`;
+            await until(`!!${result}`);
+            await evaluate(`${result}.click()`);
             await setField('dialog[open] input[min="1"]', "2");
             await evaluate("document.querySelector('dialog[open] form').requestSubmit()");
             await until(`window.__session.entries.length === ${index + 1}`);
@@ -1585,7 +1583,7 @@ try {
             supplementalNames.map((name, index) => ({
                 name,
                 quantity: 2,
-                unitPrice: [500_000, 12_345, 10_000_000][index],
+                unitPrice: [500_000, 12_345, 3_000_000][index],
                 valuation: index === 1 ? "market" : "vendor",
             })),
         );
@@ -1645,9 +1643,9 @@ try {
         await click("Upload to Garmoth");
         await until("window.__calls.some(c => c.command === 'upload_garmoth_session')");
         const upload = await evaluate("window.__calls.find(c => c.command === 'upload_garmoth_session').args.input");
-        for (const key of ["54031_0", "50807_0", "1000835_0"]) assert.equal(key in upload.drops, false);
+        for (const key of ["54031_0", "50807_0", "16080_0"]) assert.equal(key in upload.drops, false);
         assert.equal(upload.drops["16001_0"], 3);
-        assert.equal(upload.total, Math.round(21_000_000 + 5 * 12_345 * 0.845));
+        assert.equal(upload.total, Math.round(7_000_000 + 5 * 12_345 * 0.845));
         assert.equal(upload.hourly, upload.total);
         assert.equal(JSON.stringify(upload.expectedSession.entries), supplementalEntries);
         assert.deepEqual(

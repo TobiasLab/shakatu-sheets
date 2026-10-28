@@ -38,7 +38,10 @@ function drop(key) {
         ...(item.tax === 1 && item.sub_key === 0 ? { marketItemId: item.main_key } : {}),
     };
 }
-const refreshedSupplementalDrops = supplementalDrops.map((item) => drop(item.garmothKey));
+// Items Garmoth does not list, such as most event drops, keep their curated records.
+const refreshedSupplementalDrops = supplementalDrops.map((item) =>
+    metadata.drops[item.garmothKey] ? drop(item.garmothKey) : item,
+);
 const spots = Object.values(metadata.spots)
     .filter(
         (spot) =>

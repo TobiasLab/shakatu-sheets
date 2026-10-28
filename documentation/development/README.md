@@ -205,10 +205,15 @@ rate, cap flag, and drop amount, and downloads their icons to `public/buffs/`. B
 `grind-buffs/<id>.png`; icons missing from Garmoth's asset host fall back to an empty tile. Tier groups are curated by
 ID in the script, which fails if a grouped buff disappears.
 
-The shared `src/data/supplementalDrops.json` catalog adds Laila's Petal, Pure Forest Breath, and
-[Event] Bountiful Autumn Lunchbox to every spot's manual entry, recognition dictionary, screenshot import, icons, and
-market-price lookup. The sync script refreshes these curated records by their `garmothKey`; add future shared items
-to this file using the same drop schema. Existing spot entries take precedence and are not duplicated.
+The shared `src/data/supplementalDrops.json` catalog adds items that drop at any spot, such as Laila's Petal, Pure
+Forest Breath, and event drops, to every spot's manual entry, recognition dictionary, screenshot import, icons, and
+market-price lookup. Add future shared items to this file using the same drop schema, and remove event items when
+their event ends, because every extra name is another possible near match for recognition. The sync script refreshes
+these curated records by their `garmothKey`. Garmoth's metadata omits most event items, so a record whose key Garmoth
+does not list is kept as written; use the game's `<item id>_<sub id>` key and a bundled icon, falling back to
+`/items/artifact.png`. A market item's ID must be listed on the Central Market, because a price fetch fails when Arsha
+does not return every requested item. A box whose contents appear as separate loot when opened is valued at 0 so its
+contents are counted once. Existing spot entries take precedence and are not duplicated.
 The backend upload manifest remains limited to each spot's own table. Items outside that table (including custom
 loot) are omitted from Garmoth's item list without blocking the upload. The review lists omitted items; local entries
 and full session totals are retained, including in the total and hourly income sent to Garmoth.
