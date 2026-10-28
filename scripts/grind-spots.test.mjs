@@ -31,25 +31,40 @@ describe("bundled grind spots", () => {
         for (const spot of grindSpots) {
             const drops = getGrindSpotDrops(spot.id);
             const names = drops.map((drop) => drop.name);
-            for (const name of ["Laila's Petal", "Pure Forest Breath", "[Event] Bountiful Autumn Lunchbox"]) {
+            for (const name of [
+                "Laila's Petal",
+                "Pure Forest Breath",
+                "Cron Stone",
+                "Sharp Black Crystal Shard",
+                "Magical Shard",
+                "Box of 100 Cron Stones",
+                "[Event] Purified Devil's Box",
+            ]) {
                 expect(names.filter((candidate) => candidate === name)).toHaveLength(1);
                 expect(parseLootItem(`${name} x 2`, names)).toBe(name);
                 expect(existsSync(`public${getDropIcon(spot.id, name)}`)).toBe(true);
             }
-            expect(getMarketItemIds(spot.id).filter((id) => id === 50807)).toEqual([50807]);
-            expect(drops.find((drop) => drop.name === "Pure Forest Breath")).toMatchObject({
-                valuation: "market",
-                unitPrice: null,
-                marketItemId: 50807,
-            });
-            expect(drops.find((drop) => drop.name === "Laila's Petal")).toMatchObject({
-                valuation: "vendor",
-                unitPrice: 500_000,
-            });
-            expect(drops.find((drop) => drop.name === "[Event] Bountiful Autumn Lunchbox")).toMatchObject({
-                valuation: "vendor",
-                unitPrice: 10_000_000,
-            });
+            for (const [name, marketItemId] of [
+                ["Pure Forest Breath", 50807],
+                ["Sharp Black Crystal Shard", 4998],
+                ["Magical Shard", 4918],
+            ]) {
+                expect(getMarketItemIds(spot.id).filter((id) => id === marketItemId)).toEqual([marketItemId]);
+                expect(drops.find((drop) => drop.name === name)).toMatchObject({
+                    valuation: "market",
+                    unitPrice: null,
+                    marketItemId,
+                });
+            }
+            for (const [name, unitPrice] of [
+                ["Laila's Petal", 500_000],
+                ["Cron Stone", 3_000_000],
+                // Opening the box shows its Cron Stones as separate loot, so the box itself adds nothing.
+                ["Box of 100 Cron Stones", 0],
+                ["[Event] Purified Devil's Box", 0],
+            ]) {
+                expect(drops.find((drop) => drop.name === name)).toMatchObject({ valuation: "vendor", unitPrice });
+            }
             for (const drop of [spot.trash, ...spot.drops]) {
                 expect(drops.find((candidate) => candidate.garmothKey === drop.garmothKey)).toBe(drop);
             }

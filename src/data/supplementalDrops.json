@@ -15,10 +15,40 @@
         "marketItemId": 50807
     },
     {
-        "name": "[Event] Bountiful Autumn Lunchbox",
-        "icon": "/items/garmoth/1000835.webp",
-        "garmothKey": "1000835_0",
+        "name": "Cron Stone",
+        "icon": "/items/garmoth/16080.webp",
+        "garmothKey": "16080_0",
         "valuation": "vendor",
-        "unitPrice": 10000000
+        "unitPrice": 3000000
+    },
+    {
+        "name": "Sharp Black Crystal Shard",
+        "icon": "/items/garmoth/4998.webp",
+        "garmothKey": "4998_0",
+        "valuation": "market",
+        "unitPrice": null,
+        "marketItemId": 4998
+    },
+    {
+        "name": "Magical Shard",
+        "icon": "/items/garmoth/4918.webp",
+        "garmothKey": "4918_0",
+        "valuation": "market",
+        "unitPrice": null,
+        "marketItemId": 4918
+    },
+    {
+        "name": "Box of 100 Cron Stones",
+        "icon": "/items/artifact.png",
+        "garmothKey": "860318_0",
+        "valuation": "vendor",
+        "unitPrice": 0
+    },
+    {
+        "name": "[Event] Purified Devil's Box",
+        "icon": "/items/artifact.png",
+        "garmothKey": "1000848_0",
+        "valuation": "vendor",
+        "unitPrice": 0
     }
 ]
