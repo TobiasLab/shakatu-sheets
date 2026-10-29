@@ -9,11 +9,6 @@ import {
 import type { LootFont } from "../../recognition/lootFont";
 import type { RoiOcrIssue } from "../../recognition/roiOcrDiagnostics";
 
-export function formatSampleCollectionCountdown(deadline: number | null, now: number) {
-    const seconds = Math.max(0, Math.ceil(((deadline ?? now) - now) / 1_000));
-    return `${String(Math.floor(seconds / 60)).padStart(2, "0")}:${String(seconds % 60).padStart(2, "0")}`;
-}
-
 export function formatSampleCollectionBytes(bytes: number) {
     if (bytes >= 1_000_000_000) return `${(bytes / 1_000_000_000).toFixed(2)} GB`;
     if (bytes >= 1_000_000) return `${(bytes / 1_000_000).toFixed(1)} MB`;
@@ -21,7 +16,24 @@ export function formatSampleCollectionBytes(bytes: number) {
     return `${bytes} B`;
 }
 
-/** Development-only ROI sample recording from native capture, plus the OCR issue log it is reviewed with. */
+/**
+ * What a wanted or unwanted collection needs next. A run starts once per stretch of `wanted`, so one that ends on its own
+ * or fails to start is not retried until recording stops being wanted and becomes wanted again.
+ */
+export function sampleCollectionChange(
+    wanted: boolean,
+    phase: DebugRoiSampleCollectionStatus["phase"] | undefined,
+    startedWhileWanted: boolean,
+) {
+    if (!wanted) return phase === "running" ? "stop" : null;
+    if (phase === "running" || phase === "finalizing" || startedWhileWanted) return null;
+    return "start";
+}
+
+/**
+ * Development-only ROI sample recording from native capture, plus the OCR issue log it is reviewed with.
+ * Once enabled, a run records while the caller wants it, which is while the session timer runs.
+ */
 export function useDebugSampleCollection({
     candidate,
     font,
@@ -43,6 +55,10 @@ export function useDebugSampleCollection({
     const [sampleCollectionError, setSampleCollectionError] = useState("");
     const [sampleCollectionNow, setSampleCollectionNow] = useState(Date.now());
     const [debugSampleCollectionAvailable, setDebugSampleCollectionAvailable] = useState(false);
+    const [sampleCollectionEnabled, setSampleCollectionEnabled] = useState(false);
+    const sampleCollectionWanted = useRef(false);
+    const wantedEpoch = useRef(0);
+    const startedEpoch = useRef(0);
 
     useEffect(() => {
         mounted.current = true;
@@ -126,8 +142,7 @@ export function useDebugSampleCollection({
     function sampleReference(batchId: number) {
         const run = sampleCollectionRef.current;
         const captureToken = nativeCaptureToken.current;
-        if (run?.phase !== "running" || !run.path || captureToken === null || Date.now() >= (run.deadlineAtUnixMs ?? 0))
-            return undefined;
+        if (run?.phase !== "running" || !run.path || captureToken === null) return undefined;
         return { captureToken, collectionPath: run.path, batchId };
     }
 
@@ -136,15 +151,29 @@ export function useDebugSampleCollection({
         sampleCollectionRef.current = null;
     }
 
-    async function toggleSampleCollection() {
+    /** Starts or stops a run so that one is recording exactly while `wanted` holds. */
+    function syncSampleCollection(wanted: boolean) {
+        if (wanted && !sampleCollectionWanted.current) wantedEpoch.current += 1;
+        sampleCollectionWanted.current = wanted;
+        if (sampleCollectionBusy) return;
+        const change = sampleCollectionChange(
+            wanted,
+            sampleCollection?.phase,
+            startedEpoch.current === wantedEpoch.current,
+        );
+        if (change === "start") startedEpoch.current = wantedEpoch.current;
+        if (change) void changeSampleCollection(change);
+    }
+
+    async function changeSampleCollection(change: "start" | "stop") {
         const captureToken = nativeCaptureToken.current;
-        if (captureToken === null || sampleCollectionBusy) return;
+        if (captureToken === null) return;
         const revision = ++sampleCollectionRevision.current;
         setSampleCollectionBusy(true);
         setSampleCollectionError("");
         try {
             let next: DebugRoiSampleCollectionStatus;
-            if (sampleCollection?.phase === "running") {
+            if (change === "stop") {
                 sampleCollectionRef.current = null;
                 next = await stopDebugRoiSampleCollection(captureToken);
             } else {
@@ -161,7 +190,8 @@ export function useDebugSampleCollection({
                 collectionError instanceof Error ? collectionError.message : String(collectionError),
             );
         } finally {
-            if (mounted.current && revision === sampleCollectionRevision.current) setSampleCollectionBusy(false);
+            // Busy prevents overlapping changes, so only a status refresh can bump the revision; never leave busy stuck.
+            if (mounted.current) setSampleCollectionBusy(false);
         }
     }
 
@@ -171,9 +201,11 @@ export function useDebugSampleCollection({
         sampleCollectionNow,
         sampleCollectionError: [sampleCollectionError, sampleDiagnosticError].filter(Boolean).join(" "),
         debugSampleCollectionAvailable,
+        sampleCollectionEnabled,
+        setSampleCollectionEnabled,
+        syncSampleCollection,
         emitOcrIssue,
         sampleReference,
         forgetSampleCollection,
-        toggleSampleCollection,
     };
 }

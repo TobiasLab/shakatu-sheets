@@ -10,8 +10,8 @@ Fedora) and Clang for the Rust PipeWire bindings' generated FFI. The executable 
 packages in `tauri.conf.json` declare them as runtime dependencies.
 
 The offline live-loot video benchmark additionally requires FFmpeg. Benchmark videos and generated frames must not be
-committed. Development builds can write 30-minute normal and rare ROI samples under the ignored
-`dev-samples/live-loot/` directory. Each run also records recognized, withheld, failed, and dropped OCR events in
+committed. Development builds can write normal and rare ROI samples, recorded while the session timer runs, under the
+ignored `dev-samples/live-loot/` directory. Each run also records recognized, withheld, failed, and dropped OCR events in
 `ocr-issues.jsonl`. Version 2 records include native frame IDs, exact row/crop bounds, final item quantities, and individual
 preprocessing passes when available; see the [capture documentation](../architecture/live-loot.md#diagnostics-and-pixel-lifetime).
 

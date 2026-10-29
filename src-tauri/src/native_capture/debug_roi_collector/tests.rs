@@ -2,6 +2,7 @@ use super::writer::{discard_queued_pairs, record_write_failure};
 use super::*;
 use std::fs;
 use std::sync::Barrier;
+use std::time::Instant;
 
 struct TempDir(PathBuf);
 
@@ -70,7 +71,7 @@ fn writes_valid_paired_pngs_and_final_manifest() {
     let settings = settings();
     let selection = NativeCaptureSelection::Regions { settings };
     collector
-        .start_in(&temp.0, 4, 9, selection, settings, Duration::from_secs(30))
+        .start_in(&temp.0, 4, 9, selection, settings)
         .unwrap();
     let normal = vec![17; 272 * 180 * 4];
     let rare = vec![23; 340 * 72 * 4];
@@ -113,6 +114,7 @@ fn writes_valid_paired_pngs_and_final_manifest() {
     assert_eq!(manifest["phase"], "finished");
     assert_eq!(manifest["writtenBatchCount"], 1);
     assert_eq!(manifest["finishReason"], "explicitlyStopped");
+    assert!(manifest.get("deadlineAtUnixMs").is_none());
     assert_eq!(manifest["normalCrop"]["pixels"]["width"], 272);
     assert_eq!(manifest["rareCrop"]["pixels"]["width"], 340);
 }
@@ -304,18 +306,13 @@ fn installed_run_keeps_startup_reserved_until_revalidation_completes() {
     let collector = DebugRoiSampleCollector::default();
     let settings = settings();
     let pending = collector
-        .start_pending_in_at(
+        .start_pending_in(
             &temp.0,
             CollectionBinding {
                 capture_id: 4,
                 capture_token: 9,
                 selection: NativeCaptureSelection::Regions { settings },
                 settings,
-            },
-            Duration::from_secs(30),
-            CollectionStart {
-                monotonic: Instant::now(),
-                unix_ms: unix_ms(SystemTime::now()).unwrap(),
             },
         )
         .unwrap();
@@ -407,40 +404,6 @@ fn explicit_stop_is_recorded_during_startup() {
     assert_eq!(
         reservation.binding.abort_reason.load(Ordering::Acquire),
         FINISH_EXPLICIT
-    );
-}
-
-#[test]
-fn setup_time_consumes_the_collection_deadline() {
-    let temp = TempDir::new("deadline");
-    let collector = DebugRoiSampleCollector::default();
-    let settings = settings();
-    let started_at_unix_ms = unix_ms(SystemTime::now()).unwrap().saturating_sub(2_000);
-    let status = collector
-        .start_in_at(
-            &temp.0,
-            CollectionBinding {
-                capture_id: 4,
-                capture_token: 9,
-                selection: NativeCaptureSelection::Regions { settings },
-                settings,
-            },
-            Duration::from_secs(1),
-            CollectionStart {
-                monotonic: Instant::now().checked_sub(Duration::from_secs(2)).unwrap(),
-                unix_ms: started_at_unix_ms,
-            },
-        )
-        .unwrap();
-
-    assert_eq!(status.started_at_unix_ms, Some(started_at_unix_ms));
-    assert_eq!(status.deadline_at_unix_ms, Some(started_at_unix_ms + 1_000));
-    wait_for(&collector, |status| {
-        status.phase == DebugRoiSampleCollectionPhase::Finished
-    });
-    assert_eq!(
-        collector.status().finish_reason.as_deref(),
-        Some("deadlineReached")
     );
 }
 
@@ -545,25 +508,6 @@ fn producer_reserved_before_finish_is_accepted_and_drained() {
 }
 
 #[test]
-fn elapsed_deadline_wins_over_later_lifecycle_stop() {
-    let temp = TempDir::new("deadline-reason");
-    let settings = settings();
-    let (sender, _receiver) = mpsc::sync_channel(1);
-    let mut run = test_run(&temp.0, sender, settings);
-    run.deadline = Instant::now()
-        .checked_sub(Duration::from_millis(1))
-        .unwrap();
-
-    run.request_finish(FINISH_CAPTURE_ENDED);
-
-    assert_eq!(run.requested_finish_reason(), Some(FINISH_DEADLINE));
-    assert_eq!(
-        run.snapshot().finish_reason.as_deref(),
-        Some("deadlineReached")
-    );
-}
-
-#[test]
 fn status_serialization_is_camel_case() {
     let value = serde_json::to_value(DebugRoiSampleCollectionStatus {
         phase: DebugRoiSampleCollectionPhase::Running,
@@ -575,7 +519,6 @@ fn status_serialization_is_camel_case() {
         error: None,
         finish_reason: None,
         started_at_unix_ms: Some(10),
-        deadline_at_unix_ms: Some(20),
     })
     .unwrap();
 
@@ -598,10 +541,7 @@ fn test_run(path: &Path, sender: SyncSender<SamplePair>, settings: LootCaptureSe
         path: path.to_path_buf(),
         sender,
         queue_capacity: 1,
-        deadline: Instant::now() + Duration::from_secs(30),
         started_at_unix_ms: 1,
-        deadline_at_unix_ms: 301_000,
-        duration_seconds: 300,
         phase: AtomicU8::new(PHASE_RUNNING),
         accepted: AtomicU64::new(0),
         dropped: AtomicU64::new(0),

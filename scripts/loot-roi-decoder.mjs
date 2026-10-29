@@ -4,6 +4,13 @@ import { readdir } from "node:fs/promises";
 import { join } from "node:path";
 import { pipeline } from "node:stream/promises";
 
+/** Minute folder names in recording order. Runs over 99 minutes add a digit, so name order would be wrong. */
+export async function minuteFolders(directory) {
+    return (await readdir(directory))
+        .filter((name) => /^minute-\d+$/.test(name))
+        .sort((left, right) => Number(left.slice(7)) - Number(right.slice(7)));
+}
+
 export async function* decodeRoiFrames(directory, width, height, expectedCount) {
     const child = spawn(
         "ffmpeg",
@@ -37,7 +44,7 @@ export async function* decodeRoiFrames(directory, width, height, expectedCount) 
         child.on("close", (code) => resolveDecode(code === 0 ? null : new Error(`ffmpeg: ${error}`)));
     });
     const feeding = pipeline(async function* () {
-        for (const minute of (await readdir(directory)).filter((name) => /^minute-\d+$/.test(name)).sort()) {
+        for (const minute of await minuteFolders(directory)) {
             const folder = join(directory, minute);
             for (const name of (await readdir(folder)).filter((name) => /^frame-\d+\.png$/.test(name)).sort()) {
                 yield* createReadStream(join(folder, name));

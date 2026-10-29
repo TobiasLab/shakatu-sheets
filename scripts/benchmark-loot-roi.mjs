@@ -14,7 +14,7 @@ import {
     rareLootDetectionProfile,
 } from "../src/recognition/rareLoot.ts";
 import { createLearningReplay, learningFrame } from "./loot-learning-replay.mjs";
-import { decodeRoiFrames } from "./loot-roi-decoder.mjs";
+import { decodeRoiFrames, minuteFolders } from "./loot-roi-decoder.mjs";
 
 const args = process.argv.slice(2);
 const root = args.shift();
@@ -59,7 +59,7 @@ if (annotations.version !== 1 || !Array.isArray(annotations.runs) || !annotation
 
 async function batchIds(directory) {
     const paths = [];
-    for (const minute of (await readdir(directory)).filter((name) => /^minute-\d+$/.test(name)).sort()) {
+    for (const minute of await minuteFolders(directory)) {
         for (const name of (await readdir(join(directory, minute)))
             .filter((name) => /^frame-\d+\.png$/.test(name))
             .sort())
