@@ -222,7 +222,9 @@ fn write_issue(run: &Run, mut issue: OcrIssue) -> Result<bool, String> {
         .chain(&mut issue.last_frame)
     {
         if let Some(batch) = frame.batch_id {
+            // Runs have no time limit, so look in the newest folders first, where recent frames are.
             frame.file = (1..=minutes)
+                .rev()
                 .map(|minute| format!("{source}/minute-{minute:02}/frame-{batch:010}.png"))
                 .find(|relative| run.path.join(relative).is_file());
         }

@@ -14,11 +14,12 @@ async function sampleRun() {
     const directory = await mkdtemp(join(tmpdir(), "Shakatu ROI é "));
     directories.push(directory);
     // PPM avoids codec-dependent color conversion when generating exact RGB PNG fixtures.
+    // Name order would put minute-100 before minute-99.
     for (const [minute, id, rgb] of [
-        [1, 2, [4, 5, 6]],
-        [0, 1, [1, 2, 3]],
+        [100, 2, [4, 5, 6]],
+        [99, 1, [1, 2, 3]],
     ]) {
-        const folder = join(directory, `minute-${String(minute).padStart(3, "0")}`);
+        const folder = join(directory, `minute-${minute}`);
         await mkdir(folder);
         const png = spawnSync(
             "ffmpeg",
@@ -46,7 +47,7 @@ async function sampleRun() {
     }
     return directory;
 }
-it.skipIf(!available)("streams ordered PNGs across folders with spaces and Unicode without glob support", async () => {
+it.skipIf(!available)("streams PNGs in numeric folder order across paths with spaces and Unicode", async () => {
     const directory = await sampleRun();
     const frames = [];
     for await (const frame of decodeRoiFrames(directory, 1, 1, 2)) frames.push([...frame.pixels]);

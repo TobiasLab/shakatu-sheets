@@ -71,11 +71,7 @@ import {
     reducePlacement,
     regionsEqual,
 } from "./capturePlacement";
-import {
-    formatSampleCollectionBytes,
-    formatSampleCollectionCountdown,
-    useDebugSampleCollection,
-} from "./useDebugSampleCollection";
+import { formatSampleCollectionBytes, useDebugSampleCollection } from "./useDebugSampleCollection";
 import { resultDescription, useLiveLootReviewQueue } from "./useLiveLootReviewQueue";
 
 type CaptureStatus = "idle" | "requesting" | "connecting" | "capturing";
@@ -1775,6 +1771,11 @@ export function useLiveLootCapture({
         normalRegionFrameSize !== null &&
         rareRegionFrameSize !== null &&
         nativeAppliedSelectionKey === JSON.stringify(sampleCaptureSelection);
+    const sampleCollectionWanted =
+        samples.sampleCollectionEnabled && sessionStatus === "running" && sampleCollectionReady;
+    useEffect(() => {
+        samples.syncSampleCollection(sampleCollectionWanted);
+    }, [sampleCollectionWanted, samples.sampleCollectionBusy, samples.sampleCollection?.phase]);
     const placementLabel =
         placementMode === "localizing"
             ? activeRegionKind === "rare"
@@ -1887,10 +1888,10 @@ export function useLiveLootCapture({
         sampleCollectionFinalizing,
         sampleCollectionActive,
         sampleCollectionReady,
-        toggleSampleCollection: samples.toggleSampleCollection,
+        sampleCollectionEnabled: samples.sampleCollectionEnabled,
+        setSampleCollectionEnabled: samples.setSampleCollectionEnabled,
         sampleCollection: samples.sampleCollection,
         formatSampleCollectionBytes,
-        formatSampleCollectionCountdown,
         sampleCollectionNow: samples.sampleCollectionNow,
         sampleCollectionError: samples.sampleCollectionError,
         normalRegionCanvas,

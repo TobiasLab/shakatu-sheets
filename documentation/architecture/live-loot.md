@@ -86,11 +86,15 @@ OCR evidence. Accepted OCR is never overridden, and automatic recoveries never t
 
 ## Diagnostics and pixel lifetime
 
-Pixels remain transient unless the user enables self-improvement or explicitly starts debug ROI collection. Learning
-saves only small text crops from successful manual corrections, with confirmed labels and bounded audit metadata, in
-its separate local database. Full frames are never saved by learning. Debug Linux and Windows builds can
-save paired normal/rare PNGs for up to 30 minutes under ignored `dev-samples/live-loot/`. Collection ends on stop,
-source/selection change, capture end, or the deadline. A bounded encoder reports dropped pairs without blocking capture.
+Pixels remain transient unless the user enables self-improvement or debug ROI collection. Learning saves only small
+text crops from successful manual corrections, with confirmed labels and bounded audit metadata, in its separate local
+database. Full frames are never saved by learning. Debug Linux and Windows builds can save paired normal/rare PNGs under
+ignored `dev-samples/live-loot/`. Once enabled, collection records while the session timer runs, so a run covers the
+same stretch as the tracked loot; each pause ends the run and resuming starts a new one. There is no time limit, and a
+run takes roughly 10 GB per hour at 3440×1440. A source/selection change or capture end also ends the run; a new one
+starts once capture and both confirmed areas are applied again while the timer runs. A run that ends for another reason,
+such as a write failure, is not restarted until the timer next starts. A bounded encoder reports dropped pairs without
+blocking capture.
 Release builds do not expose this collector. Capture never reads game memory, hooks the game, or uploads frames.
 
 Each run has a `manifest.json` and version-2 `ocr-issues.jsonl` records for recognized, withheld, failed, and dropped

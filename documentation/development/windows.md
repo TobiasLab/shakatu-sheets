@@ -207,9 +207,10 @@ isolate SQLite/settings; never point a smoke run at an existing user database. I
 APIs. Window close stops capture and flushes ordered session saves, retrying the newest failed snapshot; a persistent
 save failure keeps the window open with an error. Forced process termination cannot flush JS work.
 
-Debug builds retain the opt-in 30-minute paired ROI collector at the repository's ignored `dev-samples/live-loot` path.
-Its token/revision checks, bounded writer, stop reasons, native PNGs, and manifests also apply on Windows. The manifest
-file handle is closed before rename. Release builds omit the collector commands. Samples are never automatically uploaded.
+Debug builds retain the opt-in paired ROI collector, which records while the session timer runs, at the repository's
+ignored `dev-samples/live-loot` path. Its token/revision checks, bounded writer, stop reasons, native PNGs, and manifests
+also apply on Windows. The manifest file handle is closed before rename. Release builds omit the collector commands.
+Samples are never automatically uploaded.
 
 Replay uses enumerated PNG files piped into FFmpeg, avoiding Windows builds' missing glob support:
 
@@ -261,7 +262,7 @@ build for performance and a debug build only for sample acquisition.
 | OCR offline | Disconnect networking after installation. Marni import runs the bundled worker/WASM/model and produces its reviewed result; live normal/rare recognition uses identical pixels, dictionaries, thresholds, and quantities on Linux and Windows. |
 | Accuracy | For **1920×1080, 2560×1440, 3440×1440 × 80%, 100%**, collect labeled native normal/rare runs with positive and negative scenes, moving backgrounds, overlapping/identical drops, repeated identical banners, and placement changes. Tune only development data; freeze gates before a separate positive held-out run. All reviewed events must match item/quantity with no misses, inventions, or duplicates. Preserve existing Linux regression results. |
 | Gameplay impact | Repeat game-only, app idle, capture setup, recognition visible/hidden/minimized comparisons. At most 5% degradation in average FPS **and** 1% lows; bounded queue/memory and native cadence near 16 FPS under changing content. Confirm ROI-only IPC/readback with preview off. |
-| Samples | Record a complete 30-minute paired run, explicit early stop, source resize/replacement, unwritable path, and queue-pressure stop. Manifests/PNG batch IDs match, stopping drains admitted pairs, and Windows replay agrees with Linux. No collector API in release. |
+| Samples | Record a paired run across a timer pause and resume, disabling the collector mid-run, source resize/replacement, unwritable path, and queue-pressure stop. Manifests/PNG batch IDs match, stopping drains admitted pairs, and Windows replay agrees with Linux. No collector API in release. |
 | Data/installer | Clean standard user, Unicode/spaces in profile path, runtime present/absent, offline runtime-present install; upgrade with data, close immediately after ledger edit, forced termination/reopen, SQLite error/retry, and uninstall/reinstall data retention. |
 
 All three resolutions share normal and rare OCR settings at each UI scale because BDO draws loot at the same native

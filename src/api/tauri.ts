@@ -168,7 +168,6 @@ export type DebugRoiSampleCollectionStatus = {
     error: string | null;
     finishReason: string | null;
     startedAtUnixMs: number | null;
-    deadlineAtUnixMs: number | null;
 };
 
 export type NativeCaptureSelection =

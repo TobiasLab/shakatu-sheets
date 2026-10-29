@@ -5,23 +5,13 @@ pub(super) fn run_worker(run: Arc<Run>, receiver: Receiver<SamplePair>) {
     loop {
         let lifecycle = run.phase.load(Ordering::Acquire);
         if lifecycle == PHASE_STARTING {
-            if Instant::now() >= run.deadline {
-                run.request_finish(FINISH_DEADLINE);
-            } else {
-                thread::sleep(Duration::from_millis(10));
-            }
+            thread::sleep(Duration::from_millis(10));
             continue;
         }
         if lifecycle != PHASE_RUNNING {
             break;
         }
-        let now = Instant::now();
-        if now >= run.deadline {
-            run.request_finish(FINISH_DEADLINE);
-            break;
-        }
-        let wait = (run.deadline - now).min(Duration::from_millis(50));
-        match receiver.recv_timeout(wait) {
+        match receiver.recv_timeout(Duration::from_millis(50)) {
             Ok(pair) => {
                 run.queued.fetch_sub(1, Ordering::AcqRel);
                 if let Err(error) = write_pair(&run, &pair) {

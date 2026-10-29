@@ -36,7 +36,7 @@ export type RoiOcrIssue = {
     error: string | null;
 };
 
-// Metadata only: bounded to slightly more than a 30-minute, 16 FPS collection. No pixels are retained here.
+// Metadata only: keeps sample references for roughly the latest 34 minutes at 16 FPS. No pixels are retained here.
 export class RoiOcrDiagnostics {
     private nextFrame = 0;
     private readonly samples = new Map<number, RoiSampleReference>();

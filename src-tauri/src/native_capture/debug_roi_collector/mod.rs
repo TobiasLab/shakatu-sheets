@@ -11,12 +11,11 @@ use std::sync::atomic::{AtomicU64, AtomicU8, Ordering};
 use std::sync::mpsc::{self, Receiver, SyncSender, TrySendError};
 use std::sync::{Arc, Mutex, MutexGuard, PoisonError};
 use std::thread;
-use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
+use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use super::{LootCaptureSettings, NativeCaptureSelection, NormalizedRegion, PixelRegion};
 
 const TARGET_FPS: u32 = super::protocol::SAMPLE_FPS;
-const DURATION_SECONDS: u64 = 30 * 60;
 const QUEUE_CAPACITY: usize = 8;
 const FRAMES_PER_MINUTE: u64 = TARGET_FPS as u64 * 60;
 const PHASE_STARTING: u8 = 0;
@@ -25,7 +24,6 @@ const PHASE_FINISHED: u8 = 2;
 const PHASE_FAILED: u8 = 3;
 const PHASE_FINALIZING_BASE: u8 = 16;
 const FINISH_NONE: u8 = 0;
-const FINISH_DEADLINE: u8 = 1;
 const FINISH_EXPLICIT: u8 = 2;
 const FINISH_CAPTURE_ENDED: u8 = 3;
 const FINISH_CAPTURE_REPLACED: u8 = 4;
@@ -55,7 +53,6 @@ pub struct DebugRoiSampleCollectionStatus {
     pub error: Option<String>,
     pub finish_reason: Option<String>,
     pub started_at_unix_ms: Option<u64>,
-    pub deadline_at_unix_ms: Option<u64>,
 }
 
 impl DebugRoiSampleCollectionStatus {
@@ -70,7 +67,6 @@ impl DebugRoiSampleCollectionStatus {
             error: None,
             finish_reason: None,
             started_at_unix_ms: None,
-            deadline_at_unix_ms: None,
         }
     }
 }
@@ -119,9 +115,7 @@ struct Manifest {
     normal_crop: CropGeometry,
     rare_crop: CropGeometry,
     target_fps: u32,
-    duration_seconds: u64,
     started_at_unix_ms: u64,
-    deadline_at_unix_ms: u64,
     phase: DebugRoiSampleCollectionPhase,
     accepted_batch_count: u64,
     dropped_batch_count: u64,
@@ -164,10 +158,7 @@ struct Run {
     path: PathBuf,
     sender: SyncSender<SamplePair>,
     queue_capacity: u64,
-    deadline: Instant,
     started_at_unix_ms: u64,
-    deadline_at_unix_ms: u64,
-    duration_seconds: u64,
     phase: AtomicU8,
     accepted: AtomicU64,
     dropped: AtomicU64,
@@ -180,11 +171,6 @@ struct Run {
 
 impl Run {
     fn request_finish(&self, reason: u8) {
-        let reason = if Instant::now() >= self.deadline {
-            FINISH_DEADLINE
-        } else {
-            reason
-        };
         let target = finalizing_phase(reason);
         let mut current = self.phase.load(Ordering::Acquire);
         while matches!(current, PHASE_STARTING | PHASE_RUNNING) {
@@ -235,7 +221,6 @@ impl Run {
                 .and_then(|outcome| outcome.finish_reason.clone())
                 .or_else(|| requested_reason.map(str::to_string)),
             started_at_unix_ms: Some(self.started_at_unix_ms),
-            deadline_at_unix_ms: Some(self.deadline_at_unix_ms),
         }
     }
 
@@ -261,9 +246,7 @@ impl Run {
                 pixels: self.rare_pixels.into(),
             },
             target_fps: TARGET_FPS,
-            duration_seconds: self.duration_seconds,
             started_at_unix_ms: self.started_at_unix_ms,
-            deadline_at_unix_ms: self.deadline_at_unix_ms,
             phase: manifest_phase,
             accepted_batch_count: self.accepted.load(Ordering::Acquire),
             dropped_batch_count: self.dropped.load(Ordering::Acquire),
@@ -387,12 +370,6 @@ impl PendingCollectionStart<'_> {
 }
 
 #[derive(Clone, Copy)]
-struct CollectionStart {
-    monotonic: Instant,
-    unix_ms: u64,
-}
-
-#[derive(Clone, Copy)]
 struct CollectionBinding {
     capture_id: u32,
     capture_token: u64,
@@ -408,15 +385,11 @@ impl DebugRoiSampleCollector {
         selection: NativeCaptureSelection,
         settings: LootCaptureSettings,
     ) -> Result<PendingCollectionStart<'_>, String> {
-        let started = CollectionStart {
-            monotonic: Instant::now(),
-            unix_ms: unix_ms(SystemTime::now())?,
-        };
         let root = Path::new(env!("CARGO_MANIFEST_DIR"))
             .parent()
             .ok_or_else(|| "Rust manifest directory has no repository parent.".to_string())?
             .join("dev-samples/live-loot");
-        self.start_pending_in_at(
+        self.start_pending_in(
             &root,
             CollectionBinding {
                 capture_id,
@@ -424,8 +397,6 @@ impl DebugRoiSampleCollector {
                 selection,
                 settings,
             },
-            Duration::from_secs(DURATION_SECONDS),
-            started,
         )
     }
 
@@ -437,14 +408,9 @@ impl DebugRoiSampleCollector {
         capture_token: u64,
         selection: NativeCaptureSelection,
         settings: LootCaptureSettings,
-        duration: Duration,
     ) -> Result<DebugRoiSampleCollectionStatus, String> {
-        let started = CollectionStart {
-            monotonic: Instant::now(),
-            unix_ms: unix_ms(SystemTime::now())?,
-        };
         Ok(self
-            .start_pending_in_at(
+            .start_pending_in(
                 root,
                 CollectionBinding {
                     capture_id,
@@ -452,31 +418,14 @@ impl DebugRoiSampleCollector {
                     selection,
                     settings,
                 },
-                duration,
-                started,
             )?
             .complete())
     }
 
-    #[cfg(test)]
-    fn start_in_at(
+    fn start_pending_in(
         &self,
         root: &Path,
         binding: CollectionBinding,
-        duration: Duration,
-        started: CollectionStart,
-    ) -> Result<DebugRoiSampleCollectionStatus, String> {
-        Ok(self
-            .start_pending_in_at(root, binding, duration, started)?
-            .complete())
-    }
-
-    fn start_pending_in_at(
-        &self,
-        root: &Path,
-        binding: CollectionBinding,
-        duration: Duration,
-        started: CollectionStart,
     ) -> Result<PendingCollectionStart<'_>, String> {
         let mut reservation = self.reserve_start(binding)?;
 
@@ -485,16 +434,11 @@ impl DebugRoiSampleCollector {
             .settings
             .rare_pixel_region()?
             .ok_or_else(|| "Debug ROI collection requires a configured rare region.".to_string())?;
-        let duration_ms = u64::try_from(duration.as_millis())
-            .map_err(|_| "Debug ROI collection duration does not fit in 64 bits.".to_string())?;
-        let deadline_at_unix_ms = started
-            .unix_ms
-            .checked_add(duration_ms)
-            .ok_or_else(|| "Debug ROI collection deadline overflowed.".to_string())?;
+        let started_at_unix_ms = unix_ms(SystemTime::now())?;
         let id = self.next_run_id.fetch_add(1, Ordering::Relaxed) + 1;
         let path = root.join(format!(
             "run-{}-{}-{id:04}",
-            started.unix_ms,
+            started_at_unix_ms,
             std::process::id()
         ));
         fs::create_dir_all(root)
@@ -515,10 +459,7 @@ impl DebugRoiSampleCollector {
             path,
             sender,
             queue_capacity: QUEUE_CAPACITY as u64,
-            deadline: started.monotonic + duration,
-            started_at_unix_ms: started.unix_ms,
-            deadline_at_unix_ms,
-            duration_seconds: duration.as_secs(),
+            started_at_unix_ms,
             phase: AtomicU8::new(PHASE_STARTING),
             accepted: AtomicU64::new(0),
             dropped: AtomicU64::new(0),
@@ -634,10 +575,6 @@ impl DebugRoiSampleCollector {
         if run.capture_id != sample.capture_id || !run.admission_open() {
             return;
         }
-        if run.deadline <= Instant::now() {
-            run.request_finish(FINISH_DEADLINE);
-            return;
-        }
         if run.selection != sample.selection
             || (sample.source_width, sample.source_height)
                 != (run.settings.source_width, run.settings.source_height)
@@ -740,7 +677,7 @@ fn finalizing_phase(reason: u8) -> u8 {
 fn finish_reason_from_phase(value: u8) -> Option<u8> {
     value
         .checked_sub(PHASE_FINALIZING_BASE)
-        .filter(|reason| (1..=FINISH_WRITE_FAILED).contains(reason))
+        .filter(|reason| (FINISH_EXPLICIT..=FINISH_WRITE_FAILED).contains(reason))
 }
 
 fn run_is_active(value: u8) -> bool {
@@ -749,7 +686,6 @@ fn run_is_active(value: u8) -> bool {
 
 fn finish_reason(value: u8) -> Option<&'static str> {
     match value {
-        FINISH_DEADLINE => Some("deadlineReached"),
         FINISH_EXPLICIT => Some("explicitlyStopped"),
         FINISH_CAPTURE_ENDED => Some("captureEnded"),
         FINISH_CAPTURE_REPLACED => Some("captureReplaced"),
