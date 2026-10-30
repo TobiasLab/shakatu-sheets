@@ -31,6 +31,8 @@
     "allow-save-theme",
     "allow-load-spot-preferences",
     "allow-save-spot-preferences",
+    "allow-load-debug-roi-samples-enabled",
+    "allow-save-debug-roi-samples-enabled",
     "allow-load-market-prices",
     "allow-reopen-session",
     "allow-save-session",

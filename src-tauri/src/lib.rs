@@ -127,6 +127,9 @@ mod native_capture;
 mod persistence;
 mod session_overlay_window;
 
+#[cfg(test)]
+mod command_permission_tests;
+
 use tauri::{Emitter, Manager};
 
 #[cfg(target_os = "linux")]
