@@ -14,7 +14,7 @@ import { SelectionButton } from "../../components/SelectionButton/SelectionButto
 import { grindSpotName, grindSpots } from "../../data/grindSpots";
 import { historyDateBoundary, netPerHour, rankSpots, summarizeHistory } from "../../domain/history";
 import { calculateTotals, type SessionState } from "../../domain/session";
-import { hasRecordedTrend, type TrendSample } from "../../domain/trend";
+import { hasRecordedTrend, type SessionTrendData } from "../../domain/trend";
 import { formatDuration, formatSilver, formatTimestamp } from "../../format";
 import { buildGarmothUpload, type GarmothUploadPreview, getGarmothUploadNotice } from "../../garmoth";
 import type { DatabaseStatus } from "../../hooks/usePersistedSession";
@@ -79,7 +79,7 @@ export function HistoryView({
     const [uploadError, setUploadError] = useState("");
     const [settingsError, setSettingsError] = useState("");
     const [garmothSettingsLoaded, setGarmothSettingsLoaded] = useState(false);
-    const [trend, setTrend] = useState<{ sessionId: string; samples: TrendSample[] } | null>(null);
+    const [trend, setTrend] = useState<({ sessionId: string } & SessionTrendData) | null>(null);
     const reloadButton = useRef<HTMLButtonElement>(null);
     const historySelectButtons = useRef(new Map<string, HTMLButtonElement>());
     const historyDeleteButtons = useRef(new Map<string, HTMLButtonElement>());
@@ -168,7 +168,8 @@ export function HistoryView({
     const selected = pageRecords.find((record) => record.session.id === selectedId) ?? pageRecords[0];
     const selectedTotals = selected ? calculateTotals(selected.session.entries, selected.session.elapsedMs) : null;
     const selectedSessionId = selected?.session.id;
-    const selectedSamples = trend !== null && trend.sessionId === selectedSessionId ? trend.samples : [];
+    const selectedTrend = trend !== null && trend.sessionId === selectedSessionId ? trend : null;
+    const selectedSamples = selectedTrend?.samples ?? [];
     let uploadPreview: GarmothUploadPreview | null = null;
     let uploadPreviewError = "";
     if (selected) {
@@ -222,11 +223,11 @@ export function HistoryView({
         if (!selectedSessionId) return;
         let current = true;
         loadSessionTrend(selectedSessionId)
-            .then((samples) => {
-                if (current) setTrend({ sessionId: selectedSessionId, samples });
+            .then((loaded) => {
+                if (current) setTrend({ sessionId: selectedSessionId, ...loaded });
             })
             .catch(() => {
-                if (current) setTrend({ sessionId: selectedSessionId, samples: [] });
+                if (current) setTrend({ sessionId: selectedSessionId, samples: [], drops: [] });
             });
         return () => {
             current = false;
@@ -672,6 +673,8 @@ export function HistoryView({
                                 {hasRecordedTrend(selectedSamples, selected.session.elapsedMs) && (
                                     <SessionTrend
                                         samples={selectedSamples}
+                                        drops={selectedTrend?.drops ?? []}
+                                        grindSpotId={selected.session.grindSpotId}
                                         elapsedMs={selected.session.elapsedMs}
                                         net={selectedTotals.net}
                                     />

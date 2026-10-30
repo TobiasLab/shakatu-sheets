@@ -17,6 +17,11 @@ dark.
   row shows net silver/hour, session net, a net-over-time trend, and session time beside the timer controls. A paused
   timer shows a Paused badge and muted time. The trend plots persisted net samples against elapsed time with a hairline
   chord for the average pace, the last 30 minutes' rate once available, and a readout that follows the pointer or the arrow keys.
+  Spike markers stand above the plot for the session's biggest drops: item icon, compact value, and a stem to the
+  step it caused. A drop gets a marker when it is worth at least 10% of the session net; at most five are shown, and of
+  two markers closer than 8% of the session's duration only the more valuable stays. These values are the
+  `SPIKE_*` constants in `src/domain/trend.ts`. When the readout reaches a marker it snaps to that drop and names the
+  item; the plot's accessible label lists the marked drops.
 - **Capture.** Loot capture is a one-line status strip. Setup expands it into a connected stepper, the live preview with
   both crop previews beneath, and a narrow control column (area switch, UI scale, position pad, layout import,
   confirmation, diagnostics). Needs attention sits flush inside the strip.

@@ -165,7 +165,9 @@ Follow the dataviz rules: one series per chart, a 2px line in the accent over a 
 solid hairline reference lines (never dashed), no legend for a single series, and a readout that works with pointer
 and keyboard alike. A chart title names the series; the one extra number shown next to it must be meaningful on its
 own (for example, "Last 30 min 527.55M/h"). The end dot's ring matches the background behind the chart: `--canvas` by
-default, or whatever the container sets as `--trend-ring` (the History receipt uses `--surface`).
+default, or whatever the container sets as `--trend-ring` (the History receipt uses `--surface`). Event markers stand in
+a strip above the plot, reserved only when there are markers, with a hairline stem down to the point they explain;
+the active marker turns its stem to the accent and its value to strong text.
 
 ## Accessibility
 

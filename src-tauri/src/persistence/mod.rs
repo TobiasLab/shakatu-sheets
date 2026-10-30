@@ -27,7 +27,7 @@ pub(crate) use sessions::{
 };
 pub(crate) use settings::{load_setting, save_settings, save_settings_if_unchanged};
 
-const DATABASE_VERSION: i64 = 6;
+const DATABASE_VERSION: i64 = 7;
 
 /// JavaScript's `Number.MAX_SAFE_INTEGER`: larger integers cannot cross IPC exactly.
 pub(crate) const MAX_SAFE_INTEGER: i64 = 9_007_199_254_740_991;
@@ -304,6 +304,28 @@ fn migrate(connection: &mut Connection) -> Result<(), String> {
             .map_err(|error| error.to_string())?;
         transaction.commit().map_err(|error| error.to_string())?;
         current_version = 6;
+    }
+
+    if current_version < 7 {
+        let transaction = connection
+            .transaction()
+            .map_err(|error| error.to_string())?;
+        // Loot quantity each entry gained at an elapsed session time, so the trend can name the item behind a jump.
+        transaction
+            .execute_batch(
+                "CREATE TABLE session_loot_events (
+                    session_id TEXT NOT NULL REFERENCES sessions(id) ON DELETE CASCADE,
+                    entry_id TEXT NOT NULL,
+                    elapsed_ms INTEGER NOT NULL CHECK (elapsed_ms >= 0),
+                    quantity INTEGER NOT NULL CHECK (quantity > 0),
+                    PRIMARY KEY (session_id, entry_id, elapsed_ms)
+                ) WITHOUT ROWID;
+                 INSERT INTO schema_migrations (version, applied_at)
+                    VALUES (7, unixepoch('subsec') * 1000);",
+            )
+            .map_err(|error| error.to_string())?;
+        transaction.commit().map_err(|error| error.to_string())?;
+        current_version = 7;
     }
 
     if current_version != DATABASE_VERSION {

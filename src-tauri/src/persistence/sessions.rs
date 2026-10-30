@@ -194,9 +194,10 @@ pub(super) fn save_session_record(
     let transaction = connection
         .transaction_with_behavior(TransactionBehavior::Immediate)
         .map_err(|error| error.to_string())?;
-    if let Some(existing) = load_session_by_id(&transaction, &session.id)? {
+    let existing = load_session_by_id(&transaction, &session.id)?;
+    if let Some(existing) = &existing {
         if existing.status == SessionStatus::Finished {
-            return if existing == *session {
+            return if existing == session {
                 Ok(())
             } else {
                 Err("finished sessions are immutable".into())
@@ -265,6 +266,7 @@ pub(super) fn save_session_record(
     }
 
     record_net_sample(&transaction, session, now)?;
+    record_loot_events(&transaction, session, existing.as_ref(), now)?;
     transaction.commit().map_err(|error| error.to_string())
 }
 
@@ -323,6 +325,101 @@ fn record_net_sample(
     Ok(())
 }
 
+fn record_loot_events(
+    transaction: &Transaction,
+    session: &SessionRecord,
+    previous: Option<&SessionRecord>,
+    now: i64,
+) -> Result<(), String> {
+    let elapsed_ms = session_elapsed_at(session, now);
+    // Same as net samples: events from a discarded span or for removed entries no longer describe this session.
+    transaction
+        .execute(
+            "DELETE FROM session_loot_events WHERE session_id = ?1 AND (
+                elapsed_ms > ?2
+                OR entry_id NOT IN (SELECT id FROM session_entries WHERE session_id = ?1)
+             )",
+            params![session.id, elapsed_ms],
+        )
+        .map_err(|error| error.to_string())?;
+    // Gains count only against a saved active session. Starting the timer saves immediately, so loot added before the
+    // timer first starts, such as a Marni import, becomes the baseline instead of a drop.
+    let attributable = previous.is_some_and(|previous| {
+        matches!(
+            previous.status,
+            SessionStatus::Running | SessionStatus::Paused
+        )
+    });
+    for entry in &session.entries {
+        if entry.valuation == Valuation::Expense {
+            continue;
+        }
+        let before = previous
+            .and_then(|previous| previous.entries.iter().find(|old| old.id == entry.id))
+            .map_or(0.0, |old| old.quantity);
+        let added = (entry.quantity - before) as i64;
+        if added > 0 && attributable {
+            transaction
+                .execute(
+                    "INSERT INTO session_loot_events (session_id, entry_id, elapsed_ms, quantity)
+                     VALUES (?1, ?2, ?3, ?4)
+                     ON CONFLICT(session_id, entry_id, elapsed_ms)
+                        DO UPDATE SET quantity = quantity + excluded.quantity",
+                    params![session.id, entry.id, elapsed_ms, added],
+                )
+                .map_err(|error| error.to_string())?;
+        } else if added < 0 {
+            trim_loot_events(transaction, &session.id, &entry.id, -added)?;
+        }
+    }
+    Ok(())
+}
+
+// A lowered quantity usually corrects a recent misread, so the newest events give up the difference first.
+fn trim_loot_events(
+    transaction: &Transaction,
+    session_id: &str,
+    entry_id: &str,
+    mut excess: i64,
+) -> Result<(), String> {
+    let events = transaction
+        .prepare(
+            "SELECT elapsed_ms, quantity FROM session_loot_events
+             WHERE session_id = ?1 AND entry_id = ?2 ORDER BY elapsed_ms DESC",
+        )
+        .and_then(|mut statement| {
+            statement
+                .query_map([session_id, entry_id], |row| {
+                    Ok((row.get::<_, i64>(0)?, row.get::<_, i64>(1)?))
+                })?
+                .collect::<Result<Vec<_>, _>>()
+        })
+        .map_err(|error| error.to_string())?;
+    for (elapsed_ms, quantity) in events {
+        if excess == 0 {
+            break;
+        }
+        let result = if quantity <= excess {
+            excess -= quantity;
+            transaction.execute(
+                "DELETE FROM session_loot_events
+                 WHERE session_id = ?1 AND entry_id = ?2 AND elapsed_ms = ?3",
+                params![session_id, entry_id, elapsed_ms],
+            )
+        } else {
+            let remaining = quantity - excess;
+            excess = 0;
+            transaction.execute(
+                "UPDATE session_loot_events SET quantity = ?4
+                 WHERE session_id = ?1 AND entry_id = ?2 AND elapsed_ms = ?3",
+                params![session_id, entry_id, elapsed_ms, remaining],
+            )
+        };
+        result.map_err(|error| error.to_string())?;
+    }
+    Ok(())
+}
+
 #[derive(Debug, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct NetSample {
@@ -330,13 +427,29 @@ pub struct NetSample {
     pub net: i64,
 }
 
+#[derive(Debug, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct LootEvent {
+    pub elapsed_ms: i64,
+    pub name: String,
+    pub quantity: i64,
+    pub value: i64,
+}
+
+#[derive(Debug, PartialEq, Serialize)]
+pub struct SessionTrend {
+    pub samples: Vec<NetSample>,
+    pub drops: Vec<LootEvent>,
+}
+
 pub(super) fn load_session_trend_records(
     connection: &Connection,
     session_id: &str,
-) -> Result<Vec<NetSample>, String> {
+) -> Result<SessionTrend, String> {
     // Sessions created before migration 5 gain samples only once reopened or saved after the upgrade. Those samples
-    // cover part of the session, so such sessions have no trend.
-    let mut statement = connection
+    // cover part of the session, so such sessions have no trend. Loot events follow the same rule from migration 7, so
+    // a session never marks only its later drops.
+    let samples = connection
         .prepare(
             "SELECT samples.elapsed_ms, samples.net
              FROM session_net_samples AS samples
@@ -347,18 +460,49 @@ pub(super) fn load_session_trend_records(
                 )
              ORDER BY samples.elapsed_ms",
         )
-        .map_err(|error| error.to_string())?;
-    let samples = statement
-        .query_map([session_id], |row| {
-            Ok(NetSample {
-                elapsed_ms: row.get(0)?,
-                net: row.get(1)?,
-            })
+        .and_then(|mut statement| {
+            statement
+                .query_map([session_id], |row| {
+                    Ok(NetSample {
+                        elapsed_ms: row.get(0)?,
+                        net: row.get(1)?,
+                    })
+                })?
+                .collect::<Result<Vec<_>, _>>()
         })
-        .map_err(|error| error.to_string())?
-        .collect::<Result<Vec<_>, _>>()
-        .map_err(|error| error.to_string());
-    samples
+        .map_err(|error| error.to_string())?;
+    // Values use the entry's current price and after-tax multiplier, matching the net samples and history.
+    let drops = connection
+        .prepare(
+            "SELECT events.elapsed_ms, entries.name, events.quantity, entries.unit_price, entries.sale_multiplier
+             FROM session_loot_events AS events
+             JOIN session_entries AS entries
+                ON entries.id = events.entry_id AND entries.session_id = events.session_id
+             JOIN sessions ON sessions.id = events.session_id
+             WHERE events.session_id = ?1
+                AND entries.valuation <> 'expense'
+                AND sessions.created_at >= (
+                    SELECT CAST(applied_at AS INTEGER) FROM schema_migrations WHERE version = 7
+                )
+             ORDER BY events.elapsed_ms, entries.name",
+        )
+        .and_then(|mut statement| {
+            statement
+                .query_map([session_id], |row| {
+                    let quantity: i64 = row.get(2)?;
+                    let unit_price: i64 = row.get(3)?;
+                    let sale_multiplier: f64 = row.get(4)?;
+                    Ok(LootEvent {
+                        elapsed_ms: row.get(0)?,
+                        name: row.get(1)?,
+                        quantity,
+                        value: (quantity as f64 * unit_price as f64 * sale_multiplier).round() as i64,
+                    })
+                })?
+                .collect::<Result<Vec<_>, _>>()
+        })
+        .map_err(|error| error.to_string())?;
+    Ok(SessionTrend { samples, drops })
 }
 
 pub(super) fn load_session_by_id(
@@ -805,7 +949,7 @@ pub async fn save_session(
 pub async fn load_session_trend(
     session_id: String,
     state: State<'_, DatabasePath>,
-) -> Result<Vec<NetSample>, String> {
+) -> Result<SessionTrend, String> {
     run_database(state, move |connection| {
         load_session_trend_records(connection, &session_id)
     })

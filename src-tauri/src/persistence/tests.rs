@@ -20,8 +20,8 @@ use super::{
         apply_finished_session_consumables_record, delete_finished_session_at_path,
         delete_finished_session_record, list_finished_session_records, load_active_session_record,
         load_session_by_id, load_session_trend_records, reopen_session_record, save_session_record,
-        EntrySource, HistoryQuery, NetSample, SessionEntry, SessionRecord, SessionStatus,
-        Valuation,
+        EntrySource, HistoryQuery, LootEvent, NetSample, SessionEntry, SessionRecord,
+        SessionStatus, Valuation,
     },
     settings::{load_setting, save_settings, save_settings_if_unchanged},
 };
@@ -429,6 +429,9 @@ fn upgrades_a_populated_version_one_database() {
         .execute("DROP TABLE session_net_samples", [])
         .unwrap();
     connection
+        .execute("DROP TABLE session_loot_events", [])
+        .unwrap();
+    connection
         .execute("DELETE FROM schema_migrations WHERE version >= 2", [])
         .unwrap();
 
@@ -454,7 +457,7 @@ fn upgrades_a_populated_version_one_database() {
                 row.get::<_, i64>(0)
             })
             .unwrap(),
-        6
+        7
     );
 }
 
@@ -871,7 +874,7 @@ fn history_rejects_invalid_queries() {
 fn history_index_migration_preserves_populated_version_two_database() {
     let mut connection = database();
     history_fixture(&mut connection, "existing", "spot", 1000, 1000);
-    connection.execute_batch("ALTER TABLE garmoth_uploads DROP COLUMN was_uploaded; DROP TABLE session_net_samples; DROP INDEX sessions_finished_region_time_idx; ALTER TABLE session_entries DROP COLUMN garmoth_consumable_id; DELETE FROM schema_migrations WHERE version >= 3;").unwrap();
+    connection.execute_batch("ALTER TABLE garmoth_uploads DROP COLUMN was_uploaded; DROP TABLE session_net_samples; DROP TABLE session_loot_events; DROP INDEX sessions_finished_region_time_idx; ALTER TABLE session_entries DROP COLUMN garmoth_consumable_id; DELETE FROM schema_migrations WHERE version >= 3;").unwrap();
     migrate(&mut connection).unwrap();
     migrate(&mut connection).unwrap();
     assert_eq!(
@@ -924,7 +927,7 @@ fn consumable_migration_preserves_old_rows_and_finished_price_snapshots() {
     let mut connection = database();
     let finished = session(SessionStatus::Finished);
     save_session_record(&mut connection, &finished).unwrap();
-    connection.execute_batch("ALTER TABLE garmoth_uploads DROP COLUMN was_uploaded; DROP TABLE session_net_samples; ALTER TABLE session_entries DROP COLUMN garmoth_consumable_id; DELETE FROM schema_migrations WHERE version >= 4;").unwrap();
+    connection.execute_batch("ALTER TABLE garmoth_uploads DROP COLUMN was_uploaded; DROP TABLE session_net_samples; DROP TABLE session_loot_events; ALTER TABLE session_entries DROP COLUMN garmoth_consumable_id; DELETE FROM schema_migrations WHERE version >= 4;").unwrap();
     migrate(&mut connection).unwrap();
     migrate(&mut connection).unwrap();
     assert_eq!(
@@ -1042,7 +1045,9 @@ fn rejects_out_of_range_session_times() {
     running_at_limit.entries[0].id = "entry-at-limit".into();
     running_at_limit.started_at = Some(super::timestamp_ms() - 1_000);
     save_session_record(&mut connection, &running_at_limit).unwrap();
-    let samples = load_session_trend_records(&connection, &running_at_limit.id).unwrap();
+    let samples = load_session_trend_records(&connection, &running_at_limit.id)
+        .unwrap()
+        .samples;
     assert!(!samples.is_empty());
     assert!(samples.iter().all(|sample| sample.elapsed_ms <= MAX));
 
@@ -1397,7 +1402,8 @@ fn migration_six_treats_existing_upload_rows_as_first_uploads() {
     connection
         .execute_batch(
             "ALTER TABLE garmoth_uploads DROP COLUMN was_uploaded;
-             DELETE FROM schema_migrations WHERE version = 6;",
+             DROP TABLE session_loot_events;
+             DELETE FROM schema_migrations WHERE version >= 6;",
         )
         .unwrap();
     for (id, status) in [(&uploaded.id, "success"), (&unconfirmed.id, "unknown")] {
@@ -1663,6 +1669,7 @@ fn reviewed_upload_keeps_saved_expenses_on_connect_failure_and_can_retry() {
 fn trend(connection: &Connection) -> Vec<(i64, i64)> {
     load_session_trend_records(connection, "session-1")
         .unwrap()
+        .samples
         .into_iter()
         .map(|NetSample { elapsed_ms, net }| (elapsed_ms, net))
         .collect()
@@ -1736,4 +1743,202 @@ fn running_samples_include_the_current_segment_and_cascade_on_delete() {
     save_session_record(&mut connection, &record).unwrap();
     delete_finished_session_record(&connection, "session-1").unwrap();
     assert!(trend(&connection).is_empty());
+    assert_eq!(
+        connection
+            .query_row("SELECT COUNT(*) FROM session_loot_events", [], |row| row
+                .get::<_, i64>(0))
+            .unwrap(),
+        0
+    );
+}
+
+fn drops(connection: &Connection) -> Vec<(i64, String, i64, i64)> {
+    load_session_trend_records(connection, "session-1")
+        .unwrap()
+        .drops
+        .into_iter()
+        .map(
+            |LootEvent {
+                 elapsed_ms,
+                 name,
+                 quantity,
+                 value,
+             }| (elapsed_ms, name, quantity, value),
+        )
+        .collect()
+}
+
+fn stone(quantity: i64) -> (i64, String, i64, i64) {
+    (
+        0,
+        "Ancient Undersea Weapon Power Stone".into(),
+        quantity,
+        quantity * 107_900,
+    )
+}
+
+fn at(
+    elapsed_ms: i64,
+    (_, name, quantity, value): (i64, String, i64, i64),
+) -> (i64, String, i64, i64) {
+    (elapsed_ms, name, quantity, value)
+}
+
+// Saves the session empty first, so its loot is gained while the saved session is already active.
+fn save_from_empty(connection: &mut Connection, record: &SessionRecord) {
+    let mut empty = record.clone();
+    empty.entries.clear();
+    save_session_record(connection, &empty).unwrap();
+    save_session_record(connection, record).unwrap();
+}
+
+#[test]
+fn records_loot_gained_while_the_session_is_active() {
+    let mut connection = database();
+    let mut record = session(SessionStatus::Paused);
+    record.entries.push(SessionEntry {
+        id: "expense".into(),
+        name: "Elixir".into(),
+        quantity: 2.0,
+        unit_price: 1_000,
+        valuation: Valuation::Expense,
+        sale_multiplier: 1.0,
+        source: EntrySource::Manual,
+        created_at: 2_000,
+        garmoth_consumable_id: None,
+    });
+    save_from_empty(&mut connection, &record);
+    save_session_record(&mut connection, &record).unwrap();
+    assert_eq!(
+        drops(&connection),
+        vec![at(5_000, stone(10))],
+        "expenses and unchanged saves add no events"
+    );
+
+    record.elapsed_ms = 9_000;
+    record.entries[0].quantity = 13.0;
+    record.entries[0].valuation = Valuation::Market;
+    record.entries[0].sale_multiplier = 0.845;
+    record.entries.push(SessionEntry {
+        id: "entry-2".into(),
+        name: "Black Stone".into(),
+        quantity: 4.0,
+        unit_price: 100,
+        valuation: Valuation::Vendor,
+        sale_multiplier: 1.0,
+        source: EntrySource::Recognition,
+        created_at: 8_000,
+        garmoth_consumable_id: None,
+    });
+    record.status = SessionStatus::Finished;
+    save_session_record(&mut connection, &record).unwrap();
+    assert_eq!(
+        drops(&connection),
+        vec![
+            (5_000, stone(10).1, 10, 911_755),
+            (9_000, stone(3).1, 3, 273_527),
+            (9_000, "Black Stone".into(), 4, 400),
+        ],
+        "loot saved with the finish is still marked, valued after tax at the current price"
+    );
+}
+
+#[test]
+fn loot_from_before_the_timer_starts_is_not_marked() {
+    let mut connection = database();
+    let mut record = session(SessionStatus::Idle);
+    record.started_at = None;
+    record.elapsed_ms = 0;
+    record.entries.clear();
+    save_session_record(&mut connection, &record).unwrap();
+
+    // A Marni import, then Start before the next autosave: the start saves the imported loot as its baseline.
+    record.elapsed_ms = 3_600_000;
+    record.entries = session(SessionStatus::Idle).entries;
+    record.status = SessionStatus::Running;
+    record.started_at = Some(super::timestamp_ms());
+    save_session_record(&mut connection, &record).unwrap();
+    assert!(drops(&connection).is_empty());
+
+    record.entries[0].quantity = 12.0;
+    save_session_record(&mut connection, &record).unwrap();
+    assert_eq!(
+        drops(&connection)
+            .into_iter()
+            .map(|(_, name, quantity, _)| (name, quantity))
+            .collect::<Vec<_>>(),
+        vec![(stone(2).1, 2)],
+        "loot gained after the start is marked"
+    );
+
+    let mut direct = session(SessionStatus::Finished);
+    direct.id = "session-2".into();
+    direct.entries[0].id = "entry-2".into();
+    save_session_record(&mut connection, &direct).unwrap();
+    assert!(load_session_trend_records(&connection, "session-2")
+        .unwrap()
+        .drops
+        .is_empty());
+}
+
+#[test]
+fn entries_turned_into_expenses_lose_their_markers() {
+    let mut connection = database();
+    let mut record = session(SessionStatus::Paused);
+    save_from_empty(&mut connection, &record);
+    assert_eq!(drops(&connection), vec![at(5_000, stone(10))]);
+
+    record.entries[0].valuation = Valuation::Expense;
+    save_session_record(&mut connection, &record).unwrap();
+    assert!(drops(&connection).is_empty());
+}
+
+#[test]
+fn corrections_remove_the_newest_loot_events_first() {
+    let mut connection = database();
+    let mut record = session(SessionStatus::Paused);
+    save_from_empty(&mut connection, &record);
+    for (elapsed_ms, quantity) in [(6_000, 12.0), (7_000, 15.0)] {
+        record.elapsed_ms = elapsed_ms;
+        record.entries[0].quantity = quantity;
+        save_session_record(&mut connection, &record).unwrap();
+    }
+
+    record.entries[0].quantity = 11.0;
+    save_session_record(&mut connection, &record).unwrap();
+    assert_eq!(
+        drops(&connection),
+        vec![at(5_000, stone(10)), at(6_000, stone(1))]
+    );
+
+    record.elapsed_ms = 5_500;
+    save_session_record(&mut connection, &record).unwrap();
+    assert_eq!(
+        drops(&connection),
+        vec![at(5_000, stone(10))],
+        "reducing elapsed time drops events from the discarded span"
+    );
+
+    record.entries[0].id = "replacement".into();
+    save_session_record(&mut connection, &record).unwrap();
+    assert_eq!(
+        drops(&connection),
+        vec![at(5_500, stone(11))],
+        "a removed entry takes its events with it"
+    );
+}
+
+#[test]
+fn sessions_created_before_loot_events_existed_have_no_drops() {
+    let mut connection = database();
+    save_from_empty(&mut connection, &session(SessionStatus::Paused));
+    assert_eq!(drops(&connection), vec![at(5_000, stone(10))]);
+    connection
+        .execute(
+            "UPDATE schema_migrations SET applied_at = applied_at + 86400000 WHERE version = 7",
+            [],
+        )
+        .unwrap();
+    assert!(drops(&connection).is_empty());
+    assert_eq!(trend(&connection), vec![(5_000, 1_079_000)]);
 }
