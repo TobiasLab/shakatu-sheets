@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import type { TrendView } from "../../api/preferences";
 import {
     deleteFinishedSession,
     type FinishedSessionRecord,
@@ -37,7 +38,11 @@ export function HistoryView({
     onReopen,
     onOpenSettings,
     onSessionCorrected,
+    trendView,
+    onTrendViewChange,
 }: {
+    trendView: TrendView;
+    onTrendViewChange: (view: TrendView) => void;
     initialRegion: "eu" | "na";
     databaseLoaded: boolean;
     databaseStatus: DatabaseStatus;
@@ -677,6 +682,8 @@ export function HistoryView({
                                         grindSpotId={selected.session.grindSpotId}
                                         elapsedMs={selected.session.elapsedMs}
                                         net={selectedTotals.net}
+                                        view={trendView}
+                                        onViewChange={onTrendViewChange}
                                     />
                                 )}
                             </div>

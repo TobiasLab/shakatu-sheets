@@ -90,7 +90,7 @@ Rows cascade with their session. As with migration 5, sessions created before th
 ## Persistence
 
 - The latest unfinished session is loaded at startup.
-- The desk reads a session's net samples for its net-over-time trend; the live session supplies the current end point.
+- The desk reads a session's net samples for its session trend (net and silver/h views); the live session supplies the current end point.
   History reads them for the selected finished session, whose saved elapsed time and net supply the end point, and
   shows no trend for sessions without samples. The same command returns the session's loot events, from which the
   trend picks its spike markers.
@@ -139,6 +139,8 @@ Rows cascade with their session. As with migration 5, sessions created before th
 - The theme uses the `theme` setting (`light` or `dark`; default dark). Grind-spot favorites and the eight most recent
   spots use `grind_spot_preferences`, a JSON object of spot ID arrays. Earlier builds kept both in browser storage; the
   first load without a SQLite value saves the browser value to SQLite and then removes it. No migration is needed.
+- The session trend's Net or Silver/h view uses the `trend_view` setting (`net` or `pace`; default net), shared by the
+  desk and History. No migration is needed.
 - Live loot calibration stores only validated normalized rectangle coordinates and source dimensions in `settings`.
   Preview and region pixels remain in memory. Opt-in self-improvement uses the separate database below.
 - Connect failures that occur before request transmission release the upload reservation for an explicit retry. Any

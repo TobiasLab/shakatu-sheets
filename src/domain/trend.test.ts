@@ -2,6 +2,10 @@ import { describe, expect, it } from "vitest";
 import {
     hasRecordedTrend,
     netAt,
+    PACE_MIN_SPAN_MS,
+    PACE_WINDOW_MS,
+    paceAt,
+    paceSeries,
     recentRate,
     SPIKE_MAX_MARKERS,
     SPIKE_MIN_GAP_SHARE,
@@ -39,8 +43,8 @@ describe("session trend", () => {
 
     it("measures the recent pace only once the window has elapsed", () => {
         const points = trendPoints(samples, 3_600_000, 700);
-        expect(recentRate(points, 1_800_000)).toBe(600);
-        expect(recentRate(trendPoints([], 900_000, 10), 1_800_000)).toBeNull();
+        expect(recentRate(points)).toBe(600);
+        expect(recentRate(trendPoints([], 900_000, 10))).toBeNull();
     });
 
     it("shows a finished session's trend only when it has samples and lasted a minute", () => {
@@ -48,6 +52,56 @@ describe("session trend", () => {
         expect(hasRecordedTrend([], 3_600_000)).toBe(false);
         expect(hasRecordedTrend(samples, 59_999)).toBe(false);
         expect(hasRecordedTrend([{ elapsedMs: 0, net: 500 }], 0)).toBe(false);
+    });
+
+    describe("pace", () => {
+        const hour = 3_600_000;
+        const minute = 60_000;
+        // 100 silver each minute, plus a 6,000 silver drop in minute 61.
+        const perMinute = Array.from({ length: 119 }, (_, index) => ({
+            elapsedMs: (index + 1) * minute,
+            net: (index + 1) * 100 + (index + 1 >= 61 ? 6_000 : 0),
+        }));
+        const points = trendPoints(perMinute, 2 * hour, 18_000);
+
+        it("measures silver per hour over the trailing window until a drop leaves it", () => {
+            expect(paceAt(points, 50 * minute)).toBe(6_000);
+            expect(paceAt(points, 61 * minute)).toBe(18_000);
+            expect(paceAt(points, 90 * minute)).toBe(18_000);
+            expect(paceAt(points, 91 * minute)).toBe(6_000);
+            expect(recentRate(points)).toBe(paceAt(points, 2 * hour));
+            expect(recentRate(trendPoints([], 15 * minute, 10))).toBeNull();
+        });
+
+        it("holds net between samples, so a drop after a quiet stretch counts when it was recorded", () => {
+            const quiet = trendPoints(
+                [
+                    { elapsedMs: 10 * minute, net: 1_000 },
+                    { elapsedMs: 55 * minute, net: 1_001_000 },
+                ],
+                hour,
+                1_001_000,
+            );
+            expect(paceAt(quiet, 55 * minute - 1)).toBe(0);
+            expect(paceAt(quiet, 55 * minute)).toBe(2_000_000);
+        });
+
+        it("covers the time since the start, but at least the minimum span, before the window has elapsed", () => {
+            expect(paceAt(points, 0)).toBe(0);
+            expect(paceAt(points, minute)).toBeCloseTo(100 * (hour / PACE_MIN_SPAN_MS));
+            expect(paceAt(points, 20 * minute)).toBeCloseTo(6_000);
+        });
+
+        it("draws each jump at its exact time, whatever the session length", () => {
+            for (const elapsedMs of [2 * hour, 2 * hour + 1_000]) {
+                const series = paceSeries(trendPoints(perMinute, elapsedMs, 18_000), elapsedMs);
+                expect(series[0]).toEqual({ elapsedMs: 0, value: 0 });
+                expect(series).toContainEqual({ elapsedMs: 61 * minute - 1, value: 6_000 });
+                expect(series).toContainEqual({ elapsedMs: 61 * minute, value: 18_000 });
+                expect(series).toContainEqual({ elapsedMs: 61 * minute + PACE_WINDOW_MS, value: 6_000 });
+                expect(series[series.length - 1].elapsedMs).toBe(elapsedMs);
+            }
+        });
     });
 
     describe("spike markers", () => {

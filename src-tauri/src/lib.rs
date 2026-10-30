@@ -74,6 +74,8 @@ pub fn run() {
         persistence::overlay::save_overlay_opacity,
         persistence::preferences::load_theme,
         persistence::preferences::save_theme,
+        persistence::preferences::load_trend_view,
+        persistence::preferences::save_trend_view,
         persistence::preferences::load_spot_preferences,
         persistence::preferences::save_spot_preferences,
         #[cfg(debug_assertions)]

@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import type { TrendView } from "../../api/preferences";
 import { loadSessionTrend } from "../../api/tauri";
 import { Icon } from "../../components/Icon/Icon";
 import { calculateEntryTotals } from "../../domain/session";
@@ -13,11 +14,15 @@ export function SessionMetrics({
     controller,
     saved,
     visible,
+    trendView,
+    onTrendViewChange,
     onFinish,
 }: {
     controller: LiveSessionController;
     saved: boolean;
     visible: boolean;
+    trendView: TrendView;
+    onTrendViewChange: (view: TrendView) => void;
     onFinish: () => void;
 }) {
     const elapsedMs = useElapsedTime(controller.session, visible);
@@ -81,6 +86,8 @@ export function SessionMetrics({
                 grindSpotId={session.grindSpotId}
                 elapsedMs={elapsedMs}
                 net={totals.net}
+                view={trendView}
+                onViewChange={onTrendViewChange}
             />
             <SessionClock controller={controller} elapsedMs={elapsedMs} onFinish={onFinish} />
         </section>

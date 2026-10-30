@@ -20,6 +20,8 @@ const COMMANDS: &[&str] = &[
     "save_theme",
     "load_spot_preferences",
     "save_spot_preferences",
+    "load_trend_view",
+    "save_trend_view",
     "load_debug_roi_samples_enabled",
     "save_debug_roi_samples_enabled",
     "load_market_prices",

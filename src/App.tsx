@@ -1,6 +1,15 @@
 import { useLayoutEffect, useRef, useState } from "react";
 import { loadLootFont, saveLootFont } from "./api/lootFont";
-import { loadSpotPreferences, loadTheme, saveSpotPreferences, saveTheme, type Theme } from "./api/preferences";
+import {
+    loadSpotPreferences,
+    loadTheme,
+    loadTrendView,
+    saveSpotPreferences,
+    saveTheme,
+    saveTrendView,
+    type Theme,
+    type TrendView,
+} from "./api/preferences";
 import { loadOverlayOpacity, saveOverlayOpacity } from "./api/sessionOverlay";
 import { loadDebugRoiSamplesEnabled, saveDebugRoiSamplesEnabled } from "./api/tauri";
 import { AppShell, type AppView } from "./components/AppShell/AppShell";
@@ -34,6 +43,7 @@ export function App() {
         true,
     );
     const overlayOpacity = usePersistedSetting(100, loadOverlayOpacity, saveOverlayOpacity, "opacity");
+    const trendView = usePersistedSetting<TrendView>("net", loadTrendView, saveTrendView, "graph view");
     // Capture must not guess the in-game font, so a failed load stays unready until a font is saved.
     const lootFont = usePersistedSetting<LootFont>("korean", loadLootFont, saveLootFont, "in-game font", true);
     const debugRoiSamples = usePersistedSetting(
@@ -53,6 +63,7 @@ export function App() {
             theme.flush(),
             spotPreferences.flush(),
             debugRoiSamples.flush(),
+            trendView.flush(),
         ];
         // Without a loaded database a failing save must not keep the window open; pending saves still get their chance.
         if (persistedSession.databaseLoaded) await Promise.all(flushes);
@@ -126,6 +137,8 @@ export function App() {
                         debugRoiSamples={debugRoiSamples.value}
                         overlay={overlay}
                         spotPreferences={spotPreferences}
+                        trendView={trendView.value}
+                        onTrendViewChange={trendView.update}
                         onOpenHistory={() => setView("history")}
                         visible={view === "live"}
                         captureSetupRequest={captureSetupRequest}
@@ -148,6 +161,8 @@ export function App() {
                             }
                         }}
                         onOpenSettings={() => setView("settings")}
+                        trendView={trendView.value}
+                        onTrendViewChange={trendView.update}
                     />
                 ) : view === "settings" ? (
                     <SettingsView
