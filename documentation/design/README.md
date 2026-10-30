@@ -14,14 +14,19 @@ dark.
   overlay shows the same count in its header. The top bar replaces the system title bar: dragging it moves the window,
   double-clicking it toggles maximize, and minimize, maximize, and close buttons sit at its right end.
 - **Grind desk.** The grind spot is the heading, with variant prefixes such as `[Dehkia 2]` shown as tags. One readout
-  row shows net silver/hour, session net, a net-over-time trend, and session time beside the timer controls. A paused
-  timer shows a Paused badge and muted time. The trend plots persisted net samples against elapsed time with a hairline
-  chord for the average pace, the last 30 minutes' rate once available, and a readout that follows the pointer or the arrow keys.
+  row shows net silver/hour, session net, a session trend, and session time beside the timer controls. A paused
+  timer shows a Paused badge and muted time. A Net / Silver/h switch heads the trend and is remembered across the desk
+  and History. Net plots persisted net samples against elapsed time with a hairline chord for the average pace.
+  Silver/h plots the pace over the trailing 30 minutes (before then, since the start, but over at least 5 minutes so one
+  early drop cannot dwarf the line) with a flat hairline at the session average; a big drop shows as a 30-minute
+  plateau. Pace and the 30-minute rate hold net at its latest sample, because samples are stored only when net changes,
+  so a drop after a quiet stretch counts when it was recorded.
+  Both show the last 30 minutes' rate once available and a readout that follows the pointer or the arrow keys.
   Spike markers stand above the plot for the session's biggest drops: item icon, compact value, and a stem to the
   step it caused. A drop gets a marker when it is worth at least 10% of the session net; at most five are shown, and of
   two markers closer than 8% of the session's duration only the more valuable stays. These values are the
   `SPIKE_*` constants in `src/domain/trend.ts`. When the readout reaches a marker it snaps to that drop and names the
-  item; the plot's accessible label lists the marked drops.
+  item, shortening a long name so the value and time stay visible; the plot's accessible label lists the marked drops.
 - **Capture.** Loot capture is a one-line status strip. Setup expands it into a connected stepper, the live preview with
   both crop previews beneath, and a narrow control column (area switch, UI scale, position pad, layout import,
   confirmation, diagnostics). Needs attention sits flush inside the strip.
@@ -35,7 +40,7 @@ dark.
 - **History.** Filters sit in an always-visible bar: region switch (All, EU, NA), grind spot, completion date range,
   7/30-day shortcuts, and Clear filters. Totals use the desk's readout style. Grind-spot comparisons are an open table with a bar
   proportional to each spot's rate. The session list sits beside a single receipt panel for the selected session. The
-  receipt shows the session's net-over-time trend beside its figures, with the same readout as the desk; sessions
+  receipt shows the session trend beside its figures, with the same switch and readout as the desk; sessions
   created before net samples were recorded (migration 5) show no trend rather than a straight line.
 - **Settings.** A sticky section index sits beside open sections. Each section has a label column and a form column.
 

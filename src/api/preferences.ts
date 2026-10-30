@@ -2,6 +2,7 @@ import { invoke } from "@tauri-apps/api/core";
 import { cleanSpotPreferences, type SpotPreferences } from "../components/GrindSpotPicker/preferences";
 
 export type Theme = "light" | "dark";
+export type TrendView = "net" | "pace";
 
 // Until September 2026 the theme and spot favorites lived in browser storage. The first load without a SQLite value
 // uses the old value, saves it there, and removes it from browser storage once that save succeeds.
@@ -46,6 +47,16 @@ export async function loadTheme(): Promise<Theme> {
 
 export function saveTheme(theme: Theme) {
     return invoke<void>("save_theme", { theme });
+}
+
+export async function loadTrendView(): Promise<TrendView> {
+    const view = await invoke<unknown>("load_trend_view");
+    if (view !== "net" && view !== "pace") throw new Error("Invalid saved graph view.");
+    return view;
+}
+
+export function saveTrendView(view: TrendView) {
+    return invoke<void>("save_trend_view", { view });
 }
 
 export async function loadSpotPreferences(): Promise<SpotPreferences> {

@@ -114,11 +114,11 @@ Two themes, dark (default) and light, share the same token names. Every new toke
   show in the banner under the bar); at 760px and below the capture status.
 - **Workspace:** content maxes out at 1440px with 32px side padding (16px below 900px). Pages must not scroll
   horizontally at any width down to 640px; wide tables scroll inside their own region.
-- **Grind desk, top to bottom:** spot heading, readout row (silver/hour, net, net-over-time trend, time with timer
+- **Grind desk, top to bottom:** spot heading, readout row (silver/hour, net, session trend, time with timer
   controls), capture strip, drops. The readout, strip, and first row of drops must fit a 1440×900 window, and the layout
   must stay usable at half of a 1920px screen.
 - **History:** title, filter bar, overview figures, comparison table, then the session list beside one receipt panel.
-  The receipt's figures row ends with the session's net-over-time trend when net samples exist.
+  The receipt's figures row ends with the session trend when net samples exist.
 - **Settings:** a sticky section index beside open sections; each section has a label column (up to 200px) and a form
   column (up to 570px).
 
@@ -161,7 +161,7 @@ Reuse these before creating anything new. Class names refer to global classes in
 
 ## Charts
 
-Follow the dataviz rules: one series per chart, a 2px line in the accent over a 10% wash, an end dot with a surface ring,
+Follow the dataviz rules: one series per chart (a segmented switch in the title position may swap which series), a 2px line in the accent over a 10% wash, an end dot with a surface ring,
 solid hairline reference lines (never dashed), no legend for a single series, and a readout that works with pointer
 and keyboard alike. A chart title names the series; the one extra number shown next to it must be meaningful on its
 own (for example, "Last 30 min 527.55M/h"). The end dot's ring matches the background behind the chart: `--canvas` by

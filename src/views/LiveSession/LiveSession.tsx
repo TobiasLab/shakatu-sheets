@@ -1,4 +1,5 @@
 import { type RefObject, useEffect, useLayoutEffect, useRef, useState } from "react";
+import type { TrendView } from "../../api/preferences";
 import { Feedback } from "../../components/Feedback/Feedback";
 import { GrindSpotPicker } from "../../components/GrindSpotPicker/GrindSpotPicker";
 import type { SpotPreferences } from "../../components/GrindSpotPicker/preferences";
@@ -31,8 +32,12 @@ export function LiveSessionView({
     selfImprovement,
     onOpenSelfImprovement,
     spotPreferences,
+    trendView,
+    onTrendViewChange,
     stopCaptureRef,
 }: {
+    trendView: TrendView;
+    onTrendViewChange: (view: TrendView) => void;
     overlay: { openOverlay: () => Promise<void>; error: string; available: boolean };
     onOpenHistory: () => void;
     selfImprovement: ReturnType<typeof useSelfImprovement>;
@@ -184,6 +189,8 @@ export function LiveSessionView({
                 controller={controller}
                 saved={saved}
                 visible={visible}
+                trendView={trendView}
+                onTrendViewChange={onTrendViewChange}
                 onFinish={() => void requestFinish()}
             />
             <FinishReviewDialog

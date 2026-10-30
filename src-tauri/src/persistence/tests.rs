@@ -570,6 +570,23 @@ fn debug_roi_samples_setting_defaults_off_persists_and_rejects_unknown_values() 
 }
 
 #[test]
+fn trend_view_defaults_to_net_persists_and_rejects_unknown_values() {
+    use super::preferences::{load_trend_view_setting, save_trend_view_setting, TrendView};
+    let mut connection = database();
+    assert_eq!(
+        load_trend_view_setting(&connection).unwrap(),
+        TrendView::Net
+    );
+    for view in [TrendView::Pace, TrendView::Net] {
+        save_trend_view_setting(&mut connection, view).unwrap();
+        assert_eq!(load_trend_view_setting(&connection).unwrap(), view);
+    }
+    assert!(serde_json::from_str::<TrendView>(r#""rate""#).is_err());
+    save_settings(&mut connection, &[("trend_view", Some("rate"))]).unwrap();
+    assert!(load_trend_view_setting(&connection).is_err());
+}
+
+#[test]
 fn theme_and_spot_preferences_persist_and_reject_invalid_values() {
     use super::preferences::{
         load_spot_preferences_setting, load_theme_setting, save_spot_preferences_setting,

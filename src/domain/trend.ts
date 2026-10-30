@@ -28,10 +28,49 @@ export function netAt(points: TrendSample[], elapsedMs: number): number {
     return span > 0 ? before.net + ((after.net - before.net) * (elapsedMs - before.elapsedMs)) / span : after.net;
 }
 
-export function recentRate(points: TrendSample[], windowMs: number): number | null {
+// The pace view plots silver/hour over the trailing window. Before the window has elapsed it covers the time since the
+// start, but never less than the minimum span, so one drop in the first minutes cannot dwarf the rest of the line.
+export const PACE_WINDOW_MS = 30 * 60_000;
+export const PACE_MIN_SPAN_MS = 5 * 60_000;
+
+// Samples are stored only when net changes, so net holds its latest sample until the next one. Points are sorted by time.
+function heldNetAt(points: TrendSample[], elapsedMs: number): number {
+    let low = 0;
+    let high = points.length - 1;
+    while (low < high) {
+        const middle = Math.ceil((low + high) / 2);
+        if (points[middle].elapsedMs <= elapsedMs) low = middle;
+        else high = middle - 1;
+    }
+    return points[low]?.net ?? 0;
+}
+
+export function paceAt(points: TrendSample[], elapsedMs: number): number {
+    const from = Math.max(0, elapsedMs - PACE_WINDOW_MS);
+    const spanMs = Math.max(elapsedMs - from, PACE_MIN_SPAN_MS);
+    return (heldNetAt(points, elapsedMs) - heldNetAt(points, from)) / (spanMs / 3_600_000);
+}
+
+// Pace changes only when a sample enters the window or leaves it. Once the window is full, pace is flat between those
+// changes, so the point just before each one keeps the jump upright. Before then the span still grows, and joining the
+// changes draws a smooth curve instead of a dip after every sample.
+export function paceSeries(points: TrendSample[], elapsedMs: number): { elapsedMs: number; value: number }[] {
+    const times = new Set([0, elapsedMs]);
+    for (const point of points) {
+        for (const change of [point.elapsedMs, point.elapsedMs + PACE_WINDOW_MS]) {
+            if (change <= 0 || change > elapsedMs) continue;
+            if (change > PACE_WINDOW_MS) times.add(change - 1);
+            times.add(change);
+        }
+    }
+    return [...times].sort((left, right) => left - right).map((at) => ({ elapsedMs: at, value: paceAt(points, at) }));
+}
+
+// The pace at the end of the session, once a whole window has elapsed.
+export function recentRate(points: TrendSample[]): number | null {
     const end = points[points.length - 1];
-    if (!end || end.elapsedMs < windowMs) return null;
-    return (end.net - netAt(points, end.elapsedMs - windowMs)) / (windowMs / 3_600_000);
+    if (!end || end.elapsedMs < PACE_WINDOW_MS) return null;
+    return paceAt(points, end.elapsedMs);
 }
 
 // Which drops get a marker on the trend. Retune spikes by changing these three values.

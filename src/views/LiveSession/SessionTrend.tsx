@@ -1,8 +1,11 @@
 import { type KeyboardEvent, type PointerEvent, useState } from "react";
+import type { TrendView } from "../../api/preferences";
 import { getDropIcon } from "../../data/grindSpots";
 import {
     MIN_TREND_MS,
     netAt,
+    paceAt,
+    paceSeries,
     recentRate,
     spikeAt,
     spikeDrops,
@@ -15,7 +18,6 @@ import styles from "./LiveSession.module.css";
 
 const WIDTH = 320;
 const HEIGHT = 56;
-const RECENT_WINDOW_MS = 30 * 60_000;
 
 export function SessionTrend({
     samples,
@@ -23,33 +25,59 @@ export function SessionTrend({
     grindSpotId,
     elapsedMs,
     net,
+    view,
+    onViewChange,
 }: {
     samples: TrendSample[];
     drops: TrendDrop[];
     grindSpotId: string;
     elapsedMs: number;
     net: number;
+    view: TrendView;
+    onViewChange: (view: TrendView) => void;
 }) {
     const [hoverMs, setHoverMs] = useState<number | null>(null);
     const points = trendPoints(samples, elapsedMs, net);
     if (elapsedMs < MIN_TREND_MS || points.length < 2) return <div className={styles.Trend} aria-hidden="true" />;
 
-    const low = Math.min(0, ...points.map((point) => point.net));
-    const high = Math.max(1, ...points.map((point) => point.net));
+    const pace = view === "pace";
+    const series = pace
+        ? paceSeries(points, elapsedMs)
+        : points.map((point) => ({ elapsedMs: point.elapsedMs, value: point.net }));
+    const valueAt = (ms: number) => (pace ? paceAt(points, ms) : netAt(points, ms));
+    const average = net / (elapsedMs / 3_600_000);
+    const unit = pace ? "/h" : "";
+    const low = Math.min(0, ...series.map((point) => point.value));
+    const high = Math.max(1, ...series.map((point) => point.value), pace ? average : 0);
     const x = (ms: number) => (ms / elapsedMs) * WIDTH;
     const y = (value: number) => HEIGHT - 3 - ((value - low) / (high - low)) * (HEIGHT - 6);
-    const line = points.map((point) => `${x(point.elapsedMs).toFixed(1)},${y(point.net).toFixed(1)}`).join(" ");
+    const line = series.map((point) => `${x(point.elapsedMs).toFixed(1)},${y(point.value).toFixed(1)}`).join(" ");
     const area = `0,${y(0)} ${line} ${WIDTH},${y(0)}`;
-    const recent = recentRate(points, RECENT_WINDOW_MS);
+    const recent = recentRate(points);
     const spikes = spikeDrops(drops, elapsedMs, net);
     const hoveredSpike = hoverMs === null ? null : spikeAt(spikes, hoverMs, elapsedMs);
     const shownMs = hoveredSpike?.elapsedMs ?? hoverMs ?? elapsedMs;
-    const shownNet = hoverMs === null ? net : netAt(points, shownMs);
+    const shownValue = valueAt(shownMs);
     const spikeName =
         hoveredSpike && hoveredSpike.quantity > 1
             ? `${hoveredSpike.name} ×${hoveredSpike.quantity}`
             : hoveredSpike?.name;
-    const readout = `${spikeName ? `${spikeName}, ` : ""}${formatSilver(hoveredSpike?.value ?? shownNet, true)} at ${formatDuration(shownMs)}`;
+    const readout = hoveredSpike
+        ? `${spikeName}, ${formatSilver(hoveredSpike.value, true)} at ${formatDuration(shownMs)}`
+        : `${formatSilver(shownValue, true)}${unit} at ${formatDuration(shownMs)}`;
+    const recentSummary = recent === null ? "" : `, ${formatSilver(recent, true)} per hour over the last 30 minutes`;
+    const summary = pace
+        ? `${formatSilver(average, true)} per hour session average after ${formatDuration(elapsedMs)}${recentSummary}`
+        : `Net ${formatSilver(net, true)} after ${formatDuration(elapsedMs)}${recentSummary}`;
+    const dropSummary =
+        spikes.length === 0
+            ? ""
+            : `. Biggest drops: ${spikes
+                  .map(
+                      (spike) =>
+                          `${spike.name} ${formatSilver(spike.value, true)} at ${formatDuration(spike.elapsedMs)}`,
+                  )
+                  .join(", ")}`;
 
     function step(event: KeyboardEvent<HTMLDivElement>) {
         const current = hoverMs ?? elapsedMs;
@@ -76,16 +104,35 @@ export function SessionTrend({
     }
 
     return (
-        <figure className={styles.Trend}>
+        <figure className={styles.Trend} aria-label={pace ? "Silver per hour over time" : "Net over time"}>
             <figcaption>
-                {spikeName ? <span className={styles.TrendSpikeName}>{spikeName}</span> : <span>Net over time</span>}
+                <fieldset className="segmented">
+                    <legend className="sr-only">Graph</legend>
+                    {(["net", "pace"] as const).map((option) => (
+                        <button
+                            key={option}
+                            type="button"
+                            aria-pressed={view === option}
+                            onClick={() => onViewChange(option)}
+                        >
+                            {option === "net" ? "Net" : "Silver/h"}
+                        </button>
+                    ))}
+                </fieldset>
                 {hoveredSpike ? (
-                    <span>
-                        <strong>{formatSilver(hoveredSpike.value, true)}</strong> at {formatDuration(shownMs)}
+                    <span className={styles.TrendReadout}>
+                        <span className={styles.TrendSpikeName}>{spikeName}</span>
+                        <span>
+                            <strong>{formatSilver(hoveredSpike.value, true)}</strong> at {formatDuration(shownMs)}
+                        </span>
                     </span>
                 ) : hoverMs !== null ? (
                     <span>
-                        <strong>{formatSilver(shownNet, true)}</strong> at {formatDuration(shownMs)}
+                        <strong>
+                            {formatSilver(shownValue, true)}
+                            {unit}
+                        </strong>{" "}
+                        at {formatDuration(shownMs)}
                     </span>
                 ) : (
                     recent !== null && (
@@ -101,18 +148,7 @@ export function SessionTrend({
                 // biome-ignore lint/a11y/noNoninteractiveTabindex: Arrow keys move the same readout as pointer hover.
                 tabIndex={0}
                 role="img"
-                aria-label={`Net ${formatSilver(net, true)} after ${formatDuration(elapsedMs)}${
-                    recent === null ? "" : `, ${formatSilver(recent, true)} per hour over the last 30 minutes`
-                }${
-                    spikes.length === 0
-                        ? ""
-                        : `. Biggest drops: ${spikes
-                              .map(
-                                  (spike) =>
-                                      `${spike.name} ${formatSilver(spike.value, true)} at ${formatDuration(spike.elapsedMs)}`,
-                              )
-                              .join(", ")}`
-                }`}
+                aria-label={`${summary}${dropSummary}`}
                 onPointerMove={track}
                 onPointerLeave={() => setHoverMs(null)}
                 onKeyDown={step}
@@ -120,13 +156,17 @@ export function SessionTrend({
             >
                 <svg viewBox={`0 0 ${WIDTH} ${HEIGHT}`} preserveAspectRatio="none" aria-hidden="true">
                     {low < 0 && <line className={styles.TrendZero} x1="0" x2={WIDTH} y1={y(0)} y2={y(0)} />}
-                    <line className={styles.TrendAverage} x1="0" y1={y(0)} x2={WIDTH} y2={y(net)} />
+                    {pace ? (
+                        <line className={styles.TrendAverage} x1="0" y1={y(average)} x2={WIDTH} y2={y(average)} />
+                    ) : (
+                        <line className={styles.TrendAverage} x1="0" y1={y(0)} x2={WIDTH} y2={y(net)} />
+                    )}
                     <polygon className={styles.TrendArea} points={area} />
                     <polyline className={styles.TrendLine} points={line} />
                 </svg>
                 <i
                     className={styles.TrendDot}
-                    style={{ left: `${(x(shownMs) / WIDTH) * 100}%`, top: `${(y(shownNet) / HEIGHT) * 100}%` }}
+                    style={{ left: `${(x(shownMs) / WIDTH) * 100}%`, top: `${(y(shownValue) / HEIGHT) * 100}%` }}
                 />
                 {spikes.map((spike) => {
                     const icon = getDropIcon(grindSpotId, spike.name);
@@ -137,7 +177,7 @@ export function SessionTrend({
                             data-active={spike === hoveredSpike || undefined}
                             style={{
                                 left: `${(x(spike.elapsedMs) / WIDTH) * 100}%`,
-                                height: `calc(${(y(netAt(points, spike.elapsedMs)) / HEIGHT) * 100}% + var(--spike-space))`,
+                                height: `calc(${(y(valueAt(spike.elapsedMs)) / HEIGHT) * 100}% + var(--spike-space))`,
                             }}
                         >
                             {icon ? <img src={icon} alt="" /> : <b />}

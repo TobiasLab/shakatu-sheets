@@ -63,7 +63,9 @@
 }
 .Trend figcaption {
     display: flex;
+    align-items: center;
     justify-content: space-between;
+    min-width: 0;
     gap: 12px;
     color: var(--muted);
     font-size: 12px;
@@ -127,6 +129,19 @@
 }
 .TrendSpike[data-active]::after {
     background: var(--gold);
+}
+.Trend figcaption > span {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.TrendReadout {
+    display: flex;
+    gap: 6px;
+    min-width: 0;
+}
+.TrendReadout > span:last-child {
+    flex: none;
 }
 .TrendSpikeName {
     min-width: 0;

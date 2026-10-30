@@ -6,6 +6,7 @@ use super::{load_setting, run_database, save_settings, DatabasePath};
 
 const THEME_KEY: &str = "theme";
 const SPOT_PREFERENCES_KEY: &str = "grind_spot_preferences";
+const TREND_VIEW_KEY: &str = "trend_view";
 #[cfg(debug_assertions)]
 const DEBUG_ROI_SAMPLES_KEY: &str = "debug_roi_samples_enabled";
 const MAX_FAVORITE_SPOTS: usize = 200;
@@ -16,6 +17,14 @@ const MAX_RECENT_SPOTS: usize = 8;
 pub enum Theme {
     Light,
     Dark,
+}
+
+/// Which series the session trend plots: cumulative net or the recent silver/hour pace.
+#[derive(Clone, Copy, Debug, Deserialize, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "lowercase")]
+pub enum TrendView {
+    Net,
+    Pace,
 }
 
 #[derive(Clone, Debug, Deserialize, PartialEq, Eq, Serialize)]
@@ -54,6 +63,41 @@ pub(super) fn save_theme_setting(connection: &mut Connection, theme: Theme) -> R
         Theme::Dark => "dark",
     };
     save_settings(connection, &[(THEME_KEY, Some(value))])
+}
+
+#[tauri::command]
+pub async fn load_trend_view(state: State<'_, DatabasePath>) -> Result<TrendView, String> {
+    run_database(state, |connection| load_trend_view_setting(connection)).await
+}
+
+pub(super) fn load_trend_view_setting(connection: &Connection) -> Result<TrendView, String> {
+    match load_setting(connection, TREND_VIEW_KEY)?.as_deref() {
+        None | Some("net") => Ok(TrendView::Net),
+        Some("pace") => Ok(TrendView::Pace),
+        Some(_) => Err("Invalid saved graph view.".into()),
+    }
+}
+
+#[tauri::command]
+pub async fn save_trend_view(
+    view: TrendView,
+    state: State<'_, DatabasePath>,
+) -> Result<(), String> {
+    run_database(state, move |connection| {
+        save_trend_view_setting(connection, view)
+    })
+    .await
+}
+
+pub(super) fn save_trend_view_setting(
+    connection: &mut Connection,
+    view: TrendView,
+) -> Result<(), String> {
+    let value = match view {
+        TrendView::Net => "net",
+        TrendView::Pace => "pace",
+    };
+    save_settings(connection, &[(TREND_VIEW_KEY, Some(value))])
 }
 
 /// Development builds only: whether ROI samples are recorded while the session timer runs.
