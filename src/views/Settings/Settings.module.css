@@ -379,3 +379,34 @@
         height: 60px;
     }
 }
+.DeveloperOptions {
+    display: grid;
+    gap: 10px;
+    padding-top: 16px;
+    border-top: 1px solid var(--line);
+}
+.DeveloperOptions .Option {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 20px;
+    cursor: pointer;
+}
+.DeveloperOptions .Option strong {
+    color: var(--text-strong);
+    font-size: 13px;
+    font-weight: 600;
+}
+.DeveloperOptions .Option small {
+    display: block;
+    margin-top: 2px;
+    color: var(--muted);
+    font-size: 13px;
+    line-height: 1.5;
+}
+.DeveloperOptions code {
+    white-space: nowrap;
+}
+.DeveloperOptions .Option:has(input:disabled) {
+    cursor: default;
+}

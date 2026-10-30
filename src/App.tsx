@@ -2,6 +2,7 @@ import { useLayoutEffect, useRef, useState } from "react";
 import { loadLootFont, saveLootFont } from "./api/lootFont";
 import { loadSpotPreferences, loadTheme, saveSpotPreferences, saveTheme, type Theme } from "./api/preferences";
 import { loadOverlayOpacity, saveOverlayOpacity } from "./api/sessionOverlay";
+import { loadDebugRoiSamplesEnabled, saveDebugRoiSamplesEnabled } from "./api/tauri";
 import { AppShell, type AppView } from "./components/AppShell/AppShell";
 import type { SpotPreferences } from "./components/GrindSpotPicker/preferences";
 import { focusLootReview } from "./components/LiveLootCapture/LootReview";
@@ -35,12 +36,24 @@ export function App() {
     const overlayOpacity = usePersistedSetting(100, loadOverlayOpacity, saveOverlayOpacity, "opacity");
     // Capture must not guess the in-game font, so a failed load stays unready until a font is saved.
     const lootFont = usePersistedSetting<LootFont>("korean", loadLootFont, saveLootFont, "in-game font", true);
+    const debugRoiSamples = usePersistedSetting(
+        false,
+        loadDebugRoiSamplesEnabled,
+        saveDebugRoiSamplesEnabled,
+        "ROI sample recording",
+    );
     const selfImprovement = useSelfImprovement();
     const [showSelfImprovement, setShowSelfImprovement] = useState(false);
     const stopCaptureRef = useRef<(() => void) | null>(null);
     const persistedSession = usePersistedSession(async () => {
         stopCaptureRef.current?.();
-        const flushes = [overlayOpacity.flush(), lootFont.flush(), theme.flush(), spotPreferences.flush()];
+        const flushes = [
+            overlayOpacity.flush(),
+            lootFont.flush(),
+            theme.flush(),
+            spotPreferences.flush(),
+            debugRoiSamples.flush(),
+        ];
         // Without a loaded database a failing save must not keep the window open; pending saves still get their chance.
         if (persistedSession.databaseLoaded) await Promise.all(flushes);
         else await Promise.allSettled(flushes);
@@ -110,6 +123,7 @@ export function App() {
                         }}
                         lootFont={lootFont.value}
                         lootFontReady={lootFont.loaded && !lootFont.saving && !lootFont.error}
+                        debugRoiSamples={debugRoiSamples.value}
                         overlay={overlay}
                         spotPreferences={spotPreferences}
                         onOpenHistory={() => setView("history")}
@@ -143,6 +157,7 @@ export function App() {
                         onOpenCapture={openCaptureSetup}
                         overlayOpacity={overlay.supportsOpacity ? overlayOpacity : null}
                         lootFont={lootFont}
+                        debugRoiSamples={import.meta.env.DEV ? debugRoiSamples : null}
                         selfImprovement={selfImprovement}
                         showSelfImprovement={showSelfImprovement}
                     />

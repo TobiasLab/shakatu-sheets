@@ -6,6 +6,8 @@ use super::{load_setting, run_database, save_settings, DatabasePath};
 
 const THEME_KEY: &str = "theme";
 const SPOT_PREFERENCES_KEY: &str = "grind_spot_preferences";
+#[cfg(debug_assertions)]
+const DEBUG_ROI_SAMPLES_KEY: &str = "debug_roi_samples_enabled";
 const MAX_FAVORITE_SPOTS: usize = 200;
 const MAX_RECENT_SPOTS: usize = 8;
 
@@ -52,6 +54,48 @@ pub(super) fn save_theme_setting(connection: &mut Connection, theme: Theme) -> R
         Theme::Dark => "dark",
     };
     save_settings(connection, &[(THEME_KEY, Some(value))])
+}
+
+/// Development builds only: whether ROI samples are recorded while the session timer runs.
+#[cfg(debug_assertions)]
+#[tauri::command]
+pub async fn load_debug_roi_samples_enabled(
+    state: State<'_, DatabasePath>,
+) -> Result<bool, String> {
+    run_database(state, |connection| {
+        load_debug_roi_samples_setting(connection)
+    })
+    .await
+}
+
+#[cfg(debug_assertions)]
+pub(super) fn load_debug_roi_samples_setting(connection: &Connection) -> Result<bool, String> {
+    match load_setting(connection, DEBUG_ROI_SAMPLES_KEY)?.as_deref() {
+        None | Some("false") => Ok(false),
+        Some("true") => Ok(true),
+        Some(_) => Err("Invalid saved ROI sample recording setting.".into()),
+    }
+}
+
+#[cfg(debug_assertions)]
+#[tauri::command]
+pub async fn save_debug_roi_samples_enabled(
+    enabled: bool,
+    state: State<'_, DatabasePath>,
+) -> Result<(), String> {
+    run_database(state, move |connection| {
+        save_debug_roi_samples_setting(connection, enabled)
+    })
+    .await
+}
+
+#[cfg(debug_assertions)]
+pub(super) fn save_debug_roi_samples_setting(
+    connection: &mut Connection,
+    enabled: bool,
+) -> Result<(), String> {
+    let value = if enabled { "true" } else { "false" };
+    save_settings(connection, &[(DEBUG_ROI_SAMPLES_KEY, Some(value))])
 }
 
 /// `None` means the grind-spot favorites and recents were never saved in SQLite.

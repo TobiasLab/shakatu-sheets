@@ -35,6 +35,7 @@ export function SettingsView({
     onOpenCapture,
     overlayOpacity,
     lootFont,
+    debugRoiSamples,
     selfImprovement,
     showSelfImprovement = false,
 }: {
@@ -55,6 +56,8 @@ export function SettingsView({
     onOpenCapture: () => void;
     overlayOpacity: PersistedSetting<number> | null;
     lootFont: PersistedSetting<LootFont>;
+    /** Development builds only. */
+    debugRoiSamples: PersistedSetting<boolean> | null;
     selfImprovement: ReturnType<typeof useSelfImprovement>;
     showSelfImprovement?: boolean;
 }) {
@@ -281,6 +284,32 @@ export function SettingsView({
                                         confirmation, source dimensions, and BDO UI scale are stored.
                                     </p>
                                 </details>
+                                {debugRoiSamples && (
+                                    <div className={styles.DeveloperOptions}>
+                                        <p className="eyebrow">Developer</p>
+                                        <label className={styles.Option}>
+                                            <span>
+                                                <strong>Record ROI samples while the session timer runs</strong>
+                                                <small>
+                                                    Saves the normal and rare loot crops to{" "}
+                                                    <code>dev-samples/live-loot/</code> in this repository, one folder
+                                                    for each stretch of running timer. Roughly 10 GB per hour. Never
+                                                    uploaded.
+                                                </small>
+                                            </span>
+                                            <input
+                                                id="debug-roi-samples"
+                                                type="checkbox"
+                                                role="switch"
+                                                checked={debugRoiSamples.value}
+                                                aria-checked={debugRoiSamples.value}
+                                                disabled={!debugRoiSamples.loaded}
+                                                onChange={(event) => debugRoiSamples.update(event.target.checked)}
+                                            />
+                                        </label>
+                                        <SettingError setting={debugRoiSamples} />
+                                    </div>
+                                )}
                             </div>
                         </section>
                         <SelfImprovementSettings learning={selfImprovement} />

@@ -423,6 +423,51 @@ select:disabled {
     accent-color: var(--gold);
     cursor: pointer;
 }
+input[type="checkbox"][role="switch"] {
+    appearance: none;
+    position: relative;
+    flex-shrink: 0;
+    width: 34px;
+    height: 20px;
+    margin: 0;
+    padding: 0;
+    border: 1px solid var(--line-strong);
+    border-radius: 12px;
+    background: var(--surface-raised);
+    cursor: pointer;
+    transition:
+        background-color var(--motion-fast) var(--ease-out),
+        border-color var(--motion-fast) var(--ease-out);
+}
+input[type="checkbox"][role="switch"]::before {
+    content: "";
+    position: absolute;
+    left: 2px;
+    top: 2px;
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    background: var(--muted);
+    transition:
+        transform var(--motion-fast) var(--ease-out),
+        background-color var(--motion-fast) var(--ease-out);
+}
+input[type="checkbox"][role="switch"]:checked {
+    border-color: var(--gold);
+    background: var(--gold);
+}
+input[type="checkbox"][role="switch"]:checked::before {
+    transform: translateX(14px);
+    background: var(--accent-contrast);
+}
+input[type="checkbox"][role="switch"]:focus-visible {
+    outline: 2px solid var(--focus-border);
+    outline-offset: 3px;
+}
+input[type="checkbox"][role="switch"]:disabled {
+    opacity: 0.45;
+    cursor: default;
+}
 input[type="date"]::-webkit-calendar-picker-indicator {
     opacity: 0.6;
     cursor: pointer;

@@ -71,7 +71,7 @@ import {
     reducePlacement,
     regionsEqual,
 } from "./capturePlacement";
-import { formatSampleCollectionBytes, useDebugSampleCollection } from "./useDebugSampleCollection";
+import { describeSampleCollection, useDebugSampleCollection } from "./useDebugSampleCollection";
 import { resultDescription, useLiveLootReviewQueue } from "./useLiveLootReviewQueue";
 
 type CaptureStatus = "idle" | "requesting" | "connecting" | "capturing";
@@ -107,6 +107,8 @@ export type LiveLootCaptureProps = {
     onOpenSelfImprovement: () => void;
     lootFont: LootFont;
     lootFontReady: boolean;
+    /** Development builds: record ROI samples while the session timer runs. */
+    debugRoiSamples: boolean;
     setupRequest: number;
     visible: boolean;
     onStatusChange: (status: CaptureSummary) => void;
@@ -227,6 +229,7 @@ function regionsCaptureSelection(
 export function useLiveLootCapture({
     lootFont,
     lootFontReady,
+    debugRoiSamples,
     setupRequest,
     visible,
     onStatusChange,
@@ -1761,8 +1764,6 @@ export function useLiveLootCapture({
                   rareRegionConfirmed,
                   captureFont,
               );
-    const sampleCollectionActive = samples.sampleCollection?.phase === "running";
-    const sampleCollectionFinalizing = samples.sampleCollection?.phase === "finalizing";
     const sampleCollectionReady =
         nativeCapture.current &&
         normalCaptureRegion !== null &&
@@ -1771,8 +1772,7 @@ export function useLiveLootCapture({
         normalRegionFrameSize !== null &&
         rareRegionFrameSize !== null &&
         nativeAppliedSelectionKey === JSON.stringify(sampleCaptureSelection);
-    const sampleCollectionWanted =
-        samples.sampleCollectionEnabled && sessionStatus === "running" && sampleCollectionReady;
+    const sampleCollectionWanted = debugRoiSamples && sessionStatus === "running" && sampleCollectionReady;
     useEffect(() => {
         samples.syncSampleCollection(sampleCollectionWanted);
     }, [sampleCollectionWanted, samples.sampleCollectionBusy, samples.sampleCollection?.phase]);
@@ -1883,16 +1883,16 @@ export function useLiveLootCapture({
         formatOcrDuration,
         grindSpotName,
         itemDictionary,
-        debugSampleCollectionAvailable: samples.debugSampleCollectionAvailable,
-        sampleCollectionBusy: samples.sampleCollectionBusy,
-        sampleCollectionFinalizing,
-        sampleCollectionActive,
-        sampleCollectionReady,
-        sampleCollectionEnabled: samples.sampleCollectionEnabled,
-        setSampleCollectionEnabled: samples.setSampleCollectionEnabled,
-        sampleCollection: samples.sampleCollection,
-        formatSampleCollectionBytes,
-        sampleCollectionNow: samples.sampleCollectionNow,
+        sampleCollectionVisible: samples.debugSampleCollectionAvailable && debugRoiSamples && status === "capturing",
+        sampleCollectionSummary: describeSampleCollection({
+            collection: samples.sampleCollection,
+            busy: samples.sampleCollectionBusy,
+            ready: sampleCollectionReady,
+            timerRunning: sessionStatus === "running",
+            changeFailed: samples.sampleCollectionChangeFailed,
+            now: samples.sampleCollectionNow,
+        }),
+        sampleCollectionPath: samples.sampleCollection?.path ?? null,
         sampleCollectionError: samples.sampleCollectionError,
         normalRegionCanvas,
         rareRegionCanvas,

@@ -89,11 +89,14 @@ OCR evidence. Accepted OCR is never overridden, and automatic recoveries never t
 Pixels remain transient unless the user enables self-improvement or debug ROI collection. Learning saves only small
 text crops from successful manual corrections, with confirmed labels and bounded audit metadata, in its separate local
 database. Full frames are never saved by learning. Debug Linux and Windows builds can save paired normal/rare PNGs under
-ignored `dev-samples/live-loot/`. Once enabled, collection records while the session timer runs, so a run covers the
-same stretch as the tracked loot; each pause ends the run and resuming starts a new one. There is no time limit, and a
+ignored `dev-samples/live-loot/`. The switch is under Settings → Capture → Developer and is saved in the SQLite
+`settings` table, so it stays on across restarts. Once enabled, collection records while the session timer runs, so a
+run covers the same stretch as the tracked loot; each pause ends the run and resuming starts a new one. While capture
+runs, a strip in the capture card shows the recording state, elapsed time, size, and dropped pairs, and copies the run
+folder path. There is no time limit, and a
 run takes roughly 10 GB per hour at 3440×1440. A source/selection change or capture end also ends the run; a new one
 starts once capture and both confirmed areas are applied again while the timer runs. A run that ends for another reason,
-such as a write failure, is not restarted until the timer next starts. A bounded encoder reports dropped pairs without
+such as a write failure, is not restarted until the timer is paused and resumed. A bounded encoder reports dropped pairs without
 blocking capture.
 Release builds do not expose this collector. Capture never reads game memory, hooks the game, or uploads frames.
 

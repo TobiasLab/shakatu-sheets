@@ -364,6 +364,16 @@ export function debugRoiSampleCollectionStatus() {
     return invoke<DebugRoiSampleCollectionStatus>("debug_roi_sample_collection_status");
 }
 
+export async function loadDebugRoiSamplesEnabled() {
+    // Only development builds have the collector, so recording is never enabled elsewhere.
+    if (!import.meta.env.DEV || !supportsTauriApi()) return false;
+    return invoke<boolean>("load_debug_roi_samples_enabled");
+}
+
+export function saveDebugRoiSamplesEnabled(enabled: boolean) {
+    return invoke<void>("save_debug_roi_samples_enabled", { enabled });
+}
+
 export function logRoiOcrIssue(issue: RoiOcrIssue) {
     return invoke<boolean>("log_debug_roi_ocr_issue", { issue });
 }
