@@ -1,5 +1,16 @@
 import { describe, expect, it } from "vitest";
-import { hasRecordedTrend, netAt, recentRate, trendPoints } from "./trend";
+import {
+    hasRecordedTrend,
+    netAt,
+    recentRate,
+    SPIKE_MAX_MARKERS,
+    SPIKE_MIN_GAP_SHARE,
+    SPIKE_MIN_SHARE_OF_NET,
+    spikeAt,
+    spikeDrops,
+    type TrendDrop,
+    trendPoints,
+} from "./trend";
 
 describe("session trend", () => {
     const samples = [
@@ -37,5 +48,47 @@ describe("session trend", () => {
         expect(hasRecordedTrend([], 3_600_000)).toBe(false);
         expect(hasRecordedTrend(samples, 59_999)).toBe(false);
         expect(hasRecordedTrend([{ elapsedMs: 0, net: 500 }], 0)).toBe(false);
+    });
+
+    describe("spike markers", () => {
+        const hour = 3_600_000;
+        const net = 1_000_000_000;
+        const drop = (elapsedMs: number, value: number, name = "Item"): TrendDrop => ({
+            elapsedMs,
+            name,
+            quantity: 1,
+            value,
+        });
+
+        it("marks drops worth a meaningful share of the session net, in time order", () => {
+            const atThreshold = SPIKE_MIN_SHARE_OF_NET * net;
+            expect(
+                spikeDrops([drop(hour / 2, atThreshold, "Big"), drop(hour / 4, atThreshold - 1, "Small")], hour, net),
+            ).toEqual([drop(hour / 2, atThreshold, "Big")]);
+            expect(spikeDrops([drop(hour / 2, 5), drop(hour / 4, 0)], hour, -100)).toEqual([drop(hour / 2, 5)]);
+        });
+
+        it("keeps only the most valuable markers and the larger of two close ones", () => {
+            const spread = Array.from({ length: SPIKE_MAX_MARKERS + 2 }, (_, index) =>
+                drop((index * hour) / (SPIKE_MAX_MARKERS + 2), net / 2 + index),
+            );
+            const spikes = spikeDrops(spread, hour, net);
+            expect(spikes).toHaveLength(SPIKE_MAX_MARKERS);
+            expect(spikes.map((spike) => spike.value)).toEqual(spread.slice(2).map((spike) => spike.value));
+
+            const close = SPIKE_MIN_GAP_SHARE * hour - 1;
+            expect(spikeDrops([drop(hour / 2, net / 2), drop(hour / 2 + close, net)], hour, net)).toEqual([
+                drop(hour / 2 + close, net),
+            ]);
+            expect(spikeDrops([drop(hour + 1, net)], hour, net)).toEqual([]);
+        });
+
+        it("finds the marker nearest a position within half the marker spacing", () => {
+            const spikes = [drop(hour / 4, net), drop(hour / 2, net)];
+            const reach = (SPIKE_MIN_GAP_SHARE * hour) / 2;
+            expect(spikeAt(spikes, hour / 2 - reach, hour)).toBe(spikes[1]);
+            expect(spikeAt(spikes, hour / 2 + reach + 1, hour)).toBeNull();
+            expect(spikeAt(spikes, hour / 4 + 1, hour)).toBe(spikes[0]);
+        });
     });
 });

@@ -73,12 +73,27 @@ Garmoth grind tracker, a repeat returns to `success` whatever the answer, becaus
 a first upload that did not arrive removes the row. Existing rows default to 0, which is correct for every `success`
 row and treats an `unknown` repeat from before the migration as a first upload.
 
+## Migration 7
+
+Migration 7 creates `session_loot_events`, keyed by session ID, entry ID, and elapsed milliseconds, so the trend can
+name the item behind a jump. Each session save compares the saved entries with the previous save in the same
+transaction that records the net sample: a non-expense entry whose quantity rose adds the increase at the current
+elapsed time. Drops between two saves therefore share the save's elapsed time, matching the net samples. Increases are
+recorded only when the previously saved session was running or paused. Starting the timer saves immediately, so a
+Marni import or loot entered before the timer first starts becomes the baseline rather than a drop. A lowered quantity removes the difference
+from that entry's newest events first, because corrections usually fix a recent misread. Events past the saved elapsed
+time, and events for entries no longer in the session, are deleted on each save. Events store only quantity; loading
+joins the entry for its name, current unit price, and sale multiplier, so values match history after a price edit, and
+skips entries that are now expenses.
+Rows cascade with their session. As with migration 5, sessions created before this migration load no events.
+
 ## Persistence
 
 - The latest unfinished session is loaded at startup.
 - The desk reads a session's net samples for its net-over-time trend; the live session supplies the current end point.
   History reads them for the selected finished session, whose saved elapsed time and net supply the end point, and
-  shows no trend for sessions without samples.
+  shows no trend for sessions without samples. The same command returns the session's loot events, from which the
+  trend picks its spike markers.
   History spot summaries also report each spot's latest effective completion time.
 - History loads pages of 20 finished sessions and their entries, filtered in SQLite by recorded region (or all
   regions), optional spot, and completion date. Sorting is effective completion time descending, then ID ascending. Older rows without
@@ -106,7 +121,7 @@ row and treats an `unknown` repeat from before the migration as a first upload.
   metadata; the last drop-buff selection is a JSON array of Garmoth buff IDs under the `garmoth.buffs` setting. This
   workflow needs no additional migration or index.
 - The explicit delete command removes only finished sessions. Their entries (including the historical prices kept in
-  `session_entries.unit_price`), net samples, and Garmoth upload marker are deleted through foreign-key cascades;
+  `session_entries.unit_price`), net samples, loot events, and Garmoth upload marker are deleted through foreign-key cascades;
   unfinished sessions cannot be deleted through this path. Market imports always write `price_snapshots.session_id` as
   NULL, so deletion never removes market prices.
 - Money is stored as integer silver values and time as integer milliseconds.

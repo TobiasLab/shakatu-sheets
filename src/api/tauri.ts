@@ -2,7 +2,7 @@ import { Channel, invoke, isTauri } from "@tauri-apps/api/core";
 import type { ConsumablePreset } from "../domain/consumablePreset";
 import type { HistoryQuery, SpotSummary } from "../domain/history";
 import type { SessionEntry, SessionState } from "../domain/session";
-import type { TrendSample } from "../domain/trend";
+import type { SessionTrendData } from "../domain/trend";
 import {
     isSupportedLootSource,
     LOOT_SEARCH_REGION_SIZE,
@@ -88,9 +88,12 @@ export type HistoryResult = {
     spotSummaries: SpotSummary[];
 };
 
-export async function loadSessionTrend(sessionId: string): Promise<TrendSample[]> {
-    const samples = await invoke<TrendSample[] | null>("load_session_trend", { sessionId });
-    return Array.isArray(samples) ? samples : [];
+export async function loadSessionTrend(sessionId: string): Promise<SessionTrendData> {
+    const trend = await invoke<SessionTrendData | null>("load_session_trend", { sessionId });
+    return {
+        samples: Array.isArray(trend?.samples) ? trend.samples : [],
+        drops: Array.isArray(trend?.drops) ? trend.drops : [],
+    };
 }
 
 export function listFinishedSessions(query: HistoryQuery) {

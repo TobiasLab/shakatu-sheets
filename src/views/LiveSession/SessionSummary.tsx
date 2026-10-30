@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { loadSessionTrend } from "../../api/tauri";
 import { Icon } from "../../components/Icon/Icon";
 import { calculateEntryTotals } from "../../domain/session";
-import type { TrendSample } from "../../domain/trend";
+import type { SessionTrendData } from "../../domain/trend";
 import { formatDuration, formatSilver } from "../../format";
 import { useElapsedTime } from "../../hooks/useElapsedTime";
 import type { LiveSessionController } from "../../hooks/useLiveSession";
@@ -25,18 +25,22 @@ export function SessionMetrics({
     const totals = useMemo(() => calculateEntryTotals(entries), [entries]);
     const netPerHour = elapsedMs > 0 ? totals.net / (elapsedMs / 3_600_000) : 0;
     const { session, databaseLoaded } = controller;
-    const [trend, setTrend] = useState<{ sessionId: string; samples: TrendSample[] }>({ sessionId: "", samples: [] });
+    const [trend, setTrend] = useState<{ sessionId: string } & SessionTrendData>({
+        sessionId: "",
+        samples: [],
+        drops: [],
+    });
     const trendRequest = useRef(0);
     // Every save that changes net records a sample, so reload once each save has finished.
     useEffect(() => {
         if (!databaseLoaded || !visible || !saved) return;
         const request = ++trendRequest.current;
         loadSessionTrend(session.id)
-            .then((samples) => {
-                if (request === trendRequest.current) setTrend({ sessionId: session.id, samples });
+            .then((loaded) => {
+                if (request === trendRequest.current) setTrend({ sessionId: session.id, ...loaded });
             })
             .catch(() => {
-                if (request === trendRequest.current) setTrend({ sessionId: session.id, samples: [] });
+                if (request === trendRequest.current) setTrend({ sessionId: session.id, samples: [], drops: [] });
             });
     }, [databaseLoaded, visible, saved, session.id]);
     return (
@@ -73,6 +77,8 @@ export function SessionMetrics({
             </article>
             <SessionTrend
                 samples={trend.sessionId === session.id ? trend.samples : []}
+                drops={trend.sessionId === session.id ? trend.drops : []}
+                grindSpotId={session.grindSpotId}
                 elapsedMs={elapsedMs}
                 net={totals.net}
             />
