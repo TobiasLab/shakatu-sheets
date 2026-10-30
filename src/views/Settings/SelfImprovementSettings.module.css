@@ -26,51 +26,6 @@
     font-size: 13px;
     line-height: 1.5;
 }
-.Option input {
-    appearance: none;
-    position: relative;
-    flex-shrink: 0;
-    width: 34px;
-    height: 20px;
-    margin: 0;
-    padding: 0;
-    border: 1px solid var(--line-strong);
-    border-radius: 12px;
-    background: var(--surface-raised);
-    cursor: pointer;
-    transition:
-        background-color var(--motion-fast) var(--ease-out),
-        border-color var(--motion-fast) var(--ease-out);
-}
-.Option input::before {
-    content: "";
-    position: absolute;
-    left: 2px;
-    top: 2px;
-    width: 14px;
-    height: 14px;
-    border-radius: 50%;
-    background: var(--muted);
-    transition:
-        transform var(--motion-fast) var(--ease-out),
-        background-color var(--motion-fast) var(--ease-out);
-}
-.Option input:checked {
-    border-color: var(--gold);
-    background: var(--gold);
-}
-.Option input:checked::before {
-    transform: translateX(14px);
-    background: var(--accent-contrast);
-}
-.Option input:focus-visible {
-    outline: 2px solid var(--focus-border);
-    outline-offset: 3px;
-}
-.Option input:disabled {
-    opacity: 0.45;
-    cursor: default;
-}
 .Option:has(input:disabled) {
     cursor: default;
 }

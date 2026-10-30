@@ -6,33 +6,104 @@ import {
     startDebugRoiSampleCollection,
     stopDebugRoiSampleCollection,
 } from "../../api/tauri";
+import { formatDuration } from "../../format";
 import type { LootFont } from "../../recognition/lootFont";
 import type { RoiOcrIssue } from "../../recognition/roiOcrDiagnostics";
 
-export function formatSampleCollectionBytes(bytes: number) {
+function formatSampleCollectionBytes(bytes: number) {
     if (bytes >= 1_000_000_000) return `${(bytes / 1_000_000_000).toFixed(2)} GB`;
     if (bytes >= 1_000_000) return `${(bytes / 1_000_000).toFixed(1)} MB`;
     if (bytes >= 1_000) return `${(bytes / 1_000).toFixed(1)} KB`;
     return `${bytes} B`;
 }
 
+const finishReasons: Record<string, string> = {
+    captureEnded: "Capture stopped.",
+    captureReplaced: "The capture source was replaced.",
+    sourceMismatch: "The capture source changed size.",
+    selectionChanged: "The loot areas changed.",
+    writeFailed: "Samples could not be written.",
+};
+
+export type SampleCollectionSummary = {
+    tone: "recording" | "waiting" | "problem";
+    label: string;
+    detail: string;
+};
+
+/** The one-line recording status shown in the capture card while ROI sample recording is enabled. */
+export function describeSampleCollection({
+    collection,
+    busy,
+    ready,
+    timerRunning,
+    changeFailed,
+    now,
+}: {
+    collection: DebugRoiSampleCollectionStatus | null;
+    busy: boolean;
+    ready: boolean;
+    timerRunning: boolean;
+    /** The last start or stop request failed; its message is shown separately. */
+    changeFailed: boolean;
+    now: number;
+}): SampleCollectionSummary {
+    const size = collection ? formatSampleCollectionBytes(collection.bytesWritten) : "";
+    const dropped = collection?.droppedBatchCount ? ` · ${collection.droppedBatchCount} dropped` : "";
+    if (collection?.phase === "failed")
+        return {
+            tone: "problem",
+            label: "ROI samples failed",
+            detail: collection.error ?? "Samples could not be written.",
+        };
+    if (collection?.phase === "running")
+        return {
+            tone: "recording",
+            label: "Recording ROI samples",
+            detail: `${formatDuration(now - (collection.startedAtUnixMs ?? now))} · ${size}${dropped}`,
+        };
+    if (collection?.phase === "finalizing")
+        return { tone: "waiting", label: "Finishing ROI samples…", detail: `${size}${dropped}` };
+    if (busy) return { tone: "waiting", label: "Starting ROI samples…", detail: "" };
+    if (!ready) return { tone: "waiting", label: "ROI samples waiting", detail: "Confirm both loot areas to start." };
+    const lastRun = collection?.phase === "finished" ? ` Last run: ${size}${dropped}.` : "";
+    if (!timerRunning)
+        return { tone: "waiting", label: "ROI samples paused", detail: `Starts with the session timer.${lastRun}` };
+    if (collection?.phase === "finished" && collection.finishReason !== "explicitlyStopped")
+        return {
+            tone: "problem",
+            label: "ROI samples stopped",
+            detail: `${finishReasons[collection.finishReason ?? ""] ?? "Recording ended."} Pause and resume the timer to record again.`,
+        };
+    // A failed start is not retried within the same stretch of running timer.
+    if (changeFailed)
+        return {
+            tone: "problem",
+            label: "ROI samples could not start",
+            detail: "Pause and resume the timer to try again.",
+        };
+    return { tone: "waiting", label: "Starting ROI samples…", detail: "" };
+}
+
 /**
  * What a wanted or unwanted collection needs next. A run starts once per stretch of `wanted`, so one that ends on its own
- * or fails to start is not retried until recording stops being wanted and becomes wanted again.
+ * or fails to start is not retried until recording stops being wanted and becomes wanted again. A run still going from
+ * an earlier stretch, such as when the timer was paused and resumed while it was starting, is stopped so the next one
+ * covers only the current stretch.
  */
 export function sampleCollectionChange(
     wanted: boolean,
     phase: DebugRoiSampleCollectionStatus["phase"] | undefined,
     startedWhileWanted: boolean,
 ) {
-    if (!wanted) return phase === "running" ? "stop" : null;
-    if (phase === "running" || phase === "finalizing" || startedWhileWanted) return null;
+    if (phase === "running") return wanted && startedWhileWanted ? null : "stop";
+    if (!wanted || phase === "finalizing" || startedWhileWanted) return null;
     return "start";
 }
 
 /**
  * Development-only ROI sample recording from native capture, plus the OCR issue log it is reviewed with.
- * Once enabled, a run records while the caller wants it, which is while the session timer runs.
+ * A run records while the caller wants it, which is while the setting is on and the session timer runs.
  */
 export function useDebugSampleCollection({
     candidate,
@@ -55,10 +126,8 @@ export function useDebugSampleCollection({
     const [sampleCollectionError, setSampleCollectionError] = useState("");
     const [sampleCollectionNow, setSampleCollectionNow] = useState(Date.now());
     const [debugSampleCollectionAvailable, setDebugSampleCollectionAvailable] = useState(false);
-    const [sampleCollectionEnabled, setSampleCollectionEnabled] = useState(false);
-    const sampleCollectionWanted = useRef(false);
-    const wantedEpoch = useRef(0);
-    const startedEpoch = useRef(0);
+    // Whether a run was started during the current stretch of `wanted`.
+    const startedWhileWanted = useRef(false);
 
     useEffect(() => {
         mounted.current = true;
@@ -153,15 +222,10 @@ export function useDebugSampleCollection({
 
     /** Starts or stops a run so that one is recording exactly while `wanted` holds. */
     function syncSampleCollection(wanted: boolean) {
-        if (wanted && !sampleCollectionWanted.current) wantedEpoch.current += 1;
-        sampleCollectionWanted.current = wanted;
+        if (!wanted) startedWhileWanted.current = false;
         if (sampleCollectionBusy) return;
-        const change = sampleCollectionChange(
-            wanted,
-            sampleCollection?.phase,
-            startedEpoch.current === wantedEpoch.current,
-        );
-        if (change === "start") startedEpoch.current = wantedEpoch.current;
+        const change = sampleCollectionChange(wanted, sampleCollection?.phase, startedWhileWanted.current);
+        if (change === "start") startedWhileWanted.current = true;
         if (change) void changeSampleCollection(change);
     }
 
@@ -199,10 +263,9 @@ export function useDebugSampleCollection({
         sampleCollection,
         sampleCollectionBusy,
         sampleCollectionNow,
+        sampleCollectionChangeFailed: sampleCollectionError !== "",
         sampleCollectionError: [sampleCollectionError, sampleDiagnosticError].filter(Boolean).join(" "),
         debugSampleCollectionAvailable,
-        sampleCollectionEnabled,
-        setSampleCollectionEnabled,
         syncSampleCollection,
         emitOcrIssue,
         sampleReference,

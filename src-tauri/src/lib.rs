@@ -76,6 +76,10 @@ pub fn run() {
         persistence::preferences::save_theme,
         persistence::preferences::load_spot_preferences,
         persistence::preferences::save_spot_preferences,
+        #[cfg(debug_assertions)]
+        persistence::preferences::load_debug_roi_samples_enabled,
+        #[cfg(debug_assertions)]
+        persistence::preferences::save_debug_roi_samples_enabled,
         persistence::market_prices::load_market_prices,
         persistence::sessions::reopen_session,
         persistence::sessions::save_session,

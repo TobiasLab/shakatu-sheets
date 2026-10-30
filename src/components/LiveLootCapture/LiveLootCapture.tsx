@@ -1,4 +1,3 @@
-import { formatDuration } from "../../format";
 import type { LootAlignmentGuide, LootUiScale } from "../../recognition/displayCapture";
 import { FormField } from "../FormField/FormField";
 import { Icon } from "../Icon/Icon";
@@ -6,6 +5,7 @@ import { LearningFeedback } from "../LearningFeedback/LearningFeedback";
 import { SelectionButton } from "../SelectionButton/SelectionButton";
 import styles from "./LiveLootCapture.module.css";
 import { LootReview } from "./LootReview";
+import { RoiSampleStrip } from "./RoiSampleStrip";
 import type { useLiveLootCapture } from "./useLiveLootCapture";
 
 type SourceDimensions = { width: number; height: number };
@@ -113,16 +113,9 @@ export function LiveLootCapture({ controller }: { controller: ReturnType<typeof 
         formatOcrDuration,
         grindSpotName,
         itemDictionary,
-        debugSampleCollectionAvailable,
-        sampleCollectionBusy,
-        sampleCollectionFinalizing,
-        sampleCollectionActive,
-        sampleCollectionReady,
-        sampleCollectionEnabled,
-        setSampleCollectionEnabled,
-        sampleCollection,
-        formatSampleCollectionBytes,
-        sampleCollectionNow,
+        sampleCollectionVisible,
+        sampleCollectionSummary,
+        sampleCollectionPath,
         sampleCollectionError,
         normalRegionCanvas,
         rareRegionCanvas,
@@ -199,6 +192,13 @@ export function LiveLootCapture({ controller }: { controller: ReturnType<typeof 
                         {regionConfirmed ? "Areas confirmed" : calibratedProfile ? "Confirm & track" : "Confirm areas"}
                     </span>
                 </section>
+            )}
+            {sampleCollectionVisible && (
+                <RoiSampleStrip
+                    summary={sampleCollectionSummary}
+                    path={sampleCollectionPath}
+                    error={sampleCollectionError}
+                />
             )}
             {!databaseLoaded ? (
                 <p className={styles.Note}>Screen capture is available after the active session finishes loading.</p>
@@ -660,75 +660,6 @@ export function LiveLootCapture({ controller }: { controller: ReturnType<typeof 
                                     </dd>
                                 </div>
                             </dl>
-                            {debugSampleCollectionAvailable && (
-                                <div className={styles.DevSampleCollector}>
-                                    <p className="eyebrow">Development only</p>
-                                    <label className={styles.DevSampleToggle}>
-                                        <strong>Save ROI samples while the session timer runs</strong>
-                                        <input
-                                            type="checkbox"
-                                            role="switch"
-                                            checked={sampleCollectionEnabled}
-                                            aria-checked={sampleCollectionEnabled}
-                                            onChange={(event) => setSampleCollectionEnabled(event.target.checked)}
-                                        />
-                                    </label>
-                                    <small>
-                                        Saves only the configured normal and rare crops locally until they are deleted.
-                                        It never saves the full screen or uploads samples. Each stretch of running timer
-                                        gets its own run folder.
-                                    </small>
-                                    {sampleCollectionBusy ? (
-                                        <small>Updating sample collection...</small>
-                                    ) : sampleCollectionFinalizing ? (
-                                        <small>Finishing ROI samples...</small>
-                                    ) : (
-                                        sampleCollectionEnabled &&
-                                        !sampleCollectionActive &&
-                                        (!sampleCollectionReady ? (
-                                            <small>Confirm both capture areas before collecting samples.</small>
-                                        ) : (
-                                            sessionStatus !== "running" && (
-                                                <small>Waiting for the session timer to run.</small>
-                                            )
-                                        ))
-                                    )}
-                                    {sampleCollection && sampleCollection.phase !== "idle" && (
-                                        <small>
-                                            {sampleCollection.writtenBatchCount * 2} PNGs,{" "}
-                                            {formatSampleCollectionBytes(sampleCollection.bytesWritten)}
-                                            {sampleCollection.droppedBatchCount > 0
-                                                ? `, ${sampleCollection.droppedBatchCount} dropped pairs`
-                                                : ""}
-                                        </small>
-                                    )}
-                                    {sampleCollectionActive && (
-                                        <small aria-hidden="true">
-                                            Recording for{" "}
-                                            {formatDuration(
-                                                sampleCollectionNow -
-                                                    (sampleCollection?.startedAtUnixMs ?? sampleCollectionNow),
-                                            )}
-                                        </small>
-                                    )}
-                                    {sampleCollection?.phase === "finished" && (
-                                        <small role="status">
-                                            ROI sample collection finished
-                                            {sampleCollection.finishReason &&
-                                            sampleCollection.finishReason !== "explicitlyStopped"
-                                                ? ` (${sampleCollection.finishReason})`
-                                                : ""}
-                                            .
-                                        </small>
-                                    )}
-                                    {sampleCollection?.path && <code>{sampleCollection.path}</code>}
-                                    {(sampleCollectionError || sampleCollection?.error) && (
-                                        <small className={styles.DevSampleError} role="alert">
-                                            {sampleCollectionError || sampleCollection?.error}
-                                        </small>
-                                    )}
-                                </div>
-                            )}
                         </details>
                     </aside>
                 </div>

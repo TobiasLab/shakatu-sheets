@@ -22,6 +22,7 @@ export function LiveSessionView({
     saved,
     lootFont,
     lootFontReady,
+    debugRoiSamples,
     overlay,
     visible,
     onCaptureStatusChange,
@@ -40,6 +41,7 @@ export function LiveSessionView({
     saved: boolean;
     lootFont: LootFont;
     lootFontReady: boolean;
+    debugRoiSamples: boolean;
     visible: boolean;
     captureSetupRequest: number;
     spotPreferences: PersistedSetting<SpotPreferences>;
@@ -72,6 +74,7 @@ export function LiveSessionView({
         onOpenSelfImprovement,
         lootFont,
         lootFontReady,
+        debugRoiSamples,
         visible,
         setupRequest: captureSetupRequest,
         onStatusChange: onCaptureStatusChange,

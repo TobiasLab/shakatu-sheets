@@ -468,38 +468,6 @@
     color: var(--warning);
 }
 
-.DevSampleCollector {
-    display: grid;
-    gap: 8px;
-    margin-top: 12px;
-    padding: 12px;
-    border: 1px solid color-mix(in srgb, var(--gold) 55%, var(--line));
-    background: color-mix(in srgb, var(--gold) 6%, var(--clock-background));
-}
-
-.DevSampleToggle {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 12px;
-    font-size: 12px;
-}
-
-.DevSampleCollector > small,
-.DevSampleCollector > code {
-    color: var(--muted);
-    font-size: 11px;
-    line-height: 1.5;
-}
-
-.DevSampleCollector > code {
-    overflow-wrap: anywhere;
-}
-
-.DevSampleCollector .DevSampleError {
-    color: var(--danger);
-}
-
 .RegionPreviews {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -631,6 +599,95 @@
 }
 .Actions button {
     font-size: 12px;
+}
+.SampleStrip {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px 10px;
+    min-height: 38px;
+    margin-top: 10px;
+    padding: 6px 10px;
+    border: 1px solid color-mix(in srgb, var(--gold) 45%, var(--line));
+    border-radius: var(--control-radius);
+    background: color-mix(in srgb, var(--gold) 6%, transparent);
+    font-size: 12px;
+}
+.SampleStrip > p {
+    display: flex;
+    flex: 1;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 4px 8px;
+    min-width: 0;
+    margin: 0;
+    color: var(--muted);
+    font-variant-numeric: tabular-nums;
+}
+.SampleStrip[data-tone="problem"] {
+    border-color: color-mix(in srgb, var(--danger) 55%, var(--line));
+    background: color-mix(in srgb, var(--danger) 7%, transparent);
+}
+.SampleHeading {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    white-space: nowrap;
+}
+.SampleStrip strong {
+    color: var(--text-strong);
+    font-weight: 600;
+}
+.SampleStrip[data-tone="problem"] strong {
+    color: var(--danger);
+}
+.SampleStrip .SampleCopy {
+    min-height: 24px;
+    padding: 2px 8px;
+    font-size: 12px;
+}
+.SampleStrip > .SampleError {
+    flex-basis: 100%;
+    /* Lines up with the label after the status dot. */
+    padding-left: 16px;
+    color: var(--danger);
+}
+.SampleTag {
+    padding: 1px 5px;
+    border: 1px solid color-mix(in srgb, var(--gold) 55%, var(--line));
+    border-radius: 4px;
+    color: var(--gold);
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+}
+.SampleDot {
+    flex-shrink: 0;
+    width: 8px;
+    height: 8px;
+    border: 1.5px solid var(--muted);
+    border-radius: 50%;
+}
+.SampleStrip[data-tone="recording"] .SampleDot {
+    border-color: var(--danger);
+    background: var(--danger);
+    animation: sample-pulse 1.6s ease-in-out infinite;
+}
+.SampleStrip[data-tone="problem"] .SampleDot {
+    border-color: var(--danger);
+    border-radius: 2px;
+    background: var(--danger);
+}
+@keyframes sample-pulse {
+    50% {
+        opacity: 0.35;
+    }
+}
+@media (prefers-reduced-motion: reduce) {
+    .SampleStrip[data-tone="recording"] .SampleDot {
+        animation: none;
+    }
 }
 .SetupProgress {
     display: flex;

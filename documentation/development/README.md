@@ -27,7 +27,8 @@ npm run tauri -- build --no-bundle -- --locked
 ```
 
 The executable is `src-tauri/target/release/shakatu-sheets.exe` on Windows and
-`src-tauri/target/release/shakatu-sheets` on Linux. Use `npm run tauri dev` when collecting debug ROI samples.
+`src-tauri/target/release/shakatu-sheets` on Linux. Use `npm run tauri dev` when collecting debug ROI samples, and turn them
+on under Settings → Capture → Developer.
 
 To produce a Windows `.exe` on Linux, use the [cross-compilation setup and command](windows.md#cross-compiling-an-executable-on-linux).
 

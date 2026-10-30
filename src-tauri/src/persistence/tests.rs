@@ -545,6 +545,27 @@ fn loot_font_defaults_persists_and_rejects_unknown_values() {
     assert!(load_loot_font_setting(&connection).is_err());
 }
 
+#[cfg(debug_assertions)]
+#[test]
+fn debug_roi_samples_setting_defaults_off_persists_and_rejects_unknown_values() {
+    use super::preferences::{load_debug_roi_samples_setting, save_debug_roi_samples_setting};
+    let mut connection = database();
+    assert!(!load_debug_roi_samples_setting(&connection).unwrap());
+    for enabled in [true, false] {
+        save_debug_roi_samples_setting(&mut connection, enabled).unwrap();
+        assert_eq!(
+            load_debug_roi_samples_setting(&connection).unwrap(),
+            enabled
+        );
+    }
+    save_settings(
+        &mut connection,
+        &[("debug_roi_samples_enabled", Some("yes"))],
+    )
+    .unwrap();
+    assert!(load_debug_roi_samples_setting(&connection).is_err());
+}
+
 #[test]
 fn theme_and_spot_preferences_persist_and_reject_invalid_values() {
     use super::preferences::{
