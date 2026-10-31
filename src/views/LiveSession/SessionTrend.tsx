@@ -2,10 +2,11 @@ import { type KeyboardEvent, type PointerEvent, useState } from "react";
 import type { TrendView } from "../../api/preferences";
 import { getDropIcon } from "../../data/grindSpots";
 import {
+    averageAt,
+    averageScaleFrom,
+    averageSeries,
     MIN_TREND_MS,
     netAt,
-    paceAt,
-    paceSeries,
     recentRate,
     spikeAt,
     spikeDrops,
@@ -42,19 +43,22 @@ export function SessionTrend({
 
     const pace = view === "pace";
     const series = pace
-        ? paceSeries(points, elapsedMs)
+        ? averageSeries(points, elapsedMs)
         : points.map((point) => ({ elapsedMs: point.elapsedMs, value: point.net }));
-    const valueAt = (ms: number) => (pace ? paceAt(points, ms) : netAt(points, ms));
-    const average = net / (elapsedMs / 3_600_000);
+    const valueAt = (ms: number) => (pace ? averageAt(points, ms) : netAt(points, ms));
+    const average = averageAt(points, elapsedMs);
     const unit = pace ? "/h" : "";
-    const low = Math.min(0, ...series.map((point) => point.value));
-    const high = Math.max(1, ...series.map((point) => point.value), pace ? average : 0);
+    const scaleFrom = pace ? averageScaleFrom(elapsedMs) : 0;
+    const scaled = series.filter((point) => point.elapsedMs >= scaleFrom).map((point) => point.value);
+    const low = Math.min(0, ...scaled);
+    const high = Math.max(1, ...scaled);
     const x = (ms: number) => (ms / elapsedMs) * WIDTH;
-    const y = (value: number) => HEIGHT - 3 - ((value - low) / (high - low)) * (HEIGHT - 6);
+    const y = (value: number) =>
+        HEIGHT - 3 - ((Math.min(high, Math.max(low, value)) - low) / (high - low)) * (HEIGHT - 6);
     const line = series.map((point) => `${x(point.elapsedMs).toFixed(1)},${y(point.value).toFixed(1)}`).join(" ");
-    const area = `0,${y(0)} ${line} ${WIDTH},${y(0)}`;
+    const area = `${x(series[0].elapsedMs)},${y(0)} ${line} ${WIDTH},${y(0)}`;
     const recent = recentRate(points);
-    const spikes = spikeDrops(drops, elapsedMs, net);
+    const spikes = spikeDrops(drops, elapsedMs);
     const hoveredSpike = hoverMs === null ? null : spikeAt(spikes, hoverMs, elapsedMs);
     const shownMs = hoveredSpike?.elapsedMs ?? hoverMs ?? elapsedMs;
     const shownValue = valueAt(shownMs);
@@ -72,7 +76,7 @@ export function SessionTrend({
     const dropSummary =
         spikes.length === 0
             ? ""
-            : `. Biggest drops: ${spikes
+            : `. Rare drops: ${spikes
                   .map(
                       (spike) =>
                           `${spike.name} ${formatSilver(spike.value, true)} at ${formatDuration(spike.elapsedMs)}`,

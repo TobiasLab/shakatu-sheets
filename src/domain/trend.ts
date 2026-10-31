@@ -1,3 +1,5 @@
+import { calculateQuantityPerHour } from "./session";
+
 export type TrendSample = { elapsedMs: number; net: number };
 // Loot one entry gained by a save, valued after tax at the entry's current price.
 export type TrendDrop = { elapsedMs: number; name: string; quantity: number; value: number };
@@ -28,10 +30,8 @@ export function netAt(points: TrendSample[], elapsedMs: number): number {
     return span > 0 ? before.net + ((after.net - before.net) * (elapsedMs - before.elapsedMs)) / span : after.net;
 }
 
-// The pace view plots silver/hour over the trailing window. Before the window has elapsed it covers the time since the
-// start, but never less than the minimum span, so one drop in the first minutes cannot dwarf the rest of the line.
-export const PACE_WINDOW_MS = 30 * 60_000;
-export const PACE_MIN_SPAN_MS = 5 * 60_000;
+// "Last 30 min" in the trend caption is the silver/hour over this trailing window.
+const RECENT_WINDOW_MS = 30 * 60_000;
 
 // Samples are stored only when net changes, so net holds its latest sample until the next one. Points are sorted by time.
 function heldNetAt(points: TrendSample[], elapsedMs: number): number {
@@ -45,46 +45,58 @@ function heldNetAt(points: TrendSample[], elapsedMs: number): number {
     return points[low]?.net ?? 0;
 }
 
-export function paceAt(points: TrendSample[], elapsedMs: number): number {
-    const from = Math.max(0, elapsedMs - PACE_WINDOW_MS);
-    const spanMs = Math.max(elapsedMs - from, PACE_MIN_SPAN_MS);
-    return (heldNetAt(points, elapsedMs) - heldNetAt(points, from)) / (spanMs / 3_600_000);
-}
-
-// Pace changes only when a sample enters the window or leaves it. Once the window is full, pace is flat between those
-// changes, so the point just before each one keeps the jump upright. Before then the span still grows, and joining the
-// changes draws a smooth curve instead of a dip after every sample.
-export function paceSeries(points: TrendSample[], elapsedMs: number): { elapsedMs: number; value: number }[] {
-    const times = new Set([0, elapsedMs]);
-    for (const point of points) {
-        for (const change of [point.elapsedMs, point.elapsedMs + PACE_WINDOW_MS]) {
-            if (change <= 0 || change > elapsedMs) continue;
-            if (change > PACE_WINDOW_MS) times.add(change - 1);
-            times.add(change);
-        }
-    }
-    return [...times].sort((left, right) => left - right).map((at) => ({ elapsedMs: at, value: paceAt(points, at) }));
-}
-
-// The pace at the end of the session, once a whole window has elapsed.
+// The rate over the trailing window at the end of the session, once a whole window has elapsed.
 export function recentRate(points: TrendSample[]): number | null {
     const end = points[points.length - 1];
-    if (!end || end.elapsedMs < PACE_WINDOW_MS) return null;
-    return paceAt(points, end.elapsedMs);
+    if (!end || end.elapsedMs < RECENT_WINDOW_MS) return null;
+    return (end.net - heldNetAt(points, end.elapsedMs - RECENT_WINDOW_MS)) / (RECENT_WINDOW_MS / 3_600_000);
 }
 
-// Which drops get a marker on the trend. Retune spikes by changing these three values.
-export const SPIKE_MIN_SHARE_OF_NET = 0.1;
-export const SPIKE_MAX_MARKERS = 5;
+// The Silver/h view plots the session average up to each moment, so its end is the silver/hour the desk and overlay show.
+export function averageAt(points: TrendSample[], elapsedMs: number): number {
+    return calculateQuantityPerHour(heldNetAt(points, elapsedMs), elapsedMs) ?? 0;
+}
+
+// With net held, the average falls after every sample until the next one. Samples a minute or so apart are joined
+// directly, so the line does not dip after each one; a longer quiet stretch is filled in so its decline shows and the
+// jump that ends it stays upright.
+const QUIET_STRETCH_MS = 5 * 60_000;
+const QUIET_STRETCH_STEPS = 8;
+
+export function averageSeries(points: TrendSample[], elapsedMs: number): { elapsedMs: number; value: number }[] {
+    const times: number[] = [];
+    let previous = 0;
+    const changes = points.map((point) => point.elapsedMs).filter((at) => at > 0 && at < elapsedMs);
+    for (const at of [...changes, elapsedMs]) {
+        if (at - previous > QUIET_STRETCH_MS) {
+            for (let step = 1; step < QUIET_STRETCH_STEPS; step++)
+                times.push(previous + ((at - previous) * step) / QUIET_STRETCH_STEPS);
+            times.push(at - 1);
+        }
+        times.push(at);
+        previous = at;
+    }
+    return times.map((at) => ({ elapsedMs: at, value: averageAt(points, at) }));
+}
+
+// One drop in the first minutes keeps the average far above anything after it for a while. Values before this time do
+// not set the Silver/h scale; the line runs along the edge there while the readout keeps the exact value.
+export const AVERAGE_SCALE_FROM_MS = 15 * 60_000;
+
+export function averageScaleFrom(elapsedMs: number): number {
+    return Math.min(AVERAGE_SCALE_FROM_MS, elapsedMs / 2);
+}
+
+// A drop gets a marker on the trend when one item of it is worth at least this much after tax: the spot's rare drops.
+export const SPIKE_MIN_UNIT_VALUE = 100_000_000;
 // Markers closer than this share of the session's duration would overlap, so only the more valuable one stays.
 export const SPIKE_MIN_GAP_SHARE = 0.08;
 
-export function spikeDrops(drops: TrendDrop[], elapsedMs: number, net: number): TrendDrop[] {
-    const minimum = Math.max(1, SPIKE_MIN_SHARE_OF_NET * net);
+export function spikeDrops(drops: TrendDrop[], elapsedMs: number): TrendDrop[] {
     const minGapMs = SPIKE_MIN_GAP_SHARE * elapsedMs;
     const spikes: TrendDrop[] = [];
     for (const drop of [...drops].sort((left, right) => right.value - left.value)) {
-        if (spikes.length === SPIKE_MAX_MARKERS || drop.value < minimum) break;
+        if (drop.quantity <= 0 || drop.value / drop.quantity < SPIKE_MIN_UNIT_VALUE) continue;
         if (drop.elapsedMs > elapsedMs) continue;
         if (spikes.some((spike) => Math.abs(spike.elapsedMs - drop.elapsedMs) < minGapMs)) continue;
         spikes.push(drop);
