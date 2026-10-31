@@ -139,7 +139,7 @@ Rows cascade with their session. As with migration 5, sessions created before th
 - The theme uses the `theme` setting (`light` or `dark`; default dark). Grind-spot favorites and the eight most recent
   spots use `grind_spot_preferences`, a JSON object of spot ID arrays. Earlier builds kept both in browser storage; the
   first load without a SQLite value saves the browser value to SQLite and then removes it. No migration is needed.
-- The session trend's Net or Silver/h view uses the `trend_view` setting (`net` or `pace`; default net), shared by the
+- The session trend's Net or Silver/h view uses the `trend_view` setting (`net` or `pace`, where `pace` is the Silver/h view; default net), shared by the
   desk and History. No migration is needed.
 - Live loot calibration stores only validated normalized rectangle coordinates and source dimensions in `settings`.
   Preview and region pixels remain in memory. Opt-in self-improvement uses the separate database below.
