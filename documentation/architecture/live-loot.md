@@ -75,10 +75,16 @@ recover a quantity. Existing parsed quantities are not replaced, and temporal co
 six passes per frame. Gold rare text retains its separate preprocessing for both fonts.
 
 Rare recognition uses the gold shell and entrance border, waits for readable text, and suppresses startup baselines.
-Its calibration is provisional. Normal and rare recognized events enter the ledger; failed insertion retries after
-one, two, and four seconds, then remains manually retryable while retained in the bounded feed. Review OCR suggests a
-correction that must be confirmed. Dismissal cancels insertion retries without deleting ledger loot. Finishing drains
-OCR and stops capture before resolving the user's choice about remaining captures.
+Its calibration is provisional. The rare crop must fit the longest name, so each gold pass ends at the first blank gap
+as wide as the text line is tall; otherwise bright scenery after the quantity reads as junk that fails the quantity
+parser. Unresolved banners read up to two supplementary frames, as normal loot does. Detection needs the banner within
+about 3 px vertically of the calibrated position, and larger offsets either clip the text or miss the banner, so the
+placement preview matters more than for the loot stack.
+
+Normal and rare recognized events enter the ledger; failed insertion retries after one, two, and four seconds, then
+remains manually retryable while retained in the bounded feed. Review OCR suggests a correction that must be confirmed.
+Dismissal cancels insertion retries without deleting ledger loot. Finishing drains OCR and stops capture before
+resolving the user's choice about remaining captures.
 
 Opt-in [self-improvement](quantity-learning.md) can suggest learned item names and quantities after normal OCR fails.
 Separately enabled automatic recovery requires multi-frame agreement, eligible learned matches, and no conflicting
