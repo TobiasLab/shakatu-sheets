@@ -10,6 +10,33 @@ export type LootOcrThreshold = 130 | 150 | 170;
 const thresholds: readonly LootOcrThreshold[] = [130, 150, 170];
 const maximumOcrImageBytes = 16 * 1024 * 1024;
 
+/**
+ * The rare banner crop must fit its longest name, so shorter names leave scenery that OCR reads as text after the
+ * quantity. A blank gap as wide as the text line is tall ends the line; word gaps are far narrower. The banner's
+ * left ornament sits almost that far before the name, so no gap counts until the crop can hold a short name.
+ */
+function goldTextRight(frame: LootRoiFrame, bounds: LootOcrBounds, threshold: LootOcrThreshold) {
+    const textGap = bounds.bottom - bounds.top;
+    const minimumRight = bounds.left + textGap * 4;
+    let textEnd = bounds.left;
+    let blankColumns = 0;
+    let textStarted = false;
+    for (let x = bounds.left; x < bounds.right && blankColumns < textGap; x += 1) {
+        let hasText = false;
+        for (let y = Math.max(0, bounds.top); y < Math.min(frame.height, bounds.bottom) && !hasText; y += 1) {
+            const offset = (y * frame.width + x) * 4;
+            hasText = luminance(frame.pixels, offset) >= threshold && chroma(frame.pixels, offset) <= 140;
+        }
+        if (hasText) {
+            textStarted = true;
+            textEnd = x + 1;
+            blankColumns = 0;
+        } else if (textStarted && x >= minimumRight) blankColumns += 1;
+    }
+    // Keep a few columns so a glyph's fainter last edge is not clipped.
+    return textStarted ? Math.min(bounds.right, textEnd + 3) : bounds.right;
+}
+
 export function preprocessLootOcrFrame(
     frame: LootRoiFrame,
     centerY: number,
@@ -37,23 +64,27 @@ export function preprocessLootOcrFrame(
     if (!thresholds.includes(threshold)) throw new Error("Loot OCR threshold must be 130, 150, or 170.");
 
     const left = bounds?.left ?? Math.round(width * 0.25);
-    const right = bounds?.right ?? Math.round(width * 0.8);
+    const maximumRight = bounds?.right ?? Math.round(width * 0.8);
     const top = bounds?.top ?? centerY - 12;
     const bottom = bounds?.bottom ?? centerY + 12;
     if (
         !Number.isInteger(left) ||
-        !Number.isInteger(right) ||
+        !Number.isInteger(maximumRight) ||
         !Number.isInteger(top) ||
         !Number.isInteger(bottom) ||
         left < 0 ||
-        left >= right ||
-        right > width ||
+        left >= maximumRight ||
+        maximumRight > width ||
         top >= bottom ||
         (bounds !== undefined && (top < 0 || bottom > height))
     ) {
         throw new Error("Loot OCR bounds must be valid source pixel coordinates.");
     }
     if (scale !== 2 && scale !== 4) throw new Error("Loot OCR enlargement must be 2 or 4.");
+    const right =
+        textColor === "gold"
+            ? goldTextRight(frame, { left, right: maximumRight, top, bottom }, threshold)
+            : maximumRight;
     const padding = 10;
     const outputWidth = (right - left) * scale + padding * 2;
     const outputHeight = (bottom - top) * scale + padding * 2;

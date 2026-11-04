@@ -121,7 +121,13 @@ export function rareLootDetectionProfile(geometry: RareLootGeometry): LootDetect
     };
 }
 export const RARE_LOOT_PROFILE = rareLootDetectionProfile(RARE_LOOT_GEOMETRY);
-export const RARE_LOOT_OCR_SELECTION = { frameCount: 3, delayFrames: 12 } as const;
+// The banner stays readable past the first three frames, so unresolved reads can try two more.
+export const RARE_LOOT_OCR_SELECTION = {
+    frameCount: 3,
+    delayFrames: 12,
+    windowFrames: 6,
+    maximumFrameCount: 5,
+} as const;
 export const RARE_LOOT_OCR_BOUNDS = RARE_LOOT_GEOMETRY.ocrBounds;
 
 const fingerprint: LootFingerprint = {

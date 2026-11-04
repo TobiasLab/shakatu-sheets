@@ -179,6 +179,33 @@ describe("preprocessLootOcrFrame", () => {
         expect(blackPixelCount(gold)).toBe(16);
     });
 
+    it("ends a gold OCR crop at the text so scenery past a wide gap is not read", () => {
+        const frame = sourceFrame(32);
+        const bounds = { left: 0, right: frame.width, top: 0, bottom: 4 };
+        setPixel(frame, 15, 1, 230, 200, 110);
+        setPixel(frame, 17, 1, 230, 200, 110);
+        setPixel(frame, 25, 1, 230, 200, 110);
+        const gold = preprocessLootOcrFrame(frame, 2, 170, bounds, "gold");
+        expect(gold.width).toBe((18 + 3) * 4 + 20);
+        expect(blackPixelCount(gold)).toBe(32);
+    });
+
+    it("does not end a gold OCR crop at the gap between the ornament and the name", () => {
+        const frame = sourceFrame(32);
+        const bounds = { left: 0, right: frame.width, top: 0, bottom: 4 };
+        setPixel(frame, 1, 1, 230, 200, 110);
+        setPixel(frame, 12, 1, 230, 200, 110);
+        const gold = preprocessLootOcrFrame(frame, 2, 170, bounds, "gold");
+        expect(gold.width).toBe((13 + 3) * 4 + 20);
+        expect(blackPixelCount(gold)).toBe(32);
+    });
+
+    it("keeps the full gold crop when no text passes the threshold", () => {
+        const frame = sourceFrame();
+        const bounds = { left: 0, right: frame.width, top: 0, bottom: 4 };
+        expect(preprocessLootOcrFrame(frame, 2, 170, bounds, "gold").width).toBe(frame.width * 4 + 20);
+    });
+
     it("is monotonically more selective across the supported thresholds", () => {
         const frame = sourceFrame();
         setPixel(frame, 2, 0, 130);

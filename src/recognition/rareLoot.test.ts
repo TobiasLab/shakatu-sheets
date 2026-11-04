@@ -110,6 +110,37 @@ describe("rare loot frame analysis", () => {
         expect(result.filter((count, index) => count === 1 && result[index - 1] === 0)).toHaveLength(1);
     });
 
+    it("reads two more frames when the first three leave a rare banner unresolved", async () => {
+        const analyzer = new RareLootFrameAnalyzer(undefined, 16);
+        const results: LiveLootRecognitionResult[] = [];
+        const readings = ["Deboreka Necklace x 1 junk", "Deboreka Necklace x 1 junk", "Deboreka Necklace x 1"];
+        const readSizes: number[] = [];
+        const readText: LiveLootOcrReader = async (frames) => {
+            readSizes.push(frames.length);
+            return frames.map(() => [readings.shift() ?? "Deboreka Necklace x 1"]);
+        };
+        const coordinator = new LiveLootCoordinator({
+            sampleFps: 16,
+            profile: RARE_LOOT_PROFILE,
+            dictionary: ["Deboreka Necklace"],
+            analyzeFrame: (frame) => analyzer.pushFrame(frame),
+            ocrSelection: RARE_LOOT_OCR_SELECTION,
+            ocrBounds: RARE_LOOT_OCR_BOUNDS,
+            eventIdPrefix: "rare",
+            readText,
+            onResult: (result) => results.push(result),
+        });
+        for (const ratio of [0, ...Array.from({ length: 4 }, () => 0.7), ...Array.from({ length: 24 }, () => 0)]) {
+            for (let repeat = 0; repeat < 2; repeat++) coordinator.pushFrame(rareFrame(ratio));
+        }
+        await coordinator.finish();
+
+        expect(readSizes).toEqual([3, 2]);
+        expect(results).toEqual([
+            expect.objectContaining({ status: "recognized", itemName: "Deboreka Necklace", quantity: 1 }),
+        ]);
+    });
+
     it.each([8, 16] as const)(
         "does not attribute confirmed replacement frames to the previous event at %i FPS",
         async (sampleFps) => {
