@@ -50,6 +50,12 @@ bottom row or the old bottom row moved up; otherwise a dimming bottom row or a s
 fade. Conversely, a short detector gap normally keeps a row's identity, but a bottom row that was fading before the gap
 and returns brighter is a new identical drop. A refreshed bottom row without a detector gap is not yet counted.
 
+Identical drops scroll the stack without changing any text, so brightness also decides scrolls. When an older row
+reappearing above rows that stayed in place matches the text better than a scroll, it is rejected if any of those rows
+got brighter, because rows only fade. When the row count stays flat, a fading row just above a fresh bottom row that
+turns fully bright and stays so means the old bottom row moved up, which is one arrival. A full stack of identical
+bright rows that scrolls remains invisible.
+
 Normal OCR reads three stable observations spaced 125 ms apart after the entrance delay. Up to two supplementary frames
 are read only for unresolved results. Consensus considers all readings and retains the veto on confidently conflicting
 item/quantity pairs. There is no standalone single-frame or two-frame acceptance. Normal and rare jobs share one local
