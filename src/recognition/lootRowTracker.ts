@@ -6,7 +6,14 @@ import type {
     LootRowObservation,
     LootTrack,
 } from "./liveLoot";
-import { fadeWithoutArrival, fadingLootArrivals, lootRowRefreshed, lootRowsFaded } from "./lootArrival";
+import {
+    fadeWithoutArrival,
+    fadingLootArrivals,
+    identicalRowScrolled,
+    lootRowRefreshed,
+    lootRowsFaded,
+    stationaryRowsBrightened,
+} from "./lootArrival";
 
 export function stackShifted<TFingerprint>(
     previous: TFingerprint[],
@@ -35,7 +42,8 @@ export function rowBirthCount<TFingerprint>(
         projectionBirthCount(previous, current, next, rowThreshold, distance),
         fadingLootArrivals(previous, current, next),
     );
-    return births > 0 && fadeWithoutArrival(previous, current, next, births) ? 0 : births;
+    if (births === 0) return identicalRowScrolled(previous, current, next) ? 1 : 0;
+    return fadeWithoutArrival(previous, current, next, births) ? 0 : births;
 }
 
 function projectionBirthCount<TFingerprint>(
@@ -128,7 +136,11 @@ function projectionBirthCount<TFingerprint>(
             }
             alternativeDistance = Math.min(alternativeDistance, total / previous.count);
         }
-        return stationaryDistance - alternativeDistance >= 0.1 ? 0 : confirmedBirthCount(additions);
+        // Identical text can make "an older row reappeared above rows that stayed put" look closer than a scroll whose
+        // top row is fading. A brighter slot rules that out, because rows only fade.
+        return stationaryDistance - alternativeDistance >= 0.1 && !stationaryRowsBrightened(previous, current)
+            ? 0
+            : confirmedBirthCount(additions);
     }
     if (current.count !== previous.count) return 0;
 

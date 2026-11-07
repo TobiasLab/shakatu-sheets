@@ -5,10 +5,12 @@ import { findLiveLootProfile } from "./liveLootProfiles";
 import {
     fadeWithoutArrival,
     fadingLootArrivals,
+    identicalRowScrolled,
     type LootRowAppearance,
     lootRowAppearances,
     lootRowRefreshed,
     lootRowsFaded,
+    stationaryRowsBrightened,
 } from "./lootArrival";
 import { LootRowTracker, rowBirthCount } from "./lootRowTracker";
 
@@ -123,6 +125,51 @@ describe("fading loot arrivals", () => {
         expect(fadingLootArrivals(sample, sample, sample)).toBe(0);
         expect(lootRowsFaded(sample, sample)).toBe(false);
         expect(fadeWithoutArrival(sample, sample, rows(1, [30, 30, 30, 30, 230]), 1)).toBe(false);
+    });
+});
+
+describe("identical drops that scroll the stack", () => {
+    function withFingerprints(frame: LootDetectedRows<number>, fingerprints: number[]) {
+        return { ...frame, fingerprints, fingerprint: fingerprints[fingerprints.length - 1] };
+    }
+
+    it("counts a new row when a fading top row makes staying in place look closer", () => {
+        // A fading top row no longer matches its earlier projection, while a new item differs only by its quantity.
+        const before = withFingerprints(rows(2, [81, 76, 120, 184, 228]), [0, 0]);
+        const current = withFingerprints(rows(3, [81, 98, 144, 228, 228]), [0.46, 0, 0.23]);
+        const next = withFingerprints(rows(2, [78, 91, 111, 228, 228]), [0, 0.23]);
+        expect(stationaryRowsBrightened(before, current)).toBe(true);
+        expect(rowBirthCount(before, current, next, 196, distance)).toBe(1);
+        const unchanged = withFingerprints(rows(3, [81, 98, 144, 184, 228]), [0.46, 0, 0.23]);
+        expect(stationaryRowsBrightened(before, unchanged)).toBe(false);
+        expect(rowBirthCount(before, unchanged, next, 196, distance)).toBe(0);
+    });
+
+    it("counts an identical drop that scrolls a fading stack without changing its row count", () => {
+        const before = rows(2, [67, 64, 67, 161, 228]);
+        const current = rows(2, [66, 66, 117, 228, 228]);
+        const next = rows(2, [66, 63, 95, 228, 228]);
+        expect(identicalRowScrolled(before, current, next)).toBe(true);
+        expect(rowBirthCount(before, current, next, 196, distance)).toBe(1);
+    });
+
+    it("does not count a brighter row in an already faded stack whose bottom row dimmed", () => {
+        const before = rows(2, [60, 60, 60, 120, 180]);
+        const current = rows(2, [60, 60, 60, 170, 170]);
+        expect(identicalRowScrolled(before, current, current)).toBe(false);
+    });
+
+    it("does not count a fading stack, a brief flash, or a growing stack as a scroll", () => {
+        const before = rows(2, [67, 64, 67, 161, 228]);
+        expect(identicalRowScrolled(before, rows(2, [66, 66, 67, 150, 228]), rows(2, [66, 63, 67, 140, 228]))).toBe(
+            false,
+        );
+        expect(identicalRowScrolled(before, rows(2, [66, 66, 117, 228, 228]), rows(2, [66, 63, 95, 160, 228]))).toBe(
+            false,
+        );
+        expect(identicalRowScrolled(before, rows(3, [66, 66, 117, 228, 228]), rows(3, [66, 63, 95, 228, 228]))).toBe(
+            false,
+        );
     });
 });
 

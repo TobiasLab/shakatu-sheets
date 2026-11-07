@@ -164,6 +164,51 @@ export function lootRowRefreshed<T>(before: LootDetectedRows<T>, after: LootDete
     return old !== undefined && now !== undefined && old < now * 0.9;
 }
 
+/**
+ * Whether a slot the previous rows occupied got brighter. Rows only fade, so a brighter slot means the stack moved and
+ * the new row is not an older one reappearing above rows that stayed in place.
+ */
+export function stationaryRowsBrightened<T>(previous: LootDetectedRows<T>, current: LootDetectedRows<T>) {
+    const before = previous.appearances;
+    const now = current.appearances;
+    if (!before || !now) return false;
+    for (let slot = before.length - previous.count; slot < before.length; slot += 1) {
+        if (now[slot].visibility >= before[slot].visibility * 1.1) return true;
+    }
+    return false;
+}
+
+/**
+ * An identical drop can scroll the stack while the top row fades out, so neither the row count nor the text changes.
+ * The fading row just above the bottom then turns fully bright and stays so, because the old bottom row moved into it,
+ * and the new bottom row is at least as bright as the one it replaced. A faded stack has no fully bright row to compare
+ * with, so the bottom row must not have dimmed.
+ */
+export function identicalRowScrolled<T>(
+    previous: LootDetectedRows<T>,
+    current: LootDetectedRows<T>,
+    next: LootDetectedRows<T> | undefined,
+) {
+    const before = previous.appearances;
+    const now = current.appearances;
+    const after = next?.appearances;
+    if (!before || !now || !after || current.count === 0 || current.count > previous.count || before.length < 2)
+        return false;
+    const bottom = before.length - 1;
+    const full = Math.max(...before.map((row) => row.visibility), ...now.map((row) => row.visibility));
+    const old = before[bottom - 1].visibility;
+    const moved = now[bottom - 1].visibility;
+    return (
+        now[bottom].visibility >= full * 0.9 &&
+        now[bottom].visibility >= before[bottom].visibility * 0.95 &&
+        old >= full * 0.55 &&
+        old < full * 0.9 &&
+        moved >= full * 0.9 &&
+        moved >= old * 1.15 &&
+        after[bottom - 1].visibility >= old * 1.1
+    );
+}
+
 /** When only the top fades away, the surviving bottom rows keep their event identities. */
 export function lootRowsFaded<T>(previous: LootDetectedRows<T>, current: LootDetectedRows<T>) {
     const before = previous.appearances;
