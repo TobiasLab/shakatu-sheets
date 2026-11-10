@@ -88,6 +88,8 @@ enum Status {
     Withheld,
     Failed,
     Dropped,
+    /// A brightness ledger disagreement with the tracker; not a recognition result.
+    Audit,
 }
 
 #[derive(Serialize)]
@@ -126,6 +128,15 @@ impl OcrIssue {
                 self.reason.as_deref().unwrap_or(""),
                 "backpressure-summary" | "result-overflow-summary" | "mixed-overflow-summary"
             ),
+            Status::Audit => {
+                self.event_id.is_none()
+                    && self.selected_frames.is_empty()
+                    && self.last_frame.is_none()
+                    && matches!(
+                        self.reason.as_deref().unwrap_or(""),
+                        "missed-drop" | "phantom-drop"
+                    )
+            }
         };
         if !valid_reason
             || (!matches!(self.status, Status::Recognized)

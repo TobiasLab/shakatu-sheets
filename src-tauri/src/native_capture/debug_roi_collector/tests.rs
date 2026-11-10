@@ -752,3 +752,48 @@ fn accepted_ocr_diagnostics_validate_quantities_and_pass_metadata() {
         .log_ocr_issue(serde_json::from_value(value).unwrap())
         .is_err());
 }
+
+#[test]
+fn brightness_ledger_audits_log_as_their_own_status() {
+    let temp = TempDir::new("ocr-audit");
+    let collector = DebugRoiSampleCollector::default();
+    let (sender, _) = mpsc::sync_channel(1);
+    *collector.active.lock().unwrap() = Some(Arc::new(test_run(&temp.0, sender, settings())));
+    let mut value = diagnostic_json(&temp.0);
+    value["source"] = serde_json::json!("normal");
+    value["eventId"] = serde_json::Value::Null;
+    value["status"] = serde_json::json!("audit");
+    value["reason"] = serde_json::json!("missed-drop");
+    value["selectedFrames"] = serde_json::json!([]);
+    value["count"] = serde_json::json!(2);
+    assert!(collector
+        .log_ocr_issue(serde_json::from_value(value.clone()).unwrap())
+        .unwrap());
+    let written: serde_json::Value = serde_json::from_str(
+        fs::read_to_string(temp.0.join("ocr-issues.jsonl"))
+            .unwrap()
+            .trim(),
+    )
+    .unwrap();
+    assert_eq!(written["status"], "audit");
+    assert_eq!(written["reason"], "missed-drop");
+    assert_eq!(written["count"], 2);
+    for (field, invalid) in [
+        ("reason", serde_json::json!("consensus-withheld")),
+        ("eventId", serde_json::json!("detected-0001")),
+        (
+            "selectedFrames",
+            serde_json::json!([{"frame": 1, "batchId": 8, "readings": []}]),
+        ),
+        (
+            "lastFrame",
+            serde_json::json!({"frame": 1, "batchId": 8, "readings": []}),
+        ),
+    ] {
+        let mut rejected = value.clone();
+        rejected[field] = invalid;
+        assert!(collector
+            .log_ocr_issue(serde_json::from_value(rejected).unwrap())
+            .is_err());
+    }
+}

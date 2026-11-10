@@ -1,5 +1,11 @@
 import { normalLootColumn } from "./displayCapture";
 import { type LootRowAppearance, lootRowAppearances } from "./lootArrival";
+import {
+    LOOT_TEXT_LUMINANCE,
+    LootBrightnessLedger,
+    type LootLedgerEvent,
+    lootRowOpacities,
+} from "./lootBrightnessLedger";
 import type { LootSampleFps } from "./lootCaptureTiming";
 import type { LootFont } from "./lootFont";
 import { chroma, isGlyphPixel, luminance } from "./lootPixels";
@@ -241,6 +247,11 @@ export type LiveLootCoordinatorOptions = {
     ) => LootQuantitySuggestion | undefined;
     /** Must complete synchronously. Returned thenables are treated as callback errors and are not awaited. */
     onResult: (result: LiveLootRecognitionResult) => void;
+    /**
+     * Audits the tracker against a brightness-only arrival count and reports lasting differences. It never changes
+     * results, and anything it throws is ignored. Only the default analyzer at 16 FPS is audited.
+     */
+    onLedgerEvent?: (event: LootLedgerEvent) => void;
     maxPendingOcrJobs?: number;
     maxPendingResults?: number;
     retainedFrameCount?: number;
@@ -485,6 +496,7 @@ type LootDelivery = LootOcrDelivery | LootResultDelivery | LootSummaryDelivery;
 
 export class LiveLootCoordinator {
     private readonly tracker: LootRowTracker<LootFingerprint>;
+    private readonly ledger: LootBrightnessLedger | undefined;
     private readonly frames = new Map<number, LootRoiFrame>();
     private readonly candidates = new Set<LootTrack<LootFingerprint>>();
     private readonly deliveries: LootDelivery[] = [];
@@ -583,6 +595,11 @@ export class LiveLootCoordinator {
             maximumFrameCount,
         };
         this.ocrFrameCount = ocrFrameCount;
+        // The ledger's fade steps are calibrated for the default analyzer's rows at 16 FPS.
+        this.ledger =
+            options.onLedgerEvent && options.analyzeFrame === undefined && sampleFps === 16
+                ? new LootBrightnessLedger()
+                : undefined;
         this.tracker = new LootRowTracker(options.profile.rowThreshold, lootFingerprintDistance, {
             retainHistory: false,
             identityDistance: lootRowIdentityDistance,
@@ -794,8 +811,12 @@ export class LiveLootCoordinator {
             this.tracker.releaseTrack(track);
         }
         for (const track of this.tracker.takeNewTracks()) {
-            if (track.baseline) this.tracker.releaseTrack(track);
-            else this.candidates.add(track);
+            if (track.baseline) {
+                this.tracker.releaseTrack(track);
+            } else {
+                this.candidates.add(track);
+                this.ledger?.counted(track.firstFrame);
+            }
         }
         for (const track of this.candidates) {
             this.settleCandidate(track);
@@ -1009,6 +1030,11 @@ export class LiveLootCoordinator {
             throw new Error("Cannot push loot frames after the coordinator is stopped or finished.");
         const rows = this.analyzeFrame(frame);
         const frameNumber = this.nextFrame;
+        this.ledger?.push(
+            frameNumber,
+            lootRowOpacities(frame, this.options.profile, LOOT_TEXT_LUMINANCE[this.options.font ?? "korean"]),
+            rows.count,
+        );
         this.nextFrame += 1;
         this.frames.set(frameNumber, frame);
         while (this.frames.size > this.maximumRetainedFrames) {
@@ -1018,6 +1044,13 @@ export class LiveLootCoordinator {
         }
         this.tracker.push(rows);
         this.processTrackerChanges();
+        for (const event of this.ledger?.takeEvents() ?? []) {
+            try {
+                this.options.onLedgerEvent?.(event);
+            } catch {
+                // An audit must not fail the capture it watches.
+            }
+        }
         this.startDraining();
     }
 

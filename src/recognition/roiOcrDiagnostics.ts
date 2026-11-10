@@ -5,6 +5,7 @@ import type {
     LootOcrPass,
     LootRoiFrame,
 } from "./liveLoot";
+import type { LootLedgerEvent } from "./lootBrightnessLedger";
 import type { LootFont } from "./lootFont";
 
 type RoiSampleReference = NonNullable<LootRoiFrame["sample"]>;
@@ -25,10 +26,16 @@ export type RoiOcrIssue = {
     source: "normal" | "rare";
     generation: number;
     eventId: string | null;
-    status: LiveLootRecognitionResult["status"];
+    /** `audit` records a brightness ledger disagreement; it is not a recognition result. */
+    status: LiveLootRecognitionResult["status"] | "audit";
     itemName: string | null;
     quantity: number | null;
-    reason: LiveLootRecognitionResult["reason"] | "frame-analysis-failure" | "ocr-startup-failure";
+    reason:
+        | LiveLootRecognitionResult["reason"]
+        | "frame-analysis-failure"
+        | "ocr-startup-failure"
+        | "missed-drop"
+        | "phantom-drop";
     firstFrame: DiagnosticFrame;
     selectedFrames: DiagnosticFrame[];
     lastFrame: DiagnosticFrame | null;
@@ -145,6 +152,28 @@ export class RoiOcrDiagnostics {
             this.readings.delete(frame);
             this.errors.delete(frame);
         }
+    }
+
+    /** Logs a brightness ledger disagreement whose frame belongs to a running collection. */
+    ledger(event: LootLedgerEvent) {
+        const sample = this.samples.get(event.frame);
+        if (!sample) return;
+        this.emit({
+            captureToken: sample.captureToken,
+            collectionPath: sample.collectionPath,
+            source: this.source,
+            generation: this.generation,
+            eventId: null,
+            status: "audit",
+            itemName: null,
+            quantity: null,
+            reason: event.kind === "missed" ? "missed-drop" : "phantom-drop",
+            firstFrame: { frame: event.frame, batchId: sample.batchId, readings: [] },
+            selectedFrames: [],
+            lastFrame: null,
+            count: event.count,
+            error: null,
+        });
     }
 
     frameFailure(error: unknown) {

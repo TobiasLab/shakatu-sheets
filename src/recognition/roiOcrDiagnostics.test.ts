@@ -52,6 +52,32 @@ describe("ROI OCR diagnostics", () => {
         expect(issues).toMatchObject([{ status: "recognized", itemName: "Loot", quantity: 1 }]);
     });
 
+    it("logs brightness ledger disagreements only for frames in a running collection", () => {
+        const { diagnostics, issues } = recorder();
+        diagnostics.observe(frame());
+        diagnostics.observe(frame(22));
+        diagnostics.ledger({ kind: "missed", frame: 0, count: 1 });
+        diagnostics.ledger({ kind: "phantom", frame: 1, count: 2 });
+        expect(issues).toEqual([
+            {
+                captureToken: 9,
+                collectionPath: "/run-1",
+                source: "normal",
+                generation: 3,
+                eventId: null,
+                status: "audit",
+                itemName: null,
+                quantity: null,
+                reason: "phantom-drop",
+                firstFrame: { frame: 1, batchId: 22, readings: [] },
+                selectedFrames: [],
+                lastFrame: null,
+                count: 2,
+                error: null,
+            },
+        ]);
+    });
+
     it.each(["normal", "rare"] as const)(
         "links %s internal indices to native batch IDs across collection gaps",
         async (source) => {
