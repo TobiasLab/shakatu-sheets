@@ -189,7 +189,7 @@ await send("Page.addScriptToEvaluateOnNewDocument", {
                     window.__holdTrend = null;
                     await new Promise(resolve => { window.__releaseTrend = resolve; });
                 }
-                return window.__trendSamples?.[args.sessionId] ?? [];
+                return { samples: window.__trendSamples?.[args.sessionId] ?? [], drops: [] };
             }
             if (command === "delete_finished_session") {
                 window.__historyRecords = window.__historyRecords.filter(r => r.session.id !== args.id);
@@ -875,7 +875,7 @@ try {
         );
         await screenshot("history");
         const historyTrend =
-            "[...document.querySelectorAll('figure')].find(f => f.getClientRects().length && f.textContent.includes('Net over time'))";
+            "[...document.querySelectorAll('figure')].find(f => f.getClientRects().length && f.getAttribute('aria-label') === 'Net over time')";
         await until(`${historyTrend} !== undefined`);
         assert.match(
             await evaluate(`${historyTrend}.querySelector('[role="img"]').getAttribute('aria-label')`),
@@ -1415,7 +1415,7 @@ try {
         } else {
             assert(
                 await evaluate(
-                    "[...document.querySelectorAll('button')].some(b => b.textContent.trim() === 'Both areas confirmed' && b.disabled)",
+                    "[...document.querySelectorAll('#capture-setup span')].some(s => s.textContent.trim() === 'Ready to track loot')",
                 ),
                 "Skipping confirmation requires both areas to already be confirmed",
             );
@@ -1496,7 +1496,12 @@ try {
         assert.equal(await evaluate(`${reviewEntries}.length`), 0);
         await click("Settings");
         assert(await evaluate("document.querySelector('#market select').disabled"));
-        assert(await evaluate("document.querySelector('#market [aria-label=\"Grind spot\"] button').disabled"));
+        assert(
+            await evaluate(
+                "(() => { const spot = document.querySelector('#market [aria-label=\"Grind spot\"]'); return spot.textContent.includes('Grind spot locked for this session') && ![...spot.querySelectorAll('button')].some(b => b.textContent.trim() === 'Browse all spots'); })()",
+            ),
+            "A finished session's grind spot shows its lock note instead of a way to change it",
+        );
         assert(await evaluate("document.querySelector('#region-locked').textContent.includes('Start a new session')"));
         assert.equal(errors.length, 0, JSON.stringify(errors));
         await send("Page.navigate", { url: `${appUrl}?history-startup=1` });

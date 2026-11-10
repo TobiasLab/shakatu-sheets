@@ -2,7 +2,7 @@ import { getCurrentWindow } from "@tauri-apps/api/window";
 import { type MouseEvent, type ReactNode, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { supportsTauriApi } from "../../api/tauri";
 import { calculateTotals, type SessionState } from "../../domain/session";
-import { formatDuration, formatSilver } from "../../format";
+import { formatDuration, formatSilverRate } from "../../format";
 import { useElapsedTime } from "../../hooks/useElapsedTime";
 import type { DatabaseStatus } from "../../hooks/usePersistedSession";
 import { Icon } from "../Icon/Icon";
@@ -135,7 +135,7 @@ function SessionPresence({
             <i className={styles.StatusDot} data-tone={session.status} />
             <span className={styles.PresenceSpot}>{spotName}</span>
             <time>{formatDuration(elapsedMs)}</time>
-            {elapsedMs > 0 && <strong>{formatSilver(netPerHour, true)}/h</strong>}
+            {elapsedMs > 0 && <strong>{formatSilverRate(netPerHour)}/h</strong>}
         </button>
     );
 }

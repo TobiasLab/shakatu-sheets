@@ -48,7 +48,11 @@ export function SessionTools({ controller, visible }: { controller: LiveSessionC
                 </button>
             </div>
 
-            <dialog className={styles.ToolDialog} ref={entryDialog} aria-labelledby="entry-dialog-title">
+            <dialog
+                className={`${styles.ToolDialog} ${styles.TopAnchored}`}
+                ref={entryDialog}
+                aria-labelledby="entry-dialog-title"
+            >
                 <DialogHeader
                     titleId="entry-dialog-title"
                     title="Add loot or expense"
@@ -57,7 +61,11 @@ export function SessionTools({ controller, visible }: { controller: LiveSessionC
                 />
                 <EntryForm key={controller.session.id} {...controller} />
             </dialog>
-            <dialog className={styles.ToolDialog} ref={importDialog} aria-labelledby="import-dialog-title">
+            <dialog
+                className={`${styles.ToolDialog} ${styles.TopAnchored}`}
+                ref={importDialog}
+                aria-labelledby="import-dialog-title"
+            >
                 <DialogHeader
                     titleId="import-dialog-title"
                     title="Import a screenshot"

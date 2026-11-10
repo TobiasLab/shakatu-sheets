@@ -516,20 +516,20 @@ export function LiveLootCapture({ controller }: { controller: ReturnType<typeof 
                                                 Adjust automatically
                                             </button>
                                         )}
-                                    {placementMode !== "localizing" && (
+                                    {/* Once confirmed, the line above and the stepper report it; a disabled gold button
+                                        would read as a step still to take. */}
+                                    {placementMode !== "localizing" && !regionConfirmed && (
                                         <button
                                             className="button primary-button"
                                             type="button"
-                                            disabled={!normalRegion || !rareRegion || regionConfirmed || savingRegion}
+                                            disabled={!normalRegion || !rareRegion || savingRegion}
                                             onClick={confirmRegion}
                                         >
                                             {savingRegion
                                                 ? "Saving..."
-                                                : regionConfirmed
-                                                  ? "Both areas confirmed"
-                                                  : normalRegionReady
-                                                    ? "Confirm rare area"
-                                                    : "Confirm both areas"}
+                                                : normalRegionReady
+                                                  ? "Confirm rare area"
+                                                  : "Confirm both areas"}
                                         </button>
                                     )}
                                 </div>

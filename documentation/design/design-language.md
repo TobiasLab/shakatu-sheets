@@ -120,7 +120,11 @@ Two themes, dark (default) and light, share the same token names. Every new toke
 - **History:** title, filter bar, overview figures, comparison table, then the session list beside one receipt panel.
   The receipt's figures row ends with the session trend when net samples exist.
 - **Settings:** a sticky section index beside open sections; each section has a label column (up to 200px) and a form
-  column (up to 570px).
+  column (up to 570px). The consumable preset table may use the form column's full width, and takes the whole section
+  width while the window is too narrow for it beside the section index (about 1000–1110px).
+- **Capture setup:** inside the strip only image frames are bordered (the live preview and the two crop previews);
+  the controls sit directly on the strip. The strip's buttons stay beside its title and wrap below it only when they
+  do not fit.
 
 ## Components
 
@@ -128,19 +132,27 @@ Reuse these before creating anything new. Class names refer to global classes in
 
 - **Buttons:** `.button` (neutral), `.button.primary-button` (one per view or dialog, for the main action), `.button.subtle`
   (text-like, secondary and row actions). Destructive actions are subtle buttons that turn `--danger` on hover and
-  always confirm.
+  always confirm. A button is primary only while its action is still the next step: once done, it becomes neutral
+  (replacing a saved key, uploading a session again) or gives way to a status line (confirmed capture areas). Never
+  use a disabled button as a status label, and never show a disabled action without its reason: say why in a short
+  lock note instead ("Grind spot locked for this session", "Locked after upload"). Read-only tables omit their row
+  actions.
 - **Segmented control:** `.segmented` fieldset with `aria-pressed` buttons, for switching between two to four closely
   related views or values (Inventory/Ledger, Loot/Expense, EU/NA). Not for navigation between pages.
 - **Readout metric:** label above value, no box. The primary metric's value is gold. See `SessionSummary.tsx`.
 - **Inventory tile:** icon, quantity, value after tax, name, rate. One bordered tile per item, in an
   auto-fill grid of at least 236px.
 - **Tables:** open tables with an 11px `--muted` header, `--row-line` dividers, no zebra striping, numbers right-aligned.
-  Row actions (remove, delete) appear on hover or focus.
-- **Editable numbers:** inputs look like plain text until hovered or focused, and show grouped digits when not focused
-  (see `LootLedger.tsx`).
+  Row actions (remove, delete) appear on hover or focus. A header's text ends where its column's values end, also in
+  editable columns, whose values sit inside an input's padding.
+- **Editable values:** inputs in tables look like plain text until hovered or focused (the ledger and the consumable
+  preset table); the ledger also shows grouped digits when not focused (see `LootLedger.tsx`).
+- **Action placement:** an action sits beside what it acts on (Retry OCR next to the saved capture, Add to session
+  after the fields). Do not push it to the far edge of a wide pane.
 - **Dialogs:** native `<dialog>` with the `Surface` class and `DialogHeader` (title, "Close Esc"). Widths: 900px for
   workspaces (entry, upload), 720px for browsers (spots), 540–560px for choices and confirmations. The body scrolls; the
-  header and footer stay put.
+  header and footer stay put. A dialog whose height changes while it is open (entry, screenshot import) is anchored
+  12% from the top instead of centered, so its controls never move under the pointer.
 - **Feedback:** `Feedback` renders a tinted note with a 2px tone edge (neutral, success, error). `EmptyState` is a dashed
   region with one line of guidance and at most one action.
 - **Disclosures:** native `<details>`; the global `summary` style draws the chevron. Use them for rarely needed detail
@@ -153,6 +165,10 @@ Reuse these before creating anything new. Class names refer to global classes in
 
 - Silver uses `formatSilver`: compact (`895.39M`, `1.45B`) in readouts, tiles, and summaries; full grouped digits
   (`2,410,000`) where the exact value matters (unit prices, editing). Rates end in `/h`.
+- A number that changes every second keeps a fixed number of decimals so its width never changes between ticks:
+  silver per hour beside a running timer uses `formatSilverRate` (`893.70M`, not `893.7M`), and quantity per hour
+  always shows two decimals. The overlay keeps its own formatter.
+- The primary metric's missing value is a muted `—`, never gold.
 - Durations use `formatDuration` (`01:37:13`). Relative dates use `formatRelativeDay` ("yesterday", "3 days ago").
 - Expenses and negative values use a true minus (`−`) and `--negative`.
 - Labels are sentence case with no trailing colon ("Net silver / hour", "Session time"). Buttons are verbs ("Add to ledger",

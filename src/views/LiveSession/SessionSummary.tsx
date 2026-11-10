@@ -4,7 +4,7 @@ import { loadSessionTrend } from "../../api/tauri";
 import { Icon } from "../../components/Icon/Icon";
 import { calculateEntryTotals } from "../../domain/session";
 import type { SessionTrendData } from "../../domain/trend";
-import { formatDuration, formatSilver } from "../../format";
+import { formatDuration, formatSilver, formatSilverRate } from "../../format";
 import { useElapsedTime } from "../../hooks/useElapsedTime";
 import type { LiveSessionController } from "../../hooks/useLiveSession";
 import styles from "./LiveSession.module.css";
@@ -57,7 +57,11 @@ export function SessionMetrics({
         >
             <article className={`${styles.Metric} ${styles.PrimaryMetric}`}>
                 <span>Net silver / hour</span>
-                <strong>{controller.databaseLoaded && elapsedMs > 0 ? formatSilver(netPerHour, true) : "—"}</strong>
+                {controller.databaseLoaded && elapsedMs > 0 ? (
+                    <strong>{formatSilverRate(netPerHour)}</strong>
+                ) : (
+                    <strong className={styles.NoValue}>—</strong>
+                )}
             </article>
             <article className={styles.Metric}>
                 <span>Session net</span>

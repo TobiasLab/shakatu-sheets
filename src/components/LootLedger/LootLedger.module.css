@@ -162,6 +162,11 @@
     width: auto;
     padding-left: 4px;
 }
+/* The editable columns' numbers sit 7px inside the cell padding (input padding and border); their headers match. */
+.LedgerList th:nth-child(2),
+.LedgerList th:nth-child(4) {
+    padding-right: 17px;
+}
 .LedgerList th:nth-child(2) {
     width: 90px;
     text-align: right;
@@ -298,7 +303,7 @@
     color: var(--muted);
     cursor: pointer;
 }
-.RemoveButton:hover:not(:disabled) {
+.RemoveButton:hover {
     color: var(--danger);
     background: var(--surface-raised);
 }
@@ -308,10 +313,6 @@
 .LedgerRow:hover .RemoveButton,
 .LedgerRow:focus-within .RemoveButton {
     opacity: 1;
-}
-.RemoveButton:disabled {
-    opacity: 0.45;
-    cursor: not-allowed;
 }
 .EditError {
     display: block;

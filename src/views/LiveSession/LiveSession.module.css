@@ -4,6 +4,10 @@
     gap: 16px;
     margin-bottom: 28px;
 }
+/* Centers the 32px button on the picker's 44px first row, beside the spot's own action. */
+.DeskHeader > :global(.button) {
+    margin-top: 6px;
+}
 .Readout {
     display: grid;
     grid-template-columns: auto auto minmax(0, 1fr) auto;
@@ -36,6 +40,9 @@
 }
 .PrimaryMetric strong {
     color: var(--gold);
+}
+.PrimaryMetric .NoValue {
+    color: var(--muted);
 }
 .StateBadge {
     margin-left: 8px;
@@ -308,6 +315,12 @@
 }
 .ToolDialog {
     composes: Surface from "../../components/Dialog/Dialog.module.css";
+}
+/* For dialogs that change height while open (searching loot, switching to an expense, loading a screenshot). Anchored
+   near the top instead of centered, their controls stay where the pointer is. */
+.ToolDialog.TopAnchored {
+    margin-top: 12dvh;
+    max-height: calc(88dvh - 24px);
 }
 .ToolDialog.NarrowDialog {
     width: min(560px, calc(100vw - 40px));

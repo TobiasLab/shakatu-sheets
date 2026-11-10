@@ -8,6 +8,20 @@ export function formatSilver(value: number, compact = false) {
     return silverFormatter.format(Math.round(value));
 }
 
+const steadySilverFormatter = new Intl.NumberFormat("en", {
+    notation: "compact",
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+});
+
+// A rate shown beside a running timer changes every second. Keeping both decimals holds its width, so the figure and
+// its neighbors do not shift whenever a decimal happens to be zero.
+export function formatSilverRate(value: number) {
+    if (Math.abs(value) >= 1_000) return steadySilverFormatter.format(value);
+    // `|| 0` turns a rounded -0 into 0, which would otherwise print as "-0".
+    return silverFormatter.format(Math.round(value) || 0);
+}
+
 export function formatDuration(milliseconds: number) {
     const seconds = Math.floor(milliseconds / 1000);
     const hours = Math.floor(seconds / 3600);

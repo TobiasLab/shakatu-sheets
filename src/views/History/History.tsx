@@ -11,6 +11,7 @@ import {
     resolveGarmothUpload,
 } from "../../api/tauri";
 import { EmptyState, Feedback } from "../../components/Feedback/Feedback";
+import { Icon } from "../../components/Icon/Icon";
 import { SelectionButton } from "../../components/SelectionButton/SelectionButton";
 import { grindSpotName, grindSpots } from "../../data/grindSpots";
 import { historyDateBoundary, netPerHour, rankSpots, summarizeHistory } from "../../domain/history";
@@ -600,7 +601,8 @@ export function HistoryView({
                                                 <strong>{grindSpotName(record.session.grindSpotId)}</strong>
                                                 <small>
                                                     {formatTimestamp(record.finishedAt)} ·{" "}
-                                                    {record.session.region.toUpperCase()} ·{" "}
+                                                    {/* One selected region is already named by the filter above. */}
+                                                    {region === "all" && `${record.session.region.toUpperCase()} · `}
                                                     {formatDuration(record.session.elapsedMs)}
                                                 </small>
                                             </span>
@@ -642,19 +644,23 @@ export function HistoryView({
                                 </div>
                                 <div className={styles.DetailActions}>
                                     <span>{selected.session.region.toUpperCase()}</span>
-                                    <button
-                                        className="button"
-                                        type="button"
-                                        disabled={
-                                            !databaseLoaded ||
-                                            databaseStatus === "saving" ||
-                                            actionBusy ||
-                                            selected.garmothUploadStatus !== null
-                                        }
-                                        onClick={reopenSelected}
-                                    >
-                                        {reopening ? "Reopening..." : "Reopen"}
-                                    </button>
+                                    {selected.garmothUploadStatus === null ? (
+                                        <button
+                                            className="button"
+                                            type="button"
+                                            disabled={!databaseLoaded || databaseStatus === "saving" || actionBusy}
+                                            onClick={reopenSelected}
+                                        >
+                                            {reopening ? "Reopening..." : "Reopen"}
+                                        </button>
+                                    ) : (
+                                        <small className={styles.ReopenLocked}>
+                                            <Icon name="lock" size={14} />
+                                            {selected.garmothUploadStatus === "success"
+                                                ? "Locked after upload"
+                                                : "Locked until the upload is resolved"}
+                                        </small>
+                                    )}
                                 </div>
                             </div>
                             {reopenError && <Feedback tone="error">{reopenError}</Feedback>}
@@ -715,11 +721,7 @@ export function HistoryView({
                                                 It's not there
                                             </button>
                                         </div>
-                                    ) : !garmothSettingsLoaded ? (
-                                        <button className="button" type="button" disabled>
-                                            Loading settings...
-                                        </button>
-                                    ) : !uploadCharacter ? (
+                                    ) : !garmothSettingsLoaded ? null : !uploadCharacter ? (
                                         <button
                                             className="button subtle"
                                             type="button"
@@ -730,7 +732,12 @@ export function HistoryView({
                                         </button>
                                     ) : (
                                         <button
-                                            className="button primary-button"
+                                            // A repeat upload creates a second remote session, so it is not the main action.
+                                            className={
+                                                selected.garmothUploadStatus === "success"
+                                                    ? "button"
+                                                    : "button primary-button"
+                                            }
                                             type="button"
                                             disabled={actionBusy || !uploadPreview}
                                             ref={uploadButton}
@@ -750,12 +757,17 @@ export function HistoryView({
                                 </div>
                                 {uploadPreview && (
                                     <div className={styles.UploadPreview}>
-                                        <span>{uploadPreview.input.minutes} minutes</span>
-                                        <span>{formatSilver(uploadPreview.input.total, true)} total</span>
-                                        <span>{formatSilver(uploadPreview.input.hourly, true)}/h</span>
-                                        <span>{uploadPreview.mappedDropCount} recorded drops</span>
-                                        <span>{uploadPreview.consumableCount} consumables</span>
-                                        {uploadCharacter && <span>{uploadCharacter.name}</span>}
+                                        {/* One line in the app's usual "a · b" form; the non-breaking space keeps each dot with the item before it. */}
+                                        {[
+                                            uploadCharacter?.name,
+                                            `${uploadPreview.input.minutes} minutes`,
+                                            `${formatSilver(uploadPreview.input.total, true)} total`,
+                                            `${formatSilver(uploadPreview.input.hourly, true)}/h`,
+                                            `${uploadPreview.mappedDropCount} recorded drops`,
+                                            `${uploadPreview.consumableCount} consumables`,
+                                        ]
+                                            .filter(Boolean)
+                                            .join("\u00a0· ")}
                                     </div>
                                 )}
                                 {selected.garmothUploadStatus === null && garmothSettingsLoaded && !uploadCharacter && (
@@ -776,9 +788,6 @@ export function HistoryView({
                                         record whether the session is there. Uploading again stays blocked until then to
                                         avoid a duplicate.
                                     </p>
-                                )}
-                                {selected.garmothUploadStatus === "success" && (
-                                    <p className={styles.UploadSuccess}>This session is recorded as uploaded.</p>
                                 )}
                                 {(uploadMessage || uploadError) && (
                                     <p

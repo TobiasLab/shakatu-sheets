@@ -7,7 +7,8 @@ import { EmptyState, Feedback } from "../Feedback/Feedback";
 import { Icon } from "../Icon/Icon";
 import styles from "./LootLedger.module.css";
 
-const quantityRateFormatter = new Intl.NumberFormat("en", { maximumFractionDigits: 2 });
+// Both decimals always show: the rates change every second, and a fixed width keeps the column's decimals aligned.
+const quantityRateFormatter = new Intl.NumberFormat("en", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 const quantityFormatter = new Intl.NumberFormat("en");
 
 function parseWholeNumber(value: string) {
@@ -138,15 +139,16 @@ function LedgerEntryRow({
                 {formatSilver(entry.quantity * entry.unitPrice, true)}
             </td>
             <td>
-                <button
-                    className={styles.RemoveButton}
-                    type="button"
-                    disabled={editingDisabled}
-                    aria-label={`Remove ${entry.name}`}
-                    onClick={() => onRemove(entry.id)}
-                >
-                    <Icon name="trash" size={15} />
-                </button>
+                {!editingDisabled && (
+                    <button
+                        className={styles.RemoveButton}
+                        type="button"
+                        aria-label={`Remove ${entry.name}`}
+                        onClick={() => onRemove(entry.id)}
+                    >
+                        <Icon name="trash" size={15} />
+                    </button>
+                )}
             </td>
         </tr>
     );
@@ -363,7 +365,7 @@ export function LootLedger({
                                         <th scope="col">Unit price</th>
                                         <th scope="col">Gross silver</th>
                                         <th scope="col">
-                                            <span className="sr-only">Remove</span>
+                                            {!editingDisabled && <span className="sr-only">Remove</span>}
                                         </th>
                                     </tr>
                                 </thead>

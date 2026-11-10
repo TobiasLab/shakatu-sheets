@@ -236,10 +236,8 @@
     gap: 14px;
     min-width: 0;
     margin: 0;
-    padding: 14px;
-    border: 1px solid var(--line);
-    border-radius: var(--panel-radius);
-    background: var(--canvas);
+    padding: 0;
+    border: 0;
 }
 
 .CalibrationPanel:disabled {
@@ -325,6 +323,7 @@
 
 .PositionLabel strong {
     font-weight: 500;
+    white-space: nowrap;
 }
 
 .PositionLabel span {
@@ -395,12 +394,13 @@
 .CalibrationBar {
     padding-top: 12px;
     border-top: 1px solid var(--line);
-    color: var(--muted);
     font-size: 12px;
 }
 
+/* Only the status line is muted; muting the bar would make its enabled buttons look disabled. */
 .CalibrationBar > span {
     flex: 1 1 100%;
+    color: var(--muted);
 }
 
 .CalibrationBar :global(.button) {
@@ -476,15 +476,11 @@
 
 .RegionPreview {
     min-width: 0;
-    padding: 10px;
-    border: 1px solid var(--line);
-    border-radius: var(--panel-radius);
-    background: var(--canvas);
 }
 
 .RegionPreview > span {
     display: block;
-    margin-bottom: 8px;
+    margin-bottom: 6px;
     color: var(--text-soft);
     font-size: 12px;
     font-weight: 500;
@@ -510,7 +506,10 @@
     width: 100%;
     height: auto;
     min-height: 80px;
-    background: var(--clock-background);
+    /* The crop is the only framed object here; its label and note sit on the strip itself. */
+    border: 1px solid var(--line);
+    border-radius: var(--control-radius);
+    background: var(--canvas);
 }
 
 .RareRegionPreview canvas {
@@ -530,16 +529,6 @@
 }
 
 @media (max-width: 760px) {
-    .Intro {
-        align-items: flex-start;
-        flex-direction: column;
-    }
-
-    .Actions,
-    .Actions :global(.button) {
-        width: 100%;
-    }
-
     .CaptureWorkspace {
         grid-template-columns: 1fr;
     }

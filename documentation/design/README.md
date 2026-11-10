@@ -113,7 +113,8 @@ spot ID breaking ties. Prices are recorded valuations, not confirmed sales; EU a
 
 Reopening returns a finished session to a paused state and cannot replace an active session with progress. It leaves
 completed history until finished again, when the new completion timestamp controls date membership. Uploaded or
-ambiguous-upload sessions cannot be reopened. Permanent deletion requires confirmation.
+ambiguous-upload sessions cannot be reopened; their receipt shows a lock note in place of the Reopen button. Permanent
+deletion requires confirmation.
 
 ## Consumable presets and uploads
 

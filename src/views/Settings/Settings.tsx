@@ -121,6 +121,7 @@ export function SettingsView({
                                     <h3>Market prices for {spot.name}</h3>
                                     <GrindSpotPicker
                                         compact
+                                        locked={!spotEditable}
                                         spot={spot}
                                         region={session.region}
                                         disabled={!spotEditable || !databaseLoaded || market.fetchingPrices}
@@ -128,7 +129,6 @@ export function SettingsView({
                                         spotPreferences={spotPreferences}
                                     />
                                 </div>
-                                {!spotEditable && <p>Grind spot locked for this session.</p>}
                                 <div className={styles.MarketDetails} aria-live="polite">
                                     <div>
                                         <p className="eyebrow">Prices from Arsha</p>

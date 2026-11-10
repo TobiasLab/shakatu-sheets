@@ -78,6 +78,7 @@
 }
 .Shortcut svg {
     color: var(--gold);
+    fill: currentColor;
 }
 .Shortcut img {
     border-radius: 3px;
