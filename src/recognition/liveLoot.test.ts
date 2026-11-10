@@ -9,6 +9,7 @@ import {
     type LootRoiFrame,
     lootFingerprintDistance,
 } from "./liveLoot";
+import type { LootLedgerEvent } from "./lootBrightnessLedger";
 import { analyzeLootReadings, parseLootItem, parseLootQuantity } from "./lootReadings";
 import { LootRowTracker, rowBirthCount, selectLootOcrObservations, trackLootRows } from "./lootRowTracker";
 
@@ -1445,6 +1446,72 @@ it("releases supplementary frames and suppresses late results when stopped durin
     await Promise.resolve();
     await Promise.resolve();
     expect(results).toEqual([]);
+});
+
+describe("brightness ledger audit", () => {
+    /** A row with text dense enough for the ledger to read it as fully shown, unlike `packedFrame`'s. */
+    function denseFrame(rowCount: number) {
+        const frame = packedFrame(rowCount);
+        for (let rowIndex = 0; rowIndex < rowCount; rowIndex += 1) {
+            const centerY = streamingProfile.bottomCenter - rowIndex * streamingProfile.spacing;
+            for (let x = 28; x < 94; x += 2) {
+                const offset = (centerY * streamingProfile.width + x) * 4;
+                frame.pixels.fill(255, offset, offset + 4);
+            }
+        }
+        return frame;
+    }
+
+    async function run(
+        options: Partial<ConstructorParameters<typeof LiveLootCoordinator>[0]>,
+        frameWithRows = packedFrame,
+    ) {
+        const events: LootLedgerEvent[] = [];
+        const results: LiveLootRecognitionResult[] = [];
+        const coordinator = new LiveLootCoordinator({
+            sampleFps: 16,
+            profile: streamingProfile,
+            dictionary: ["Black Stone"],
+            readText: async (frames) => frames.map(() => ["Black Stone x 2"]),
+            onResult: (result) => results.push(result),
+            onLedgerEvent: (event) => events.push(event),
+            ...options,
+        });
+        for (const rowCount of [0, ...Array.from({ length: 20 }, () => 1)]) {
+            coordinator.pushFrame(frameWithRows(rowCount));
+        }
+        await coordinator.finish();
+        return { events, results };
+    }
+
+    it("stays silent about a drop both the tracker and the ledger counted", async () => {
+        const { events, results } = await run({}, denseFrame);
+        expect(events).toEqual([]);
+        expect(results).toEqual([expect.objectContaining({ status: "recognized", quantity: 2 })]);
+    });
+
+    it("reports a lasting difference without changing recognition results", async () => {
+        // The sparse test row is too thin for the ledger to see, so the tracker's drop has no arrival to match.
+        const audited = await run({});
+        expect(audited.events).toEqual([{ kind: "phantom", frame: 1, count: 1 }]);
+        expect(audited.results).toEqual([expect.objectContaining({ status: "recognized", quantity: 2 })]);
+        expect((await run({ onLedgerEvent: undefined })).results).toEqual(audited.results);
+    });
+
+    it("audits only the default analyzer at 16 FPS", async () => {
+        expect((await run({ sampleFps: 8 })).events).toEqual([]);
+        const analyzeFrame = (frame: LootRoiFrame) => analyzeLootRoiFrame(frame, streamingProfile);
+        expect((await run({ analyzeFrame })).events).toEqual([]);
+    });
+
+    it("ignores an audit callback that throws", async () => {
+        const failing = await run({
+            onLedgerEvent: () => {
+                throw new Error("audit failed");
+            },
+        });
+        expect(failing.results).toEqual([expect.objectContaining({ status: "recognized", quantity: 2 })]);
+    });
 });
 
 it.each([false, true])("preserves OCR timing and read limits at 16 FPS (unresolved: %s)", async (unresolved) => {

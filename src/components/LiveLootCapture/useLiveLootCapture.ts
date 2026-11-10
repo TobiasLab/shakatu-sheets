@@ -1292,6 +1292,10 @@ export function useLiveLootCapture({
                     profile: calibratedProfile.profile,
                     dictionary: itemDictionaryRef.current,
                     readText: normalDiagnostics.wrap(readText),
+                    // Builds that can record ROI samples also audit the tracker; only a running collection logs it.
+                    onLedgerEvent: samples.debugSampleCollectionAvailable
+                        ? (event) => normalDiagnostics.ledger(event)
+                        : undefined,
                     suggestQuantity: (frames, readings) =>
                         sourceDimensions
                             ? suggestUnresolvedQuantity(

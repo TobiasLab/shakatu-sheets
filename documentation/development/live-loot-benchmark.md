@@ -164,6 +164,19 @@ simultaneous identical drops, three consecutive drops, camera movement, and arri
 contain batch IDs and expected items, not captured pixels. They are development regression cases, not an independent
 accuracy estimate. Original PNGs and generated reports remain outside tracked source.
 
+### Brightness ledger audit
+
+Add `--ledger /path/to/ledger.json` to list where the [brightness ledger](../architecture/live-loot.md#brightness-ledger)
+and the tracker disagree in each normal run:
+
+```sh
+npm run benchmark:loot:roi -- /path/to/dev-samples/live-loot --ledger /tmp/loot-ledger.json
+```
+
+It needs no OCR, so an hour of recording takes a few minutes. Each event has a `kind` (`missed` or `phantom`), the
+`batchId` where the difference appeared, and a row `count`. Treat entries as leads and check the frames around the
+batch. Runs replayed at 8 FPS are not audited.
+
 ### Self-improvement replay
 
 Add `--learning /path/to/learning.json` (with `--ocr`) to replay self-improvement over the normal-loot events of each run:

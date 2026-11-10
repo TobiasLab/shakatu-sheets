@@ -96,6 +96,30 @@ Opt-in [self-improvement](quantity-learning.md) can suggest learned item names a
 Separately enabled automatic recovery requires multi-frame agreement, eligible learned matches, and no conflicting
 OCR evidence. Accepted OCR is never overridden, and automatic recoveries never train the reader.
 
+## Brightness ledger
+
+Builds that can record ROI samples audit the tracker with a second arrival count that reads no text. A new row appears
+fully opaque, and rows fade in the order they arrived, so each frame is a staircase of fully shown rows at the bottom
+with fading rows above:
+
+    arrivals = change in fully shown rows + rows that started fading
+
+Row opacity compares each column's brightest unsaturated pixel with that column's own background, so how bright the
+scenery behind a row is does not change its reading. Scenery with contrast of its own can still raise a slot, so a
+fully shown row must also be one the row detector found. A slot whose background is nearly as bright as the text
+cannot be measured. No lifetime is assumed: rows usually last 16 frames at 16 FPS, but about 20 in busy bursts.
+
+The ledger only reports. A difference between its count and the tracker's that lasts 12 frames becomes a `missed-drop`
+(brightness shows an arrival the tracker did not count) or a `phantom-drop` (the tracker counted a drop without one),
+dated by the frame it appeared in. It never changes results. It audits normal loot at 16 FPS. Where it cannot see an
+arrival it trusts the tracker: while every slot holds a fully shown row, and across frames it cannot measure. A
+difference in the last second before capture ends is not reported.
+
+Text luminance is fixed per font (228 Korean, 218 Strong Sword) from 3440×1440 recordings at 80% UI scale; Strong
+Sword and 100% scale are unverified. On three Korean recordings (2.3 hours, 6,203 counted drops) the ledger reported
+20 missed drops and 16 rows the tracker counted without an arrival, which the app showed as "Capture too brief" or
+silently counted twice. All were confirmed in the frames.
+
 ## Diagnostics and pixel lifetime
 
 Pixels remain transient unless the user enables self-improvement or debug ROI collection. Learning saves only small
@@ -116,7 +140,11 @@ Each run has a `manifest.json` and version-2 `ocr-issues.jsonl` records for reco
 results. Records include final readings, selected frame/row/crop metadata, font, and raw OCR passes. A recognized result
 is not proof of ledger insertion. Native `batchId` maps to the PNG filename; recognition `frame` is a separate index.
 Null file references can mean pending or dropped image writes. Metadata is bounded, diagnostic writes have at most
-32 frontend requests outstanding, and logs are capped at 64 MiB per run. Logs cannot reveal arrivals never detected.
+32 frontend requests outstanding, and logs are capped at 64 MiB per run.
+
+[Brightness ledger](#brightness-ledger) disagreements are logged as `audit` records with reason `missed-drop` or
+`phantom-drop`, the frame where the difference appeared, and the number of rows in `count`. They are leads to check in
+the frames, not results. Other records cannot reveal arrivals never detected.
 
 ## Validation limits
 

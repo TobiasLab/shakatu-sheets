@@ -1,5 +1,5 @@
 import { execFile, spawnSync } from "node:child_process";
-import { copyFile, mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
+import { copyFile, mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -150,6 +150,19 @@ test.skipIf(!ffmpegAvailable).each([
                 ]);
             }
             if (width === 3440 && uiScalePercent === 80 && !externalLabels) {
+                const reports = await mkdtemp(join(tmpdir(), "loot-roi-reports-"));
+                try {
+                    const ledgerPath = join(reports, "ledger.json");
+                    const { stdout: audit } = await exec(process.execPath, [...args, "--ledger", ledgerPath]);
+                    // Only 16 FPS input is audited; empty crops have nothing for either counter to see.
+                    const audited = { run: id, font: "korean", audited: targetFps === 16, results: 0 };
+                    expect(JSON.parse(audit.trim().split("\n")[1])).toEqual({
+                        ledger: { ...audited, missed: 0, phantom: 0 },
+                    });
+                    expect(JSON.parse(await readFile(ledgerPath, "utf8")).runs).toEqual([{ ...audited, events: [] }]);
+                } finally {
+                    await rm(reports, { recursive: true, force: true });
+                }
                 labels.runs[0].expectedResultsSha256 = { normal: "incorrect-baseline" };
                 await writeFile(labelsPath, JSON.stringify(labels));
                 const detectionOnly = await exec(process.execPath, args);

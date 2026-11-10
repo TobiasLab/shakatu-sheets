@@ -27,6 +27,7 @@ const { values } = parseArgs({
         annotations: { type: "string" },
         trace: { type: "string" },
         learning: { type: "string" },
+        ledger: { type: "string" },
         "sample-step": { type: "string", default: "1" },
         "sample-offset": { type: "string", default: "0" },
     },
@@ -40,17 +41,17 @@ if (![1, 2].includes(sampleStep) || !Number.isInteger(sampleOffset) || sampleOff
     throw new Error("Sampling requires --sample-step 1 or 2 and an offset smaller than the step.");
 if (!root)
     throw new Error(
-        "Usage: npm run benchmark:loot:roi -- <live-loot directory> [--validation] [--ocr] [--annotations labels.json] [--output report.json] [--trace readings.jsonl] [--learning learning.json] [--sample-step 1|2] [--sample-offset 0|1]",
+        "Usage: npm run benchmark:loot:roi -- <live-loot directory> [--validation] [--ocr] [--annotations labels.json] [--output report.json] [--trace readings.jsonl] [--learning learning.json] [--ledger ledger.json] [--sample-step 1|2] [--sample-offset 0|1]",
     );
 if (values.learning && !useOcr) throw new Error("--learning needs --ocr: recognized readings are its labels.");
-const reportPaths = [values.output, values.trace, values.learning].filter(Boolean);
+const reportPaths = [values.output, values.trace, values.learning, values.ledger].filter(Boolean);
 for (const path of reportPaths) {
     const fromRoot = relative(resolve(root), resolve(path));
     if (!isAbsolute(fromRoot) && fromRoot.split(sep)[0] !== "..")
         throw new Error("Write analysis outside the source corpus.");
 }
 if (new Set(reportPaths.map((path) => resolve(path))).size !== reportPaths.length)
-    throw new Error("Report, trace and learning paths must differ.");
+    throw new Error("Report, trace, learning and ledger paths must differ.");
 if (values.trace) await writeFile(values.trace, "", { flag: "wx" });
 const annotations = JSON.parse(await readFile(values.annotations ?? join(root, "annotations.json"), "utf8"));
 const cases = JSON.parse(await readFile(new URL("./fixtures/loot-roi-cases.json", import.meta.url), "utf8"));
@@ -101,6 +102,10 @@ const report = {
     split,
     ocr: useOcr,
     note: "Accuracy replay waits for OCR; it does not measure real-time throughput. Unreviewed runs have diagnostic counts only.",
+    runs: [],
+};
+const ledgerReport = {
+    note: "Brightness ledger audit of normal loot: drops one counter saw and the other did not. Check the frames before trusting an entry.",
     runs: [],
 };
 const learningReport = {
@@ -173,6 +178,7 @@ try {
                     : undefined;
             const learningFrames = new Map();
             const results = [];
+            const ledgerEvents = [];
             let ocrJobs = 0;
             let ocrCalls = 0;
             let lastOcrEventId;
@@ -256,6 +262,16 @@ try {
                         );
                     return readings;
                 },
+                ...(values.ledger
+                    ? {
+                          onLedgerEvent: (event) =>
+                              ledgerEvents.push({
+                                  kind: event.kind,
+                                  batchId: replayIds[event.frame],
+                                  count: event.count,
+                              }),
+                      }
+                    : {}),
                 onResult: (result) => {
                     results.push({
                         ...result,
@@ -333,6 +349,16 @@ try {
                 console.log(JSON.stringify({ learning: { ...learned, unresolved: learned.unresolved.length } }));
                 learningReport.runs.push(learned);
             }
+            if (values.ledger && kind === "normal") {
+                const count = (wanted) =>
+                    ledgerEvents.reduce((total, event) => total + (event.kind === wanted ? event.count : 0), 0);
+                // The coordinator only audits 16 FPS input, so an 8 FPS replay has nothing to report.
+                const audit = { run: run.id, font, audited: sampleFps === 16, results: results.length };
+                console.log(
+                    JSON.stringify({ ledger: { ...audit, missed: count("missed"), phantom: count("phantom") } }),
+                );
+                ledgerReport.runs.push({ ...audit, events: ledgerEvents });
+            }
             report.runs.push({ ...summary, reviewedCases, results });
         }
     }
@@ -340,6 +366,8 @@ try {
     if (output) await writeFile(resolve(output), `${JSON.stringify(report, null, 2)}\n`, { flag: "wx" });
     if (values.learning)
         await writeFile(resolve(values.learning), `${JSON.stringify(learningReport, null, 2)}\n`, { flag: "wx" });
+    if (values.ledger)
+        await writeFile(resolve(values.ledger), `${JSON.stringify(ledgerReport, null, 2)}\n`, { flag: "wx" });
 } finally {
     await worker?.terminate();
 }
