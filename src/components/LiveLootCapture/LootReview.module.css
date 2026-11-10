@@ -140,10 +140,10 @@
 .Capture {
     margin: 0 0 16px;
 }
+/* Actions stay beside what they act on instead of drifting to the far edge of a wide pane. */
 .Capture figcaption {
     display: flex;
     align-items: center;
-    justify-content: space-between;
     gap: 12px;
     margin-bottom: 8px;
     color: var(--muted);
@@ -199,11 +199,9 @@
     flex: 1 1 200px;
     max-width: 360px;
 }
+/* Wide enough for the label with its Suggested tag, so the field never overflows into the button beside it. */
 .QuantityField {
-    flex: 0 0 96px;
-}
-.CorrectionFields > :global(.button) {
-    margin-left: auto;
+    flex: 0 0 132px;
 }
 .Suggested {
     margin-left: 6px;

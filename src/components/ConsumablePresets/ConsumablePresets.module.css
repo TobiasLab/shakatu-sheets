@@ -75,24 +75,45 @@
 .TableScroll tbody tr:last-child td {
     border-bottom: 0;
 }
+/* No cell padding on the left, so the name's text lines up with its column header and the ID below it. */
 .TableScroll td:first-child {
     min-width: 200px;
     width: 44%;
+    padding-left: 0;
 }
+/* The values sit inside an input's padding and border, 9px further in than the cell padding. */
 .TableScroll th:nth-child(2),
 .TableScroll th:nth-child(3) {
+    padding-right: 17px;
     text-align: right;
 }
+/* Like the ledger, values read as plain text until hovered or focused. */
 .TableScroll input {
     width: 100%;
     min-width: 80px;
     min-height: var(--control-height);
     padding: 5px 8px;
+    border-color: transparent;
+    background: transparent;
     font-size: 13px;
+}
+.TableScroll input:hover:enabled {
+    border-color: var(--line-strong);
+    background: var(--input-background);
+}
+.TableScroll input:focus {
+    border-color: var(--focus-border);
+    background: var(--input-background);
 }
 .TableScroll input[type="number"] {
     text-align: right;
     font-variant-numeric: tabular-nums;
+    appearance: textfield;
+}
+.TableScroll input::-webkit-inner-spin-button,
+.TableScroll input::-webkit-outer-spin-button {
+    appearance: none;
+    margin: 0;
 }
 .TableScroll small {
     display: block;

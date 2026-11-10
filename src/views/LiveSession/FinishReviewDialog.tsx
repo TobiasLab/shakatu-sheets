@@ -34,7 +34,7 @@ export function FinishReviewDialog({
         summary = "Your session is still open";
         description = "Keep the session open and try finishing again.";
     } else if (hasUnreviewedDrops) {
-        summary = `${unresolvedCount} ${unresolvedCount === 1 ? "entry needs" : "entries need"} review`;
+        summary = `${unresolvedCount} ${unresolvedCount === 1 ? "drop needs" : "drops need"} review`;
         description = "These drops are not included in your session totals.";
     }
 
@@ -88,7 +88,7 @@ export function FinishReviewDialog({
             </footer>
             {readyToFinish && hasUnreviewedDrops && (
                 <div className={styles.Discard}>
-                    <span>Unreviewed captures will be discarded.</span>
+                    <span>Unreviewed drops will be discarded.</span>
                     <button type="button" className="button subtle" disabled={!canFinish} onClick={onFinish}>
                         Finish without adding these drops
                     </button>

@@ -167,7 +167,11 @@ export function GarmothConnectionSettings() {
                         />
                     </FormField>
                     <p>Your key stays on this device.</p>
-                    <button className="button primary-button" type="submit" disabled={busy !== null || settingsLoading}>
+                    <button
+                        className={settings && !settings.apiKeyConfigured ? "button primary-button" : "button"}
+                        type="submit"
+                        disabled={busy !== null || settingsLoading}
+                    >
                         {busy === "key" ? "Validating..." : "Validate and save key"}
                     </button>
                     {feedbackTarget === "key" && feedback}
@@ -234,7 +238,12 @@ export function GarmothConnectionSettings() {
                         </select>
                     </FormField>
                     <button
-                        className="button primary-button"
+                        className={
+                            selectedCharacterId !== "" &&
+                            selectedCharacterId !== (settings?.selectedCharacterId?.toString() ?? "")
+                                ? "button primary-button"
+                                : "button"
+                        }
                         type="button"
                         disabled={!selectedCharacterId || busy !== null}
                         onClick={saveCharacterSelection}

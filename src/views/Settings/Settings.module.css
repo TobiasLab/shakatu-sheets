@@ -54,13 +54,6 @@
     align-items: start;
     justify-content: start;
 }
-.SettingsGrid > .ConsumablesSection {
-    grid-template-columns: minmax(0, 1fr);
-    gap: 16px;
-}
-.ConsumablesSection :global(.panel-heading) {
-    padding: 0;
-}
 .SettingsForm {
     display: grid;
     gap: 16px;
@@ -167,6 +160,7 @@
 }
 .ThemePicker legend {
     margin-bottom: 10px;
+    padding: 0;
     color: var(--text-soft);
     font-size: 12px;
 }
@@ -343,6 +337,14 @@
 .DiagnosticOption input {
     width: auto;
     margin: 0;
+}
+/* Beside the section index, the form column is narrower than the preset table until the window is about 1110px wide,
+   so the preset editor takes the section's full width in that range instead of scrolling sideways. */
+@media (min-width: 1001px) and (max-width: 1110px) {
+    .SettingsGrid > .ConsumablesSection {
+        grid-template-columns: minmax(0, 1fr);
+        gap: 16px;
+    }
 }
 @media (max-width: 1000px) {
     .Layout {
