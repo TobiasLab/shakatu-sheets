@@ -98,27 +98,38 @@ OCR evidence. Accepted OCR is never overridden, and automatic recoveries never t
 
 ## Brightness ledger
 
-Builds that can record ROI samples audit the tracker with a second arrival count that reads no text. A new row appears
-fully opaque, and rows fade in the order they arrived, so each frame is a staircase of fully shown rows at the bottom
-with fading rows above:
-
-    arrivals = change in fully shown rows + rows that started fading
+Normal loot at 16 FPS has a second arrival count, the brightness ledger, that reads no text. A new row appears
+fully opaque at the bottom and pushes every row up a slot, and rows fade in the order they arrived. Between two frames
+the ledger tries each number of arrivals and keeps those that put every row in the right slot with a brightness it
+could have: a fully shown row stays so or starts to fade, a fading row fades on or out of sight at a plausible rate,
+and rows that start fading in the same frame read alike, because only rows that arrived together do that.
 
 Row opacity compares each column's brightest unsaturated pixel with that column's own background, so how bright the
-scenery behind a row is does not change its reading. Scenery with contrast of its own can still raise a slot, so a
-fully shown row must also be one the row detector found. A slot whose background is nearly as bright as the text
-cannot be measured. No lifetime is assumed: rows usually last 16 frames at 16 FPS, but about 20 in busy bursts.
+scenery behind a row is does not change its reading. Scenery with contrast of its own can still raise a slot, so a new
+row must also be one the row detector found, while a row the detector loses for a frame is still there. A slot whose
+background is nearly as bright as the text cannot be measured. No lifetime is assumed: rows usually last 16 frames at 16 FPS, but about 20 in busy bursts.
 
-The ledger only reports. A difference between its count and the tracker's that lasts 12 frames becomes a `missed-drop`
-(brightness shows an arrival the tracker did not count) or a `phantom-drop` (the tracker counted a drop without one),
-dated by the frame it appeared in. It never changes results. It audits normal loot at 16 FPS. Where it cannot see an
-arrival it trusts the tracker: while every slot holds a fully shown row, and across frames it cannot measure. A
-difference in the last second before capture ends is not reported.
+The tracker's count of new rows in a frame stays within what the ledger proves. Where brightness shows more arrivals
+than the tracker counted, the extra bottom rows become new drops, such as identical drops that scrolled the list. Where
+it shows fewer, the tracker counts only that many, so a fading row is not counted again or captured as a fragment. The
+tracker settles each frame one frame later, after the ledger has seen it, so this adds no delay. Where the ledger cannot
+see an arrival it proves nothing and the tracker's count stands: where several numbers of arrivals fit a frame equally
+well, such as while every slot holds a fully shown row, and across frames it cannot measure. Corrections are on for the
+Korean font, which the ledger was checked on.
+
+Builds that can record ROI samples also log where the counts still differ. A difference that lasts 12 frames becomes a
+`missed-drop` (brightness shows an arrival the tracker did not count) or a `phantom-drop` (the tracker counted a drop
+without one), dated by the frame it appeared in. A difference in the last second before capture ends is not reported.
 
 Text luminance is fixed per font (228 Korean, 218 Strong Sword) from 3440×1440 recordings at 80% UI scale; Strong
-Sword and 100% scale are unverified. On three Korean recordings (2.3 hours, 6,203 counted drops) the ledger reported
-20 missed drops and 16 rows the tracker counted without an arrival, which the app showed as "Capture too brief" or
-silently counted twice. All were confirmed in the frames.
+Sword and 100% scale are unverified. On four Korean recordings (3.3 hours, 8,922 counted drops) the ledger found 27
+drops the tracker missed, mostly identical drops that scrolled the list, and 24 rows the tracker counted without an
+arrival, which the app showed as "Capture too brief" or silently counted twice. All were confirmed in the frames, and
+it found nothing else. With corrections, all 27 are counted with the right item and quantity and all 24 are gone. A
+real drop that was first captured as a fragment and then counted again is now read once, at its arrival. 16 of the 28
+entries left to check are gone, and three drops the tracker had misread next to these are read correctly. No other
+result changes. On the hour with a known in-game total, recognized Branch of Abundance plus the one entry left to check
+matches the game's 20,106 exactly.
 
 ## Diagnostics and pixel lifetime
 

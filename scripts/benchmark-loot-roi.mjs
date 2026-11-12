@@ -7,6 +7,7 @@ import { parseArgs } from "node:util";
 import { LiveLootCoordinator, NORMAL_LOOT_OCR_SELECTION } from "../src/recognition/liveLoot.ts";
 import { preprocessLootOcrFrame, readLootOcrFrame } from "../src/recognition/liveLootOcr.ts";
 import { findLiveLootProfile, findRareLootGeometry } from "../src/recognition/liveLootProfiles.ts";
+import { ledgerCorrectsArrivals } from "../src/recognition/lootBrightnessLedger.ts";
 import { isLootFont } from "../src/recognition/lootFont.ts";
 import {
     RARE_LOOT_OCR_SELECTION,
@@ -185,6 +186,7 @@ try {
             const coordinator = new LiveLootCoordinator({
                 font,
                 sampleFps,
+                correctArrivals: ledgerCorrectsArrivals(font),
                 ocrSelection: NORMAL_LOOT_OCR_SELECTION,
                 profile,
                 dictionary: annotations.itemDictionary,

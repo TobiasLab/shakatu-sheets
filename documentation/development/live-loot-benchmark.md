@@ -175,7 +175,8 @@ npm run benchmark:loot:roi -- /path/to/dev-samples/live-loot --ledger /tmp/loot-
 
 It needs no OCR, so an hour of recording takes a few minutes. Each event has a `kind` (`missed` or `phantom`), the
 `batchId` where the difference appeared, and a row `count`. Treat entries as leads and check the frames around the
-batch. Runs replayed at 8 FPS are not audited.
+batch. Runs replayed at 8 FPS are not audited. Replays correct the tracker's count as the app does, so for the Korean font an
+entry is a difference the ledger could not prove in time.
 
 ### Self-improvement replay
 
