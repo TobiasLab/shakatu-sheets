@@ -106,7 +106,7 @@ describe("loot brightness ledger", () => {
     });
 
     it("tolerates the tracker attributing a drop to a neighbouring frame", () => {
-        expect(audit(replacedAtExpiry, { 5: 1 })).toEqual([]);
+        expect(audit(replacedAtExpiry, { 4: 1 })).toEqual([]);
     });
 
     it("dates each missed drop by its own frame", () => {
@@ -136,6 +136,20 @@ describe("loot brightness ledger", () => {
         ledger.counted(1);
         for (let frame = 4; frame < 24; frame++) ledger.push(frame, twoArrivals[3], 5);
         expect(ledger.takeEvents()).toEqual([]);
+    });
+
+    it("counts a row that starts fading where a dimmer fading row was a frame earlier", () => {
+        // Recorded: the arrival in frame 3 pushes the fading row out of sight and the row below starts to fade in its
+        // place, a little brighter than the old one.
+        const frames = [
+            [0.2, 0.2, 0.21, 0.99, 1],
+            [0.2, 0.22, 0.19, 0.88, 1],
+            [0.24, 0.25, 0.61, 1, 0.99],
+            [0.22, 0.41, 0.7, 1, 0.99],
+            [0.24, 0.32, 0.46, 0.99, 0.99],
+            [0.25, 0.28, 0.28, 1, 0.99],
+        ];
+        expect(audit(frames, { 2: 1 })).toEqual([{ kind: "missed", frame: 3, count: 1 }]);
     });
 
     it("counts a drop that arrives while the oldest row starts fading", () => {
@@ -181,6 +195,61 @@ describe("loot brightness ledger", () => {
         expect(audit(frames)).toEqual([]);
     });
 
+    it("takes a row that arrives as the row above fades out of sight for one arrival", () => {
+        // Recorded: the new row pushes the others up in frame 3, and the row that was fading drops below the floor.
+        const frames = [
+            [0.14, 1, 0.99, 1, 0.99],
+            [0.14, 1, 0.99, 1, 0.99],
+            [0.12, 0.79, 0.99, 1, 0.99],
+            [0.47, 0.79, 0.99, 1, 0.99],
+            [0.33, 0.6, 0.99, 0.99, 0.99],
+            [0.19, 0.37, 0.99, 0.99, 0.99],
+        ];
+        expect(audit(frames, { 3: 1 })).toEqual([]);
+    });
+
+    it("does not take scenery that brightens a fading row for an arrival", () => {
+        // Recorded: shiny scenery passes behind the rows. Nothing arrives, and two rows cannot start fading at once
+        // as differently as an arrival in frame 3 would need.
+        const frames = [
+            [0.44, 0.81, 0.99, 0.99, 0.99],
+            [0.46, 0.62, 0.99, 0.99, 0.99],
+            [0.44, 0.62, 0.99, 0.99, 0.99],
+            [0.44, 0.69, 0.87, 0.99, 0.99],
+            [0.4, 0.39, 0.62, 0.99, 0.99],
+            [0.17, 0.09, 0.43, 0.69, 0.99],
+        ];
+        expect(audit(frames)).toEqual([]);
+    });
+
+    it("does not let a barely fading row vanish to make room for an arrival", () => {
+        // Recorded: the rows only fade, but the tracker counted a fragment of one in frame 5.
+        const frames = [
+            [0.99, 1, 0.99, 0.99, 0.99],
+            [0.88, 1, 0.99, 0.99, 0.99],
+            [0.61, 1, 0.99, 0.99, 0.99],
+            [0.38, 0.8, 0.99, 0.99, 0.99],
+            [0.25, 0.52, 0.88, 0.99, 0.99],
+            [0.19, 0.46, 0.79, 0.99, 0.99],
+            [0.15, 0.29, 0.54, 0.88, 0.99],
+            [0.15, 0.16, 0.34, 0.6, 0.99],
+        ];
+        expect(audit(frames, { 5: 1 })).toEqual([{ kind: "phantom", frame: 5, count: 1 }]);
+    });
+
+    it("tells how many rows can have arrived in a frame until it settles", () => {
+        const ledger = new LootBrightnessLedger();
+        ledger.push(0, unmeasurable, 5);
+        ledger.push(1, [0.2, 0.2, 0.2, 0.2, 1], 5);
+        ledger.push(2, [0.2, 0.2, 0.2, 1, 1], 5);
+        expect([0, 1, 2, 3].map((frame) => ledger.arrivalBounds(frame))).toEqual([
+            undefined,
+            { low: 0, high: Number.POSITIVE_INFINITY },
+            { low: 1, high: 1 },
+            undefined,
+        ]);
+    });
+
     it("counts only rows the detector found as fully shown", () => {
         const frames = [
             [0.2, 0.2, 0.2, 0.2, 0.2],
@@ -188,6 +257,15 @@ describe("loot brightness ledger", () => {
         ];
         expect(audit(frames, {}, 0)).toEqual([]);
         expect(audit(frames, {}, 1)).toEqual([{ kind: "missed", frame: 1, count: 1 }]);
+    });
+
+    it("does not take rows the detector lost for a frame for new ones", () => {
+        const ledger = new LootBrightnessLedger();
+        const shown = [0.2, 0.2, 0.2, 1, 1];
+        [2, 0, 2].forEach((detectedRows, frame) => {
+            ledger.push(frame, shown, detectedRows);
+        });
+        expect(ledger.arrivalBounds(2)).toEqual({ low: 0, high: 0 });
     });
 
     it("trusts the tracker while every slot holds a fully shown row", () => {

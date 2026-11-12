@@ -252,6 +252,12 @@ export type LiveLootCoordinatorOptions = {
      * results, and anything it throws is ignored. Only the default analyzer at 16 FPS is audited.
      */
     onLedgerEvent?: (event: LootLedgerEvent) => void;
+    /**
+     * Keeps the tracker's count of new rows within what row brightness proves: it counts rows the tracker missed, such
+     * as identical drops that scrolled the list, and drops rows it counted without an arrival, such as fading rows
+     * counted again. Like the audit, it needs the default analyzer at 16 FPS.
+     */
+    correctArrivals?: boolean;
     maxPendingOcrJobs?: number;
     maxPendingResults?: number;
     retainedFrameCount?: number;
@@ -596,16 +602,19 @@ export class LiveLootCoordinator {
         };
         this.ocrFrameCount = ocrFrameCount;
         // The ledger's fade steps are calibrated for the default analyzer's rows at 16 FPS.
-        this.ledger =
-            options.onLedgerEvent && options.analyzeFrame === undefined && sampleFps === 16
+        const ledger =
+            (options.onLedgerEvent || options.correctArrivals) && options.analyzeFrame === undefined && sampleFps === 16
                 ? new LootBrightnessLedger()
                 : undefined;
+        this.ledger = ledger;
         this.tracker = new LootRowTracker(options.profile.rowThreshold, lootFingerprintDistance, {
             retainHistory: false,
             identityDistance: lootRowIdentityDistance,
             maxObservationsPerTrack: observationWindow,
             emptyFrameLimit: sampleFps === 16 ? 4 : 2,
             eventIdPrefix: options.eventIdPrefix,
+            // The tracker settles each frame after the ledger has seen the next one.
+            arrivalBounds: ledger && options.correctArrivals ? (frame) => ledger.arrivalBounds(frame) : undefined,
         });
     }
 

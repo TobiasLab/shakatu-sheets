@@ -175,6 +175,8 @@ export type LootRowTrackerOptions<TFingerprint = LootFingerprint> = {
     maxObservationsPerTrack?: number;
     emptyFrameLimit?: 2 | 4;
     eventIdPrefix?: string;
+    /** The fewest and most new rows `frame` can hold, known from another source. Births stay within them. */
+    arrivalBounds?: (frame: number) => { low: number; high: number } | undefined;
 };
 
 export class LootRowTracker<TFingerprint> {
@@ -188,6 +190,7 @@ export class LootRowTracker<TFingerprint> {
     private readonly eventIdPrefix: string;
     private readonly emptyFrameLimit: number;
     private readonly identityDistance: FingerprintDistance<TFingerprint>;
+    private readonly arrivalBounds: LootRowTrackerOptions<TFingerprint>["arrivalBounds"];
     private nextId = 1;
     private emptyFrames = 0;
     private frameCount = 0;
@@ -203,6 +206,7 @@ export class LootRowTracker<TFingerprint> {
     ) {
         this.emptyFrameLimit = options.emptyFrameLimit ?? 2;
         this.identityDistance = options.identityDistance ?? distance;
+        this.arrivalBounds = options.arrivalBounds;
         this.retainHistory = options.retainHistory ?? true;
         this.maxObservationsPerTrack = options.maxObservationsPerTrack ?? Number.POSITIVE_INFINITY;
         this.eventIdPrefix = options.eventIdPrefix ?? "detected";
@@ -372,6 +376,8 @@ export class LootRowTracker<TFingerprint> {
                 if (retained > 0) births = Math.min(births, current.count - retained);
             }
         }
+        const bounds = this.arrivalBounds?.(frame);
+        if (bounds) births = Math.min(current.count, bounds.high, Math.max(births, bounds.low));
         this.align(frame, current, births);
         if (current.count === 0) {
             this.emptyFrames += 1;

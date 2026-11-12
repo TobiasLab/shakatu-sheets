@@ -55,6 +55,7 @@ import {
     supportsAutomaticLootLocalization,
 } from "../../recognition/liveLootProfiles";
 import type { LiveLootReviewEntry } from "../../recognition/liveLootReview";
+import { ledgerCorrectsArrivals } from "../../recognition/lootBrightnessLedger";
 import { LIVE_LOOT_SAMPLE_FPS } from "../../recognition/lootCaptureTiming";
 import type { LootFont } from "../../recognition/lootFont";
 import { suggestUnresolvedQuantity } from "../../recognition/quantityLearning";
@@ -1292,6 +1293,7 @@ export function useLiveLootCapture({
                     profile: calibratedProfile.profile,
                     dictionary: itemDictionaryRef.current,
                     readText: normalDiagnostics.wrap(readText),
+                    correctArrivals: ledgerCorrectsArrivals(captureFont),
                     // Builds that can record ROI samples also audit the tracker; only a running collection logs it.
                     onLedgerEvent: samples.debugSampleCollectionAvailable
                         ? (event) => normalDiagnostics.ledger(event)

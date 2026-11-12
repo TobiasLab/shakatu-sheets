@@ -154,6 +154,31 @@ describe("live loot event tracking", () => {
         ]);
     });
 
+    it("keeps births within the arrivals another source proves", () => {
+        const births = (frames: LootDetectedRows<number>[], bounds?: Record<number, { low: number; high: number }>) => {
+            const tracker = new LootRowTracker(100, distance, { arrivalBounds: bounds && ((frame) => bounds[frame]) });
+            for (const rows of frames) tracker.push(rows);
+            return tracker
+                .finish()
+                .filter(({ baseline }) => !baseline)
+                .map(({ firstFrame, observations }) => [firstFrame, observations[0].slot]);
+        };
+        // An identical row scrolls the stack in frame 2, which the fingerprints alone cannot show.
+        const scrolled = [row([1, 1]), row([1, 1]), row([1, 1]), row([1, 1])];
+        expect(births(scrolled)).toEqual([]);
+        expect(births(scrolled, { 2: { low: 1, high: 1 } })).toEqual([[2, 4]]);
+        // Never more new rows than the frame shows.
+        expect(births(scrolled, { 2: { low: 3, high: 3 } })).toEqual([
+            [2, 3],
+            [2, 4],
+        ]);
+        // A row the fingerprints take for new, but that brightness shows had arrived before.
+        const grown = [row([1]), row([1, 2]), row([1, 2]), row([1, 2])];
+        expect(births(grown)).toEqual([[1, 4]]);
+        expect(births(grown, { 1: { low: 0, high: 0 } })).toEqual([]);
+        expect(births(grown, { 1: { low: 0, high: Number.POSITIVE_INFINITY } })).toEqual([[1, 4]]);
+    });
+
     it("preserves event identity through one empty detector frame", () => {
         const tracks = trackLootRows([row([]), row([1]), row([1]), row([]), row([1]), row([1])], 100, distance);
         const events = tracks.filter(({ baseline }) => !baseline);
@@ -1448,7 +1473,7 @@ it("releases supplementary frames and suppresses late results when stopped durin
     expect(results).toEqual([]);
 });
 
-describe("brightness ledger audit", () => {
+describe("brightness ledger", () => {
     /** A row with text dense enough for the ledger to read it as fully shown, unlike `packedFrame`'s. */
     function denseFrame(rowCount: number) {
         const frame = packedFrame(rowCount);
@@ -1498,10 +1523,61 @@ describe("brightness ledger audit", () => {
         expect((await run({ onLedgerEvent: undefined })).results).toEqual(audited.results);
     });
 
+    it("drops a row counted without any arrival in row brightness", async () => {
+        // The sparse test row is too thin to read as a fully shown row, so brightness proves that nothing arrived.
+        expect(await run({ correctArrivals: true })).toEqual({ events: [], results: [] });
+    });
+
     it("audits only the default analyzer at 16 FPS", async () => {
         expect((await run({ sampleFps: 8 })).events).toEqual([]);
         const analyzeFrame = (frame: LootRoiFrame) => analyzeLootRoiFrame(frame, streamingProfile);
         expect((await run({ analyzeFrame })).events).toEqual([]);
+    });
+
+    it("counts a drop the tracker missed when row brightness proves it arrived", async () => {
+        /** Text gray levels, bottom row first; 0 is no row. */
+        function shaded(levels: number[]) {
+            const frame = packedFrame(0);
+            levels.forEach((level, rowIndex) => {
+                const centerY = streamingProfile.bottomCenter - rowIndex * streamingProfile.spacing;
+                for (let x = 28; x < 94 && level > 0; x += 2) {
+                    const offset = (centerY * streamingProfile.width + x) * 4;
+                    frame.pixels.fill(level, offset, offset + 3);
+                }
+            });
+            return frame;
+        }
+        // An identical row arrives in frame 22 just as the one above it starts to fade, which text cannot show.
+        const sequence = [
+            ...Array.from({ length: 4 }, () => [255, 0]),
+            ...Array.from({ length: 16 }, () => [255, 255]),
+            [255, 170],
+            [255, 137],
+            [255, 170],
+            [255, 137],
+            [255, 114],
+            ...Array.from({ length: 20 }, () => [255, 60]),
+        ];
+        const replay = async (correctArrivals: boolean, audit = true) => {
+            const events: LootLedgerEvent[] = [];
+            const firstFrames: number[] = [];
+            const coordinator = new LiveLootCoordinator({
+                sampleFps: 16,
+                profile: streamingProfile,
+                dictionary: ["Black Stone"],
+                readText: async (frames) => frames.map(() => ["Black Stone x 2"]),
+                onResult: (result) => firstFrames.push(result.firstFrame),
+                onLedgerEvent: audit ? (event) => events.push(event) : undefined,
+                correctArrivals,
+            });
+            for (const levels of sequence) coordinator.pushFrame(shaded(levels));
+            await coordinator.finish();
+            return { events, firstFrames };
+        };
+        expect(await replay(false)).toEqual({ events: [{ kind: "missed", frame: 22, count: 1 }], firstFrames: [4] });
+        expect(await replay(true)).toEqual({ events: [], firstFrames: [4, 22] });
+        // Builds that cannot record ROI samples recover drops without the audit.
+        expect((await replay(true, false)).firstFrames).toEqual([4, 22]);
     });
 
     it("ignores an audit callback that throws", async () => {
