@@ -1,4 +1,4 @@
-import { type KeyboardEvent, type ReactNode, useEffect, useId, useRef, useState } from "react";
+import { type KeyboardEvent, type ReactNode, useId, useState } from "react";
 import { getDropIcon } from "../../data/grindSpots";
 import { calculateQuantityPerHour, type SessionEntry, type SessionState } from "../../domain/session";
 import { formatSilver } from "../../format";
@@ -160,29 +160,15 @@ function DropTile({
     quantity,
     value,
     rate,
-    announceNew,
 }: {
     name: string;
     icon: string | undefined;
     quantity: number;
     value: number;
     rate: number | null;
-    announceNew: boolean;
 }) {
-    const tile = useRef<HTMLLIElement>(null);
-    const previous = useRef(announceNew ? 0 : quantity);
-    // Briefly mark a tile when its quantity rises so new drops stand out at a glance.
-    useEffect(() => {
-        const element = tile.current;
-        if (element && quantity > previous.current) {
-            element.classList.remove(styles.Dropped);
-            void element.offsetWidth;
-            element.classList.add(styles.Dropped);
-        }
-        previous.current = quantity;
-    }, [quantity]);
     return (
-        <li ref={tile} className={styles.Tile} onAnimationEnd={() => tile.current?.classList.remove(styles.Dropped)}>
+        <li className={styles.Tile}>
             {icon ? (
                 <img src={icon} alt="" />
             ) : (
@@ -212,8 +198,6 @@ function DropInventory({
     elapsedMs: number;
 }) {
     const drops = new Map<string, { quantity: number; value: number }>();
-    const [ready, setReady] = useState(false);
-    useEffect(() => setReady(true), []);
     let expenseCount = 0;
     let expenseTotal = 0;
     for (const entry of entries) {
@@ -237,7 +221,6 @@ function DropInventory({
                         quantity={quantity}
                         value={value}
                         rate={calculateQuantityPerHour(quantity, elapsedMs)}
-                        announceNew={ready}
                     />
                 ))}
             </ul>

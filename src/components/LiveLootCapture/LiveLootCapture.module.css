@@ -661,22 +661,11 @@
 .SampleStrip[data-tone="recording"] .SampleDot {
     border-color: var(--danger);
     background: var(--danger);
-    animation: sample-pulse 1.6s ease-in-out infinite;
 }
 .SampleStrip[data-tone="problem"] .SampleDot {
     border-color: var(--danger);
     border-radius: 2px;
     background: var(--danger);
-}
-@keyframes sample-pulse {
-    50% {
-        opacity: 0.35;
-    }
-}
-@media (prefers-reduced-motion: reduce) {
-    .SampleStrip[data-tone="recording"] .SampleDot {
-        animation: none;
-    }
 }
 .SetupProgress {
     display: flex;
