@@ -1,7 +1,7 @@
 use std::time::Duration;
 
 pub(super) const FRAME_HEADER_BYTES: usize = 40;
-pub(super) const FRAME_PROTOCOL_VERSION: u32 = 3;
+pub(super) const FRAME_PROTOCOL_VERSION: u32 = 4;
 pub(super) const FRAME_KIND_ERROR: u32 = 0;
 pub(super) const FRAME_KIND_PREVIEW: u32 = 1;
 pub(super) const FRAME_KIND_REGION: u32 = 2;
@@ -59,6 +59,23 @@ pub(super) fn allocate_frame(header: FrameHeader) -> Result<Vec<u8>, String> {
     }
     frame.resize(frame_len, 0);
     Ok(frame)
+}
+
+/// Joins a batch's frames into one IPC message, so each batch costs one transfer and one acknowledgment. Frames keep
+/// their own headers and follow each other without padding; each header's size gives where the next frame starts.
+pub(super) fn batch_message(frames: [Option<Vec<u8>>; 4]) -> Result<Option<Vec<u8>>, String> {
+    let mut frames = frames.into_iter().flatten();
+    let Some(mut message) = frames.next() else {
+        return Ok(None);
+    };
+    let rest: Vec<Vec<u8>> = frames.collect();
+    message
+        .try_reserve_exact(rest.iter().map(Vec::len).sum())
+        .map_err(|_| "capture batch allocation failed".to_string())?;
+    for frame in rest {
+        message.extend_from_slice(&frame);
+    }
+    Ok(Some(message))
 }
 
 pub(super) fn error_frame(error: &str) -> Vec<u8> {
@@ -136,6 +153,41 @@ pub(super) fn pack_rows(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn batch_messages_keep_each_frame_and_its_order() {
+        let frame = |kind, width| {
+            let mut frame = allocate_frame(FrameHeader {
+                kind,
+                batch: BatchIdentity {
+                    capture_id: 7,
+                    batch_id: 9,
+                },
+                output_width: width,
+                output_height: 1,
+                source_width: 100,
+                source_height: 100,
+                crop_x: 0,
+                crop_y: 0,
+            })
+            .unwrap();
+            frame[FRAME_HEADER_BYTES..].fill(kind as u8);
+            frame
+        };
+        let region = frame(FRAME_KIND_REGION, 2);
+        let rare = frame(FRAME_KIND_RARE_REGION, 3);
+        let message = batch_message([None, None, Some(region.clone()), Some(rare.clone())])
+            .unwrap()
+            .unwrap();
+        assert_eq!(message, [region.as_slice(), rare.as_slice()].concat());
+        assert_eq!(
+            batch_message([None, None, None, Some(rare.clone())])
+                .unwrap()
+                .unwrap(),
+            rare
+        );
+        assert!(batch_message([None, None, None, None]).unwrap().is_none());
+    }
     #[test]
     fn mapped_rows_preserve_channels_alpha_and_exclude_padding() {
         let source = [3, 2, 1, 4, 99, 99, 99, 99, 7, 6, 5, 8];

@@ -134,18 +134,18 @@ pub async fn save_loot_capture_settings(
     .await
 }
 
+/// Acknowledges a whole batch message; capture sends the next batch only after this.
 #[tauri::command]
-pub fn acknowledge_native_display_frame(
+pub fn acknowledge_native_display_batch(
     state: tauri::State<'_, NativeCaptureState>,
     capture_id: u32,
     batch_id: u32,
-    kind: u32,
 ) {
     #[cfg(any(target_os = "linux", target_os = "windows"))]
-    control::acknowledge_frame(&state.capture, capture_id, batch_id, kind);
+    control::acknowledge_batch(&state.capture, capture_id, batch_id);
 
     #[cfg(not(any(target_os = "linux", target_os = "windows")))]
-    let _ = (state, capture_id, batch_id, kind);
+    let _ = (state, capture_id, batch_id);
 }
 
 #[tauri::command]

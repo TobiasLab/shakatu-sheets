@@ -234,12 +234,12 @@ await send("Page.addScriptToEvaluateOnNewDocument", {
             if (command === "start_native_display_capture") {
                 window.__capture = args.frames;
                 const frame = new ArrayBuffer(40 + 640 * ${previewHeight} * 4);
-                [3,1,1,1,640,${previewHeight},${sourceWidth},${sourceHeight},0,0].forEach((v,i)=>new DataView(frame).setUint32(i*4,v,true));
+                [4,1,1,1,640,${previewHeight},${sourceWidth},${sourceHeight},0,0].forEach((v,i)=>new DataView(frame).setUint32(i*4,v,true));
                 let batch = 1;
                 window.__emitFrame = () => { new DataView(frame).setUint32(12,batch++,true); args.frames.onmessage(frame.slice(0)); };
                 window.__emitSearch = (selection, rare = false) => {
                     const data = new ArrayBuffer(40 + 800 * 600 * 4);
-                    [3,4,1,batch++,800,600,${sourceWidth},${sourceHeight},Math.round(selection.region.x * ${sourceWidth}),Math.round(selection.region.y * ${sourceHeight})].forEach((v,i)=>new DataView(data).setUint32(i*4,v,true));
+                    [4,4,1,batch++,800,600,${sourceWidth},${sourceHeight},Math.round(selection.region.x * ${sourceWidth}),Math.round(selection.region.y * ${sourceHeight})].forEach((v,i)=>new DataView(data).setUint32(i*4,v,true));
                     const pixels = new Uint8ClampedArray(data,40);
                     if (rare) {
                         const paint = (left,top,right,bottom) => { for(let y=top;y<bottom;y++) for(let x=left;x<right;x++) pixels.set([180,125,35,255],(y*800+x)*4); };
@@ -263,7 +263,7 @@ await send("Page.addScriptToEvaluateOnNewDocument", {
                     const width = settings.uiScalePercent === 100 ? 341 : 272;
                     const height = settings.uiScalePercent === 100 ? 226 : 180;
                     const data = new ArrayBuffer(40 + width * height * 4);
-                    [3,2,1,batch++,width,height,${sourceWidth},${sourceHeight},Math.round(settings.region.x * ${sourceWidth}),Math.round(settings.region.y * ${sourceHeight})].forEach((v,i)=>new DataView(data).setUint32(i*4,v,true));
+                    [4,2,1,batch++,width,height,${sourceWidth},${sourceHeight},Math.round(settings.region.x * ${sourceWidth}),Math.round(settings.region.y * ${sourceHeight})].forEach((v,i)=>new DataView(data).setUint32(i*4,v,true));
                     const pixels = new Uint8ClampedArray(data,40);
                     for (let row=0;row<rows;row++) {
                         const center = (settings.uiScalePercent === 100 ? 211 : 168) - row * (settings.uiScalePercent === 100 ? 49 : 39);
@@ -284,7 +284,7 @@ await send("Page.addScriptToEvaluateOnNewDocument", {
             if (command === "plugin:window|is_maximized") return window.__maximized;
             if (command === "plugin:event|listen") { const id = args.handler; listeners.set(id, args); return id; }
             if (command === "debug_roi_sample_collection_status") throw new Error("Debug collection unavailable in test");
-            if (["acknowledge_native_display_frame", "set_native_display_capture_region", "set_native_display_capture_preview_enabled", "stop_native_display_capture", "save_loot_capture_settings", "plugin:event|unlisten", "plugin:window|minimize", "plugin:window|toggle_maximize", "plugin:window|close"].includes(command)) return;
+            if (["acknowledge_native_display_batch", "set_native_display_capture_region", "set_native_display_capture_preview_enabled", "stop_native_display_capture", "save_loot_capture_settings", "plugin:event|unlisten", "plugin:window|minimize", "plugin:window|toggle_maximize", "plugin:window|close"].includes(command)) return;
             throw new Error("Unexpected test command: " + command);
         }
     };
@@ -867,11 +867,11 @@ try {
             "window.__calls.filter(c => c.command === 'set_native_display_capture_preview_enabled').at(-1)?.args.enabled === false",
         );
         const ackCount = await evaluate(
-            "window.__calls.filter(c => c.command === 'acknowledge_native_display_frame').length",
+            "window.__calls.filter(c => c.command === 'acknowledge_native_display_batch').length",
         );
         await evaluate("window.__emitFrame()");
         await until(
-            `window.__calls.filter(c => c.command === 'acknowledge_native_display_frame').length > ${ackCount}`,
+            `window.__calls.filter(c => c.command === 'acknowledge_native_display_batch').length > ${ackCount}`,
         );
         await screenshot("history");
         const historyTrend =
@@ -1118,13 +1118,13 @@ try {
         if (Number(process.env.UI_SMOKE_SOAK_SECONDS) > 0) {
             const seconds = Number(process.env.UI_SMOKE_SOAK_SECONDS);
             const before = await evaluate(
-                "window.__calls.filter(c => c.command === 'acknowledge_native_display_frame').length",
+                "window.__calls.filter(c => c.command === 'acknowledge_native_display_batch').length",
             );
             await evaluate("window.__soak = setInterval(window.__emitFrame, 62.5)");
             await delay(seconds * 1000);
             await evaluate("clearInterval(window.__soak)");
             const after = await evaluate(
-                "window.__calls.filter(c => c.command === 'acknowledge_native_display_frame').length",
+                "window.__calls.filter(c => c.command === 'acknowledge_native_display_batch').length",
             );
             assert(after - before >= seconds * 14, "Sustained synthetic frame delivery stalled");
             assert.equal(

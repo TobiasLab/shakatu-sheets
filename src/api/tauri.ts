@@ -184,80 +184,106 @@ export type NativeCaptureSelection =
     | { mode: "regions"; settings: LootCaptureSettings };
 
 const NATIVE_FRAME_HEADER_BYTES = 40;
-const NATIVE_FRAME_PROTOCOL_VERSION = 3;
-export function parseNativeCaptureMessage(message: ArrayBuffer): NativeCaptureFrame | NativeCaptureError {
-    const bytes = new Uint8Array(message);
-    if (bytes.byteLength < NATIVE_FRAME_HEADER_BYTES) {
-        throw new Error("Native display capture returned an invalid frame.");
-    }
-    const header = new DataView(message, 0, NATIVE_FRAME_HEADER_BYTES);
-    const version = header.getUint32(0, true);
-    const kind = header.getUint32(4, true);
-    if (version !== NATIVE_FRAME_PROTOCOL_VERSION) {
-        throw new Error("Native display capture returned an unsupported frame version.");
-    }
-    if (kind === 0) {
-        return { kind: "error", message: new TextDecoder().decode(bytes.subarray(NATIVE_FRAME_HEADER_BYTES)) };
-    }
+const NATIVE_FRAME_PROTOCOL_VERSION = 4;
+const NATIVE_FRAME_KINDS = { 1: "preview", 2: "region", 3: "rare-region", 4: "search-region" } as const;
 
-    const captureId = header.getUint32(8, true);
-    const batchId = header.getUint32(12, true);
-    const width = header.getUint32(16, true);
-    const height = header.getUint32(20, true);
-    const sourceWidth = header.getUint32(24, true);
-    const sourceHeight = header.getUint32(28, true);
-    const cropX = header.getUint32(32, true);
-    const cropY = header.getUint32(36, true);
-    const validKind = kind === 1 || kind === 2 || kind === 3 || kind === 4;
-    const boundedPreview = kind !== 1 || (width <= 640 && height <= 360 && cropX === 0 && cropY === 0);
-    const isNormalRegion = ([80, 100] as const).some((scale) => {
-        const size = lootRegionSize(scale);
-        return width === size.width && height === size.height;
-    });
-    const isRareRegion = ([80, 100] as const).some((scale) => {
-        const size = RARE_LOOT_REGION_SIZES[scale];
-        return width === size.width && height === size.height;
-    });
-    const boundedRegion =
-        (kind !== 2 && kind !== 3) ||
-        (isSupportedLootSource(sourceWidth, sourceHeight) &&
-            (kind === 2 ? isNormalRegion : isRareRegion) &&
-            cropX + width <= sourceWidth &&
-            cropY + height <= sourceHeight);
-    const boundedSearchRegion =
-        kind !== 4 ||
-        (width === LOOT_SEARCH_REGION_SIZE.width &&
-            height === LOOT_SEARCH_REGION_SIZE.height &&
-            isSupportedLootSource(sourceWidth, sourceHeight) &&
-            cropX + width <= sourceWidth &&
-            cropY + height <= sourceHeight);
-    if (
-        !validKind ||
-        captureId === 0 ||
-        batchId === 0 ||
-        width === 0 ||
-        height === 0 ||
-        sourceWidth === 0 ||
-        sourceHeight === 0 ||
-        !boundedPreview ||
-        !boundedRegion ||
-        !boundedSearchRegion ||
-        bytes.byteLength !== NATIVE_FRAME_HEADER_BYTES + width * height * 4
-    ) {
-        throw new Error("Native display capture returned an invalid frame.");
+function invalidFrame() {
+    return new Error("Native display capture returned an invalid frame.");
+}
+
+/**
+ * Parses one capture message: a batch's frames back to back, or a lone error. Pixels are views into `message`, so a
+ * retained frame keeps the whole message alive. Crops in a batch with a setup preview get their own copy instead, so
+ * recognition queues never hold on to previews.
+ */
+export function parseNativeCaptureMessage(message: ArrayBuffer): NativeCaptureFrame[] | NativeCaptureError {
+    const frames: NativeCaptureFrame[] = [];
+    let offset = 0;
+    while (offset < message.byteLength) {
+        if (message.byteLength - offset < NATIVE_FRAME_HEADER_BYTES) throw invalidFrame();
+        const header = new DataView(message, offset, NATIVE_FRAME_HEADER_BYTES);
+        const version = header.getUint32(0, true);
+        const kind = header.getUint32(4, true);
+        if (version !== NATIVE_FRAME_PROTOCOL_VERSION) {
+            throw new Error("Native display capture returned an unsupported frame version.");
+        }
+        if (kind === 0) {
+            if (offset !== 0) throw invalidFrame();
+            const text = new Uint8Array(message, NATIVE_FRAME_HEADER_BYTES);
+            return { kind: "error", message: new TextDecoder().decode(text) };
+        }
+
+        const captureId = header.getUint32(8, true);
+        const batchId = header.getUint32(12, true);
+        const width = header.getUint32(16, true);
+        const height = header.getUint32(20, true);
+        const sourceWidth = header.getUint32(24, true);
+        const sourceHeight = header.getUint32(28, true);
+        const cropX = header.getUint32(32, true);
+        const cropY = header.getUint32(36, true);
+        const frameKind = NATIVE_FRAME_KINDS[kind as keyof typeof NATIVE_FRAME_KINDS] as
+            | NativeCaptureFrame["kind"]
+            | undefined;
+        const boundedPreview = kind !== 1 || (width <= 640 && height <= 360 && cropX === 0 && cropY === 0);
+        const isNormalRegion = ([80, 100] as const).some((scale) => {
+            const size = lootRegionSize(scale);
+            return width === size.width && height === size.height;
+        });
+        const isRareRegion = ([80, 100] as const).some((scale) => {
+            const size = RARE_LOOT_REGION_SIZES[scale];
+            return width === size.width && height === size.height;
+        });
+        const boundedRegion =
+            (kind !== 2 && kind !== 3) ||
+            (isSupportedLootSource(sourceWidth, sourceHeight) &&
+                (kind === 2 ? isNormalRegion : isRareRegion) &&
+                cropX + width <= sourceWidth &&
+                cropY + height <= sourceHeight);
+        const boundedSearchRegion =
+            kind !== 4 ||
+            (width === LOOT_SEARCH_REGION_SIZE.width &&
+                height === LOOT_SEARCH_REGION_SIZE.height &&
+                isSupportedLootSource(sourceWidth, sourceHeight) &&
+                cropX + width <= sourceWidth &&
+                cropY + height <= sourceHeight);
+        const pixelBytes = width * height * 4;
+        const first = frames[0];
+        if (
+            !frameKind ||
+            captureId === 0 ||
+            batchId === 0 ||
+            width === 0 ||
+            height === 0 ||
+            sourceWidth === 0 ||
+            sourceHeight === 0 ||
+            !boundedPreview ||
+            !boundedRegion ||
+            !boundedSearchRegion ||
+            message.byteLength - offset - NATIVE_FRAME_HEADER_BYTES < pixelBytes ||
+            (first && (first.captureId !== captureId || first.batchId !== batchId)) ||
+            frames.some((frame) => frame.kind === frameKind)
+        ) {
+            throw invalidFrame();
+        }
+        frames.push({
+            kind: frameKind,
+            captureId,
+            batchId,
+            pixels: new Uint8ClampedArray(message, offset + NATIVE_FRAME_HEADER_BYTES, pixelBytes),
+            width,
+            height,
+            sourceWidth,
+            sourceHeight,
+            cropX,
+            cropY,
+        });
+        offset += NATIVE_FRAME_HEADER_BYTES + pixelBytes;
     }
-    return {
-        kind: kind === 1 ? "preview" : kind === 2 ? "region" : kind === 3 ? "rare-region" : "search-region",
-        captureId,
-        batchId,
-        pixels: new Uint8ClampedArray(message, NATIVE_FRAME_HEADER_BYTES),
-        width,
-        height,
-        sourceWidth,
-        sourceHeight,
-        cropX,
-        cropY,
-    };
+    if (!frames.length) throw invalidFrame();
+    if (frames.length > 1 && frames.some((frame) => frame.kind === "preview")) {
+        for (const frame of frames) if (frame.kind !== "preview") frame.pixels = frame.pixels.slice();
+    }
+    return frames;
 }
 
 export function supportsTauriApi() {
@@ -283,37 +309,31 @@ export function startNativeDisplayCapture(
     onError: (message: string) => void,
 ) {
     const frames = new Channel<ArrayBuffer>((message) => {
-        let frame: NativeCaptureFrame | undefined;
+        let batch: NativeCaptureFrame[];
         try {
             const parsed = parseNativeCaptureMessage(message);
-            if (parsed.kind === "error") onError(parsed.message);
-            else {
-                frame = parsed;
-                onFrame(parsed);
+            if (!Array.isArray(parsed)) {
+                onError(parsed.message);
+                return;
             }
+            batch = parsed;
         } catch (error) {
             onError(error instanceof Error ? error.message : String(error));
-        } finally {
-            if (frame) {
-                void Promise.resolve(
-                    invoke("acknowledge_native_display_frame", {
-                        captureId: frame.captureId,
-                        batchId: frame.batchId,
-                        kind:
-                            frame.kind === "preview"
-                                ? 1
-                                : frame.kind === "region"
-                                  ? 2
-                                  : frame.kind === "rare-region"
-                                    ? 3
-                                    : 4,
-                    }),
-                ).catch((error) => {
-                    const detail = error instanceof Error ? error.message : String(error);
-                    onError(`Native display capture acknowledgement failed: ${detail}`);
-                });
+            return;
+        }
+        for (const frame of batch) {
+            try {
+                onFrame(frame);
+            } catch (error) {
+                onError(error instanceof Error ? error.message : String(error));
             }
         }
+        // One acknowledgment releases the whole batch; capture sends the next one only after it.
+        const { captureId, batchId } = batch[0];
+        void Promise.resolve(invoke("acknowledge_native_display_batch", { captureId, batchId })).catch((error) => {
+            const detail = error instanceof Error ? error.message : String(error);
+            onError(`Native display capture acknowledgement failed: ${detail}`);
+        });
     });
     return invoke<void>("start_native_display_capture", {
         captureToken,

@@ -94,7 +94,7 @@ impl CaptureControl {
         &self,
         selection: Option<NativeCaptureSelection>,
         preview_enabled: bool,
-    ) -> Result<Option<(u32, bool)>, String> {
+    ) -> Result<Option<u32>, String> {
         let mut batches = self
             .batches
             .lock()
@@ -107,55 +107,21 @@ impl CaptureControl {
             .checked_add(1)
             .ok_or_else(|| "Native display capture exhausted its batch IDs.".to_string())?;
         batches.last_batch_id = batch_id;
-        let (search_pending, region_pending, rare_region_pending) = match selection {
-            Some(NativeCaptureSelection::Search { .. }) => (true, false, false),
-            Some(NativeCaptureSelection::Regions { settings }) => {
-                (false, true, settings.rare_region.is_some())
-            }
-            None => (false, false, false),
-        };
-        let preview_pending = preview_enabled;
         batches.pending = Some(PendingBatch {
             batch_id,
             started_at: Instant::now(),
-            preview_pending,
-            search_pending,
-            region_pending,
-            rare_region_pending,
         });
-        Ok(Some((batch_id, preview_pending)))
+        Ok(Some(batch_id))
     }
 
-    pub(super) fn acknowledge(&self, capture_id: u32, batch_id: u32, kind: u32) {
+    /// The frontend acknowledges a batch once, after it handled every frame of the batch's message.
+    pub(super) fn acknowledge(&self, capture_id: u32, batch_id: u32) {
         if capture_id != self.capture_id {
             return;
         }
-        let Ok(mut batches) = self.batches.lock() else {
-            return;
-        };
-        let Some(pending) = batches.pending.as_mut() else {
-            return;
-        };
-        if pending.batch_id != batch_id {
-            return;
-        }
-        match kind {
-            FRAME_KIND_PREVIEW => pending.preview_pending = false,
-            FRAME_KIND_REGION => pending.region_pending = false,
-            FRAME_KIND_RARE_REGION => pending.rare_region_pending = false,
-            FRAME_KIND_SEARCH_REGION => pending.search_pending = false,
-            _ => return,
-        }
-        if !pending.preview_pending
-            && !pending.search_pending
-            && !pending.region_pending
-            && !pending.rare_region_pending
-        {
-            batches.pending = None;
-        }
+        self.clear_batch(batch_id);
     }
 
-    #[cfg(any(target_os = "linux", test))]
     pub(super) fn clear_batch(&self, batch_id: u32) {
         if let Ok(mut batches) = self.batches.lock() {
             if batches
@@ -204,10 +170,6 @@ pub(super) struct BatchState {
 pub(super) struct PendingBatch {
     pub(super) batch_id: u32,
     pub(super) started_at: Instant,
-    pub(super) preview_pending: bool,
-    pub(super) search_pending: bool,
-    pub(super) region_pending: bool,
-    pub(super) rare_region_pending: bool,
 }
 
 pub(super) fn stop(state: &CaptureState, capture_token: u64) {
@@ -232,10 +194,10 @@ pub(super) fn stop(state: &CaptureState, capture_token: u64) {
     }
 }
 
-pub(super) fn acknowledge_frame(state: &CaptureState, capture_id: u32, batch_id: u32, kind: u32) {
+pub(super) fn acknowledge_batch(state: &CaptureState, capture_id: u32, batch_id: u32) {
     if let Ok(state) = state.inner.lock() {
         if let Some(control) = state.capture.as_ref() {
-            control.acknowledge(capture_id, batch_id, kind);
+            control.acknowledge(capture_id, batch_id);
         }
     }
 }

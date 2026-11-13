@@ -48,7 +48,7 @@
     "allow-fetch-market-prices",
     "allow-read-loot-layout",
     "allow-native-capture-capabilities",
-    "allow-acknowledge-native-display-frame",
+    "allow-acknowledge-native-display-batch",
     "allow-load-loot-capture-settings",
     "allow-save-loot-capture-settings",
     "allow-set-native-display-capture-preview-enabled",

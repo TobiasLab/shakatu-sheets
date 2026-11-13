@@ -96,7 +96,7 @@ pub fn run() {
         market::fetch_market_prices,
         loot_layout::read_loot_layout,
         native_capture::native_capture_capabilities,
-        native_capture::acknowledge_native_display_frame,
+        native_capture::acknowledge_native_display_batch,
         native_capture::load_loot_capture_settings,
         native_capture::save_loot_capture_settings,
         native_capture::set_native_display_capture_preview_enabled,

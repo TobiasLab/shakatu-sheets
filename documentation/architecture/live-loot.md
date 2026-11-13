@@ -9,9 +9,10 @@ Linux uses the user-authorized XDG ScreenCast portal and PipeWire. Windows uses 
 picker and GPU-cropped ROI readback. Browser development uses `getDisplayMedia`. Capture samples at up to 16 FPS;
 backpressure, frame retention, and OCR queues are bounded. Source-token checks reject stale control commands.
 
-Protocol V3 transports bounded previews and native-resolution normal, rare, or search crops over binary IPC. Batches
-are acknowledged after consumption. Hiding setup suppresses repeated previews while recognition continues; a new source
-or changed dimensions still produces a metadata preview. Navigation and minimization do not stop recognition.
+Protocol V4 transports bounded previews and native-resolution normal, rare, or search crops over binary IPC. Each batch
+travels as one message holding its frames back to back and is acknowledged once, after consumption. Hiding setup
+suppresses repeated previews while recognition continues; a new source or changed dimensions still produces a metadata
+preview. Navigation and minimization do not stop recognition.
 
 Native sources send no frames while the screen is static or the game is minimized. After the first frame this is not an
 error: the UI reports the source as waiting. On Windows, whose window source pauses only while minimized, the first frame

@@ -133,7 +133,7 @@ update-interval fallback. These tests run only on Windows; Linux can compile the
 Only those exact native pixels are mapped to the CPU; padded BGRA rows become tightly packed RGBA. A compute shader
 reduces visible previews on the GPU to at most 640×360 before readback. Closing setup or minimizing disables repeated
 preview work; one bootstrap preview announces a source or changed dimensions. The full source is never read back to CPU.
-The version-3 binary protocol, token checks, acknowledgments, bounded OCR queues, and shared English OCR parser are retained.
+The version-4 binary protocol, token checks, acknowledgments, bounded OCR queues, and shared English OCR parser are retained.
 
 ### Positioning the loot guides
 
