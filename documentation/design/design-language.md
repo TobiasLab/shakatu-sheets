@@ -99,7 +99,9 @@ Two themes, dark (default) and light, share the same token names. Every new toke
 ### Motion
 
 - Transitions use `--motion-fast` (120ms) and `--ease-out`. Dialogs fade in over `--motion-dialog`.
-- Motion only communicates change (a tile flashing when its item drops, a chevron rotating). No decorative animation.
+- Motion only communicates change in response to the user (a chevron rotating). No decorative animation, and nothing
+  that runs continuously or on every drop while the user plays: WebKitGTK repaints the whole window on the CPU for
+  each animation frame.
 - Respect `prefers-reduced-motion`; the motion tokens drop to zero.
 
 ## Layout
