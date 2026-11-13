@@ -57,10 +57,17 @@ got brighter, because rows only fade. When the row count stays flat, a fading ro
 turns fully bright and stays so means the old bottom row moved up, which is one arrival. A full stack of identical
 bright rows that scrolls remains invisible.
 
-Normal OCR reads three stable observations spaced 125 ms apart after the entrance delay. Up to two supplementary frames
-are read only for unresolved results. Consensus considers all readings and retains the veto on confidently conflicting
-item/quantity pairs. There is no standalone single-frame or two-frame acceptance. Normal and rare jobs share one local
-Tesseract worker, with at most eight outstanding normal jobs and two rare jobs, including active work.
+Normal OCR selects three stable observations spaced 125 ms apart after the entrance delay. Up to two supplementary
+frames are read only for unresolved results. Consensus considers all readings and retains the veto on confidently
+conflicting item/quantity pairs. There is no single-frame acceptance. OCR reads the first two frames and stops when
+every one of their readings names the same item and quantity; otherwise it reads the third and consensus proceeds as
+before. This saves a third of Tesseract passes, and across 8,924 drops in four Korean recordings it changed no result.
+Strong Sword uses the same rule without a replay; no Strong Sword recording was available. The trade-off: a third
+frame that confidently reads a different pair can no longer veto two unanimous frames, so a track that switches rows
+after its second frame is counted instead of withheld; this never happened in those recordings. The case the veto was
+added for (×4 in the first frame, ×6 in the next two) still reaches the third frame because the first two disagree.
+Normal and rare jobs share one local Tesseract worker, with at most eight outstanding normal jobs and two rare jobs,
+including active work.
 
 Rows that end before spaced evidence exists stay withheld for review. Reading them from adjacent 16 FPS frames recovered
 real drops when the whole stack faded quickly, but on Korean gameplay it also counted already-recognized rows twice: the

@@ -225,6 +225,12 @@ export type LiveLootOcrReader = (
 
 export const NORMAL_LOOT_OCR_SELECTION = { windowFrames: 6, maximumFrameCount: 5 } as const;
 
+/**
+ * How many selected frames may settle a normal drop on their own: when all their readings agree, the remaining frames go
+ * unread. Checked on Korean recordings, where a third frame never changed such a result; Strong Sword is unreplayed.
+ */
+export const NORMAL_LOOT_OCR_AGREEMENT_FRAMES = 2;
+
 export type LootOcrSelectionOptions = {
     windowFrames?: number;
     frameStep?: number;
@@ -258,6 +264,11 @@ export type LiveLootCoordinatorOptions = {
      * counted again. Like the audit, it needs the default analyzer at 16 FPS.
      */
     correctArrivals?: boolean;
+    /**
+     * Reads this many of the selected frames first and leaves the rest unread when every reading names the same item
+     * and quantity, saving OCR passes. A later frame can then no longer veto that result.
+     */
+    ocrAgreementFrames?: number;
     maxPendingOcrJobs?: number;
     maxPendingResults?: number;
     retainedFrameCount?: number;
@@ -559,6 +570,12 @@ export class LiveLootCoordinator {
         }
         if (!Number.isInteger(maxPendingResults) || maxPendingResults < 1) {
             throw new Error("Maximum pending loot results must be a positive integer.");
+        }
+        if (
+            options.ocrAgreementFrames !== undefined &&
+            (!Number.isInteger(options.ocrAgreementFrames) || options.ocrAgreementFrames < 2)
+        ) {
+            throw new Error("Loot OCR agreement must cover at least two frames.");
         }
         if (!Number.isInteger(ocrFrameCount) || ocrFrameCount < 2) {
             throw new Error("Loot OCR frame count must be an integer of at least two for temporal consensus.");
@@ -869,6 +886,34 @@ export class LiveLootCoordinator {
         this.pendingOcrJobs -= 1;
     }
 
+    /** Whether a delivery's result would still be delivered: capture neither stopped nor restarted since it queued. */
+    private isCurrent(delivery: LootOcrDelivery) {
+        return this.state !== "stopped" && delivery.generation === this.generation;
+    }
+
+    /**
+     * Reads one stage of a drop's OCR frames. Stopping empties the array the active read was given, so the reader lets
+     * go of its frames; a later stage empties the earlier one's array the same way.
+     */
+    private async readOcrStage(
+        delivery: LootOcrDelivery,
+        frames: LiveLootOcrFrame[],
+        readingsByFrame: Map<number, readonly string[]>,
+    ) {
+        if (delivery.activeFrames) delivery.activeFrames.length = 0;
+        delivery.activeFrames = frames;
+        delivery.selectedFrames.push(...frames.map(({ frame }) => frame));
+        for (const frame of frames) frame.diagnostics ??= { passes: [] };
+        const readings = await this.options.readText(frames, this.abortController.signal);
+        frames.forEach((frame, index) => {
+            readingsByFrame.set(frame.frame, readings[index] ?? []);
+        });
+        if (readings.length !== frames.length) {
+            throw new Error("Loot OCR readings must match the selected frame count.");
+        }
+        return readings;
+    }
+
     private async drainDeliveries() {
         if (this.draining) return;
         this.draining = true;
@@ -892,39 +937,34 @@ export class LiveLootCoordinator {
                 this.activeOcrDelivery = delivery;
                 try {
                     const primaryFrames = delivery.frames.slice(0, this.ocrFrameCount);
-                    delivery.activeFrames = primaryFrames;
-                    delivery.selectedFrames = primaryFrames.map(({ frame }) => frame);
-                    for (const frame of primaryFrames) frame.diagnostics ??= { passes: [] };
-                    let rawReadings = await this.options.readText(primaryFrames, this.abortController.signal);
-                    primaryFrames.forEach((frame, index) => {
-                        readingsByFrame.set(frame.frame, rawReadings[index] ?? []);
-                    });
+                    delivery.selectedFrames = [];
+                    // With agreement on, the first frames settle a drop alone when every one of their readings agrees.
+                    const leadingFrames = primaryFrames.slice(
+                        0,
+                        this.options.ocrAgreementFrames ?? primaryFrames.length,
+                    );
+                    let rawReadings = await this.readOcrStage(delivery, leadingFrames, readingsByFrame);
                     originalText = rawReadings[0]?.join("\n").slice(0, 3200) ?? "";
-                    if (rawReadings.length !== primaryFrames.length) {
-                        throw new Error("Loot OCR readings must match the selected frame count.");
-                    }
                     let analysis = analyzeLootReadings(rawReadings, this.options.dictionary);
+                    if (rawReadings.length < primaryFrames.length && !analysis.unanimous && this.isCurrent(delivery)) {
+                        const remainingFrames = primaryFrames.slice(rawReadings.length);
+                        rawReadings = [
+                            ...rawReadings,
+                            ...(await this.readOcrStage(delivery, remainingFrames, readingsByFrame)),
+                        ];
+                        analysis = analyzeLootReadings(rawReadings, this.options.dictionary);
+                    }
                     if (
                         !analysis.consensus &&
                         !analysis.conflicting &&
-                        delivery.generation === this.generation &&
-                        delivery.frames.length > primaryFrames.length
+                        this.isCurrent(delivery) &&
+                        delivery.frames.length > rawReadings.length
                     ) {
-                        const additionalFrames = delivery.frames.slice(primaryFrames.length);
-                        delivery.activeFrames = additionalFrames;
-                        primaryFrames.length = 0;
-                        delivery.selectedFrames.push(...additionalFrames.map(({ frame }) => frame));
-                        for (const frame of additionalFrames) frame.diagnostics ??= { passes: [] };
-                        const additionalReadings = await this.options.readText(
-                            additionalFrames,
-                            this.abortController.signal,
-                        );
-                        if (additionalReadings.length !== additionalFrames.length)
-                            throw new Error("Loot OCR readings must match the selected frame count.");
-                        additionalFrames.forEach((frame, index) => {
-                            readingsByFrame.set(frame.frame, additionalReadings[index] ?? []);
-                        });
-                        rawReadings = [...rawReadings, ...additionalReadings];
+                        const additionalFrames = delivery.frames.slice(rawReadings.length);
+                        rawReadings = [
+                            ...rawReadings,
+                            ...(await this.readOcrStage(delivery, additionalFrames, readingsByFrame)),
+                        ];
                         analysis = analyzeLootReadings(rawReadings, this.options.dictionary);
                     }
                     if (delivery.generation === this.generation) {

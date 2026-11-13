@@ -41,6 +41,7 @@ import {
     type LiveLootOcrReader,
     type LiveLootRecognitionResult,
     type LootRoiFrame,
+    NORMAL_LOOT_OCR_AGREEMENT_FRAMES,
     NORMAL_LOOT_OCR_SELECTION,
 } from "../../recognition/liveLoot";
 import { type LootSearchFrame, NormalLootLocalizer } from "../../recognition/liveLootLocalization";
@@ -435,6 +436,8 @@ export function useLiveLootCapture({
     }
 
     function measuredOcrReader(readText: LiveLootOcrReader, generation: number): LiveLootOcrReader {
+        // A drop's frames can be read in several calls; they add up to one job.
+        let lastEventId: string | undefined;
         return async (frames, signal) => {
             if (!diagnosticsVisible.current) return readText(frames, signal);
             const started = performance.now();
@@ -444,9 +447,15 @@ export function useLiveLootCapture({
                 if (generation === recognitionGeneration.current) {
                     const diagnostics = ocrDiagnosticsRef.current.worker;
                     const duration = performance.now() - started;
-                    diagnostics.completedJobs += 1;
+                    const eventId = frames[0]?.eventId;
+                    if (eventId === undefined || eventId !== lastEventId) {
+                        diagnostics.completedJobs += 1;
+                        diagnostics.lastDurationMs = duration;
+                    } else {
+                        diagnostics.lastDurationMs += duration;
+                    }
                     diagnostics.totalDurationMs += duration;
-                    diagnostics.lastDurationMs = duration;
+                    lastEventId = eventId;
                 }
             }
         };
@@ -1294,6 +1303,7 @@ export function useLiveLootCapture({
                     dictionary: itemDictionaryRef.current,
                     readText: normalDiagnostics.wrap(readText),
                     correctArrivals: ledgerCorrectsArrivals(captureFont),
+                    ocrAgreementFrames: NORMAL_LOOT_OCR_AGREEMENT_FRAMES,
                     // Builds that can record ROI samples also audit the tracker; only a running collection logs it.
                     onLedgerEvent: samples.debugSampleCollectionAvailable
                         ? (event) => normalDiagnostics.ledger(event)

@@ -132,15 +132,23 @@ export function analyzeLootReadings(rawReadings: readonly (readonly string[])[],
         })),
     );
     const consensus = chooseTemporalPairConsensus(parsed);
-    if (consensus) return { consensus, reason: null as null, conflicting: false };
+    // Every reading of every frame names the consensus pair, so no reading argues against it.
+    const unanimous =
+        consensus !== null &&
+        parsed.every(
+            (frameReadings) =>
+                frameReadings.length > 0 &&
+                frameReadings.every(({ item, quantity }) => item === consensus.item && quantity === consensus.quantity),
+        );
+    if (consensus) return { consensus, reason: null as null, conflicting: false, unanimous };
     // Two frames confidently reading different pairs veto every consensus, and more frames cannot lift that veto.
     const conflicting = confidentLootPairs(parsed).size > 1;
     const readings = parsed.flat();
     if (!readings.some(({ quantity }) => quantity !== null)) {
-        return { consensus: null, reason: "quantity-not-recognized" as const, conflicting };
+        return { consensus: null, reason: "quantity-not-recognized" as const, conflicting, unanimous: false };
     }
     if (!readings.some(({ item }) => item !== null)) {
-        return { consensus: null, reason: "item-not-recognized" as const, conflicting };
+        return { consensus: null, reason: "item-not-recognized" as const, conflicting, unanimous: false };
     }
-    return { consensus: null, reason: "consensus-withheld" as const, conflicting };
+    return { consensus: null, reason: "consensus-withheld" as const, conflicting, unanimous: false };
 }
