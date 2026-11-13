@@ -252,14 +252,14 @@ fn process_frame(
     if selection.is_none() && !preview_enabled {
         return Ok(ControlFlow::Continue(()));
     }
-    let Some((batch_id, send_preview)) = control.begin_batch(selection, preview_enabled)? else {
+    let Some(batch_id) = control.begin_batch(selection, preview_enabled)? else {
         if let Some(metrics) = data.diagnostics.as_mut() {
             metrics.blocked();
         }
         return Ok(ControlFlow::Continue(()));
     };
     let packing_started = data.diagnostics.as_ref().map(|_| Instant::now());
-    let preview = if send_preview {
+    let preview = if preview_enabled {
         match preview_frame(
             pixels,
             size.width,
@@ -341,24 +341,20 @@ fn process_frame(
         }
         _ => {}
     }
+    let message = match batch_message([preview, search_frame, region_frame, rare_region_frame]) {
+        Ok(message) => message,
+        Err(error) => {
+            control.clear_batch(batch_id);
+            return Err(error);
+        }
+    };
     let packing_duration = packing_started
         .map(|start| start.elapsed())
         .unwrap_or_default();
     let sending_started = data.diagnostics.as_ref().map(|_| Instant::now());
-    let bytes = if data.diagnostics.is_some() {
-        [&preview, &search_frame, &region_frame, &rare_region_frame]
-            .iter()
-            .filter_map(|frame| frame.as_ref())
-            .map(|frame| frame.len())
-            .sum()
-    } else {
-        0
-    };
-    for frame in [preview, search_frame, region_frame, rare_region_frame]
-        .into_iter()
-        .flatten()
-    {
-        if frames.send(InvokeResponseBody::Raw(frame)).is_err() {
+    let bytes = message.as_ref().map_or(0, Vec::len);
+    if let Some(message) = message {
+        if frames.send(InvokeResponseBody::Raw(message)).is_err() {
             control.clear_batch(batch_id);
             return Ok(ControlFlow::Break(()));
         }

@@ -37,7 +37,7 @@ const COMMANDS: &[&str] = &[
     "fetch_market_prices",
     "read_loot_layout",
     "native_capture_capabilities",
-    "acknowledge_native_display_frame",
+    "acknowledge_native_display_batch",
     "load_loot_capture_settings",
     "save_loot_capture_settings",
     "set_native_display_capture_preview_enabled",

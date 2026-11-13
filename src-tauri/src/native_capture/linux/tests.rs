@@ -99,7 +99,18 @@ fn converts_bgra_and_encodes_the_preview_header() {
 
     assert_eq!(
         header(&frame),
-        [3, FRAME_KIND_PREVIEW, 17, 23, 2, 1, 2, 1, 0, 0]
+        [
+            FRAME_PROTOCOL_VERSION,
+            FRAME_KIND_PREVIEW,
+            17,
+            23,
+            2,
+            1,
+            2,
+            1,
+            0,
+            0
+        ]
     );
     assert_eq!(&frame[FRAME_HEADER_BYTES..], &[1, 2, 3, 7, 4, 5, 6, 8]);
 }
@@ -193,7 +204,18 @@ fn crops_an_exact_100_percent_region_and_encodes_the_native_origin() {
 
     assert_eq!(
         header(&frame),
-        [3, FRAME_KIND_REGION, 31, 47, 341, 226, 1920, 1080, 10, 0,]
+        [
+            FRAME_PROTOCOL_VERSION,
+            FRAME_KIND_REGION,
+            31,
+            47,
+            341,
+            226,
+            1920,
+            1080,
+            10,
+            0,
+        ]
     );
     assert_eq!(
         &frame[FRAME_HEADER_BYTES..FRAME_HEADER_BYTES + 8],
@@ -237,7 +259,7 @@ fn crops_a_rare_region_and_encodes_its_header() {
     assert_eq!(
         header(&frame),
         [
-            3,
+            FRAME_PROTOCOL_VERSION,
             FRAME_KIND_RARE_REGION,
             31,
             47,
@@ -282,7 +304,7 @@ fn crops_a_search_region_and_encodes_the_kind_four_header() {
     assert_eq!(
         header(&frame),
         [
-            3,
+            FRAME_PROTOCOL_VERSION,
             FRAME_KIND_SEARCH_REGION,
             41,
             59,
@@ -357,7 +379,18 @@ fn encodes_error_protocol_header_and_text() {
 
     assert_eq!(
         header(&frame),
-        [3, FRAME_KIND_ERROR, 0, 0, 0, 0, 0, 0, 0, 0]
+        [
+            FRAME_PROTOCOL_VERSION,
+            FRAME_KIND_ERROR,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+        ]
     );
     assert_eq!(&frame[FRAME_HEADER_BYTES..], b"failed");
 }

@@ -35,10 +35,20 @@ function message(kind: number, width: number, height: number, sourceWidth: numbe
     const header = new DataView(buffer);
     const cropX = kind >= 2 ? Math.min(2433, sourceWidth - width) : 0;
     const cropY = kind >= 2 ? Math.min(990, sourceHeight - height) : 0;
-    for (const [index, value] of [3, kind, 7, 11, width, height, sourceWidth, sourceHeight, cropX, cropY].entries()) {
+    for (const [index, value] of [4, kind, 7, 11, width, height, sourceWidth, sourceHeight, cropX, cropY].entries()) {
         header.setUint32(index * 4, value, true);
     }
     return buffer;
+}
+
+function joined(...parts: ArrayBuffer[]) {
+    const bytes = new Uint8Array(parts.reduce((total, part) => total + part.byteLength, 0));
+    let offset = 0;
+    for (const part of parts) {
+        bytes.set(new Uint8Array(part), offset);
+        offset += part.byteLength;
+    }
+    return bytes.buffer;
 }
 
 describe("native capture frame protocol", () => {
@@ -48,54 +58,66 @@ describe("native capture frame protocol", () => {
     });
 
     it("parses preview, normal region, rare region, and search region frames", () => {
-        expect(parseNativeCaptureMessage(message(1, 2, 1, 3440, 1440))).toMatchObject({
-            kind: "preview",
-            width: 2,
-            height: 1,
-            sourceWidth: 3440,
-            sourceHeight: 1440,
-            captureId: 7,
-            batchId: 11,
-            cropX: 0,
-            cropY: 0,
-        });
-        expect(parseNativeCaptureMessage(message(2, 272, 180, 3440, 1440))).toMatchObject({
-            kind: "region",
-            width: 272,
-            height: 180,
-            cropX: 2433,
-            cropY: 990,
-        });
-        expect(parseNativeCaptureMessage(message(2, 341, 226, 1920, 1080))).toMatchObject({
-            kind: "region",
-            width: 341,
-            height: 226,
-            sourceWidth: 1920,
-            sourceHeight: 1080,
-        });
-        expect(parseNativeCaptureMessage(message(3, 340, 72, 2560, 1440))).toMatchObject({
-            kind: "rare-region",
-            width: 340,
-            height: 72,
-            sourceWidth: 2560,
-            sourceHeight: 1440,
-            cropX: 2220,
-            cropY: 990,
-        });
-        expect(parseNativeCaptureMessage(message(3, 425, 90, 1920, 1080))).toMatchObject({
-            kind: "rare-region",
-            width: 425,
-            height: 90,
-        });
-        expect(parseNativeCaptureMessage(message(4, 800, 600, 3440, 1440))).toMatchObject({
-            kind: "search-region",
-            width: 800,
-            height: 600,
-            sourceWidth: 3440,
-            sourceHeight: 1440,
-            cropX: 2433,
-            cropY: 840,
-        });
+        expect(parseNativeCaptureMessage(message(1, 2, 1, 3440, 1440))).toMatchObject([
+            {
+                kind: "preview",
+                width: 2,
+                height: 1,
+                sourceWidth: 3440,
+                sourceHeight: 1440,
+                captureId: 7,
+                batchId: 11,
+                cropX: 0,
+                cropY: 0,
+            },
+        ]);
+        expect(parseNativeCaptureMessage(message(2, 272, 180, 3440, 1440))).toMatchObject([
+            {
+                kind: "region",
+                width: 272,
+                height: 180,
+                cropX: 2433,
+                cropY: 990,
+            },
+        ]);
+        expect(parseNativeCaptureMessage(message(2, 341, 226, 1920, 1080))).toMatchObject([
+            {
+                kind: "region",
+                width: 341,
+                height: 226,
+                sourceWidth: 1920,
+                sourceHeight: 1080,
+            },
+        ]);
+        expect(parseNativeCaptureMessage(message(3, 340, 72, 2560, 1440))).toMatchObject([
+            {
+                kind: "rare-region",
+                width: 340,
+                height: 72,
+                sourceWidth: 2560,
+                sourceHeight: 1440,
+                cropX: 2220,
+                cropY: 990,
+            },
+        ]);
+        expect(parseNativeCaptureMessage(message(3, 425, 90, 1920, 1080))).toMatchObject([
+            {
+                kind: "rare-region",
+                width: 425,
+                height: 90,
+            },
+        ]);
+        expect(parseNativeCaptureMessage(message(4, 800, 600, 3440, 1440))).toMatchObject([
+            {
+                kind: "search-region",
+                width: 800,
+                height: 600,
+                sourceWidth: 3440,
+                sourceHeight: 1440,
+                cropX: 2433,
+                cropY: 840,
+            },
+        ]);
     });
 
     it("accepts bounded search frames at each supported source resolution", () => {
@@ -107,13 +129,15 @@ describe("native capture frame protocol", () => {
             const frame = message(4, 800, 600, width, height);
             new DataView(frame).setUint32(32, width - 800, true);
             new DataView(frame).setUint32(36, height - 600, true);
-            expect(parseNativeCaptureMessage(frame)).toMatchObject({
-                kind: "search-region",
-                sourceWidth: width,
-                sourceHeight: height,
-                cropX: width - 800,
-                cropY: height - 600,
-            });
+            expect(parseNativeCaptureMessage(frame)).toMatchObject([
+                {
+                    kind: "search-region",
+                    sourceWidth: width,
+                    sourceHeight: height,
+                    cropX: width - 800,
+                    cropY: height - 600,
+                },
+            ]);
             new DataView(frame).setUint32(32, width - 799, true);
             expect(() => parseNativeCaptureMessage(frame)).toThrow(/invalid/);
         }
@@ -141,7 +165,7 @@ describe("native capture frame protocol", () => {
         expect(() => parseNativeCaptureMessage(message(5, 1, 1, 1, 1))).toThrow(/invalid/);
 
         const unsupported = message(1, 1, 1, 1, 1);
-        new DataView(unsupported).setUint32(0, 2, true);
+        new DataView(unsupported).setUint32(0, 3, true);
         expect(() => parseNativeCaptureMessage(unsupported)).toThrow(/unsupported/);
     });
 
@@ -149,37 +173,94 @@ describe("native capture frame protocol", () => {
         const text = new TextEncoder().encode("capture failed");
         const buffer = new ArrayBuffer(40 + text.length);
         const header = new DataView(buffer);
-        header.setUint32(0, 3, true);
+        header.setUint32(0, 4, true);
         new Uint8Array(buffer, 40).set(text);
         expect(parseNativeCaptureMessage(buffer)).toEqual({ kind: "error", message: "capture failed" });
     });
 
-    it("acknowledges rare region frames as kind 3", () => {
+    it("parses a batch's frames in order", () => {
+        const batch = joined(
+            message(1, 2, 1, 3440, 1440),
+            message(2, 272, 180, 3440, 1440),
+            message(3, 340, 72, 3440, 1440),
+        );
+        new Uint8Array(batch)[40] = 9;
+        new Uint8Array(batch)[40 + 8 + 40] = 8;
+        new Uint8Array(batch)[batch.byteLength - 1] = 7;
+        const frames = parseNativeCaptureMessage(batch);
+        if (!Array.isArray(frames)) throw new Error("expected frames");
+        expect(frames.map((frame) => frame.kind)).toEqual(["preview", "region", "rare-region"]);
+        expect(frames.map((frame) => frame.pixels.length)).toEqual([8, 272 * 180 * 4, 340 * 72 * 4]);
+        expect(frames[0].pixels.buffer).toBe(batch);
+        // Crops never keep a setup preview alive.
+        expect(frames[1].pixels.buffer).not.toBe(batch);
+        expect(frames[2].pixels.buffer).not.toBe(batch);
+        expect([frames[0].pixels[0], frames[1].pixels[0], frames[2].pixels[frames[2].pixels.length - 1]]).toEqual([
+            9, 8, 7,
+        ]);
+    });
+
+    it("keeps crops of a batch without a preview as views into the message", () => {
+        const batch = joined(message(2, 272, 180, 3440, 1440), message(3, 340, 72, 3440, 1440));
+        const frames = parseNativeCaptureMessage(batch);
+        if (!Array.isArray(frames)) throw new Error("expected frames");
+        expect(frames.every((frame) => frame.pixels.buffer === batch)).toBe(true);
+        expect(frames[1].pixels.byteOffset).toBe(80 + 272 * 180 * 4);
+    });
+
+    it("rejects batches with mixed identities, repeated kinds, truncation, or an embedded error", () => {
+        const otherBatch = message(3, 340, 72, 3440, 1440);
+        new DataView(otherBatch).setUint32(12, 12, true);
+        expect(() => parseNativeCaptureMessage(joined(message(2, 272, 180, 3440, 1440), otherBatch))).toThrow(
+            /invalid/,
+        );
+        const otherCapture = message(3, 340, 72, 3440, 1440);
+        new DataView(otherCapture).setUint32(8, 8, true);
+        expect(() => parseNativeCaptureMessage(joined(message(2, 272, 180, 3440, 1440), otherCapture))).toThrow(
+            /invalid/,
+        );
+        expect(() =>
+            parseNativeCaptureMessage(joined(message(2, 272, 180, 3440, 1440), message(2, 272, 180, 3440, 1440))),
+        ).toThrow(/invalid/);
+        const batch = joined(message(2, 272, 180, 3440, 1440), message(3, 340, 72, 3440, 1440));
+        expect(() => parseNativeCaptureMessage(batch.slice(0, batch.byteLength - 1))).toThrow(/invalid/);
+        expect(() => parseNativeCaptureMessage(joined(message(2, 272, 180, 3440, 1440), new ArrayBuffer(39)))).toThrow(
+            /invalid/,
+        );
+        const error = new ArrayBuffer(40);
+        new DataView(error).setUint32(0, 4, true);
+        expect(() => parseNativeCaptureMessage(joined(message(2, 272, 180, 3440, 1440), error))).toThrow(/invalid/);
+        expect(() => parseNativeCaptureMessage(new ArrayBuffer(0))).toThrow(/invalid/);
+    });
+
+    it("delivers every frame of a batch and acknowledges the batch once", () => {
         const onFrame = vi.fn();
         startNativeDisplayCapture(1, null, onFrame, vi.fn());
+        tauri.invoke.mockClear();
 
-        tauri.onMessage?.(message(3, 340, 72, 2560, 1440));
+        tauri.onMessage?.(joined(message(2, 272, 180, 3440, 1440), message(3, 340, 72, 3440, 1440)));
 
-        expect(onFrame).toHaveBeenCalledWith(expect.objectContaining({ kind: "rare-region" }));
-        expect(tauri.invoke).toHaveBeenLastCalledWith("acknowledge_native_display_frame", {
+        expect(onFrame.mock.calls.map(([frame]) => frame.kind)).toEqual(["region", "rare-region"]);
+        expect(tauri.invoke).toHaveBeenCalledTimes(1);
+        expect(tauri.invoke).toHaveBeenLastCalledWith("acknowledge_native_display_batch", {
             captureId: 7,
             batchId: 11,
-            kind: 3,
         });
     });
 
-    it("acknowledges search region frames as kind 4", () => {
-        const onFrame = vi.fn();
-        startNativeDisplayCapture(1, null, onFrame, vi.fn());
-
-        tauri.onMessage?.(message(4, 800, 600, 3440, 1440));
-
-        expect(onFrame).toHaveBeenCalledWith(expect.objectContaining({ kind: "search-region" }));
-        expect(tauri.invoke).toHaveBeenLastCalledWith("acknowledge_native_display_frame", {
-            captureId: 7,
-            batchId: 11,
-            kind: 4,
+    it("keeps delivering a batch after a frame handler fails", () => {
+        const onFrame = vi.fn((frame: { kind: string }) => {
+            if (frame.kind === "region") throw new Error("region failed");
         });
+        const onError = vi.fn();
+        startNativeDisplayCapture(1, null, onFrame, onError);
+        tauri.invoke.mockClear();
+
+        tauri.onMessage?.(joined(message(2, 272, 180, 3440, 1440), message(3, 340, 72, 3440, 1440)));
+
+        expect(onError).toHaveBeenCalledWith("region failed");
+        expect(onFrame).toHaveBeenLastCalledWith(expect.objectContaining({ kind: "rare-region" }));
+        expect(tauri.invoke).toHaveBeenCalledWith("acknowledge_native_display_batch", { captureId: 7, batchId: 11 });
     });
 
     it("sends discriminated search and region selections", () => {
@@ -236,7 +317,7 @@ describe("native capture frame protocol", () => {
 
     it("reports acknowledgement failures", async () => {
         tauri.invoke.mockImplementation((command: string) =>
-            command === "acknowledge_native_display_frame"
+            command === "acknowledge_native_display_batch"
                 ? Promise.reject(new Error("channel closed"))
                 : Promise.resolve(),
         );
@@ -258,7 +339,7 @@ describe("native capture frame protocol", () => {
         tauri.onMessage?.(message(4, 799, 600, 3440, 1440));
 
         expect(onError).toHaveBeenCalledWith(expect.stringMatching(/invalid/));
-        expect(tauri.invoke).not.toHaveBeenCalledWith("acknowledge_native_display_frame", expect.anything());
+        expect(tauri.invoke).not.toHaveBeenCalledWith("acknowledge_native_display_batch", expect.anything());
     });
 });
 

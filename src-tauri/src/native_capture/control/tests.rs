@@ -133,75 +133,37 @@ fn acknowledgements_are_capture_and_batch_specific_and_idempotent() {
     let batch_id = control
         .begin_batch(Some(regions_selection(settings)), true)
         .unwrap()
-        .unwrap()
-        .0;
+        .unwrap();
 
-    control.acknowledge(8, batch_id, FRAME_KIND_PREVIEW);
-    control.acknowledge(7, batch_id + 1, FRAME_KIND_PREVIEW);
-    control.acknowledge(7, batch_id, FRAME_KIND_ERROR);
-    {
-        let batches = control.batches.lock().unwrap();
-        let pending = batches.pending.as_ref().unwrap();
-        assert!(pending.preview_pending);
-        assert!(!pending.search_pending);
-        assert!(pending.region_pending);
-        assert!(pending.rare_region_pending);
-    }
-
-    control.acknowledge(7, batch_id, FRAME_KIND_PREVIEW);
-    control.acknowledge(7, batch_id, FRAME_KIND_PREVIEW);
-    {
-        let batches = control.batches.lock().unwrap();
-        let pending = batches.pending.as_ref().unwrap();
-        assert!(!pending.preview_pending);
-        assert!(!pending.search_pending);
-        assert!(pending.region_pending);
-        assert!(pending.rare_region_pending);
-    }
-
-    control.acknowledge(7, batch_id, FRAME_KIND_REGION);
+    control.acknowledge(8, batch_id);
+    control.acknowledge(7, batch_id + 1);
     assert!(control.batches.lock().unwrap().pending.is_some());
-    control.acknowledge(7, batch_id, FRAME_KIND_RARE_REGION);
+    assert!(control
+        .begin_batch(Some(search_selection(100, 200)), true)
+        .unwrap()
+        .is_none());
+
+    // One acknowledgment covers every frame of the batch's message.
+    control.acknowledge(7, batch_id);
+    assert!(control.batches.lock().unwrap().pending.is_none());
+    control.acknowledge(7, batch_id);
     assert!(control.batches.lock().unwrap().pending.is_none());
 
-    let next_batch_id = control.begin_batch(None, true).unwrap().unwrap().0;
+    let next_batch_id = control.begin_batch(None, true).unwrap().unwrap();
     assert_eq!(next_batch_id, batch_id + 1);
-    control.acknowledge(7, batch_id, FRAME_KIND_PREVIEW);
+    control.acknowledge(7, batch_id);
     assert!(control.batches.lock().unwrap().pending.is_some());
-    control.acknowledge(7, next_batch_id, FRAME_KIND_PREVIEW);
-    assert!(control.batches.lock().unwrap().pending.is_none());
-
-    let normal_batch_id = control
-        .begin_batch(
-            Some(regions_selection(selection(3440, 1440, 80, 10, 20))),
-            true,
-        )
-        .unwrap()
-        .unwrap()
-        .0;
-    control.acknowledge(7, normal_batch_id, FRAME_KIND_PREVIEW);
-    assert!(control.batches.lock().unwrap().pending.is_some());
-    control.acknowledge(7, normal_batch_id, FRAME_KIND_REGION);
+    control.acknowledge(7, next_batch_id);
     assert!(control.batches.lock().unwrap().pending.is_none());
 
     let search_batch_id = control
         .begin_batch(Some(search_selection(100, 200)), true)
         .unwrap()
-        .unwrap()
-        .0;
-    control.acknowledge(7, search_batch_id, FRAME_KIND_PREVIEW);
-    control.acknowledge(7, search_batch_id, FRAME_KIND_REGION);
-    {
-        let batches = control.batches.lock().unwrap();
-        let pending = batches.pending.as_ref().unwrap();
-        assert!(pending.search_pending);
-        assert!(!pending.region_pending);
-        assert!(!pending.rare_region_pending);
-    }
-    control.acknowledge(7, search_batch_id, FRAME_KIND_SEARCH_REGION);
+        .unwrap();
+    control.acknowledge(7, search_batch_id);
     assert!(control.batches.lock().unwrap().pending.is_none());
 
-    let failed_batch_id = control.begin_batch(None, true).unwrap().unwrap().0;
+    let failed_batch_id = control.begin_batch(None, true).unwrap().unwrap();
     control.clear_batch(failed_batch_id - 1);
     assert!(control.batches.lock().unwrap().pending.is_some());
     control.clear_batch(failed_batch_id);
@@ -215,9 +177,8 @@ fn hidden_unconfigured_capture_cannot_leave_an_empty_batch_pending() {
     assert!(control.begin_batch(None, false).unwrap().is_none());
     assert!(control.batches.lock().unwrap().pending.is_none());
     // The stream explicitly requests one preview to announce first-frame or changed dimensions.
-    let (batch_id, send_preview) = control.begin_batch(None, true).unwrap().unwrap();
-    assert!(send_preview);
-    control.acknowledge(7, batch_id, FRAME_KIND_PREVIEW);
+    let batch_id = control.begin_batch(None, true).unwrap().unwrap();
+    control.acknowledge(7, batch_id);
     assert!(control.begin_batch(None, false).unwrap().is_none());
     assert!(control
         .begin_batch(
@@ -229,10 +190,8 @@ fn hidden_unconfigured_capture_cannot_leave_an_empty_batch_pending() {
 }
 
 #[test]
-fn disabled_preview_batches_wait_only_for_selected_crops() {
+fn selected_crops_start_batches_without_previews() {
     let control = CaptureControl::new(7, 11, None);
-    control.preview_enabled.store(false, Ordering::Release);
-    let preview_enabled = control.preview_enabled.load(Ordering::Acquire);
     let mut settings = selection(3440, 1440, 80, 10, 20);
     settings.rare_region = Some(NormalizedRegion {
         x: 1000.0 / 3440.0,
@@ -241,75 +200,12 @@ fn disabled_preview_batches_wait_only_for_selected_crops() {
         height: 100.0 / 1440.0,
     });
 
-    let (region_batch_id, send_preview) = control
-        .begin_batch(Some(regions_selection(settings)), preview_enabled)
-        .unwrap()
-        .unwrap();
-    assert!(!send_preview);
-    {
-        let batches = control.batches.lock().unwrap();
-        let pending = batches.pending.as_ref().unwrap();
-        assert!(!pending.preview_pending);
-        assert!(!pending.search_pending);
-        assert!(pending.region_pending);
-        assert!(pending.rare_region_pending);
+    for selected in [regions_selection(settings), search_selection(100, 200)] {
+        let batch_id = control.begin_batch(Some(selected), false).unwrap().unwrap();
+        assert!(control.begin_batch(Some(selected), true).unwrap().is_none());
+        control.acknowledge(7, batch_id);
+        assert!(control.batches.lock().unwrap().pending.is_none());
     }
-    control.acknowledge(7, region_batch_id, FRAME_KIND_REGION);
-    assert!(control.batches.lock().unwrap().pending.is_some());
-    control.acknowledge(7, region_batch_id, FRAME_KIND_RARE_REGION);
-    assert!(control.batches.lock().unwrap().pending.is_none());
-
-    let (search_batch_id, send_preview) = control
-        .begin_batch(Some(search_selection(100, 200)), preview_enabled)
-        .unwrap()
-        .unwrap();
-    assert!(!send_preview);
-    {
-        let batches = control.batches.lock().unwrap();
-        let pending = batches.pending.as_ref().unwrap();
-        assert!(!pending.preview_pending);
-        assert!(pending.search_pending);
-        assert!(!pending.region_pending);
-        assert!(!pending.rare_region_pending);
-    }
-    control.acknowledge(7, search_batch_id, FRAME_KIND_SEARCH_REGION);
-    assert!(control.batches.lock().unwrap().pending.is_none());
-}
-
-#[test]
-fn preview_updates_apply_to_the_next_batch_without_changing_pending_acknowledgements() {
-    let control = CaptureControl::new(7, 11, None);
-    let selected = Some(regions_selection(selection(3440, 1440, 80, 10, 20)));
-
-    let (enabled_batch_id, send_preview) = control
-        .begin_batch(selected, control.preview_enabled.load(Ordering::Acquire))
-        .unwrap()
-        .unwrap();
-    assert!(send_preview);
-    control.preview_enabled.store(false, Ordering::Release);
-    assert!(control
-        .begin_batch(selected, control.preview_enabled.load(Ordering::Acquire))
-        .unwrap()
-        .is_none());
-    control.acknowledge(7, enabled_batch_id, FRAME_KIND_REGION);
-    assert!(control.batches.lock().unwrap().pending.is_some());
-    control.acknowledge(7, enabled_batch_id, FRAME_KIND_PREVIEW);
-    assert!(control.batches.lock().unwrap().pending.is_none());
-
-    let (disabled_batch_id, send_preview) = control
-        .begin_batch(selected, control.preview_enabled.load(Ordering::Acquire))
-        .unwrap()
-        .unwrap();
-    assert!(!send_preview);
-    control.preview_enabled.store(true, Ordering::Release);
-    control.acknowledge(7, disabled_batch_id, FRAME_KIND_REGION);
-    assert!(control.batches.lock().unwrap().pending.is_none());
-
-    let (_, send_preview) = control
-        .begin_batch(selected, control.preview_enabled.load(Ordering::Acquire))
-        .unwrap()
-        .unwrap();
-    assert!(send_preview);
 }
 
 #[test]

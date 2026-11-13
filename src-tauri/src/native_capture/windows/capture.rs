@@ -170,7 +170,7 @@ pub(super) fn run(
         }
         let preview =
             control.preview_enabled.load(Ordering::Acquire) || published != Some((width, height));
-        let Some((batch_id, send_preview)) = control.begin_batch(selection, preview)? else {
+        let Some(batch_id) = control.begin_batch(selection, preview)? else {
             if let Some(metrics) = diagnostics.as_mut() {
                 metrics.blocked();
             }
@@ -197,7 +197,7 @@ pub(super) fn run(
         if (desc.Width, desc.Height) != (width, height) {
             return Err("Capture texture dimensions do not match the source.".into());
         }
-        let preview = if send_preview {
+        let preview = if preview {
             Some(gpu.preview(&texture, width, height, batch)?)
         } else {
             None
@@ -258,19 +258,16 @@ pub(super) fn run(
                 payload_offset: FRAME_HEADER_BYTES,
             });
         }
+        let message = batch_message([preview, normal, rare, search])?;
         let packing_duration = packing.elapsed();
-        let bytes = [&preview, &normal, &rare, &search]
-            .into_iter()
-            .flatten()
-            .map(Vec::len)
-            .sum();
+        let bytes = message.as_ref().map_or(0, Vec::len);
         let sending = Instant::now();
         if control.cancelled.load(Ordering::Acquire) {
             return Ok(());
         }
-        for frame in [preview, normal, rare, search].into_iter().flatten() {
+        if let Some(message) = message {
             frames
-                .send(InvokeResponseBody::Raw(frame))
+                .send(InvokeResponseBody::Raw(message))
                 .map_err(|_| "The capture window disconnected.")?;
         }
         if let Some(metrics) = diagnostics.as_mut() {
