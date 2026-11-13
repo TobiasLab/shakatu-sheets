@@ -186,14 +186,17 @@ Add `--learning /path/to/learning.json` (with `--ocr`) to replay self-improvemen
 npm run benchmark:loot:roi -- /path/to/dev-samples/live-loot --ocr --learning /tmp/loot-learning.json
 ```
 
-It only observes. The coordinator gets no learning callback, so recognition results match a run without the option. OCR
-passes are recorded, as in the app, so saved capture evidence can include them. Events are processed in order. Each
-event is first matched against the library built from the earlier events, both as the Needs attention prefill (one crop)
-and as automatic recovery (every OCR frame and reading, with Auto allow on). Then a recognized event teaches its OCR label
-through the same crops and storage rules the app uses. This treats every drop as confirmed, so it measures the matcher on
-real crops and how quickly labels become eligible. Real users only confirm unresolved drops, so it gives no expected
-recovery rate. The report scores prefills and automatic recoveries against the OCR labels. It also lists unresolved
-events with the suggestion they would receive, and fails the command on any wrong automatic recovery.
+It only observes: the coordinator gets no learning callback. OCR passes are recorded, as in the app, so saved capture
+evidence can include them. Unlike the app, it reads every selected frame of a drop even when the first two agree:
+automatic recovery needs three frames, and scoring it on every recognized drop is the point of the replay. On the four
+Korean recordings this changed no recognition result, but a third frame that vetoes two unanimous ones would be withheld
+here and counted by the app. Events are processed in order. Each event is first matched against the library built from
+the earlier events, both as the Needs attention prefill (one crop) and as automatic recovery (every OCR frame and
+reading, with Auto allow on). Then a recognized event teaches its OCR label through the same crops and storage rules the
+app uses. This treats every drop as confirmed, so it measures the matcher on real crops and how quickly labels become
+eligible. Real users only confirm unresolved drops, so it gives no expected recovery rate. The report scores prefills
+and automatic recoveries against the OCR labels. It also lists unresolved events with the suggestion they would receive,
+and fails the command on any wrong automatic recovery.
 
 ## Regression fixtures
 

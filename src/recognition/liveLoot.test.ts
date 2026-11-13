@@ -236,6 +236,18 @@ describe("live loot reading consensus", () => {
         ).toMatchObject({ item: "Black Stone", quantity: 2 });
     });
 
+    it("marks a consensus unanimous only when every reading names its item and quantity", () => {
+        const dictionary = ["Black Stone", "Ancient Spirit Dust"];
+        const unanimous = (readings: string[][]) => analyzeLootReadings(readings, dictionary).unanimous;
+        expect(unanimous([["Black Stone x 2", "Black Stone x2"], ["Black Stone x 2"]])).toBe(true);
+        expect(unanimous([["Black Stone x 2"], ["Black Stone x 3"]])).toBe(false);
+        expect(unanimous([["Black Stone x 2"], ["Ancient Spirit Dust x 2"]])).toBe(false);
+        expect(unanimous([["Black Stone x 2", "Black Stone"], ["Black Stone x 2"]])).toBe(false);
+        expect(unanimous([["Black Stone x 2"], []])).toBe(false);
+        expect(unanimous([["Black Stone x 2"], ["Black Stone x 2"], ["Black Stone x 3"]])).toBe(false);
+        expect(unanimous([])).toBe(false);
+    });
+
     it("withholds conflicting readings rather than combining item and quantity", () => {
         // The consensus cases below read the three frames that this row sequence selects for its one new event.
         const [track] = trackLootRows([row([]), row([1]), row([1]), row([1]), row([1])], 100, distance).filter(
@@ -410,6 +422,75 @@ describe("live loot streaming coordination", () => {
                 reason: null,
             },
         ]);
+    });
+
+    it("settles a drop from two unanimous frames and leaves the third unread", async () => {
+        const results: LiveLootRecognitionResult[] = [];
+        const calls: number[][] = [];
+        const coordinator = new LiveLootCoordinator({
+            profile: streamingProfile,
+            dictionary: ["Black Stone"],
+            ocrAgreementFrames: 2,
+            readText: async (frames) => {
+                calls.push(frames.map(({ frame }) => frame));
+                return frames.map(() => ["Black Stone x 2", "Black Stone x2", "Black Stone x 2"]);
+            },
+            onResult: (result) => results.push(result),
+        });
+
+        pushRowSequence(coordinator, [0, 1, 1, 1, 1, 1]);
+        await coordinator.finish();
+
+        expect(calls).toEqual([[2, 3]]);
+        expect(results).toEqual([
+            expect.objectContaining({
+                selectedFrames: [2, 3],
+                status: "recognized",
+                itemName: "Black Stone",
+                quantity: 2,
+            }),
+        ]);
+    });
+
+    it("reads the remaining frames when the first two are not unanimous, so a later frame can still veto", async () => {
+        const results: LiveLootRecognitionResult[] = [];
+        const calls: number[][] = [];
+        const readings: Record<number, string[]> = {
+            2: ["Black Stone x 2", "Black Stone x 2", "Black Stone x 2"],
+            3: ["Black Stone x 2", "Black Stone x 2", "noise"],
+            4: ["Black Stone x 3", "Black Stone x 3", "Black Stone x 3"],
+        };
+        const coordinator = new LiveLootCoordinator({
+            profile: streamingProfile,
+            dictionary: ["Black Stone"],
+            ocrAgreementFrames: 2,
+            readText: async (frames) => {
+                calls.push(frames.map(({ frame }) => frame));
+                return frames.map(({ frame }) => readings[frame]);
+            },
+            onResult: (result) => results.push(result),
+        });
+
+        pushRowSequence(coordinator, [0, 1, 1, 1, 1, 1]);
+        await coordinator.finish();
+
+        expect(calls).toEqual([[2, 3], [4]]);
+        expect(results).toEqual([
+            expect.objectContaining({ selectedFrames: [2, 3, 4], status: "withheld", reason: "consensus-withheld" }),
+        ]);
+    });
+
+    it("rejects agreement over fewer than two frames", () => {
+        expect(
+            () =>
+                new LiveLootCoordinator({
+                    profile: streamingProfile,
+                    dictionary: ["Black Stone"],
+                    ocrAgreementFrames: 1,
+                    readText: async () => [],
+                    onResult: () => undefined,
+                }),
+        ).toThrow(/at least two frames/);
     });
 
     it("requires a strict majority when more than three OCR frames are selected", async () => {
@@ -1471,6 +1552,69 @@ it("releases supplementary frames and suppresses late results when stopped durin
     await Promise.resolve();
     await Promise.resolve();
     expect(results).toEqual([]);
+});
+
+it("releases the unread frames and suppresses late results when stopped after a split agreement read", async () => {
+    const pending = deferred<readonly (readonly string[])[]>();
+    const started = deferred<void>();
+    const results: LiveLootRecognitionResult[] = [];
+    const calls: Array<readonly LiveLootOcrFrame[]> = [];
+    let signal: AbortSignal | undefined;
+    const coordinator = new LiveLootCoordinator({
+        profile: streamingProfile,
+        dictionary: ["Black Stone"],
+        ocrAgreementFrames: 2,
+        readText: (frames, readerSignal) => {
+            calls.push(frames);
+            if (calls.length === 1) return Promise.resolve([["Black Stone x 2"], ["noise"]]);
+            signal = readerSignal;
+            started.resolve();
+            return pending.promise;
+        },
+        onResult: (result) => results.push(result),
+    });
+    pushRowSequence(coordinator, [0, 1, 1, 1, 1, 1]);
+    const finish = coordinator.finish();
+    await started.promise;
+    // The first read's frames are let go as the second read starts.
+    expect(calls.map((frames) => frames.length)).toEqual([0, 1]);
+    coordinator.stop();
+    await finish;
+    expect(signal?.aborted).toBe(true);
+    expect(calls.map((frames) => frames.length)).toEqual([0, 0]);
+    expect(coordinator.retainedFrameCount).toBe(0);
+    expect(coordinator.pendingOcrJobCount).toBe(0);
+    pending.resolve([["Black Stone x 2"]]);
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(results).toEqual([]);
+});
+
+it("does not read the remaining frames when stopped during the agreement read", async () => {
+    const pending = deferred<readonly (readonly string[])[]>();
+    const started = deferred<void>();
+    const calls: number[][] = [];
+    const coordinator = new LiveLootCoordinator({
+        profile: streamingProfile,
+        dictionary: ["Black Stone"],
+        ocrAgreementFrames: 2,
+        readText: (frames) => {
+            calls.push(frames.map(({ frame }) => frame));
+            started.resolve();
+            return pending.promise;
+        },
+        onResult: () => undefined,
+    });
+    pushRowSequence(coordinator, [0, 1, 1, 1, 1, 1]);
+    const finish = coordinator.finish();
+    await started.promise;
+    coordinator.stop();
+    // A reader that resolves after the abort instead of rejecting.
+    pending.resolve([]);
+    await finish;
+    await Promise.resolve();
+    expect(calls).toEqual([[2, 3]]);
+    expect(coordinator.retainedFrameCount).toBe(0);
 });
 
 describe("brightness ledger", () => {

@@ -4,7 +4,11 @@ import { isAbsolute, join, relative, resolve, sep } from "node:path";
 import { setTimeout as delay } from "node:timers/promises";
 import { fileURLToPath } from "node:url";
 import { parseArgs } from "node:util";
-import { LiveLootCoordinator, NORMAL_LOOT_OCR_SELECTION } from "../src/recognition/liveLoot.ts";
+import {
+    LiveLootCoordinator,
+    NORMAL_LOOT_OCR_AGREEMENT_FRAMES,
+    NORMAL_LOOT_OCR_SELECTION,
+} from "../src/recognition/liveLoot.ts";
 import { preprocessLootOcrFrame, readLootOcrFrame } from "../src/recognition/liveLootOcr.ts";
 import { findLiveLootProfile, findRareLootGeometry } from "../src/recognition/liveLootProfiles.ts";
 import { ledgerCorrectsArrivals } from "../src/recognition/lootBrightnessLedger.ts";
@@ -187,6 +191,9 @@ try {
                 font,
                 sampleFps,
                 correctArrivals: ledgerCorrectsArrivals(font),
+                // Learning scores automatic recovery on recognized drops, which needs every selected frame read.
+                ocrAgreementFrames:
+                    kind === "normal" && !values.learning ? NORMAL_LOOT_OCR_AGREEMENT_FRAMES : undefined,
                 ocrSelection: NORMAL_LOOT_OCR_SELECTION,
                 profile,
                 dictionary: annotations.itemDictionary,
