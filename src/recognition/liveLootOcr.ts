@@ -259,7 +259,39 @@ export type LiveLootTesseractOcrOptions = {
     font?: LootFont;
     workerFactory?: LiveLootOcrWorkerFactory;
     canvasFactory?: LiveLootOcrCanvasFactory;
+    /** Called after each Tesseract pass with how long it took; the next pass waits for it. */
+    pace?: LiveLootOcrPacer;
 };
+
+export type LiveLootOcrPacer = (passMs: number) => Promise<void>;
+
+/**
+ * Rests after each OCR pass for `restRatio` times as long as the pass took. A burst of drops otherwise keeps one core
+ * at full boost for seconds, which is enough to spin up fans. Passes run back to back while `urgent` returns true, so
+ * pacing never lets the job queue overflow and drop notifications.
+ */
+export function createLiveLootOcrPacer({
+    restRatio,
+    maximumRestMs,
+    urgent,
+    sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms)),
+}: {
+    restRatio: number;
+    /** The longest rest after one pass, so one slow pass cannot hold up the queue for long. */
+    maximumRestMs: number;
+    urgent: () => boolean;
+    sleep?: (ms: number) => Promise<void>;
+}): LiveLootOcrPacer {
+    if (!(restRatio >= 0) || !Number.isFinite(restRatio))
+        throw new Error("OCR rest ratio must be a finite number >= 0.");
+    if (!(maximumRestMs >= 0) || !Number.isFinite(maximumRestMs))
+        throw new Error("OCR maximum rest must be a finite number >= 0.");
+    return async (passMs) => {
+        if (urgent()) return;
+        const rest = Math.min(maximumRestMs, Math.max(0, passMs) * restRatio);
+        if (rest > 0) await sleep(rest);
+    };
+}
 
 const defaultWorkerFactory: LiveLootOcrWorkerFactory = async (languages, oem, options) => {
     const worker = await createWorker(languages, oem, options);
@@ -311,6 +343,7 @@ export async function createLiveLootTesseractOcr({
     font = "korean",
     workerFactory = defaultWorkerFactory,
     canvasFactory = defaultCanvasFactory,
+    pace,
 }: LiveLootTesseractOcrOptions = {}): Promise<LiveLootTesseractOcr> {
     const ocrRoot = new URL("ocr/", document.baseURI);
     const worker = await workerFactory("eng", OEM.LSTM_ONLY, {
@@ -397,6 +430,7 @@ export async function createLiveLootTesseractOcr({
                         quantityMode = useQuantity;
                         if (closed) throw closedError();
                     }
+                    const started = performance.now();
                     let source = job.frames?.[frameIndex];
                     if (!source) throw closedError();
                     const diagnostics = source.diagnostics;
@@ -426,6 +460,10 @@ export async function createLiveLootTesseractOcr({
                     if (closed) throw closedError();
                     const text = result.data.text.trim();
                     diagnostics?.passes.push({ threshold, scale, region, text: text.slice(0, 512) });
+                    if (pace) {
+                        await pace(performance.now() - started);
+                        if (closed) throw closedError();
+                    }
                     return text;
                 },
                 job.frames?.[frameIndex]?.textColor !== "gold" &&

@@ -46,6 +46,7 @@ import {
 } from "../../recognition/liveLoot";
 import { type LootSearchFrame, NormalLootLocalizer } from "../../recognition/liveLootLocalization";
 import {
+    createLiveLootOcrPacer,
     createLiveLootTesseractOcr,
     type LiveLootTesseractOcr,
     serializeLiveLootOcrReader,
@@ -124,8 +125,15 @@ export type LiveLootCaptureProps = {
 };
 
 const MAX_PENDING_RECOGNITION_FRAMES = 64;
-const NORMAL_MAX_OUTSTANDING_OCR_JOBS = 8;
+const NORMAL_MAX_OUTSTANDING_OCR_JOBS = 16;
 const RARE_MAX_OUTSTANDING_OCR_JOBS = 2;
+/**
+ * OCR rests three times as long as each pass took (quarter speed), at most 300 ms, until this many normal jobs are
+ * outstanding. Results arrive seconds later in a burst, but one core no longer runs at full boost for its duration.
+ */
+const OCR_REST_RATIO = 3;
+const OCR_MAXIMUM_REST_MS = 300;
+const OCR_URGENT_NORMAL_JOBS = 12;
 let nextNativeCaptureToken = Date.now() * 1_000;
 
 function emptyOcrDiagnostics(): OcrDiagnostics {
@@ -296,6 +304,7 @@ export function useLiveLootCapture({
     const localizer = useRef<NormalLootLocalizer | RareLootLocalizer | null>(null);
     const itemDictionaryRef = useRef(itemDictionary);
     const [status, setStatus] = useState<CaptureStatus>("idle");
+    const [stoppingCapture, setStoppingCapture] = useState(false);
     const [error, setError] = useState("");
     const [sampledFps, setSampledFps] = useState(0);
     const [previewsEnabled, setPreviewsEnabled] = useState(true);
@@ -702,23 +711,45 @@ export function useLiveLootCapture({
         measurementStarted.current = now;
     }
 
-    async function prepareReview() {
+    /**
+     * Reads every queued drop at full speed, then stops capture. Returns `read()` from before the stop, or null when
+     * capture or the session changed meanwhile.
+     */
+    async function finishRecognitionThenStop<T>(read: () => T): Promise<T | null> {
         const captureRequest = requestId.current;
         const reviewSession = activeSessionId.current;
+        const unchanged = () =>
+            mounted.current && activeSessionId.current === reviewSession && requestId.current === captureRequest;
         try {
             await recognitionStartup.current;
-            if (!mounted.current || activeSessionId.current !== reviewSession || requestId.current !== captureRequest)
-                return null;
+            if (!unchanged()) return null;
             closingRecognition.current = true;
             const pipeline = recognition.current;
             if (pipeline) await Promise.all([pipeline.normalCoordinator.finish(), pipeline.rareCoordinator.finish()]);
-            if (!mounted.current || activeSessionId.current !== reviewSession || requestId.current !== captureRequest)
-                return null;
-            return review.unacceptedReviewCount();
+            if (!unchanged()) return null;
+            return read();
         } finally {
-            if (mounted.current && activeSessionId.current === reviewSession && requestId.current === captureRequest)
-                stopCapture();
+            if (unchanged()) stopCapture();
         }
+    }
+
+    function prepareReview() {
+        return finishRecognitionThenStop(() => review.unacceptedReviewCount());
+    }
+
+    /** The Stop capture button: paced OCR can hold seconds of drops, so they are read before capture stops. */
+    function stopCaptureAfterQueuedDrops() {
+        if (stoppingCapture) return;
+        if (status !== "capturing" || (!recognition.current && !recognitionStartup.current)) {
+            stopCapture();
+            return;
+        }
+        setStoppingCapture(true);
+        void finishRecognitionThenStop(() => undefined)
+            .catch(() => undefined)
+            .finally(() => {
+                if (mounted.current) setStoppingCapture(false);
+            });
     }
 
     function stopCapture() {
@@ -1264,7 +1295,23 @@ export function useLiveLootCapture({
             if (!mounted.current || generation !== recognitionGeneration.current) return;
             let createdOcr: LiveLootTesseractOcr | null = null;
             try {
-                const ocr = await createLiveLootTesseractOcr({ font: captureFont });
+                const ocr = await createLiveLootTesseractOcr({
+                    font: captureFont,
+                    // A rare banner or a filling queue reads at full speed; otherwise half speed keeps bursts cool.
+                    pace: createLiveLootOcrPacer({
+                        restRatio: OCR_REST_RATIO,
+                        maximumRestMs: OCR_MAXIMUM_REST_MS,
+                        urgent: () => {
+                            const pipeline = recognition.current;
+                            return (
+                                !pipeline ||
+                                closingRecognition.current ||
+                                pipeline.rareCoordinator.pendingOcrJobCount > 0 ||
+                                pipeline.normalCoordinator.pendingOcrJobCount >= OCR_URGENT_NORMAL_JOBS
+                            );
+                        },
+                    }),
+                });
                 createdOcr = ocr;
                 if (!mounted.current || generation !== recognitionGeneration.current) {
                     await ocr.terminate();
@@ -1917,6 +1964,8 @@ export function useLiveLootCapture({
         clearReviewResults: review.clearReviewResults,
         dismissReviewResult: review.dismissReviewResult,
         prepareReview,
+        stopCaptureAfterQueuedDrops,
+        stoppingCapture,
         omittedReviewResults: review.omittedReviewResults,
         resultDescription,
         acceptReviewResult: review.acceptReviewResult,

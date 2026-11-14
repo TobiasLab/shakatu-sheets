@@ -53,7 +53,8 @@ export function LiveLootCapture({ controller }: { controller: ReturnType<typeof 
         status,
         togglePreviews,
         previewsEnabled,
-        stopCapture,
+        stopCaptureAfterQueuedDrops,
+        stoppingCapture,
         captureAllowed,
         captureBackend,
         sourceWaiting,
@@ -165,8 +166,17 @@ export function LiveLootCapture({ controller }: { controller: ReturnType<typeof 
                                     {setupOpen ? "Close setup" : "Set up capture"}
                                 </button>
                             )}
-                            <button className="button" type="button" onClick={stopCapture}>
-                                {status === "capturing" ? "Stop capture" : "Cancel request"}
+                            <button
+                                className="button"
+                                type="button"
+                                onClick={stopCaptureAfterQueuedDrops}
+                                disabled={stoppingCapture}
+                            >
+                                {stoppingCapture
+                                    ? "Reading last drops…"
+                                    : status === "capturing"
+                                      ? "Stop capture"
+                                      : "Cancel request"}
                             </button>
                         </>
                     ) : (

@@ -2,6 +2,7 @@ import { OEM, PSM } from "tesseract.js";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { LiveLootOcrFrame, LootRoiFrame } from "./liveLoot";
 import {
+    createLiveLootOcrPacer,
     createLiveLootTesseractOcr,
     type LiveLootOcrCanvas,
     type LiveLootOcrCanvasContext,
@@ -475,7 +476,73 @@ describe("serializeLiveLootOcrReader", () => {
     });
 });
 
+describe("createLiveLootOcrPacer", () => {
+    it("rests in proportion to each pass, up to the maximum rest", async () => {
+        const sleep = vi.fn(async () => undefined);
+        const pace = createLiveLootOcrPacer({ restRatio: 1, maximumRestMs: 100, urgent: () => false, sleep });
+
+        await pace(18);
+        await pace(400);
+        await pace(0);
+
+        expect(sleep.mock.calls).toEqual([[18], [100]]);
+    });
+
+    it("runs passes back to back while the queue is urgent", async () => {
+        const sleep = vi.fn(async () => undefined);
+        let urgent = true;
+        const pace = createLiveLootOcrPacer({ restRatio: 2, maximumRestMs: 300, urgent: () => urgent, sleep });
+
+        await pace(20);
+        urgent = false;
+        await pace(20);
+
+        expect(sleep.mock.calls).toEqual([[40]]);
+    });
+
+    it("rejects a negative or non-finite rest ratio or maximum rest", () => {
+        for (const value of [-1, Number.NaN, Number.POSITIVE_INFINITY]) {
+            expect(() => createLiveLootOcrPacer({ restRatio: value, maximumRestMs: 100, urgent: () => false })).toThrow(
+                /rest ratio/,
+            );
+            expect(() => createLiveLootOcrPacer({ restRatio: 1, maximumRestMs: value, urgent: () => false })).toThrow(
+                /maximum rest/,
+            );
+        }
+    });
+});
+
 describe("createLiveLootTesseractOcr", () => {
+    it("paces after every pass and stops a read terminated during a rest", async () => {
+        installDocument();
+        const canvas = testCanvas();
+        const worker = mockWorker(async () => textResult("Black Stone x 1"));
+        const rests: number[] = [];
+        let rest = deferred<void>();
+        const reader = await createLiveLootTesseractOcr({
+            workerFactory: async () => worker,
+            canvasFactory: () => canvas.canvas,
+            pace: (passMs) => {
+                rests.push(passMs);
+                return rest.promise;
+            },
+        });
+
+        const read = reader.readText([ocrFrame()], new AbortController().signal);
+        await vi.waitFor(() => expect(rests).toHaveLength(1));
+        rest.resolve();
+        rest = deferred<void>();
+        await vi.waitFor(() => expect(rests).toHaveLength(2));
+        expect(worker.recognize).toHaveBeenCalledTimes(2);
+        expect(rests.every((passMs) => passMs >= 0)).toBe(true);
+        const termination = reader.terminate();
+        rest.resolve();
+
+        await expect(read).rejects.toThrow(/terminated/);
+        await termination;
+        expect(worker.recognize).toHaveBeenCalledTimes(2);
+    });
+
     it("creates and configures one worker with document-relative local assets", async () => {
         installDocument();
         const worker = mockWorker();

@@ -66,8 +66,11 @@ Strong Sword uses the same rule without a replay; no Strong Sword recording was 
 frame that confidently reads a different pair can no longer veto two unanimous frames, so a track that switches rows
 after its second frame is counted instead of withheld; this never happened in those recordings. The case the veto was
 added for (×4 in the first frame, ×6 in the next two) still reaches the third frame because the first two disagree.
-Normal and rare jobs share one local Tesseract worker, with at most eight outstanding normal jobs and two rare jobs,
-including active work.
+Normal and rare jobs share one local Tesseract worker, with at most sixteen outstanding normal jobs and two rare jobs,
+including active work. The worker rests after each pass for three times as long as the pass took (at most 300 ms), so
+a burst of drops runs at quarter speed instead of holding one core at full boost for seconds, which spun up fans.
+Results then arrive a few seconds after the drop. Passes run back to back while a rare job is outstanding, twelve
+normal jobs are, or a finishing session drains the queue, so pacing cannot overflow the queue or delay the review.
 
 Rows that end before spaced evidence exists stay withheld for review. Reading them from adjacent 16 FPS frames recovered
 real drops when the whole stack faded quickly, but on Korean gameplay it also counted already-recognized rows twice: the
