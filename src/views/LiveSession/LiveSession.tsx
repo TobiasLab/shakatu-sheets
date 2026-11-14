@@ -6,7 +6,11 @@ import type { SpotPreferences } from "../../components/GrindSpotPicker/preferenc
 import { Icon } from "../../components/Icon/Icon";
 import { LiveLootCapture } from "../../components/LiveLootCapture/LiveLootCapture";
 import { focusLootReview } from "../../components/LiveLootCapture/LootReview";
-import { type CaptureSummary, useLiveLootCapture } from "../../components/LiveLootCapture/useLiveLootCapture";
+import {
+    type CaptureSummary,
+    EXIT_DRAIN_LIMIT_MS,
+    useLiveLootCapture,
+} from "../../components/LiveLootCapture/useLiveLootCapture";
 import { LootLedger } from "../../components/LootLedger/LootLedger";
 import { createEntry, mergedEntryQuantity } from "../../domain/session";
 import type { LiveSessionController } from "../../hooks/useLiveSession";
@@ -52,7 +56,7 @@ export function LiveSessionView({
     spotPreferences: PersistedSetting<SpotPreferences>;
     onCaptureStatusChange: (status: CaptureSummary) => void;
     /** Filled with the capture's stop function so closing the window can stop recognition before the final save. */
-    stopCaptureRef: RefObject<(() => void) | null>;
+    stopCaptureRef: RefObject<(() => Promise<void>) | null>;
 }) {
     const { session, dispatch, databaseLoaded, editingDisabled, spotEditable, spot, drops, changeGrindSpot, market } =
         controller;
@@ -92,7 +96,7 @@ export function LiveSessionView({
         onAcceptRecognition: acceptCapturedLoot,
     });
     useLayoutEffect(() => {
-        stopCaptureRef.current = capture.stopCapture;
+        stopCaptureRef.current = () => capture.stopCaptureAfterQueuedDrops(EXIT_DRAIN_LIMIT_MS);
     });
     const finishDialog = useRef<HTMLDialogElement>(null);
     const finishRequest = useRef(0);

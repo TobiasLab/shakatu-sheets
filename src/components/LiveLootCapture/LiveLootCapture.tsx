@@ -169,7 +169,7 @@ export function LiveLootCapture({ controller }: { controller: ReturnType<typeof 
                             <button
                                 className="button"
                                 type="button"
-                                onClick={stopCaptureAfterQueuedDrops}
+                                onClick={() => void stopCaptureAfterQueuedDrops()}
                                 disabled={stoppingCapture}
                             >
                                 {stoppingCapture

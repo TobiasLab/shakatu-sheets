@@ -48,6 +48,7 @@ import { type LootSearchFrame, NormalLootLocalizer } from "../../recognition/liv
 import {
     createLiveLootOcrPacer,
     createLiveLootTesseractOcr,
+    type LiveLootOcrPacer,
     type LiveLootTesseractOcr,
     serializeLiveLootOcrReader,
 } from "../../recognition/liveLootOcr";
@@ -134,6 +135,10 @@ const RARE_MAX_OUTSTANDING_OCR_JOBS = 2;
 const OCR_REST_RATIO = 3;
 const OCR_MAXIMUM_REST_MS = 300;
 const OCR_URGENT_NORMAL_JOBS = 12;
+/** How long Stop capture may spend reading queued drops before it stops anyway. */
+const STOP_DRAIN_LIMIT_MS = 10_000;
+/** Closing the app reads queued drops for at most this long. */
+export const EXIT_DRAIN_LIMIT_MS = 3_000;
 let nextNativeCaptureToken = Date.now() * 1_000;
 
 function emptyOcrDiagnostics(): OcrDiagnostics {
@@ -305,6 +310,7 @@ export function useLiveLootCapture({
     const itemDictionaryRef = useRef(itemDictionary);
     const [status, setStatus] = useState<CaptureStatus>("idle");
     const [stoppingCapture, setStoppingCapture] = useState(false);
+    const stoppingDrain = useRef<Promise<void> | null>(null);
     const [error, setError] = useState("");
     const [sampledFps, setSampledFps] = useState(0);
     const [previewsEnabled, setPreviewsEnabled] = useState(true);
@@ -444,18 +450,24 @@ export function useLiveLootCapture({
         diagnostics.lastDurationMs = duration;
     }
 
-    function measuredOcrReader(readText: LiveLootOcrReader, generation: number): LiveLootOcrReader {
+    function measuredOcrReader(
+        readText: LiveLootOcrReader,
+        generation: number,
+        pacer: LiveLootOcrPacer,
+    ): LiveLootOcrReader {
         // A drop's frames can be read in several calls; they add up to one job.
         let lastEventId: string | undefined;
         return async (frames, signal) => {
             if (!diagnosticsVisible.current) return readText(frames, signal);
             const started = performance.now();
+            const restedBefore = pacer.restedMs;
             try {
                 return await readText(frames, signal);
             } finally {
                 if (generation === recognitionGeneration.current) {
                     const diagnostics = ocrDiagnosticsRef.current.worker;
-                    const duration = performance.now() - started;
+                    // Pacing rests are not OCR work.
+                    const duration = performance.now() - started - (pacer.restedMs - restedBefore);
                     const eventId = frames[0]?.eventId;
                     if (eventId === undefined || eventId !== lastEventId) {
                         diagnostics.completedJobs += 1;
@@ -733,23 +745,43 @@ export function useLiveLootCapture({
         }
     }
 
-    function prepareReview() {
+    async function prepareReview() {
+        // A Stop capture still reading its last drops stops capture when done; review what it read.
+        await stoppingDrain.current;
         return finishRecognitionThenStop(() => review.unacceptedReviewCount());
     }
 
-    /** The Stop capture button: paced OCR can hold seconds of drops, so they are read before capture stops. */
-    function stopCaptureAfterQueuedDrops() {
-        if (stoppingCapture) return;
-        if (status !== "capturing" || (!recognition.current && !recognitionStartup.current)) {
+    /**
+     * Reads queued drops at full speed for at most `limitMs`, then stops capture. Paced OCR can hold seconds of drops,
+     * which stopping right away would discard. Without a running pipeline nothing is queued, so it stops at once.
+     */
+    function stopCaptureAfterQueuedDrops(limitMs = STOP_DRAIN_LIMIT_MS): Promise<void> {
+        if (stoppingDrain.current) return stoppingDrain.current;
+        if (status !== "capturing" || !recognition.current) {
             stopCapture();
-            return;
+            return Promise.resolve();
         }
+        const captureRequest = requestId.current;
         setStoppingCapture(true);
-        void finishRecognitionThenStop(() => undefined)
-            .catch(() => undefined)
-            .finally(() => {
-                if (mounted.current) setStoppingCapture(false);
-            });
+        let timer: number | undefined;
+        const drain: Promise<void> = Promise.race([
+            finishRecognitionThenStop(() => undefined).then(
+                () => undefined,
+                () => undefined,
+            ),
+            new Promise<void>((resolve) => {
+                timer = window.setTimeout(resolve, limitMs);
+            }),
+        ]).finally(() => {
+            window.clearTimeout(timer);
+            if (stoppingDrain.current === drain) stoppingDrain.current = null;
+            if (!mounted.current) return;
+            setStoppingCapture(false);
+            // A session change or a stalled worker skips the stop above, but the user still asked to stop.
+            if (requestId.current === captureRequest) stopCapture();
+        });
+        stoppingDrain.current = drain;
+        return drain;
     }
 
     function stopCapture() {
@@ -1295,29 +1327,26 @@ export function useLiveLootCapture({
             if (!mounted.current || generation !== recognitionGeneration.current) return;
             let createdOcr: LiveLootTesseractOcr | null = null;
             try {
-                const ocr = await createLiveLootTesseractOcr({
-                    font: captureFont,
-                    // A rare banner or a filling queue reads at full speed; otherwise half speed keeps bursts cool.
-                    pace: createLiveLootOcrPacer({
-                        restRatio: OCR_REST_RATIO,
-                        maximumRestMs: OCR_MAXIMUM_REST_MS,
-                        urgent: () => {
-                            const pipeline = recognition.current;
-                            return (
-                                !pipeline ||
-                                closingRecognition.current ||
-                                pipeline.rareCoordinator.pendingOcrJobCount > 0 ||
-                                pipeline.normalCoordinator.pendingOcrJobCount >= OCR_URGENT_NORMAL_JOBS
-                            );
-                        },
-                    }),
+                // This worker's own coordinators, once created; a replacement pipeline has its own worker.
+                let ownCoordinators: { normal: LiveLootCoordinator; rare: () => LiveLootCoordinator } | undefined;
+                // A rare banner, a filling queue or a finishing capture reads at full speed; otherwise quarter speed
+                // keeps bursts from holding one core at full boost.
+                const pacer = createLiveLootOcrPacer({
+                    restRatio: OCR_REST_RATIO,
+                    maximumRestMs: OCR_MAXIMUM_REST_MS,
+                    urgent: () =>
+                        !ownCoordinators ||
+                        closingRecognition.current ||
+                        ownCoordinators.rare().pendingOcrJobCount > 0 ||
+                        ownCoordinators.normal.pendingOcrJobCount >= OCR_URGENT_NORMAL_JOBS,
                 });
+                const ocr = await createLiveLootTesseractOcr({ font: captureFont, pacer });
                 createdOcr = ocr;
                 if (!mounted.current || generation !== recognitionGeneration.current) {
                     await ocr.terminate();
                     return;
                 }
-                const readText = serializeLiveLootOcrReader(measuredOcrReader(ocr.readText, generation));
+                const readText = serializeLiveLootOcrReader(measuredOcrReader(ocr.readText, generation, pacer));
                 const appendResult = (source: LiveLootReviewEntry["source"], result: LiveLootRecognitionResult) => {
                     if (
                         !mounted.current ||
@@ -1406,6 +1435,7 @@ export function useLiveLootCapture({
                     ocr,
                 };
                 recognition.current = pipeline;
+                ownCoordinators = { normal: pipeline.normalCoordinator, rare: () => pipeline.rareCoordinator };
                 const replay = pendingLocalizationReplay.current.splice(0);
                 const pending = pendingRecognitionFrames.current.splice(0);
                 const pendingRare = pendingRareRecognitionFrames.current.splice(0);
