@@ -54,9 +54,10 @@ export function App() {
     );
     const selfImprovement = useSelfImprovement();
     const [showSelfImprovement, setShowSelfImprovement] = useState(false);
-    const stopCaptureRef = useRef<(() => void) | null>(null);
+    const stopCaptureRef = useRef<(() => Promise<void>) | null>(null);
     const persistedSession = usePersistedSession(async () => {
-        stopCaptureRef.current?.();
+        // Reads drops that paced OCR still holds, briefly, so closing right after a pack keeps them.
+        await stopCaptureRef.current?.();
         const flushes = [
             overlayOpacity.flush(),
             lootFont.flush(),

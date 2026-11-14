@@ -477,27 +477,86 @@ describe("serializeLiveLootOcrReader", () => {
 });
 
 describe("createLiveLootOcrPacer", () => {
-    it("rests in proportion to each pass, up to the maximum rest", async () => {
-        const sleep = vi.fn(async () => undefined);
-        const pace = createLiveLootOcrPacer({ restRatio: 1, maximumRestMs: 100, urgent: () => false, sleep });
+    function clock() {
+        let time = 0;
+        const sleeps: number[] = [];
+        return {
+            now: () => time,
+            sleeps,
+            advance: (ms: number) => {
+                time += ms;
+            },
+            sleep: async (ms: number) => {
+                sleeps.push(ms);
+                time += ms;
+            },
+        };
+    }
 
-        await pace(18);
-        await pace(400);
-        await pace(0);
+    it("rests before the next pass in slices, up to the maximum rest", async () => {
+        const time = clock();
+        const pacer = createLiveLootOcrPacer({ restRatio: 3, maximumRestMs: 100, urgent: () => false, ...time });
 
-        expect(sleep.mock.calls).toEqual([[18], [100]]);
+        await pacer.beforePass();
+        pacer.afterPass(20);
+        await pacer.beforePass();
+        pacer.afterPass(400);
+        await pacer.beforePass();
+
+        expect(time.sleeps).toEqual([50, 10, 50, 50]);
+        expect(pacer.restedMs).toBe(160);
     });
 
-    it("runs passes back to back while the queue is urgent", async () => {
-        const sleep = vi.fn(async () => undefined);
-        let urgent = true;
-        const pace = createLiveLootOcrPacer({ restRatio: 2, maximumRestMs: 300, urgent: () => urgent, sleep });
+    it("skips a rest that already elapsed while no pass was waiting", async () => {
+        const time = clock();
+        const pacer = createLiveLootOcrPacer({ restRatio: 3, maximumRestMs: 300, urgent: () => false, ...time });
 
-        await pace(20);
-        urgent = false;
-        await pace(20);
+        pacer.afterPass(20);
+        time.advance(45);
+        await pacer.beforePass();
 
-        expect(sleep.mock.calls).toEqual([[40]]);
+        expect(time.sleeps).toEqual([15]);
+    });
+
+    it("stops resting as soon as the queue becomes urgent", async () => {
+        const time = clock();
+        let urgent = false;
+        const pacer = createLiveLootOcrPacer({
+            restRatio: 3,
+            maximumRestMs: 300,
+            urgent: () => urgent,
+            now: time.now,
+            sleep: async (ms) => {
+                await time.sleep(ms);
+                urgent = true;
+            },
+        });
+
+        pacer.afterPass(100);
+        await pacer.beforePass();
+
+        expect(time.sleeps).toEqual([50]);
+    });
+
+    it("pauses pacing when timers are throttled", async () => {
+        const time = clock();
+        const pacer = createLiveLootOcrPacer({
+            restRatio: 3,
+            maximumRestMs: 300,
+            urgent: () => false,
+            now: time.now,
+            sleep: async (ms) => {
+                time.sleeps.push(ms);
+                time.advance(1_000);
+            },
+        });
+
+        pacer.afterPass(100);
+        await pacer.beforePass();
+        pacer.afterPass(100);
+        await pacer.beforePass();
+
+        expect(time.sleeps).toEqual([50]);
     });
 
     it("rejects a negative or non-finite rest ratio or maximum rest", () => {
@@ -513,28 +572,33 @@ describe("createLiveLootOcrPacer", () => {
 });
 
 describe("createLiveLootTesseractOcr", () => {
-    it("paces after every pass and stops a read terminated during a rest", async () => {
+    it("rests before each pass, not after the last, and stops a read terminated during a rest", async () => {
         installDocument();
         const canvas = testCanvas();
         const worker = mockWorker(async () => textResult("Black Stone x 1"));
-        const rests: number[] = [];
+        const calls: string[] = [];
         let rest = deferred<void>();
         const reader = await createLiveLootTesseractOcr({
             workerFactory: async () => worker,
             canvasFactory: () => canvas.canvas,
-            pace: (passMs) => {
-                rests.push(passMs);
-                return rest.promise;
+            pacer: {
+                restedMs: 0,
+                beforePass: () => {
+                    calls.push("before");
+                    return calls.length === 1 ? Promise.resolve() : rest.promise;
+                },
+                afterPass: (passMs) => {
+                    calls.push(passMs >= 0 ? "after" : "negative");
+                },
             },
         });
 
         const read = reader.readText([ocrFrame()], new AbortController().signal);
-        await vi.waitFor(() => expect(rests).toHaveLength(1));
+        await vi.waitFor(() => expect(calls).toEqual(["before", "after", "before"]));
         rest.resolve();
         rest = deferred<void>();
-        await vi.waitFor(() => expect(rests).toHaveLength(2));
+        await vi.waitFor(() => expect(calls).toEqual(["before", "after", "before", "after", "before"]));
         expect(worker.recognize).toHaveBeenCalledTimes(2);
-        expect(rests.every((passMs) => passMs >= 0)).toBe(true);
         const termination = reader.terminate();
         rest.resolve();
 

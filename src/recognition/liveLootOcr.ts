@@ -259,37 +259,70 @@ export type LiveLootTesseractOcrOptions = {
     font?: LootFont;
     workerFactory?: LiveLootOcrWorkerFactory;
     canvasFactory?: LiveLootOcrCanvasFactory;
-    /** Called after each Tesseract pass with how long it took; the next pass waits for it. */
-    pace?: LiveLootOcrPacer;
+    /** Spaces Tesseract passes out; see `createLiveLootOcrPacer`. */
+    pacer?: LiveLootOcrPacer;
 };
 
-export type LiveLootOcrPacer = (passMs: number) => Promise<void>;
+export type LiveLootOcrPacer = {
+    /** Waits out the rest earned by the previous pass, unless the queue is urgent. */
+    beforePass(): Promise<void>;
+    afterPass(passMs: number): void;
+    /** Total time spent resting, so timing diagnostics can leave it out. */
+    readonly restedMs: number;
+};
+
+/** Rests wake this often to re-check urgency, so a rare banner or a finishing capture never waits out a rest. */
+const ocrRestSliceMs = 50;
+/** A rest slice that oversleeps this much means the WebView throttles timers, as it does for hidden windows. */
+const throttledSliceMs = 500;
+const throttledPauseMs = 30_000;
 
 /**
- * Rests after each OCR pass for `restRatio` times as long as the pass took. A burst of drops otherwise keeps one core
- * at full boost for seconds, which is enough to spin up fans. Passes run back to back while `urgent` returns true, so
- * pacing never lets the job queue overflow and drop notifications.
+ * Rests before each OCR pass for `restRatio` times as long as the previous pass took. A burst of drops otherwise keeps
+ * one core at full boost for seconds, which is enough to spin up fans. Passes run back to back while `urgent` returns
+ * true, so pacing never lets the job queue overflow. The rest comes before the next pass, so a lone drop's result is
+ * never held back. When timers are throttled, pacing pauses rather than stretching each rest to a second or more.
  */
 export function createLiveLootOcrPacer({
     restRatio,
     maximumRestMs,
     urgent,
+    now = () => performance.now(),
     sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms)),
 }: {
     restRatio: number;
     /** The longest rest after one pass, so one slow pass cannot hold up the queue for long. */
     maximumRestMs: number;
     urgent: () => boolean;
+    now?: () => number;
     sleep?: (ms: number) => Promise<void>;
 }): LiveLootOcrPacer {
     if (!(restRatio >= 0) || !Number.isFinite(restRatio))
         throw new Error("OCR rest ratio must be a finite number >= 0.");
     if (!(maximumRestMs >= 0) || !Number.isFinite(maximumRestMs))
         throw new Error("OCR maximum rest must be a finite number >= 0.");
-    return async (passMs) => {
-        if (urgent()) return;
-        const rest = Math.min(maximumRestMs, Math.max(0, passMs) * restRatio);
-        if (rest > 0) await sleep(rest);
+    let restUntil = Number.NEGATIVE_INFINITY;
+    let throttledUntil = Number.NEGATIVE_INFINITY;
+    let restedMs = 0;
+    return {
+        get restedMs() {
+            return restedMs;
+        },
+        afterPass(passMs) {
+            restUntil = now() + Math.min(maximumRestMs, Math.max(0, passMs) * restRatio);
+        },
+        async beforePass() {
+            while (!urgent() && now() >= throttledUntil) {
+                const remaining = restUntil - now();
+                if (remaining <= 0) return;
+                const slice = Math.min(remaining, ocrRestSliceMs);
+                const started = now();
+                await sleep(slice);
+                const slept = now() - started;
+                restedMs += slept;
+                if (slept > slice + throttledSliceMs) throttledUntil = now() + throttledPauseMs;
+            }
+        },
     };
 }
 
@@ -343,7 +376,7 @@ export async function createLiveLootTesseractOcr({
     font = "korean",
     workerFactory = defaultWorkerFactory,
     canvasFactory = defaultCanvasFactory,
-    pace,
+    pacer,
 }: LiveLootTesseractOcrOptions = {}): Promise<LiveLootTesseractOcr> {
     const ocrRoot = new URL("ocr/", document.baseURI);
     const worker = await workerFactory("eng", OEM.LSTM_ONLY, {
@@ -420,6 +453,10 @@ export async function createLiveLootTesseractOcr({
                 job.frames?.[frameIndex]?.textColor,
                 async (threshold, scale, region) => {
                     if (closed) throw closedError();
+                    if (pacer) {
+                        await pacer.beforePass();
+                        if (closed) throw closedError();
+                    }
                     if (quantityMode !== (region === "quantity")) {
                         const useQuantity = region === "quantity";
                         quantityMode = undefined;
@@ -460,10 +497,7 @@ export async function createLiveLootTesseractOcr({
                     if (closed) throw closedError();
                     const text = result.data.text.trim();
                     diagnostics?.passes.push({ threshold, scale, region, text: text.slice(0, 512) });
-                    if (pace) {
-                        await pace(performance.now() - started);
-                        if (closed) throw closedError();
-                    }
+                    pacer?.afterPass(performance.now() - started);
                     return text;
                 },
                 job.frames?.[frameIndex]?.textColor !== "gold" &&
