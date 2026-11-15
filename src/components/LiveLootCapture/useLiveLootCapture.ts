@@ -129,11 +129,14 @@ const MAX_PENDING_RECOGNITION_FRAMES = 64;
 const NORMAL_MAX_OUTSTANDING_OCR_JOBS = 16;
 const RARE_MAX_OUTSTANDING_OCR_JOBS = 2;
 /**
- * OCR rests three times as long as each pass took (quarter speed), at most 300 ms, until this many normal jobs are
- * outstanding. Results arrive seconds later in a burst, but one core no longer runs at full boost for its duration.
+ * OCR rests up to three times as long as each pass took (quarter speed), at most 300 ms, so a short burst of drops does
+ * not hold one core at full boost. It speeds up in proportion as the oldest queued drop waits, reaching full speed at
+ * `OCR_LAG_LIMIT_MS` so results stay within a few seconds of the drop, and as the queue fills, reaching full speed at
+ * `OCR_URGENT_NORMAL_JOBS` so it never overflows.
  */
 const OCR_REST_RATIO = 3;
 const OCR_MAXIMUM_REST_MS = 300;
+const OCR_LAG_LIMIT_MS = 3_000;
 const OCR_URGENT_NORMAL_JOBS = 12;
 /** How long Stop capture may spend reading queued drops before it stops anyway. */
 const STOP_DRAIN_LIMIT_MS = 10_000;
@@ -1329,16 +1332,18 @@ export function useLiveLootCapture({
             try {
                 // This worker's own coordinators, once created; a replacement pipeline has its own worker.
                 let ownCoordinators: { normal: LiveLootCoordinator; rare: () => LiveLootCoordinator } | undefined;
-                // A rare banner, a filling queue or a finishing capture reads at full speed; otherwise quarter speed
-                // keeps bursts from holding one core at full boost.
+                // A rare banner or a finishing capture reads at full speed. Otherwise OCR speeds up as drops wait or
+                // the queue fills, and at quarter speed keeps short bursts from holding one core at full boost.
                 const pacer = createLiveLootOcrPacer({
                     restRatio: OCR_REST_RATIO,
                     maximumRestMs: OCR_MAXIMUM_REST_MS,
-                    urgent: () =>
-                        !ownCoordinators ||
-                        closingRecognition.current ||
-                        ownCoordinators.rare().pendingOcrJobCount > 0 ||
-                        ownCoordinators.normal.pendingOcrJobCount >= OCR_URGENT_NORMAL_JOBS,
+                    pressure: () =>
+                        !ownCoordinators || closingRecognition.current || ownCoordinators.rare().pendingOcrJobCount > 0
+                            ? 1
+                            : Math.max(
+                                  ownCoordinators.normal.oldestOcrJobWaitMs / OCR_LAG_LIMIT_MS,
+                                  ownCoordinators.normal.pendingOcrJobCount / OCR_URGENT_NORMAL_JOBS,
+                              ),
                 });
                 const ocr = await createLiveLootTesseractOcr({ font: captureFont, pacer });
                 createdOcr = ocr;

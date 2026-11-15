@@ -552,6 +552,39 @@ describe("live loot streaming coordination", () => {
         expect(results.map(({ status }) => status)).toEqual(["recognized", "recognized"]);
     });
 
+    it("reports how long the oldest outstanding OCR job has waited", async () => {
+        const first = deferred<readonly (readonly string[])[]>();
+        const second = deferred<readonly (readonly string[])[]>();
+        const secondReadStarted = deferred<void>();
+        let time = 1_000;
+        let reads = 0;
+        const coordinator = new LiveLootCoordinator({
+            profile: streamingProfile,
+            dictionary: ["Black Stone"],
+            maxPendingOcrJobs: 2,
+            now: () => time,
+            readText: () => {
+                reads += 1;
+                if (reads === 2) secondReadStarted.resolve();
+                return reads === 1 ? first.promise : second.promise;
+            },
+            onResult: () => undefined,
+        });
+        expect(coordinator.oldestOcrJobWaitMs).toBe(0);
+        pushRowSequence(coordinator, [0, 2, 2, 2, 2, 2]);
+        time += 2_500;
+
+        expect(coordinator.pendingOcrJobCount).toBe(2);
+        expect(coordinator.oldestOcrJobWaitMs).toBe(2_500);
+        const finishing = coordinator.finish();
+        first.resolve(acceptedReadings);
+        await secondReadStarted.promise;
+        expect(coordinator.oldestOcrJobWaitMs).toBe(2_500);
+        second.resolve(acceptedReadings);
+        await finishing;
+        expect(coordinator.oldestOcrJobWaitMs).toBe(0);
+    });
+
     it("retains a simultaneous five-row burst when the pending OCR capacity is eight", async () => {
         const pending = deferred<readonly (readonly string[])[]>();
         const results: LiveLootRecognitionResult[] = [];

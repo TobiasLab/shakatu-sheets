@@ -495,7 +495,7 @@ describe("createLiveLootOcrPacer", () => {
 
     it("rests before the next pass in slices, up to the maximum rest", async () => {
         const time = clock();
-        const pacer = createLiveLootOcrPacer({ restRatio: 3, maximumRestMs: 100, urgent: () => false, ...time });
+        const pacer = createLiveLootOcrPacer({ restRatio: 3, maximumRestMs: 100, pressure: () => 0, ...time });
 
         await pacer.beforePass();
         pacer.afterPass(20);
@@ -509,7 +509,7 @@ describe("createLiveLootOcrPacer", () => {
 
     it("skips a rest that already elapsed while no pass was waiting", async () => {
         const time = clock();
-        const pacer = createLiveLootOcrPacer({ restRatio: 3, maximumRestMs: 300, urgent: () => false, ...time });
+        const pacer = createLiveLootOcrPacer({ restRatio: 3, maximumRestMs: 300, pressure: () => 0, ...time });
 
         pacer.afterPass(20);
         time.advance(45);
@@ -518,13 +518,27 @@ describe("createLiveLootOcrPacer", () => {
         expect(time.sleeps).toEqual([15]);
     });
 
+    it("shortens the rest in proportion to pressure", async () => {
+        const time = clock();
+        let pressure = 0.5;
+        const pacer = createLiveLootOcrPacer({ restRatio: 3, maximumRestMs: 300, pressure: () => pressure, ...time });
+
+        pacer.afterPass(20);
+        await pacer.beforePass();
+        expect(time.sleeps).toEqual([30]);
+        pressure = 2;
+        pacer.afterPass(20);
+        await pacer.beforePass();
+        expect(time.sleeps).toEqual([30]);
+    });
+
     it("stops resting as soon as the queue becomes urgent", async () => {
         const time = clock();
         let urgent = false;
         const pacer = createLiveLootOcrPacer({
             restRatio: 3,
             maximumRestMs: 300,
-            urgent: () => urgent,
+            pressure: () => (urgent ? 1 : 0),
             now: time.now,
             sleep: async (ms) => {
                 await time.sleep(ms);
@@ -543,7 +557,7 @@ describe("createLiveLootOcrPacer", () => {
         const pacer = createLiveLootOcrPacer({
             restRatio: 3,
             maximumRestMs: 300,
-            urgent: () => false,
+            pressure: () => 0,
             now: time.now,
             sleep: async (ms) => {
                 time.sleeps.push(ms);
@@ -561,10 +575,10 @@ describe("createLiveLootOcrPacer", () => {
 
     it("rejects a negative or non-finite rest ratio or maximum rest", () => {
         for (const value of [-1, Number.NaN, Number.POSITIVE_INFINITY]) {
-            expect(() => createLiveLootOcrPacer({ restRatio: value, maximumRestMs: 100, urgent: () => false })).toThrow(
+            expect(() => createLiveLootOcrPacer({ restRatio: value, maximumRestMs: 100, pressure: () => 0 })).toThrow(
                 /rest ratio/,
             );
-            expect(() => createLiveLootOcrPacer({ restRatio: 1, maximumRestMs: value, urgent: () => false })).toThrow(
+            expect(() => createLiveLootOcrPacer({ restRatio: 1, maximumRestMs: value, pressure: () => 0 })).toThrow(
                 /maximum rest/,
             );
         }
