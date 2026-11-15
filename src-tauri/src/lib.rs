@@ -67,6 +67,8 @@ pub fn run() {
         persistence::sessions::load_active_session,
         persistence::consumable_presets::load_consumable_presets,
         persistence::consumable_presets::save_consumable_presets,
+        persistence::item_lists::load_item_lists,
+        persistence::item_lists::save_item_lists,
         persistence::loot_font::load_loot_font,
         persistence::loot_font::save_loot_font,
         persistence::quantity_learning::quantity_learning,

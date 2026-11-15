@@ -5,6 +5,8 @@ import {
     appendLiveLootReviewResult,
     correctLiveLootReviewEntry,
     type LiveLootReviewEntry,
+    namesIgnoredItem,
+    readItemName,
 } from "./liveLootReview";
 
 function entry(id: number, status: LiveLootRecognitionResult["status"] = "recognized"): LiveLootReviewEntry {
@@ -130,5 +132,62 @@ describe("manual capture correction", () => {
         expect(rejected).toMatchObject({ accepted: false, error: "Price unavailable" });
         expect(rejected.result).toBe(pending.result);
         expect(correctLiveLootReviewEntry(rejected, "Black Stone", 1, () => null).accepted).toBe(true);
+    });
+});
+
+describe("ignoring an item from Needs attention", () => {
+    function withheld(id: number, readings: string[][]): LiveLootReviewEntry {
+        const frame = {
+            captureToken: null,
+            batchId: null,
+            roiWidth: 1,
+            roiHeight: 1,
+            quantityBounds: null,
+            passes: [],
+        };
+        return {
+            id,
+            source: "normal",
+            accepted: false,
+            error: "",
+            result: {
+                eventId: `detected-${id}`,
+                firstFrame: id,
+                selectedFrames: [],
+                itemName: null,
+                quantity: null,
+                status: "withheld",
+                reason: "quantity-not-recognized",
+                capture: {
+                    width: 1,
+                    height: 1,
+                    pixels: new Uint8ClampedArray(4),
+                    ocrFrames: readings.map((frameReadings, index) => ({
+                        ...frame,
+                        frame: index,
+                        readings: frameReadings,
+                    })),
+                },
+            },
+        };
+    }
+    const token = "Shakatu Merchants Trade Token";
+
+    it("finds the entries that live recognition would now ignore", () => {
+        const readings = [[token, `${token} x`], [token]];
+        const ignored = [token];
+        expect(namesIgnoredItem(withheld(1, readings), ignored, ["Black Stone"])).toBe(true);
+        expect(namesIgnoredItem(withheld(2, [[token], ["noise"]]), ignored, ["Black Stone"])).toBe(false);
+        expect(namesIgnoredItem(withheld(3, [["Black Stone"], ["Black Stone"]]), ignored, ["Black Stone"])).toBe(false);
+        expect(namesIgnoredItem({ ...withheld(4, readings), accepted: true }, ignored, ["Black Stone"])).toBe(false);
+        expect(namesIgnoredItem(entry(5), ignored, ["Black Stone"])).toBe(false);
+        // Like live recognition, frames that name two different ignored items decide nothing.
+        const coin = "Shakatu Merchants Trade Coin";
+        expect(namesIgnoredItem(withheld(6, [[token], [coin]]), [coin, token], ["Black Stone"])).toBe(false);
+    });
+
+    it("suggests the item text read most often", () => {
+        expect(readItemName(withheld(1, [[`${token} x`, "Shakatu Merchants Trade Tokem"], [token]]))).toBe(token);
+        expect(readItemName(entry(2, "failed"))).toBe("");
     });
 });

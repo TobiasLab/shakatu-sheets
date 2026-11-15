@@ -8,6 +8,7 @@ use tauri::{AppHandle, Manager, State};
 
 pub(crate) mod consumable_presets;
 mod garmoth_uploads;
+pub(crate) mod item_lists;
 pub(crate) mod loot_font;
 pub(crate) mod market_prices;
 pub(crate) mod overlay;

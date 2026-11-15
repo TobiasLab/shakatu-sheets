@@ -480,6 +480,64 @@ describe("live loot streaming coordination", () => {
         ]);
     });
 
+    it("settles an ignored item from two frames and leaves its other frames unread", async () => {
+        const results: LiveLootRecognitionResult[] = [];
+        const calls: number[][] = [];
+        const coordinator = new LiveLootCoordinator({
+            profile: streamingProfile,
+            dictionary: ["Black Stone"],
+            ignoredItems: ["Shakatu Merchants Trade Token"],
+            ocrAgreementFrames: 2,
+            readText: async (frames) => {
+                calls.push(frames.map(({ frame }) => frame));
+                return frames.map(() => ["Shakatu Merchants Trade Token", "Shakatu Merchants Trade Tokem", "noise"]);
+            },
+            onResult: (result) => results.push(result),
+        });
+
+        pushRowSequence(coordinator, [0, 1, 1, 1, 1, 1]);
+        await coordinator.finish();
+
+        expect(calls).toEqual([[2, 3]]);
+        expect(results).toEqual([
+            {
+                eventId: "detected-0001",
+                firstFrame: 1,
+                selectedFrames: [2, 3],
+                itemName: "Shakatu Merchants Trade Token",
+                quantity: null,
+                status: "ignored",
+                reason: null,
+            },
+        ]);
+    });
+
+    it("applies changed item lists to later drops", async () => {
+        const results: LiveLootRecognitionResult[] = [];
+        const coordinator = new LiveLootCoordinator({
+            profile: streamingProfile,
+            dictionary: ["Black Stone"],
+            ocrAgreementFrames: 2,
+            readText: async (frames) => frames.map(() => ["Event Box x 1", "Event Box x 1", "Event Box x 1"]),
+            onResult: (result) => results.push(result),
+        });
+
+        pushRowSequence(coordinator, [0, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0]);
+        while (coordinator.pendingOcrJobCount > 0) await new Promise((resolve) => setTimeout(resolve, 1));
+        coordinator.setItemLists(["Black Stone", "Event Box"], []);
+        pushRowSequence(coordinator, [1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0]);
+        while (coordinator.pendingOcrJobCount > 0) await new Promise((resolve) => setTimeout(resolve, 1));
+        coordinator.setItemLists(["Black Stone"], ["Event Box"]);
+        pushRowSequence(coordinator, [1, 1, 1, 1, 1, 1]);
+        await coordinator.finish();
+
+        expect(results.map(({ status, itemName }) => [status, itemName])).toEqual([
+            ["withheld", null],
+            ["recognized", "Event Box"],
+            ["ignored", "Event Box"],
+        ]);
+    });
+
     it("rejects agreement over fewer than two frames", () => {
         expect(
             () =>

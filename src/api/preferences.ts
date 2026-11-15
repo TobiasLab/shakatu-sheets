@@ -1,5 +1,6 @@
 import { invoke } from "@tauri-apps/api/core";
 import { cleanSpotPreferences, type SpotPreferences } from "../components/GrindSpotPicker/preferences";
+import type { ItemLists } from "../domain/itemLists";
 
 export type Theme = "light" | "dark";
 export type TrendView = "net" | "pace";
@@ -82,4 +83,12 @@ export async function loadSpotPreferences(): Promise<SpotPreferences> {
 
 export function saveSpotPreferences(preferences: SpotPreferences) {
     return invoke<void>("save_spot_preferences", { preferences });
+}
+
+export function loadItemLists() {
+    return invoke<ItemLists>("load_item_lists");
+}
+
+export function saveItemLists(lists: ItemLists) {
+    return invoke<void>("save_item_lists", { lists });
 }

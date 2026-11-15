@@ -1,9 +1,11 @@
 import { useLayoutEffect, useRef, useState } from "react";
 import { loadLootFont, saveLootFont } from "./api/lootFont";
 import {
+    loadItemLists,
     loadSpotPreferences,
     loadTheme,
     loadTrendView,
+    saveItemLists,
     saveSpotPreferences,
     saveTheme,
     saveTrendView,
@@ -16,6 +18,7 @@ import { AppShell, type AppView } from "./components/AppShell/AppShell";
 import type { SpotPreferences } from "./components/GrindSpotPicker/preferences";
 import { focusLootReview } from "./components/LiveLootCapture/LootReview";
 import type { CaptureSummary } from "./components/LiveLootCapture/useLiveLootCapture";
+import { emptyItemLists, type ItemLists } from "./domain/itemLists";
 import { useLiveSession } from "./hooks/useLiveSession";
 import { usePersistedSession } from "./hooks/usePersistedSession";
 import { usePersistedSetting } from "./hooks/usePersistedSetting";
@@ -42,6 +45,8 @@ export function App() {
         "grind spot favorites",
         true,
     );
+    // Editing waits for the saved lists, so a failed load is never overwritten with empty ones.
+    const itemLists = usePersistedSetting<ItemLists>(emptyItemLists, loadItemLists, saveItemLists, "item lists", true);
     const overlayOpacity = usePersistedSetting(100, loadOverlayOpacity, saveOverlayOpacity, "opacity");
     const trendView = usePersistedSetting<TrendView>("net", loadTrendView, saveTrendView, "graph view");
     // Capture must not guess the in-game font, so a failed load stays unready until a font is saved.
@@ -63,6 +68,7 @@ export function App() {
             lootFont.flush(),
             theme.flush(),
             spotPreferences.flush(),
+            itemLists.flush(),
             debugRoiSamples.flush(),
             trendView.flush(),
         ];
@@ -74,6 +80,7 @@ export function App() {
         persistedSession.session,
         persistedSession.dispatch,
         persistedSession.databaseLoaded,
+        itemLists.value.generalItems,
     );
 
     const overlay = useSessionOverlay(
@@ -138,6 +145,7 @@ export function App() {
                         debugRoiSamples={debugRoiSamples.value}
                         overlay={overlay}
                         spotPreferences={spotPreferences}
+                        itemLists={itemLists}
                         trendView={trendView.value}
                         onTrendViewChange={trendView.update}
                         onOpenHistory={() => setView("history")}
@@ -170,6 +178,7 @@ export function App() {
                         marketController={liveSession}
                         theme={theme}
                         spotPreferences={spotPreferences}
+                        itemLists={itemLists}
                         onOpenCapture={openCaptureSetup}
                         overlayOpacity={overlay.supportsOpacity ? overlayOpacity : null}
                         lootFont={lootFont}

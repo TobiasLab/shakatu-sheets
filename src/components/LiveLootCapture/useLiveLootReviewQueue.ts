@@ -196,12 +196,21 @@ export function useLiveLootReviewQueue({
     }
 
     function dismissReviewResult(id: number) {
-        cancelAutomaticRetry(id);
-        manualRetryAttempts.current.delete(id);
-        const next = reviewResultsRef.current.filter((entry) => entry.id !== id);
+        dismissMatchingReviewResults((entry) => entry.id === id);
+        setRecognitionAnnouncement("Dismissed review entry. Session loot is unchanged.");
+    }
+
+    /** Dismisses every entry `matches` selects, and returns how many there were. */
+    function dismissMatchingReviewResults(matches: (entry: LiveLootReviewEntry) => boolean) {
+        const dismissed = reviewResultsRef.current.filter(matches);
+        for (const { id } of dismissed) {
+            cancelAutomaticRetry(id);
+            manualRetryAttempts.current.delete(id);
+        }
+        const next = reviewResultsRef.current.filter((entry) => !dismissed.includes(entry));
         reviewResultsRef.current = next;
         setReviewResults(next);
-        setRecognitionAnnouncement("Dismissed review entry. Session loot is unchanged.");
+        return dismissed.length;
     }
 
     function clearReviewResults() {
@@ -231,6 +240,8 @@ export function useLiveLootReviewQueue({
         acceptReviewResult,
         correctReviewResult,
         dismissReviewResult,
+        dismissMatchingReviewResults,
+        announce: setRecognitionAnnouncement,
         clearReviewResults,
         resetReviewResults,
         clearAutomaticRetries,

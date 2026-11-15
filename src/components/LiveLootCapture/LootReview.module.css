@@ -105,6 +105,22 @@
 .DetailHeader > button {
     flex-shrink: 0;
 }
+.DetailActions {
+    display: flex;
+    flex-shrink: 0;
+    gap: 4px;
+}
+.IgnoreForm {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-end;
+    gap: 12px;
+    margin-bottom: 16px;
+}
+.IgnoreForm .Error {
+    flex-basis: 100%;
+    margin: 0;
+}
 .DetailMeta {
     color: var(--muted);
     font-size: 11px;

@@ -1,6 +1,7 @@
 import { grindSpots, supplementalDrops } from "../data/grindSpots";
 
-function normalizeItem(value: string) {
+/** An item name as recognition compares it: lowercase ASCII letters and digits only. */
+export function normalizeItem(value: string) {
     return value.toLowerCase().replace(/[^a-z0-9]/g, "");
 }
 
@@ -28,8 +29,10 @@ function editDistance(left: string, right: string) {
     return previous[right.length];
 }
 
-export function parseLootItem(text: string, dictionary: readonly string[]) {
-    const reading = text.match(/^(.*?)x\s*(?:\d+|[|Il])\s*[.,:;!?"'“”‘’–—-]*\s*$/i)?.[1];
+const quantitySuffix = /^(.*?)x\s*(?:\d+|[|Il])\s*[.,:;!?"'“”‘’–—-]*\s*$/i;
+
+export function parseLootItem(text: string, dictionary: readonly string[], ignoredItems: readonly string[] = []) {
+    const reading = text.match(quantitySuffix)?.[1];
     if (!reading) return null;
     const normalized = normalizeItem(reading);
     const joinedMarker = !/\s$/.test(reading);
@@ -50,8 +53,9 @@ export function parseLootItem(text: string, dictionary: readonly string[]) {
     if (best.distance === 0) return best.item;
     // A clear reading of an item this spot cannot drop (for example "Deboreka Earring" at a spot that drops
     // "Deboreka Ring") must not become the similar dictionary item, so decline when another known item is closer.
+    // An ignored item counts as known too, so its reading is never taken for a similar dictionary item.
     const dictionaryItems = new Set(dictionary.map(normalizeItem));
-    const closerElsewhere = knownLootItems().some((item) => {
+    const closerElsewhere = otherKnownItems(ignoredItems).some((item) => {
         const longest = Math.max(normalized.length, item.length);
         // Edit distance is at least the length difference, so most names are ruled out without computing it.
         if (dictionaryItems.has(item) || Math.abs(normalized.length - item.length) / longest >= best.distance)
@@ -74,6 +78,106 @@ function knownLootItems() {
         ),
     ];
     return knownItems;
+}
+
+// Recognition passes the same list arrays until the user edits them, so one cached entry keyed on their identity
+// keeps this work off the per-reading path.
+let otherItemsCache: { ignoredItems: readonly string[]; items: string[] } | undefined;
+
+/** Known loot plus the ignored items, normalized. */
+function otherKnownItems(ignoredItems: readonly string[]) {
+    if (ignoredItems.length === 0) return knownLootItems();
+    if (otherItemsCache?.ignoredItems !== ignoredItems)
+        otherItemsCache = { ignoredItems, items: [...knownLootItems(), ...ignoredItems.map(normalizeItem)] };
+    return otherItemsCache.items;
+}
+
+let ignoreNamesCache:
+    | {
+          dictionary: readonly string[];
+          ignoredItems: readonly string[];
+          ignored: Map<string, string>;
+          realItems: string[];
+      }
+    | undefined;
+
+/** The normalized ignored items, and every other name a reading could be: the dictionary and all known loot. */
+function ignoreNames(dictionary: readonly string[], ignoredItems: readonly string[]) {
+    if (ignoreNamesCache?.dictionary !== dictionary || ignoreNamesCache.ignoredItems !== ignoredItems) {
+        const ignored = new Map(ignoredItems.map((item) => [normalizeItem(item), item]));
+        ignored.delete("");
+        const realItems = [...new Set([...dictionary.map(normalizeItem), ...knownLootItems()])].filter(
+            (item) => item && !ignored.has(item),
+        );
+        ignoreNamesCache = { dictionary, ignoredItems, ignored, realItems };
+    }
+    return ignoreNamesCache;
+}
+
+/** An ignored item must be at least this close; a reading of a real item vetoes ignoring when it is within reach. */
+const IGNORED_ITEM_DISTANCE = 0.2;
+const REAL_ITEM_DISTANCE = 0.35;
+
+/** A reading without its quantity suffix or stray punctuation at either end, as a starting point for a name. */
+export function lootItemText(text: string) {
+    return (text.match(quantitySuffix)?.[1] ?? text.replace(/\s+x(?![a-z]).*$/i, ""))
+        .replace(/^[^a-z0-9[(]+|[^a-z0-9)\]]+$/gi, "")
+        .trim();
+}
+
+/** A reading's normalized item text, with and without anything that looks like a quantity suffix. */
+function itemTexts(text: string) {
+    return [
+        ...new Set(
+            [text, text.match(quantitySuffix)?.[1] ?? text, text.replace(/\s+x(?![a-z]).*$/i, "")]
+                .map(normalizeItem)
+                .filter(Boolean),
+        ),
+    ];
+}
+
+function nameDistance(texts: readonly string[], name: string, limit = 1) {
+    let best = Number.POSITIVE_INFINITY;
+    for (const text of texts) {
+        const longest = Math.max(text.length, name.length);
+        // Edit distance is at least the length difference, so most names are ruled out without computing it.
+        if (Math.abs(text.length - name.length) / longest > limit) continue;
+        best = Math.min(best, editDistance(text, name) / longest);
+    }
+    return best;
+}
+
+/**
+ * The ignored item a drop's readings name, or null. Each reading belongs to the closest name among the ignored items,
+ * the dictionary and every grind spot's loot. The drop is ignored only when at least two frames have a reading closest
+ * to the same ignored item, and no reading of any frame is at least as close to a real item, so a misread real item
+ * is never dropped silently. Readings need no quantity: some ignored items never show a readable one.
+ */
+function ignoredLootItem(
+    rawReadings: readonly (readonly string[])[],
+    dictionary: readonly string[],
+    ignoredItems: readonly string[],
+) {
+    const { ignored, realItems } = ignoreNames(dictionary, ignoredItems);
+    const frames = new Map<string, number>();
+    for (const readings of rawReadings) {
+        const named = new Set<string>();
+        for (const text of readings) {
+            const texts = itemTexts(text);
+            let closest: { item: string | null; distance: number } = { item: null, distance: 1 };
+            for (const [normalized, item] of ignored) {
+                const distance = nameDistance(texts, normalized);
+                if (distance < closest.distance) closest = { item, distance };
+                else if (distance === closest.distance) closest = { item: null, distance };
+            }
+            const limit = Math.min(REAL_ITEM_DISTANCE, closest.distance);
+            if (realItems.some((item) => nameDistance(texts, item, limit) <= limit)) return null;
+            if (closest.item !== null && closest.distance <= IGNORED_ITEM_DISTANCE) named.add(closest.item);
+        }
+        for (const item of named) frames.set(item, (frames.get(item) ?? 0) + 1);
+    }
+    const supported = [...frames].filter(([, count]) => count >= 2);
+    return supported.length === 1 && frames.size === 1 ? supported[0][0] : null;
 }
 
 type ParsedLootReading = { item: string | null; quantity: number | null };
@@ -124,10 +228,14 @@ function chooseTemporalPairConsensus(readingsByFrame: ParsedLootReading[][]) {
     return winner;
 }
 
-export function analyzeLootReadings(rawReadings: readonly (readonly string[])[], dictionary: readonly string[]) {
+export function analyzeLootReadings(
+    rawReadings: readonly (readonly string[])[],
+    dictionary: readonly string[],
+    ignoredItems: readonly string[] = [],
+) {
     const parsed = rawReadings.map((frameReadings) =>
         frameReadings.map((text) => ({
-            item: parseLootItem(text, dictionary),
+            item: parseLootItem(text, dictionary, ignoredItems),
             quantity: parseLootQuantity(text),
         })),
     );
@@ -140,15 +248,19 @@ export function analyzeLootReadings(rawReadings: readonly (readonly string[])[],
                 frameReadings.length > 0 &&
                 frameReadings.every(({ item, quantity }) => item === consensus.item && quantity === consensus.quantity),
         );
-    if (consensus) return { consensus, reason: null as null, conflicting: false, unanimous };
+    if (consensus) return { consensus, reason: null as null, conflicting: false, unanimous, ignored: null };
     // Two frames confidently reading different pairs veto every consensus, and more frames cannot lift that veto.
     const conflicting = confidentLootPairs(parsed).size > 1;
     const readings = parsed.flat();
+    const ignored =
+        ignoredItems.length > 0 && !readings.some(({ item }) => item !== null)
+            ? ignoredLootItem(rawReadings, dictionary, ignoredItems)
+            : null;
     if (!readings.some(({ quantity }) => quantity !== null)) {
-        return { consensus: null, reason: "quantity-not-recognized" as const, conflicting, unanimous: false };
+        return { consensus: null, reason: "quantity-not-recognized" as const, conflicting, unanimous: false, ignored };
     }
     if (!readings.some(({ item }) => item !== null)) {
-        return { consensus: null, reason: "item-not-recognized" as const, conflicting, unanimous: false };
+        return { consensus: null, reason: "item-not-recognized" as const, conflicting, unanimous: false, ignored };
     }
-    return { consensus: null, reason: "consensus-withheld" as const, conflicting, unanimous: false };
+    return { consensus: null, reason: "consensus-withheld" as const, conflicting, unanimous: false, ignored };
 }

@@ -85,6 +85,8 @@ enum Source {
 #[serde(rename_all = "lowercase")]
 enum Status {
     Recognized,
+    /// A drop recognition matched to the user's ignore list; it names the item but has no quantity.
+    Ignored,
     Withheld,
     Failed,
     Dropped,
@@ -113,6 +115,13 @@ impl OcrIssue {
                         .quantity
                         .is_some_and(|quantity| quantity > 0 && quantity <= MAX_SAFE_INTEGER as u64)
             }
+            Status::Ignored => {
+                self.reason.is_none()
+                    && self.event_id.is_some()
+                    && self.count == 1
+                    && self.item_name.as_ref().is_some_and(|name| !name.is_empty())
+                    && self.quantity.is_none()
+            }
             Status::Withheld => matches!(
                 self.reason.as_deref().unwrap_or(""),
                 "insufficient-observations"
@@ -139,7 +148,7 @@ impl OcrIssue {
             }
         };
         if !valid_reason
-            || (!matches!(self.status, Status::Recognized)
+            || (!matches!(self.status, Status::Recognized | Status::Ignored)
                 && (self.item_name.is_some() || self.quantity.is_some()))
             || self
                 .item_name

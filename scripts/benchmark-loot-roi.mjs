@@ -13,6 +13,7 @@ import { preprocessLootOcrFrame, readLootOcrFrame } from "../src/recognition/liv
 import { findLiveLootProfile, findRareLootGeometry } from "../src/recognition/liveLootProfiles.ts";
 import { ledgerCorrectsArrivals } from "../src/recognition/lootBrightnessLedger.ts";
 import { isLootFont } from "../src/recognition/lootFont.ts";
+import { normalizeItem } from "../src/recognition/lootReadings.ts";
 import {
     RARE_LOOT_OCR_SELECTION,
     RareLootFrameAnalyzer,
@@ -33,6 +34,7 @@ const { values } = parseArgs({
         trace: { type: "string" },
         learning: { type: "string" },
         ledger: { type: "string" },
+        ignore: { type: "string", multiple: true },
         "sample-step": { type: "string", default: "1" },
         "sample-offset": { type: "string", default: "0" },
     },
@@ -46,7 +48,7 @@ if (![1, 2].includes(sampleStep) || !Number.isInteger(sampleOffset) || sampleOff
     throw new Error("Sampling requires --sample-step 1 or 2 and an offset smaller than the step.");
 if (!root)
     throw new Error(
-        "Usage: npm run benchmark:loot:roi -- <live-loot directory> [--validation] [--ocr] [--annotations labels.json] [--output report.json] [--trace readings.jsonl] [--learning learning.json] [--ledger ledger.json] [--sample-step 1|2] [--sample-offset 0|1]",
+        "Usage: npm run benchmark:loot:roi -- <live-loot directory> [--validation] [--ocr] [--annotations labels.json] [--output report.json] [--trace readings.jsonl] [--learning learning.json] [--ledger ledger.json] [--ignore item-name]... [--sample-step 1|2] [--sample-offset 0|1]",
     );
 if (values.learning && !useOcr) throw new Error("--learning needs --ocr: recognized readings are its labels.");
 const reportPaths = [values.output, values.trace, values.learning, values.ledger].filter(Boolean);
@@ -62,6 +64,10 @@ const annotations = JSON.parse(await readFile(values.annotations ?? join(root, "
 const cases = JSON.parse(await readFile(new URL("./fixtures/loot-roi-cases.json", import.meta.url), "utf8"));
 if (annotations.version !== 1 || !Array.isArray(annotations.runs) || !annotations.itemDictionary?.length)
     throw new Error("Unsupported ROI annotations.");
+// As in the app, an ignored item leaves the recognition dictionary.
+const ignoredItems = values.ignore ?? [];
+const ignoredKeys = new Set(ignoredItems.map(normalizeItem));
+const dictionary = annotations.itemDictionary.filter((name) => !ignoredKeys.has(normalizeItem(name)));
 
 async function batchIds(directory) {
     const paths = [];
@@ -186,6 +192,7 @@ try {
             const ledgerEvents = [];
             let ocrJobs = 0;
             let ocrCalls = 0;
+            let ocrPasses = 0;
             let lastOcrEventId;
             const coordinator = new LiveLootCoordinator({
                 font,
@@ -196,7 +203,8 @@ try {
                     kind === "normal" && !values.learning ? NORMAL_LOOT_OCR_AGREEMENT_FRAMES : undefined,
                 ocrSelection: NORMAL_LOOT_OCR_SELECTION,
                 profile,
-                dictionary: annotations.itemDictionary,
+                dictionary,
+                ignoredItems,
                 ...(kind === "rare"
                     ? {
                           analyzeFrame: (frame) => analyzer.pushFrame(frame),
@@ -239,6 +247,7 @@ try {
                                     Buffer.from(`P5\n${image.width} ${image.height}\n255\n`),
                                     grayscale,
                                 ]);
+                                ocrPasses += 1;
                                 const text = (await worker.recognize(pgm)).data.text.trim();
                                 frame.diagnostics?.passes.push({ threshold, scale, region, text });
                                 return text;
@@ -327,8 +336,14 @@ try {
                 candidates: results.length,
                 ocrJobs,
                 ocrCalls,
+                ...(useOcr ? { ocrPasses } : {}),
                 insufficient: results.filter((result) => result.reason === "insufficient-observations").length,
-                ...(useOcr ? { recognized: results.filter((result) => result.status === "recognized").length } : {}),
+                ...(useOcr
+                    ? {
+                          recognized: results.filter((result) => result.status === "recognized").length,
+                          ignored: results.filter((result) => result.status === "ignored").length,
+                      }
+                    : {}),
                 reviewed: run[`${kind}Reviewed`] === true,
             };
             if (summary.reviewed) summary.comparison = compare(run[`${kind}Events`], results, useOcr);

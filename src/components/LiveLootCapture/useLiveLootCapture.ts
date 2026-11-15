@@ -57,10 +57,11 @@ import {
     findRareLootGeometry,
     supportsAutomaticLootLocalization,
 } from "../../recognition/liveLootProfiles";
-import type { LiveLootReviewEntry } from "../../recognition/liveLootReview";
+import { type LiveLootReviewEntry, namesIgnoredItem } from "../../recognition/liveLootReview";
 import { ledgerCorrectsArrivals } from "../../recognition/lootBrightnessLedger";
 import { LIVE_LOOT_SAMPLE_FPS } from "../../recognition/lootCaptureTiming";
 import type { LootFont } from "../../recognition/lootFont";
+import { normalizeItem } from "../../recognition/lootReadings";
 import { suggestUnresolvedQuantity } from "../../recognition/quantityLearning";
 import { RARE_LOOT_OCR_SELECTION, RareLootFrameAnalyzer, rareLootDetectionProfile } from "../../recognition/rareLoot";
 import { RareLootLocalizer } from "../../recognition/rareLootLocalization";
@@ -122,6 +123,10 @@ export type LiveLootCaptureProps = {
     grindSpotId: string;
     grindSpotName: string;
     itemDictionary: readonly string[];
+    /** Drops of these items are dropped silently instead of needing attention. */
+    ignoredItems: readonly string[];
+    /** Adds an item to the ignore list and saves it; resolves to why that failed, or null. */
+    onIgnoreItem: (itemName: string) => Promise<string | null>;
     onAcceptRecognition: (itemName: string, quantity: number, source?: "manual" | "recognition") => string | null;
 };
 
@@ -257,6 +262,8 @@ export function useLiveLootCapture({
     grindSpotId,
     grindSpotName,
     itemDictionary,
+    ignoredItems,
+    onIgnoreItem,
     onAcceptRecognition,
     learning,
     onOpenSelfImprovement,
@@ -311,6 +318,7 @@ export function useLiveLootCapture({
     const pendingRecognitionOverflowed = useRef(false);
     const localizer = useRef<NormalLootLocalizer | RareLootLocalizer | null>(null);
     const itemDictionaryRef = useRef(itemDictionary);
+    const ignoredItemsRef = useRef(ignoredItems);
     const [status, setStatus] = useState<CaptureStatus>("idle");
     const [stoppingCapture, setStoppingCapture] = useState(false);
     const stoppingDrain = useRef<Promise<void> | null>(null);
@@ -383,7 +391,11 @@ export function useLiveLootCapture({
     useLayoutEffect(() => {
         activeSessionId.current = sessionId;
         itemDictionaryRef.current = itemDictionary;
-    }, [itemDictionary, sessionId]);
+        ignoredItemsRef.current = ignoredItems;
+        // Running recognition picks up edited item lists without a restart, which would lose drops in progress.
+        recognition.current?.normalCoordinator.setItemLists(itemDictionary, ignoredItems);
+        recognition.current?.rareCoordinator.setItemLists(itemDictionary, ignoredItems);
+    }, [itemDictionary, ignoredItems, sessionId]);
 
     function place(action: PlacementAction) {
         const previous = placementRef.current;
@@ -724,6 +736,24 @@ export function useLiveLootCapture({
         if (diagnosticsVisible.current) setSampledFps((sampledFrames.current * 1_000) / elapsed);
         sampledFrames.current = 0;
         measurementStarted.current = now;
+    }
+
+    /**
+     * Ignores an item from Needs attention once the list is saved, then dismisses the entry and every other one live
+     * recognition would now ignore. A failed save dismisses nothing.
+     */
+    async function ignoreReviewItem(id: number, itemName: string) {
+        const error = await onIgnoreItem(itemName);
+        if (error) return error;
+        // The refs may not have caught up with the saved lists yet, so apply the new name as recognition will.
+        const key = normalizeItem(itemName);
+        const dictionary = itemDictionaryRef.current.filter((name) => normalizeItem(name) !== key);
+        const ignoredItems = [...ignoredItemsRef.current, itemName.trim()];
+        const count = review.dismissMatchingReviewResults(
+            (entry) => entry.id === id || namesIgnoredItem(entry, ignoredItems, dictionary),
+        );
+        review.announce(`Ignoring ${itemName.trim()}. Dismissed ${count} review ${count === 1 ? "entry" : "entries"}.`);
+        return null;
     }
 
     /**
@@ -1354,6 +1384,7 @@ export function useLiveLootCapture({
                 const readText = serializeLiveLootOcrReader(measuredOcrReader(ocr.readText, generation, pacer));
                 const appendResult = (source: LiveLootReviewEntry["source"], result: LiveLootRecognitionResult) => {
                     if (
+                        result.status === "ignored" ||
                         !mounted.current ||
                         activeSessionId.current !== sessionId ||
                         generation !== recognitionGeneration.current
@@ -1382,6 +1413,7 @@ export function useLiveLootCapture({
                     ocrSelection: NORMAL_LOOT_OCR_SELECTION,
                     profile: calibratedProfile.profile,
                     dictionary: itemDictionaryRef.current,
+                    ignoredItems: ignoredItemsRef.current,
                     readText: normalDiagnostics.wrap(readText),
                     correctArrivals: ledgerCorrectsArrivals(captureFont),
                     ocrAgreementFrames: NORMAL_LOOT_OCR_AGREEMENT_FRAMES,
@@ -1418,6 +1450,7 @@ export function useLiveLootCapture({
                         sampleFps: LIVE_LOOT_SAMPLE_FPS,
                         profile: rareLootDetectionProfile(rareGeometry),
                         dictionary: itemDictionaryRef.current,
+                        ignoredItems: ignoredItemsRef.current,
                         readText: rareDiagnostics.wrap(readText),
                         onResult: (result) => {
                             rareDiagnostics.result(result);
@@ -2005,5 +2038,6 @@ export function useLiveLootCapture({
         resultDescription,
         acceptReviewResult: review.acceptReviewResult,
         correctReviewResult: review.correctReviewResult,
+        ignoreReviewItem,
     };
 }

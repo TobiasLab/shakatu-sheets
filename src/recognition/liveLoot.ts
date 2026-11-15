@@ -75,7 +75,7 @@ type LiveLootEventResultBase = LootRecognitionResult & {
     capture?: LootReviewCapture;
     quantitySuggestion?: LootQuantitySuggestion;
     learnedQuantity?: boolean;
-    status: "recognized" | "withheld" | "failed";
+    status: "recognized" | "ignored" | "withheld" | "failed";
     reason:
         | null
         | "insufficient-observations"
@@ -91,6 +91,12 @@ export type LiveLootEventResult =
           reason: null;
           itemName: string;
           quantity: number;
+      })
+    | (LiveLootEventResultBase & {
+          status: "ignored";
+          reason: null;
+          itemName: string;
+          quantity: null;
       })
     | (LiveLootEventResultBase & {
           status: "withheld";
@@ -246,6 +252,8 @@ export type LiveLootCoordinatorOptions = {
     sampleFps?: LootSampleFps;
     profile: LootDetectionProfile;
     dictionary: readonly string[];
+    /** Items whose drops are reported as ignored instead of withheld; see `analyzeLootReadings`. */
+    ignoredItems?: readonly string[];
     readText: LiveLootOcrReader;
     suggestQuantity?: (
         frames: readonly LiveLootOcrFrame[],
@@ -622,6 +630,8 @@ export class LiveLootCoordinator {
             maximumFrameCount,
         };
         this.ocrFrameCount = ocrFrameCount;
+        this.dictionary = options.dictionary;
+        this.ignoredItems = options.ignoredItems ?? [];
         // The ledger's fade steps are calibrated for the default analyzer's rows at 16 FPS.
         const ledger =
             (options.onLedgerEvent || options.correctArrivals) && options.analyzeFrame === undefined && sampleFps === 16
@@ -643,6 +653,14 @@ export class LiveLootCoordinator {
     private readonly now: () => number;
     private readonly maxPendingResults: number;
     private readonly maximumRetainedFrames: number;
+    private dictionary: readonly string[];
+    private ignoredItems: readonly string[];
+
+    /** Applies to drops whose OCR has not started yet. */
+    setItemLists(dictionary: readonly string[], ignoredItems: readonly string[]) {
+        this.dictionary = dictionary;
+        this.ignoredItems = ignoredItems;
+    }
 
     get retainedFrameCount() {
         return this.frames.size;
@@ -965,19 +983,28 @@ export class LiveLootCoordinator {
                         0,
                         this.options.ocrAgreementFrames ?? primaryFrames.length,
                     );
+                    // Lists changed while this drop waited take effect only for later drops.
+                    const { dictionary, ignoredItems } = this;
                     let rawReadings = await this.readOcrStage(delivery, leadingFrames, readingsByFrame);
                     originalText = rawReadings[0]?.join("\n").slice(0, 3200) ?? "";
-                    let analysis = analyzeLootReadings(rawReadings, this.options.dictionary);
-                    if (rawReadings.length < primaryFrames.length && !analysis.unanimous && this.isCurrent(delivery)) {
+                    let analysis = analyzeLootReadings(rawReadings, dictionary, ignoredItems);
+                    // An ignored item is settled as soon as two frames name it, so its remaining frames go unread.
+                    if (
+                        rawReadings.length < primaryFrames.length &&
+                        !analysis.unanimous &&
+                        analysis.ignored === null &&
+                        this.isCurrent(delivery)
+                    ) {
                         const remainingFrames = primaryFrames.slice(rawReadings.length);
                         rawReadings = [
                             ...rawReadings,
                             ...(await this.readOcrStage(delivery, remainingFrames, readingsByFrame)),
                         ];
-                        analysis = analyzeLootReadings(rawReadings, this.options.dictionary);
+                        analysis = analyzeLootReadings(rawReadings, dictionary, ignoredItems);
                     }
                     if (
                         !analysis.consensus &&
+                        analysis.ignored === null &&
                         !analysis.conflicting &&
                         this.isCurrent(delivery) &&
                         delivery.frames.length > rawReadings.length
@@ -987,7 +1014,7 @@ export class LiveLootCoordinator {
                             ...rawReadings,
                             ...(await this.readOcrStage(delivery, additionalFrames, readingsByFrame)),
                         ];
-                        analysis = analyzeLootReadings(rawReadings, this.options.dictionary);
+                        analysis = analyzeLootReadings(rawReadings, dictionary, ignoredItems);
                     }
                     if (delivery.generation === this.generation) {
                         const metadata = this.emptyResult(delivery);
@@ -999,12 +1026,14 @@ export class LiveLootCoordinator {
                                   itemName: analysis.consensus.item,
                                   quantity: analysis.consensus.quantity,
                               }
-                            : {
-                                  ...metadata,
-                                  status: "withheld",
-                                  reason: analysis.reason,
-                              };
-                        if (!analysis.consensus && this.options.suggestQuantity) {
+                            : analysis.ignored !== null
+                              ? { ...metadata, status: "ignored", reason: null, itemName: analysis.ignored }
+                              : {
+                                    ...metadata,
+                                    status: "withheld",
+                                    reason: analysis.reason,
+                                };
+                        if (result.status === "withheld" && this.options.suggestQuantity) {
                             const suggestion = this.options.suggestQuantity(
                                 delivery.frames.slice(0, rawReadings.length),
                                 rawReadings,
@@ -1029,7 +1058,7 @@ export class LiveLootCoordinator {
                         reason: "ocr-failure",
                     };
                 } finally {
-                    if (result && result.status !== "recognized" && delivery.frames[0]) {
+                    if ((result?.status === "withheld" || result?.status === "failed") && delivery.frames[0]) {
                         result.capture = copyLootReviewCapture(delivery.frames[0]);
                         result.capture.originalText = originalText;
                         result.capture.sourceFrame = frameEvidence(
