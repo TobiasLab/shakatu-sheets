@@ -198,6 +198,13 @@ eligible. Real users only confirm unresolved drops, so it gives no expected reco
 and automatic recoveries against the OCR labels. It also lists unresolved events with the suggestion they would receive,
 and fails the command on any wrong automatic recovery.
 
+### Ignored items
+
+Add `--ignore <name>` (repeatable) to replay with that name on the [ignore list](../architecture/live-loot.md#item-lists).
+As in the app, it also leaves the dictionary. Ignored drops are counted in each run's `ignored`, and `ocrPasses` counts
+Tesseract calls, so a replay with and without the option shows what ignoring saves. An expected event that becomes
+ignored counts as incorrect, so ignoring an annotated item fails the command by design.
+
 ## Regression fixtures
 
 Use `--annotations scripts/fixtures/<fixture>.json` to select reviewed labels without modifying a source corpus.

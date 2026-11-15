@@ -1,0 +1,122 @@
+.List {
+    display: grid;
+    gap: 10px;
+    min-width: 0;
+}
+.List + .List {
+    margin-top: 12px;
+}
+.List h3 {
+    margin: 0;
+    color: var(--text-strong);
+    font-size: 13px;
+    font-weight: 600;
+}
+.List ul {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    border-top: 1px solid var(--line);
+}
+.List li {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    min-height: 36px;
+    border-bottom: 1px solid var(--row-line);
+    color: var(--text-strong);
+    font-size: 13px;
+}
+.List li span,
+.List td:first-child {
+    min-width: 0;
+    overflow-wrap: anywhere;
+}
+.List table {
+    width: 100%;
+    border-collapse: collapse;
+    border-top: 1px solid var(--line);
+    font-size: 13px;
+    font-variant-numeric: tabular-nums;
+}
+.List th,
+.List td {
+    padding: 2px 8px;
+    border-bottom: 1px solid var(--row-line);
+    color: var(--text-strong);
+    text-align: left;
+}
+.List th {
+    padding-block: 8px;
+    border-bottom-color: var(--line);
+    color: var(--muted);
+    font-size: 11px;
+    font-weight: 500;
+}
+.List th:first-child,
+.List td:first-child {
+    padding-left: 0;
+}
+/* The price sits inside an input's padding and border, 9px further in than the cell padding. */
+.List th:nth-child(2) {
+    padding-right: 17px;
+    text-align: right;
+}
+.List th:last-child,
+.List td:last-child {
+    width: 1%;
+    padding-right: 0;
+    text-align: right;
+}
+/* Like the ledger, the price reads as plain text until hovered or focused. */
+.List td input {
+    width: 100%;
+    min-width: 100px;
+    max-width: 180px;
+    min-height: var(--control-height);
+    margin-left: auto;
+    display: block;
+    padding: 5px 8px;
+    border: 1px solid transparent;
+    border-radius: var(--control-radius);
+    background: transparent;
+    color: var(--text-strong);
+    font: inherit;
+    text-align: right;
+}
+.List td input:hover:enabled {
+    border-color: var(--line-strong);
+    background: var(--input-background);
+}
+.List td input:focus {
+    border-color: var(--focus-border);
+    background: var(--input-background);
+}
+/* Row actions appear on hover or focus. */
+.List li button,
+.List td button {
+    opacity: 0;
+}
+.List li button:hover,
+.List td button:hover {
+    color: var(--danger);
+}
+.List li:hover button,
+.List li:focus-within button,
+.List tr:hover button,
+.List tr:focus-within button {
+    opacity: 1;
+}
+.AddForm {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-end;
+    gap: 12px;
+}
+.NameField {
+    flex: 1 1 220px;
+}
+.PriceField {
+    flex: 0 1 160px;
+}

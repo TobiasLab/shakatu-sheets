@@ -5,6 +5,7 @@ import { Feedback } from "../../components/Feedback/Feedback";
 import { FormField } from "../../components/FormField/FormField";
 import { GrindSpotPicker } from "../../components/GrindSpotPicker/GrindSpotPicker";
 import type { SpotPreferences } from "../../components/GrindSpotPicker/preferences";
+import type { ItemLists } from "../../domain/itemLists";
 import type { SessionState } from "../../domain/session";
 import { formatTimestamp } from "../../format";
 import type { LiveSessionController } from "../../hooks/useLiveSession";
@@ -12,6 +13,7 @@ import type { PersistedSetting } from "../../hooks/usePersistedSetting";
 import type { useSelfImprovement } from "../../hooks/useSelfImprovement";
 import { isLootFont, type LootFont } from "../../recognition/lootFont";
 import { GarmothConnectionSettings } from "./GarmothConnectionSettings";
+import { ItemListSettings } from "./ItemListSettings";
 import { SelfImprovementSettings } from "./SelfImprovementSettings";
 import styles from "./Settings.module.css";
 
@@ -32,6 +34,7 @@ export function SettingsView({
     marketController,
     theme,
     spotPreferences,
+    itemLists,
     onOpenCapture,
     overlayOpacity,
     lootFont,
@@ -53,6 +56,7 @@ export function SettingsView({
     >;
     theme: PersistedSetting<Theme>;
     spotPreferences: PersistedSetting<SpotPreferences>;
+    itemLists: PersistedSetting<ItemLists>;
     onOpenCapture: () => void;
     overlayOpacity: PersistedSetting<number> | null;
     lootFont: PersistedSetting<LootFont>;
@@ -91,6 +95,7 @@ export function SettingsView({
                     <a href="#market">Market</a>
                     <a href="#appearance">Appearance</a>
                     <a href="#capture-preferences">Capture</a>
+                    <a href="#items">Items</a>
                     <a href="#self-improvement">Self-improvement</a>
                     <a href="#integrations">Integrations</a>
                     <a href="#consumables">Consumable presets</a>
@@ -310,6 +315,15 @@ export function SettingsView({
                                         <SettingError setting={debugRoiSamples} />
                                     </div>
                                 )}
+                            </div>
+                        </section>
+                        <section id="items" className="panel" aria-labelledby="items-title">
+                            <div className="panel-heading">
+                                <h2 id="items-title">Items</h2>
+                            </div>
+                            <div className={styles.SettingsForm}>
+                                <ItemListSettings itemLists={itemLists} />
+                                <SettingError setting={itemLists} />
                             </div>
                         </section>
                         <SelfImprovementSettings learning={selfImprovement} />

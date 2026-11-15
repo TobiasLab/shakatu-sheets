@@ -1,5 +1,6 @@
 import type { LiveLootRecognitionResult } from "./liveLoot";
 import type { LootFont } from "./lootFont";
+import { analyzeLootReadings, lootItemText } from "./lootReadings";
 import type { LearningProfile } from "./quantityLearning";
 
 // History limit only: unresolved item captures remain available for the entire session.
@@ -28,6 +29,32 @@ export function acceptLiveLootReviewEntry(
     } catch (error) {
         return { ...entry, accepted: false, error: error instanceof Error ? error.message : String(error) };
     }
+}
+
+function savedReadings(entry: LiveLootReviewEntry) {
+    return entry.result.status === "dropped"
+        ? []
+        : (entry.result.capture?.ocrFrames?.map((frame) => frame.readings) ?? []);
+}
+
+/** Whether live recognition with these lists would ignore an unresolved entry, judged by its saved readings. */
+export function namesIgnoredItem(
+    entry: LiveLootReviewEntry,
+    ignoredItems: readonly string[],
+    dictionary: readonly string[],
+) {
+    if (entry.accepted || entry.result.status !== "withheld") return false;
+    return analyzeLootReadings(savedReadings(entry), dictionary, ignoredItems).ignored !== null;
+}
+
+/** The item text read most often in an entry's saved readings, to start an item name from. */
+export function readItemName(entry: LiveLootReviewEntry) {
+    const counts = new Map<string, number>();
+    for (const text of savedReadings(entry).flat()) {
+        const name = lootItemText(text);
+        if (name) counts.set(name, (counts.get(name) ?? 0) + 1);
+    }
+    return [...counts].sort((left, right) => right[1] - left[1])[0]?.[0] ?? "";
 }
 
 export function appendLiveLootReviewResult(

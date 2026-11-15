@@ -1,5 +1,6 @@
-import { type Dispatch, type FormEvent, useEffect, useState } from "react";
+import { type Dispatch, type FormEvent, useEffect, useMemo, useState } from "react";
 import { type DropTemplate, getGrindSpot, getGrindSpotDrops, getMarketItemIds } from "../data/grindSpots";
+import { type GeneralItem, withGeneralItems } from "../domain/itemLists";
 import {
     createEntry,
     mergedEntryQuantity,
@@ -9,9 +10,18 @@ import {
 } from "../domain/session";
 import { useMarketPrices } from "./useMarketPrices";
 
-export function useLiveSession(session: SessionState, dispatch: Dispatch<SessionAction>, databaseLoaded: boolean) {
+export function useLiveSession(
+    session: SessionState,
+    dispatch: Dispatch<SessionAction>,
+    databaseLoaded: boolean,
+    generalItems: readonly GeneralItem[],
+) {
     const spot = getGrindSpot(session.grindSpotId);
-    const drops = getGrindSpotDrops(session.grindSpotId);
+    // A stable list lets recognition keep its item lists, and their caches, until the spot or the items change.
+    const drops = useMemo(
+        () => withGeneralItems(getGrindSpotDrops(session.grindSpotId), generalItems),
+        [session.grindSpotId, generalItems],
+    );
     const marketItemIds = getMarketItemIds(session.grindSpotId);
     const [selectedDrop, setSelectedDrop] = useState<DropTemplate>(spot.trash);
     const [quantity, setQuantity] = useState("1");

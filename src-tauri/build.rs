@@ -11,6 +11,8 @@ const COMMANDS: &[&str] = &[
     "load_active_session",
     "load_consumable_presets",
     "save_consumable_presets",
+    "load_item_lists",
+    "save_item_lists",
     "load_loot_font",
     "save_loot_font",
     "quantity_learning",

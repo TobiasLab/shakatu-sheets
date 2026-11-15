@@ -77,6 +77,35 @@ by half a second means the WebView throttles timers (a hidden window), and pacin
 stretching every rest. Finishing a session, Stop capture (for up to 10 seconds) and closing the app (for up to 3
 seconds) read queued drops at full speed before capture stops, because pacing can hold several seconds of them.
 
+## Item lists
+
+Settings → Items holds two user lists, saved together in SQLite. **Items at every grind spot** (name and unit price)
+join every spot's drops at full vendor value: they are recognized, offered in the manual add and correction pickers, and
+accepted by the session like spot drops. A spot drop wins over a general item of the same normalized name, because two
+dictionary names that read alike would tie and neither would be recognized. General items have no icon or Garmoth key,
+so the ledger shows a swatch and Garmoth uploads list them as not sent. Entries keep their name and unit price, so
+history, exports and the overlay need nothing else.
+
+**Ignored items** leave the recognition dictionary even when the spot drops them, and a drop whose readings name one is
+reported as `ignored`: it never reaches the session or Needs attention. Some items never show a readable quantity, so
+ignoring cannot rely on the `x N` suffix. Every reading belongs to its closest name among the ignored items, the
+dictionary and every grind spot's loot, compared with and without anything that looks like a quantity suffix. A drop is
+ignored only when:
+
+- no reading parses as a dictionary item,
+- no reading of any frame is within 0.35 normalized edit distance of a real item and at least as close to it as to any
+  ignored item, and
+- at least two frames have a reading within 0.2 of the same ignored item, and no frame names a different ignored item.
+
+So a real item is swallowed only if every reading of it in every frame read so far looks more like an ignored name than
+like any real one. An item in no list whose name differs from an ignored one by a short word (`… Token` and `… Coin`)
+can be taken for it; adding that item to the general list protects it. `parseLootItem` also treats ignored names as
+known items, so an ignored item is never read as a similar dictionary item. Normal loot decides after the first two
+frames when both name the ignored item, so a drop that would otherwise read all five frames reads two. Edited lists
+apply to drops whose OCR has not started, without restarting capture. Needs attention offers **Ignore item**, prefilled
+with the item text read most often; it adds the name and dismisses every pending capture whose saved readings the same
+rule ignores.
+
 Rows that end before spaced evidence exists stay withheld for review. Reading them from adjacent 16 FPS frames recovered
 real drops when the whole stack faded quickly, but on Korean gameplay it also counted already-recognized rows twice: the
 tracker can give a row a new identity while the stack fades, and that short remainder was then read. Revisit the
@@ -163,10 +192,10 @@ such as a write failure, is not restarted until the timer is paused and resumed.
 blocking capture.
 Release builds do not expose this collector. Capture never reads game memory, hooks the game, or uploads frames.
 
-Each run has a `manifest.json` and version-2 `ocr-issues.jsonl` records for recognized, withheld, failed, and dropped
-results. Records include final readings, selected frame/row/crop metadata, font, and raw OCR passes. A recognized result
-is not proof of ledger insertion. Native `batchId` maps to the PNG filename; recognition `frame` is a separate index.
-Null file references can mean pending or dropped image writes. Metadata is bounded, diagnostic writes have at most
+Each run has a `manifest.json` and version-2 `ocr-issues.jsonl` records for recognized, ignored, withheld, failed, and
+dropped results; an ignored record names the ignored item and has no quantity. Records include final readings,
+selected frame/row/crop metadata, font, and raw OCR passes. A recognized result is not proof of ledger insertion.
+Native `batchId` maps to the PNG filename; recognition `frame` is a separate index. Null file references can mean pending or dropped image writes. Metadata is bounded, diagnostic writes have at most
 32 frontend requests outstanding, and logs are capped at 64 MiB per run.
 
 [Brightness ledger](#brightness-ledger) disagreements are logged as `audit` records with reason `missed-drop` or

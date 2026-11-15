@@ -1,4 +1,4 @@
-import { type RefObject, useEffect, useLayoutEffect, useRef, useState } from "react";
+import { type RefObject, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import type { TrendView } from "../../api/preferences";
 import { Feedback } from "../../components/Feedback/Feedback";
 import { GrindSpotPicker } from "../../components/GrindSpotPicker/GrindSpotPicker";
@@ -12,6 +12,7 @@ import {
     useLiveLootCapture,
 } from "../../components/LiveLootCapture/useLiveLootCapture";
 import { LootLedger } from "../../components/LootLedger/LootLedger";
+import { addIgnoredItem, type ItemLists, isIgnoredItem, recognitionDictionary } from "../../domain/itemLists";
 import { createEntry, mergedEntryQuantity } from "../../domain/session";
 import type { LiveSessionController } from "../../hooks/useLiveSession";
 import type { PersistedSetting } from "../../hooks/usePersistedSetting";
@@ -36,6 +37,7 @@ export function LiveSessionView({
     selfImprovement,
     onOpenSelfImprovement,
     spotPreferences,
+    itemLists,
     trendView,
     onTrendViewChange,
     stopCaptureRef,
@@ -54,6 +56,7 @@ export function LiveSessionView({
     visible: boolean;
     captureSetupRequest: number;
     spotPreferences: PersistedSetting<SpotPreferences>;
+    itemLists: PersistedSetting<ItemLists>;
     onCaptureStatusChange: (status: CaptureSummary) => void;
     /** Filled with the capture's stop function so closing the window can stop recognition before the final save. */
     stopCaptureRef: RefObject<(() => Promise<void>) | null>;
@@ -78,6 +81,25 @@ export function LiveSessionView({
         return null;
     }
 
+    /** Adds an item to the ignore list and waits for the save; resolves to why it failed, or null. */
+    async function ignoreItem(itemName: string) {
+        if (!itemLists.loaded) return "Your item lists have not loaded yet. Retry them in Settings.";
+        // Ignoring a listed item again still dismisses the captures that read as it.
+        if (isIgnoredItem(itemLists.value, itemName)) return null;
+        const next = addIgnoredItem(itemLists.value, itemName);
+        if (typeof next === "string") return next;
+        try {
+            await itemLists.update(next);
+            return null;
+        } catch (error) {
+            return `Could not save the ignore list: ${String(error)}`;
+        }
+    }
+
+    // Recognition updates its lists whenever these identities change, so they change only with the lists.
+    const ignoredItems = itemLists.value.ignoredItems;
+    const itemDictionary = useMemo(() => recognitionDictionary(drops, ignoredItems), [drops, ignoredItems]);
+
     const capture = useLiveLootCapture({
         learning: selfImprovement,
         onOpenSelfImprovement,
@@ -92,7 +114,9 @@ export function LiveSessionView({
         sessionStatus: session.status,
         grindSpotId: session.grindSpotId,
         grindSpotName: spot.name,
-        itemDictionary: drops.map((drop) => drop.name),
+        itemDictionary,
+        ignoredItems,
+        onIgnoreItem: ignoreItem,
         onAcceptRecognition: acceptCapturedLoot,
     });
     useLayoutEffect(() => {

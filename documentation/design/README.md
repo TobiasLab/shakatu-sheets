@@ -45,6 +45,7 @@ dark.
   receipt shows the session trend beside its figures, with the same switch and readout as the desk; sessions
   created before net samples were recorded (migration 5) show no trend rather than a straight line.
 - **Settings.** A sticky section index sits beside open sections. Each section has a label column and a form column.
+  Items holds the ignored items and the items added at every grind spot (name and unit price).
 
 ## Sessions and prices
 

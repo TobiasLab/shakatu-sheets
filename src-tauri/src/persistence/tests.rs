@@ -1021,6 +1021,44 @@ fn consumable_presets_persist_and_invalid_saves_do_not_replace_them() {
 }
 
 #[test]
+fn item_lists_persist_and_invalid_saves_do_not_replace_them() {
+    use super::item_lists::{load_item_lists_setting, save_item_lists_setting, ItemLists};
+    let mut connection = database();
+    assert_eq!(
+        load_item_lists_setting(&connection).unwrap(),
+        ItemLists::default()
+    );
+    let value = serde_json::json!({
+        "ignoredItems": ["Shakatu Merchants Trade Token"],
+        "generalItems": [{"name": "Event Box", "unitPrice": 1_000_000}, {"name": "Free Gift", "unitPrice": 0}]
+    });
+    let lists = serde_json::from_value::<ItemLists>(value.clone()).unwrap();
+    save_item_lists_setting(&mut connection, &lists).unwrap();
+    assert_eq!(load_item_lists_setting(&connection).unwrap(), lists);
+    for invalid in [
+        serde_json::json!({"ignoredItems": [""], "generalItems": []}),
+        serde_json::json!({"ignoredItems": [" Token"], "generalItems": []}),
+        serde_json::json!({"ignoredItems": ["---"], "generalItems": []}),
+        serde_json::json!({"ignoredItems": ["x".repeat(101)], "generalItems": []}),
+        serde_json::json!({"ignoredItems": ["Token", "token!"], "generalItems": []}),
+        serde_json::json!({"ignoredItems": ["Event Box"], "generalItems": [{"name": "Event Box", "unitPrice": 1}]}),
+        serde_json::json!({"ignoredItems": [], "generalItems": [{"name": "Box", "unitPrice": -1}]}),
+        serde_json::json!({"ignoredItems": [], "generalItems": [{"name": "Box", "unitPrice": i64::MAX}]}),
+        serde_json::json!({"ignoredItems": vec!["Token"; 201], "generalItems": []}),
+    ] {
+        let invalid = serde_json::from_value::<ItemLists>(invalid).unwrap();
+        assert!(save_item_lists_setting(&mut connection, &invalid).is_err());
+        assert_eq!(load_item_lists_setting(&connection).unwrap(), lists);
+    }
+    assert!(serde_json::from_value::<ItemLists>(
+        serde_json::json!({"ignoredItems": [], "generalItems": [], "extra": 1})
+    )
+    .is_err());
+    save_settings(&mut connection, &[("item_lists", Some("not json"))]).unwrap();
+    assert!(load_item_lists_setting(&connection).is_err());
+}
+
+#[test]
 fn rejects_out_of_range_session_times() {
     let mut connection = database();
     let valid = session(SessionStatus::Running);

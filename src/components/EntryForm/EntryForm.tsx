@@ -150,7 +150,7 @@ export function EntryForm({
                                     onClick={() => selectDrop(drop)}
                                 >
                                     <span className={styles.ItemIcon}>
-                                        <img src={drop.icon} alt="" />
+                                        {drop.icon && <img src={drop.icon} alt="" />}
                                     </span>
                                     <strong className={styles.ItemName}>{drop.name}</strong>
                                     <span className={styles.ItemKind}>
@@ -190,7 +190,7 @@ export function EntryForm({
                     ) : (
                         <div className={styles.SelectedDrop}>
                             <span className={styles.SelectedIcon}>
-                                <img src={selectedDrop.icon} alt="" />
+                                {selectedDrop.icon && <img src={selectedDrop.icon} alt="" />}
                             </span>
                             <div>
                                 <strong>{selectedDrop.name}</strong>

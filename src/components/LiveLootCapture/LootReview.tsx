@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
-import type { LiveLootReviewEntry } from "../../recognition/liveLootReview";
+import { type LiveLootReviewEntry, readItemName } from "../../recognition/liveLootReview";
 import { itemImage, quantityImage } from "../../recognition/quantityLearning";
+import { FormField } from "../FormField/FormField";
 import { CaptureCorrection, type CorrectionDraft } from "./CaptureCorrection";
 import styles from "./LootReview.module.css";
 import type { useLiveLootCapture } from "./useLiveLootCapture";
@@ -17,7 +18,11 @@ type ReviewController = Pick<
     | "itemDictionary"
     | "databaseLoaded"
     | "sessionStatus"
-> & { learning?: ReturnType<typeof useLiveLootCapture>["learning"]; onOpenSelfImprovement?: () => void };
+> & {
+    learning?: ReturnType<typeof useLiveLootCapture>["learning"];
+    onOpenSelfImprovement?: () => void;
+    ignoreReviewItem?: ReturnType<typeof useLiveLootCapture>["ignoreReviewItem"];
+};
 
 export function focusLootReview() {
     const heading = document.getElementById("loot-review-heading");
@@ -41,6 +46,7 @@ export function LootReview({ controller }: { controller: ReviewController }) {
     const [selectedId, setSelectedId] = useState<number | null>(null);
     const [drafts, setDrafts] = useState<Record<number, CorrectionDraft>>({});
     const [confirmClear, setConfirmClear] = useState(false);
+    const [ignoring, setIgnoring] = useState<{ id: number; name: string; error: string; saving: boolean } | null>(null);
     const clearButton = useRef<HTMLButtonElement>(null);
     const hadFocus = useRef(false);
     const selected =
@@ -215,17 +221,81 @@ export function LootReview({ controller }: { controller: ReviewController }) {
                             </span>
                             <h4 id="review-detail-title">{reviewTitle(selected)}</h4>
                         </div>
-                        <button
-                            className="button subtle"
-                            type="button"
-                            aria-label={`Dismiss review entry ${selected.id + 1}`}
-                            onClick={() => controller.dismissReviewResult(selected.id)}
-                        >
-                            Dismiss
-                        </button>
+                        <div className={styles.DetailActions}>
+                            {status === "withheld" && controller.ignoreReviewItem && (
+                                <button
+                                    className="button subtle"
+                                    type="button"
+                                    aria-expanded={ignoring?.id === selected.id}
+                                    disabled={disabled}
+                                    onClick={() =>
+                                        setIgnoring(
+                                            ignoring?.id === selected.id
+                                                ? null
+                                                : {
+                                                      id: selected.id,
+                                                      name: readItemName(selected),
+                                                      error: "",
+                                                      saving: false,
+                                                  },
+                                        )
+                                    }
+                                >
+                                    Ignore item
+                                </button>
+                            )}
+                            <button
+                                className="button subtle"
+                                type="button"
+                                aria-label={`Dismiss review entry ${selected.id + 1}`}
+                                onClick={() => controller.dismissReviewResult(selected.id)}
+                            >
+                                Dismiss
+                            </button>
+                        </div>
                     </header>
                     {status !== "recognized" && (
                         <p className={styles.Reason}>{controller.resultDescription(selected.result)}</p>
+                    )}
+                    {ignoring?.id === selected.id && controller.ignoreReviewItem && (
+                        <form
+                            className={styles.IgnoreForm}
+                            onSubmit={async (event) => {
+                                event.preventDefault();
+                                if (!controller.ignoreReviewItem || ignoring.saving) return;
+                                setIgnoring({ ...ignoring, error: "", saving: true });
+                                // A failed save keeps the form open with its reason and dismisses nothing.
+                                const error = await controller.ignoreReviewItem(selected.id, ignoring.name);
+                                setIgnoring((current) =>
+                                    current?.id !== ignoring.id
+                                        ? current
+                                        : error
+                                          ? { ...current, error, saving: false }
+                                          : null,
+                                );
+                            }}
+                        >
+                            <FormField label="Item to ignore" className={styles.ItemField}>
+                                <input
+                                    value={ignoring.name}
+                                    maxLength={100}
+                                    required
+                                    placeholder="Exact in-game name"
+                                    onChange={(event) =>
+                                        setIgnoring({ ...ignoring, name: event.target.value, error: "" })
+                                    }
+                                    disabled={ignoring.saving}
+                                />
+                            </FormField>
+                            <button className="button" type="submit" disabled={disabled || ignoring.saving}>
+                                {ignoring.saving ? "Saving…" : "Ignore"}
+                            </button>
+                            {ignoring.error && (
+                                <p className={styles.Error} role="alert">
+                                    {ignoring.error}
+                                </p>
+                            )}
+                        </form>
                     )}
                     {selected.error && (
                         <p className={styles.Error} role="alert">

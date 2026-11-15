@@ -797,3 +797,42 @@ fn brightness_ledger_audits_log_as_their_own_status() {
             .is_err());
     }
 }
+
+#[test]
+fn ignored_drops_log_their_item_without_a_quantity() {
+    let temp = TempDir::new("ocr-ignored");
+    let collector = DebugRoiSampleCollector::default();
+    let (sender, _) = mpsc::sync_channel(1);
+    *collector.active.lock().unwrap() = Some(Arc::new(test_run(&temp.0, sender, settings())));
+    let mut value = diagnostic_json(&temp.0);
+    value["source"] = serde_json::json!("normal");
+    value["status"] = serde_json::json!("ignored");
+    value["reason"] = serde_json::Value::Null;
+    value["itemName"] = serde_json::json!("Shakatu Merchants Trade Token");
+    value["quantity"] = serde_json::Value::Null;
+    assert!(collector
+        .log_ocr_issue(serde_json::from_value(value.clone()).unwrap())
+        .unwrap());
+    let written: serde_json::Value = serde_json::from_str(
+        fs::read_to_string(temp.0.join("ocr-issues.jsonl"))
+            .unwrap()
+            .trim(),
+    )
+    .unwrap();
+    assert_eq!(written["status"], "ignored");
+    assert_eq!(written["itemName"], "Shakatu Merchants Trade Token");
+    for (field, invalid) in [
+        ("itemName", serde_json::Value::Null),
+        ("itemName", serde_json::json!("")),
+        ("quantity", serde_json::json!(1)),
+        ("reason", serde_json::json!("quantity-not-recognized")),
+        ("eventId", serde_json::Value::Null),
+        ("count", serde_json::json!(2)),
+    ] {
+        let mut rejected = value.clone();
+        rejected[field] = invalid;
+        assert!(collector
+            .log_ocr_issue(serde_json::from_value(rejected).unwrap())
+            .is_err());
+    }
+}

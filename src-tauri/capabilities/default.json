@@ -22,6 +22,8 @@
     "allow-load-active-session",
     "allow-load-consumable-presets",
     "allow-save-consumable-presets",
+    "allow-load-item-lists",
+    "allow-save-item-lists",
     "allow-load-loot-font",
     "allow-save-loot-font",
     "allow-quantity-learning",
