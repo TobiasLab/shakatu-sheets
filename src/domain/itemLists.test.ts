@@ -30,6 +30,8 @@ describe("item lists", () => {
     it("parses unit prices and finds ignored names as recognition compares them", () => {
         expect(parseUnitPrice("2,500,000")).toBe(2_500_000);
         expect(parseUnitPrice(" 0 ")).toBe(0);
+        for (const text of ["1e6", "0x1F", "0b11", "-5", "1.5", "", " ", "12 000"])
+            expect(parseUnitPrice(text)).toBeNull();
         for (const invalid of ["", " ", "-1", "1.5", "abc", "9007199254740992"])
             expect(parseUnitPrice(invalid)).toBeNull();
         const lists = { ignoredItems: ["Shakatu Merchants Trade Token"], generalItems: [] };

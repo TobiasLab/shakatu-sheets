@@ -82,45 +82,54 @@ function knownLootItems() {
 
 // Recognition passes the same list arrays until the user edits them, so one cached entry keyed on their identity
 // keeps this work off the per-reading path.
-let otherItemsCache: { ignoredItems: readonly string[]; items: string[] } | undefined;
+const otherItemsCache = new WeakMap<readonly string[], string[]>();
 
-/** Known loot plus the ignored items, normalized. */
+/** Known loot plus the ignored items, normalized. Cached per ignore list, so callers with their own lists don't evict. */
 function otherKnownItems(ignoredItems: readonly string[]) {
     if (ignoredItems.length === 0) return knownLootItems();
-    if (otherItemsCache?.ignoredItems !== ignoredItems)
-        otherItemsCache = { ignoredItems, items: [...knownLootItems(), ...ignoredItems.map(normalizeItem)] };
-    return otherItemsCache.items;
+    let items = otherItemsCache.get(ignoredItems);
+    if (!items) {
+        items = [...knownLootItems(), ...ignoredItems.map(normalizeItem)];
+        otherItemsCache.set(ignoredItems, items);
+    }
+    return items;
 }
 
-let ignoreNamesCache:
-    | {
-          dictionary: readonly string[];
-          ignoredItems: readonly string[];
-          ignored: Map<string, string>;
-          realItems: string[];
-      }
-    | undefined;
+type IgnoreNames = { ignored: Map<string, string>; realItems: string[] };
+const ignoreNamesCache = new WeakMap<readonly string[], WeakMap<readonly string[], IgnoreNames>>();
 
 /** The normalized ignored items, and every other name a reading could be: the dictionary and all known loot. */
 function ignoreNames(dictionary: readonly string[], ignoredItems: readonly string[]) {
-    if (ignoreNamesCache?.dictionary !== dictionary || ignoreNamesCache.ignoredItems !== ignoredItems) {
+    let byDictionary = ignoreNamesCache.get(ignoredItems);
+    if (!byDictionary) {
+        byDictionary = new WeakMap();
+        ignoreNamesCache.set(ignoredItems, byDictionary);
+    }
+    let names = byDictionary.get(dictionary);
+    if (!names) {
         const ignored = new Map(ignoredItems.map((item) => [normalizeItem(item), item]));
         ignored.delete("");
         const realItems = [...new Set([...dictionary.map(normalizeItem), ...knownLootItems()])].filter(
             (item) => item && !ignored.has(item),
         );
-        ignoreNamesCache = { dictionary, ignoredItems, ignored, realItems };
+        names = { ignored, realItems };
+        byDictionary.set(dictionary, names);
     }
-    return ignoreNamesCache;
+    return names;
 }
 
 /** An ignored item must be at least this close; a reading of a real item vetoes ignoring when it is within reach. */
 const IGNORED_ITEM_DISTANCE = 0.2;
 const REAL_ITEM_DISTANCE = 0.35;
 
+/** Cuts anything that looks like a quantity suffix (" x4", " x |"), even one OCR could not read as a number. */
+function withoutQuantityText(text: string) {
+    return text.replace(/\s+x(?![a-z]).*$/i, "");
+}
+
 /** A reading without its quantity suffix or stray punctuation at either end, as a starting point for a name. */
 export function lootItemText(text: string) {
-    return (text.match(quantitySuffix)?.[1] ?? text.replace(/\s+x(?![a-z]).*$/i, ""))
+    return (text.match(quantitySuffix)?.[1] ?? withoutQuantityText(text))
         .replace(/^[^a-z0-9[(]+|[^a-z0-9)\]]+$/gi, "")
         .trim();
 }
@@ -129,7 +138,7 @@ export function lootItemText(text: string) {
 function itemTexts(text: string) {
     return [
         ...new Set(
-            [text, text.match(quantitySuffix)?.[1] ?? text, text.replace(/\s+x(?![a-z]).*$/i, "")]
+            [text, text.match(quantitySuffix)?.[1] ?? text, withoutQuantityText(text)]
                 .map(normalizeItem)
                 .filter(Boolean),
         ),
@@ -151,7 +160,8 @@ function nameDistance(texts: readonly string[], name: string, limit = 1) {
  * The ignored item a drop's readings name, or null. Each reading belongs to the closest name among the ignored items,
  * the dictionary and every grind spot's loot. The drop is ignored only when at least two frames have a reading closest
  * to the same ignored item, and no reading of any frame is at least as close to a real item, so a misread real item
- * is never dropped silently. Readings need no quantity: some ignored items never show a readable one.
+ * is never dropped silently. Readings need no quantity: some ignored items never show a readable one. The real-item
+ * check compares against hundreds of names, so it runs only once two frames name an ignored item.
  */
 function ignoredLootItem(
     rawReadings: readonly (readonly string[])[],
@@ -160,6 +170,7 @@ function ignoredLootItem(
 ) {
     const { ignored, realItems } = ignoreNames(dictionary, ignoredItems);
     const frames = new Map<string, number>();
+    const checked: Array<{ texts: string[]; distance: number }> = [];
     for (const readings of rawReadings) {
         const named = new Set<string>();
         for (const text of readings) {
@@ -170,14 +181,18 @@ function ignoredLootItem(
                 if (distance < closest.distance) closest = { item, distance };
                 else if (distance === closest.distance) closest = { item: null, distance };
             }
-            const limit = Math.min(REAL_ITEM_DISTANCE, closest.distance);
-            if (realItems.some((item) => nameDistance(texts, item, limit) <= limit)) return null;
+            checked.push({ texts, distance: closest.distance });
             if (closest.item !== null && closest.distance <= IGNORED_ITEM_DISTANCE) named.add(closest.item);
         }
         for (const item of named) frames.set(item, (frames.get(item) ?? 0) + 1);
     }
     const supported = [...frames].filter(([, count]) => count >= 2);
-    return supported.length === 1 && frames.size === 1 ? supported[0][0] : null;
+    if (supported.length !== 1 || frames.size !== 1) return null;
+    const vetoed = checked.some(({ texts, distance }) => {
+        const limit = Math.min(REAL_ITEM_DISTANCE, distance);
+        return realItems.some((item) => nameDistance(texts, item, limit) <= limit);
+    });
+    return vetoed ? null : supported[0][0];
 }
 
 type ParsedLootReading = { item: string | null; quantity: number | null };

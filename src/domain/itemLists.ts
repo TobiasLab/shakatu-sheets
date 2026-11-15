@@ -22,8 +22,11 @@ export const unitPriceError = "Enter a whole silver price of 0 or more.";
 
 /** A whole silver price of 0 or more, with or without digit grouping, or null. */
 export function parseUnitPrice(value: string) {
-    const price = Number(value.replace(/,/g, "").trim());
-    return value.trim() !== "" && Number.isSafeInteger(price) && price >= 0 ? price : null;
+    // Plain digits with optional grouping commas only: Number() would also accept "1e6", "0x1F" or "0b11".
+    const digits = value.trim().replace(/,/g, "");
+    if (!/^\d+$/.test(digits)) return null;
+    const price = Number(digits);
+    return Number.isSafeInteger(price) ? price : null;
 }
 
 /** Whether `name` is already ignored, compared as recognition compares names. */

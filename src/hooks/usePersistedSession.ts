@@ -8,6 +8,9 @@ import { createSessionPersistence } from "./sessionPersistence";
 
 export type DatabaseStatus = "loading" | "ready" | "saving" | "error";
 
+/** How long closing waits for a render that may still save loot read during the close; usually one frame. */
+const CLOSE_COMMIT_WAIT_MS = 250;
+
 export function usePersistedSession(beforeClose?: () => Promise<void>) {
     const beforeCloseRef = useRef(beforeClose);
     useLayoutEffect(() => {
@@ -37,6 +40,7 @@ export function usePersistedSession(beforeClose?: () => Promise<void>) {
     );
     const [closing, setClosing] = useState(false);
     const closingRef = useRef(false);
+    const commitWaiters = useRef<Array<() => void>>([]);
 
     useEffect(() => {
         if (!supportsTauriApi()) return;
@@ -52,6 +56,11 @@ export function usePersistedSession(beforeClose?: () => Promise<void>) {
                     setClosing(true);
                     try {
                         await beforeCloseRef.current?.();
+                        // Loot read while closing is dispatched but queued for saving only when React commits it.
+                        await new Promise<void>((resolve) => {
+                            commitWaiters.current.push(resolve);
+                            window.setTimeout(resolve, CLOSE_COMMIT_WAIT_MS);
+                        });
                         await persistenceQueue.current.flush();
                         await windowHandle.destroy();
                     } catch (error) {
@@ -99,6 +108,11 @@ export function usePersistedSession(beforeClose?: () => Promise<void>) {
         if (!databaseLoaded) return;
         void persistenceQueue.current.update(session).catch(() => undefined);
     }, [session, databaseLoaded]);
+
+    // Runs after every commit, after the snapshot above is queued.
+    useLayoutEffect(() => {
+        for (const resolve of commitWaiters.current.splice(0)) resolve();
+    });
 
     useEffect(() => {
         if (!databaseLoaded) return;

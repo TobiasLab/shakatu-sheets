@@ -73,9 +73,10 @@ lone drop is not delayed, because a rest that elapsed while idle is skipped. Res
 while a rare job is outstanding, the oldest normal job has waited 3 seconds, twelve normal jobs are outstanding, or
 capture is finishing. The wait limit keeps results within a few seconds of the drop: without it, a grind with many drops
 kept the quarter-speed worker three-quarters busy and results fell tens of seconds behind. A rest slice that oversleeps
-by half a second means the WebView throttles timers (a hidden window), and pacing pauses for 30 seconds rather than
-stretching every rest. Finishing a session, Stop capture (for up to 10 seconds) and closing the app (for up to 3
-seconds) read queued drops at full speed before capture stops, because pacing can hold several seconds of them.
+by half a second means the WebView throttles timers (a hidden window), and pacing pauses for 30 seconds, doubling up to
+5 minutes while it stays throttled, rather than stretching every rest. Finishing a session, Stop capture (for up to 10
+seconds) and closing the app (for up to 3 seconds) read queued drops at full speed before capture stops, because pacing
+can hold several seconds of them.
 
 ## Item lists
 
