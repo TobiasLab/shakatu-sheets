@@ -277,6 +277,8 @@ export type LiveLootCoordinatorOptions = {
     ocrBounds?: LootOcrBounds;
     ocrTextColor?: "white" | "gold";
     eventIdPrefix?: string;
+    /** Clock for `oldestOcrJobWaitMs`, in milliseconds. */
+    now?: () => number;
 };
 
 export type FingerprintDistance<TFingerprint> = (
@@ -495,6 +497,7 @@ type LootOcrDelivery = LootResultMetadata & {
     frames: LiveLootOcrFrame[];
     generation: number;
     counted: boolean;
+    queuedAt: number;
 };
 
 type LootResultDelivery = {
@@ -607,6 +610,7 @@ export class LiveLootCoordinator {
         }
         this.maxPendingOcrJobs = maxPendingOcrJobs;
         this.maxPendingResults = maxPendingResults;
+        this.now = options.now ?? (() => performance.now());
         this.maximumRetainedFrames = retainedFrameCount;
         this.analyzeFrame =
             options.analyzeFrame ?? ((frame) => analyzeLootRoiFrame(frame, options.profile, options.font));
@@ -636,6 +640,7 @@ export class LiveLootCoordinator {
     }
 
     private readonly maxPendingOcrJobs: number;
+    private readonly now: () => number;
     private readonly maxPendingResults: number;
     private readonly maximumRetainedFrames: number;
 
@@ -657,6 +662,16 @@ export class LiveLootCoordinator {
 
     get pendingOcrJobCount() {
         return this.pendingOcrJobs;
+    }
+
+    /** How long the oldest outstanding OCR job has waited since it was queued, in ms; 0 when none is outstanding. */
+    get oldestOcrJobWaitMs() {
+        let oldest = Number.POSITIVE_INFINITY;
+        if (this.activeOcrDelivery?.counted) oldest = this.activeOcrDelivery.queuedAt;
+        for (const delivery of this.deliveries) {
+            if (delivery.kind === "ocr" && delivery.counted) oldest = Math.min(oldest, delivery.queuedAt);
+        }
+        return Number.isFinite(oldest) ? Math.max(0, this.now() - oldest) : 0;
     }
 
     get queuedDeliveryCount() {
@@ -807,7 +822,14 @@ export class LiveLootCoordinator {
             });
             this.pendingSummary = undefined;
             this.pendingOcrJobs += 1;
-            this.deliveries.push({ kind: "ocr", ...metadata, frames, generation: this.generation, counted: true });
+            this.deliveries.push({
+                kind: "ocr",
+                ...metadata,
+                frames,
+                generation: this.generation,
+                counted: true,
+                queuedAt: this.now(),
+            });
         }
         this.candidates.delete(track);
         this.tracker.releaseTrack(track);

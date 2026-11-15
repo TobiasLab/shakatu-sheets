@@ -271,29 +271,31 @@ export type LiveLootOcrPacer = {
     readonly restedMs: number;
 };
 
-/** Rests wake this often to re-check urgency, so a rare banner or a finishing capture never waits out a rest. */
+/** Rests wake this often to re-check pressure, so a rare banner or a finishing capture never waits out a rest. */
 const ocrRestSliceMs = 50;
 /** A rest slice that oversleeps this much means the WebView throttles timers, as it does for hidden windows. */
 const throttledSliceMs = 500;
 const throttledPauseMs = 30_000;
 
 /**
- * Rests before each OCR pass for `restRatio` times as long as the previous pass took. A burst of drops otherwise keeps
- * one core at full boost for seconds, which is enough to spin up fans. Passes run back to back while `urgent` returns
- * true, so pacing never lets the job queue overflow. The rest comes before the next pass, so a lone drop's result is
- * never held back. When timers are throttled, pacing pauses rather than stretching each rest to a second or more.
+ * Rests before each OCR pass for up to `restRatio` times as long as the previous pass took. A burst of drops otherwise
+ * keeps one core at full boost for seconds, which is enough to spin up fans. `pressure` (0 to 1) shortens the rest in
+ * proportion, so OCR speeds up smoothly as drops wait longer and reads at full speed at 1, instead of switching between
+ * a slow and a full-speed burst. The rest comes before the next pass, so a lone drop's result is never held back. When
+ * timers are throttled, pacing pauses rather than stretching each rest to a second or more.
  */
 export function createLiveLootOcrPacer({
     restRatio,
     maximumRestMs,
-    urgent,
+    pressure,
     now = () => performance.now(),
     sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms)),
 }: {
     restRatio: number;
     /** The longest rest after one pass, so one slow pass cannot hold up the queue for long. */
     maximumRestMs: number;
-    urgent: () => boolean;
+    /** How urgently queued work needs reading: 0 rests fully, 1 or more does not rest at all. */
+    pressure: () => number;
     now?: () => number;
     sleep?: (ms: number) => Promise<void>;
 }): LiveLootOcrPacer {
@@ -301,7 +303,8 @@ export function createLiveLootOcrPacer({
         throw new Error("OCR rest ratio must be a finite number >= 0.");
     if (!(maximumRestMs >= 0) || !Number.isFinite(maximumRestMs))
         throw new Error("OCR maximum rest must be a finite number >= 0.");
-    let restUntil = Number.NEGATIVE_INFINITY;
+    let passEnded = Number.NEGATIVE_INFINITY;
+    let fullRestMs = 0;
     let throttledUntil = Number.NEGATIVE_INFINITY;
     let restedMs = 0;
     return {
@@ -309,11 +312,14 @@ export function createLiveLootOcrPacer({
             return restedMs;
         },
         afterPass(passMs) {
-            restUntil = now() + Math.min(maximumRestMs, Math.max(0, passMs) * restRatio);
+            passEnded = now();
+            fullRestMs = Math.min(maximumRestMs, Math.max(0, passMs) * restRatio);
         },
         async beforePass() {
-            while (!urgent() && now() >= throttledUntil) {
-                const remaining = restUntil - now();
+            while (now() >= throttledUntil) {
+                const level = pressure();
+                const scale = Number.isFinite(level) ? 1 - Math.min(1, Math.max(0, level)) : 0;
+                const remaining = passEnded + fullRestMs * scale - now();
                 if (remaining <= 0) return;
                 const slice = Math.min(remaining, ocrRestSliceMs);
                 const started = now();
