@@ -573,6 +573,37 @@ describe("createLiveLootOcrPacer", () => {
         expect(time.sleeps).toEqual([50]);
     });
 
+    it("probes throttled timers less and less often, and recovers once rests sleep normally", async () => {
+        const time = clock();
+        let throttled = true;
+        const pacer = createLiveLootOcrPacer({
+            restRatio: 3,
+            maximumRestMs: 300,
+            pressure: () => 0,
+            now: time.now,
+            sleep: async (ms) => {
+                time.sleeps.push(ms);
+                time.advance(throttled ? 1_000 : ms);
+            },
+        });
+        const probeAfter = async (waitMs: number) => {
+            time.advance(waitMs);
+            pacer.afterPass(100);
+            const before = time.sleeps.length;
+            await pacer.beforePass();
+            return time.sleeps.length > before;
+        };
+
+        expect(await probeAfter(0)).toBe(true);
+        expect(await probeAfter(29_000)).toBe(false);
+        expect(await probeAfter(1_000)).toBe(true);
+        expect(await probeAfter(59_000)).toBe(false);
+        expect(await probeAfter(1_000)).toBe(true);
+        throttled = false;
+        expect(await probeAfter(120_000)).toBe(true);
+        expect(await probeAfter(0)).toBe(true);
+    });
+
     it("rejects a negative or non-finite rest ratio or maximum rest", () => {
         for (const value of [-1, Number.NaN, Number.POSITIVE_INFINITY]) {
             expect(() => createLiveLootOcrPacer({ restRatio: value, maximumRestMs: 100, pressure: () => 0 })).toThrow(

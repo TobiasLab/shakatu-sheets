@@ -1055,7 +1055,36 @@ fn item_lists_persist_and_invalid_saves_do_not_replace_them() {
     )
     .is_err());
     save_settings(&mut connection, &[("item_lists", Some("not json"))]).unwrap();
-    assert!(load_item_lists_setting(&connection).is_err());
+    assert_eq!(
+        load_item_lists_setting(&connection).unwrap(),
+        ItemLists::default()
+    );
+    // A stored row that no longer validates keeps its valid entries instead of locking the lists.
+    let stored = serde_json::json!({
+        "ignoredItems": ["Token", "token!", "", " Padded", "Kept"],
+        "generalItems": [
+            {"name": "Box", "unitPrice": 5},
+            {"name": "Token", "unitPrice": 1},
+            {"name": "Bad", "unitPrice": -1},
+            {"name": "Gift", "unitPrice": 0, "extra": true}
+        ],
+        "future": 1
+    })
+    .to_string();
+    save_settings(&mut connection, &[("item_lists", Some(&stored))]).unwrap();
+    assert_eq!(
+        load_item_lists_setting(&connection).unwrap(),
+        serde_json::from_value::<ItemLists>(serde_json::json!({
+            "ignoredItems": ["Token", "Kept"],
+            "generalItems": [{"name": "Box", "unitPrice": 5}, {"name": "Gift", "unitPrice": 0}]
+        }))
+        .unwrap()
+    );
+    // Lowercasing first matches the frontend: the Kelvin sign lowercases to "k".
+    let kelvin = serde_json::json!({"ignoredItems": ["Kelp", "\u{212A}elp"], "generalItems": []});
+    assert!(
+        save_item_lists_setting(&mut connection, &serde_json::from_value(kelvin).unwrap()).is_err()
+    );
 }
 
 #[test]

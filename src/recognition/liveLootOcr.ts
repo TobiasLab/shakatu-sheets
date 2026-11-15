@@ -275,7 +275,9 @@ export type LiveLootOcrPacer = {
 const ocrRestSliceMs = 50;
 /** A rest slice that oversleeps this much means the WebView throttles timers, as it does for hidden windows. */
 const throttledSliceMs = 500;
+/** Pacing pauses this long after a throttled rest, doubling while each probe is throttled again, up to the maximum. */
 const throttledPauseMs = 30_000;
+const maximumThrottledPauseMs = 300_000;
 
 /**
  * Rests before each OCR pass for up to `restRatio` times as long as the previous pass took. A burst of drops otherwise
@@ -306,6 +308,7 @@ export function createLiveLootOcrPacer({
     let passEnded = Number.NEGATIVE_INFINITY;
     let fullRestMs = 0;
     let throttledUntil = Number.NEGATIVE_INFINITY;
+    let throttledPause = throttledPauseMs;
     let restedMs = 0;
     return {
         get restedMs() {
@@ -326,7 +329,13 @@ export function createLiveLootOcrPacer({
                 await sleep(slice);
                 const slept = now() - started;
                 restedMs += slept;
-                if (slept > slice + throttledSliceMs) throttledUntil = now() + throttledPauseMs;
+                if (slept > slice + throttledSliceMs) {
+                    // A hidden window keeps throttling, so each probe costs a stalled pass: probe less often.
+                    throttledUntil = now() + throttledPause;
+                    throttledPause = Math.min(maximumThrottledPauseMs, throttledPause * 2);
+                } else {
+                    throttledPause = throttledPauseMs;
+                }
             }
         },
     };

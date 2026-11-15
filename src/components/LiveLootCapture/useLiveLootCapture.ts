@@ -789,7 +789,21 @@ export function useLiveLootCapture({
      * which stopping right away would discard. Without a running pipeline nothing is queued, so it stops at once.
      */
     function stopCaptureAfterQueuedDrops(limitMs = STOP_DRAIN_LIMIT_MS): Promise<void> {
-        if (stoppingDrain.current) return stoppingDrain.current;
+        if (stoppingDrain.current) {
+            // A drain already running (Stop capture) may have a longer limit than this caller (closing the app).
+            const running = stoppingDrain.current;
+            const captureRequest = requestId.current;
+            let timer: number | undefined;
+            return Promise.race([
+                running,
+                new Promise<void>((resolve) => {
+                    timer = window.setTimeout(resolve, limitMs);
+                }),
+            ]).finally(() => {
+                window.clearTimeout(timer);
+                if (mounted.current && requestId.current === captureRequest) stopCapture();
+            });
+        }
         if (status !== "capturing" || !recognition.current) {
             stopCapture();
             return Promise.resolve();

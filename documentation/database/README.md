@@ -143,8 +143,10 @@ Rows cascade with their session. As with migration 5, sessions created before th
   desk and History. No migration is needed.
 - The `item_lists` setting holds the [item lists](../architecture/live-loot.md#item-lists) as JSON:
   `ignoredItems` (names) and `generalItems` (name and integer unit price), at most 200 each. A name appears once across
-  both lists, compared as recognition normalizes it. A failed load keeps editing disabled, so it is never overwritten
-  with empty lists. No migration is needed.
+  both lists, compared as recognition normalizes it. Saves are validated; loading keeps whatever still validates and
+  drops invalid or repeated entries, so a stored value that a later version rejects never locks the lists. A failed
+  load (the database itself) keeps editing disabled, so the lists are never overwritten with empty ones. No migration
+  is needed.
 - Live loot calibration stores only validated normalized rectangle coordinates and source dimensions in `settings`.
   Preview and region pixels remain in memory. Opt-in self-improvement uses the separate database below.
 - Connect failures that occur before request transmission release the upload reservation for an explicit retry. Any
