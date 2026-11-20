@@ -89,29 +89,48 @@ export function averageScaleFrom(elapsedMs: number): number {
 
 // A drop gets a marker on the trend when one item of it is worth at least this much after tax: the spot's rare drops.
 export const SPIKE_MIN_UNIT_VALUE = 100_000_000;
-// Markers closer than this share of the session's duration would overlap, so only the more valuable one stays.
-export const SPIKE_MIN_GAP_SHARE = 0.08;
+// Markers closer than this share of the session's duration would overlap, so the later one is raised a level above the
+// one before it and drawn over it. Drops from the same save follow the order they are loaded in.
+export const SPIKE_OVERLAP_SHARE = 0.08;
+// The highest level a marker is raised to; a further overlapping marker covers the one already there.
+export const SPIKE_MAX_LEVEL = 3;
 
-export function spikeDrops(drops: TrendDrop[], elapsedMs: number): TrendDrop[] {
-    const minGapMs = SPIKE_MIN_GAP_SHARE * elapsedMs;
-    const spikes: TrendDrop[] = [];
-    for (const drop of [...drops].sort((left, right) => right.value - left.value)) {
-        if (drop.quantity <= 0 || drop.value / drop.quantity < SPIKE_MIN_UNIT_VALUE) continue;
-        if (drop.elapsedMs > elapsedMs) continue;
-        if (spikes.some((spike) => Math.abs(spike.elapsedMs - drop.elapsedMs) < minGapMs)) continue;
-        spikes.push(drop);
+export type TrendSpike = TrendDrop & { level: number };
+
+export function spikeDrops(drops: TrendDrop[], elapsedMs: number): TrendSpike[] {
+    const overlapMs = SPIKE_OVERLAP_SHARE * elapsedMs;
+    const rare = drops
+        .filter((drop) => drop.quantity > 0 && drop.value / drop.quantity >= SPIKE_MIN_UNIT_VALUE)
+        .filter((drop) => drop.elapsedMs <= elapsedMs)
+        .sort((left, right) => left.elapsedMs - right.elapsedMs);
+    const spikes: TrendSpike[] = [];
+    for (const drop of rare) {
+        // Two entries can share an item name, such as a manual and a recognized one; one save shows that item once.
+        const same = spikes.find((spike) => spike.elapsedMs === drop.elapsedMs && spike.name === drop.name);
+        if (same) {
+            same.quantity += drop.quantity;
+            same.value += drop.value;
+            continue;
+        }
+        const previous = spikes[spikes.length - 1];
+        const level =
+            previous && drop.elapsedMs - previous.elapsedMs < overlapMs
+                ? Math.min(SPIKE_MAX_LEVEL, previous.level + 1)
+                : 0;
+        spikes.push({ ...drop, level });
     }
-    return spikes.sort((left, right) => left.elapsedMs - right.elapsedMs);
+    return spikes;
 }
 
-// The marker a pointer or keyboard position points at, if any lies within half the marker spacing.
-export function spikeAt(spikes: TrendDrop[], elapsedMs: number, sessionMs: number): TrendDrop | null {
-    let nearest: TrendDrop | null = null;
+// The marker a pointer or keyboard position points at, if any lies within half the overlap distance. Of markers at the
+// same distance, the later one is drawn on top, so it wins.
+export function spikeAt(spikes: TrendSpike[], elapsedMs: number, sessionMs: number): TrendSpike | null {
+    let nearest: TrendSpike | null = null;
     for (const spike of spikes) {
         const distance = Math.abs(spike.elapsedMs - elapsedMs);
         if (
-            distance <= (SPIKE_MIN_GAP_SHARE * sessionMs) / 2 &&
-            (!nearest || distance < Math.abs(nearest.elapsedMs - elapsedMs))
+            distance <= (SPIKE_OVERLAP_SHARE * sessionMs) / 2 &&
+            (!nearest || distance <= Math.abs(nearest.elapsedMs - elapsedMs))
         )
             nearest = spike;
     }

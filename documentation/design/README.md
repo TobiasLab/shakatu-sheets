@@ -24,11 +24,14 @@ dark.
   its latest sample, because samples are stored only when net changes, so a drop after a quiet stretch counts when it
   was recorded. Both views show the last 30 minutes' rate once available and a readout that follows the pointer or
   the arrow keys.
-  Spike markers stand above the plot for the spot's rare drops: item icon, compact value, and a stem to the step it
-  caused. Every drop whose single item is worth at least 100M after tax gets a marker; of two markers closer than 8% of
-  the session's duration, which would overlap, only the more valuable stays. These values are the `SPIKE_*` constants
-  in `src/domain/trend.ts`. When the readout reaches a marker it snaps to that drop and names the
-  item, shortening a long name so the value and time stay visible; the plot's accessible label lists the marked drops.
+  Spike markers stand above the plot for the spot's rare drops: item icon and a stem to the step it caused. Every drop
+  whose single item is worth at least 100M after tax gets a marker. A marker closer than 8% of the session's duration
+  to the one before it would overlap it, so it stands one level (8 px) higher and is drawn over it, up to three levels,
+  so later drops are on top; drops from the same save are ordered by name, and same-name entries share one marker. The
+  plot reserves the room for the highest level whenever it has a marker, so stacking never moves it. These values are the `SPIKE_*` constants in `src/domain/trend.ts`. The value is not
+  printed beside the icon: when the pointer is over an icon, or the readout reaches a marker, the readout snaps to that
+  drop and names the item and its value, shortening a long name so the value and time stay visible, and the hovered
+  marker is drawn over its neighbours. The plot's accessible label lists the marked drops.
 - **Capture.** Loot capture is a one-line status strip. Setup expands it into a connected stepper, the live preview with
   both crop previews beneath, and a narrow control column (area switch, UI scale, position pad, layout import,
   confirmation, diagnostics). Needs attention sits flush inside the strip.

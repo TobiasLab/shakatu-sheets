@@ -91,23 +91,20 @@
     outline-offset: 4px;
     touch-action: none;
 }
-.TrendPlot[data-spikes] {
-    --spike-space: 36px;
-    margin-top: var(--spike-space);
-}
 .TrendSpike {
     position: absolute;
-    top: calc(-1 * var(--spike-space));
     display: flex;
     flex-direction: column;
     align-items: center;
     width: 24px;
     margin-left: -12px;
+    pointer-events: none;
 }
 .TrendSpike img {
     width: 20px;
     height: 20px;
     flex: none;
+    pointer-events: auto;
 }
 .TrendSpike b {
     width: 8px;
@@ -116,14 +113,7 @@
     margin: 6px 0;
     border-radius: 50%;
     background: var(--gold);
-}
-.TrendSpike small {
-    color: var(--muted);
-    font-size: 10px;
-    font-weight: 600;
-    line-height: 14px;
-    font-variant-numeric: tabular-nums;
-    white-space: nowrap;
+    pointer-events: auto;
 }
 .TrendSpike::after {
     content: "";
@@ -131,8 +121,8 @@
     width: 1px;
     background: var(--line-strong);
 }
-.TrendSpike[data-active] small {
-    color: var(--text-strong);
+.TrendSpike[data-active] {
+    z-index: 1;
 }
 .TrendSpike[data-active]::after {
     background: var(--gold);
