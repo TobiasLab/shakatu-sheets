@@ -329,6 +329,7 @@ export function useLiveLootCapture({
     const [sourceDimensions, setSourceDimensions] = useState<SourceDimensions | null>(null);
     const [normalRegionFrameSize, setNormalRegionFrameSize] = useState<SourceDimensions | null>(null);
     const [rareRegionFrameSize, setRareRegionFrameSize] = useState<SourceDimensions | null>(null);
+    const regionFrameSizes = useRef<Record<LootRegionKind, SourceDimensions | null>>({ normal: null, rare: null });
     const [savedSettings, setSavedSettings] = useState<LootCaptureSettings | null>(null);
     const [settingsLoaded, setSettingsLoaded] = useState(() => !supportsTauriApi());
     const [placement, setPlacement] = useState<CapturePlacement>(initialCapturePlacement);
@@ -354,10 +355,12 @@ export function useLiveLootCapture({
     const [recognitionError, setRecognitionError] = useState("");
     const [recognitionReset, setRecognitionReset] = useState(0);
     const [ocrDiagnostics, setOcrDiagnostics] = useState<OcrDiagnostics>(emptyOcrDiagnostics);
+    const publishedOcrDiagnostics = useRef(ocrDiagnostics);
     const [nativeAppliedSelectionKey, setNativeAppliedSelectionKey] = useState("");
     const [captureCapabilities, setCaptureCapabilities] = useState<NativeCaptureCapabilities | null>(null);
     const lastNativeArrival = useRef<number | null>(null);
-    const [sourceWaiting, setSourceWaiting] = useState(false);
+    const [sourceWaiting, setSourceWaitingState] = useState(false);
+    const sourceWaitingRef = useRef(false);
     const captureSessionId = useRef(sessionId);
     const samples = useDebugSampleCollection({
         candidate: import.meta.env.DEV && captureCapabilities?.debugRoiSamples === true,
@@ -413,14 +416,22 @@ export function useLiveLootCapture({
         place({ type: "select", kind });
     }
 
+    /**
+     * Sets a size only when it changes. React keeps every state update, even one that changes nothing, until the
+     * component next renders, which can be minutes while nothing drops; a per-frame update that captured its frame
+     * kept every capture batch alive until then.
+     */
+    function setRegionFrameSize(kind: LootRegionKind, size: SourceDimensions | null) {
+        const shown = regionFrameSizes.current[kind];
+        if (shown === size || (shown && size && shown.width === size.width && shown.height === size.height)) return;
+        regionFrameSizes.current[kind] = size;
+        if (kind === "normal") setNormalRegionFrameSize(size);
+        else setRareRegionFrameSize(size);
+    }
+
     function clearRegionPreview(kind: LootRegionKind) {
-        if (kind === "normal") {
-            setNormalRegionFrameSize(null);
-            clearCanvas(normalRegionCanvas.current);
-        } else {
-            setRareRegionFrameSize(null);
-            clearCanvas(rareRegionCanvas.current);
-        }
+        setRegionFrameSize(kind, null);
+        clearCanvas(kind === "normal" ? normalRegionCanvas.current : rareRegionCanvas.current);
     }
 
     function updateSourceDimensions(next: SourceDimensions | null) {
@@ -445,6 +456,19 @@ export function useLiveLootCapture({
         diagnostics.peakOutstandingJobs = Math.max(diagnostics.peakOutstandingJobs, outstandingJobs);
     }
 
+    // Per-second checks set state only on change: React keeps even a no-op update until the next render.
+    function setSourceWaiting(waiting: boolean) {
+        if (sourceWaitingRef.current === waiting) return;
+        sourceWaitingRef.current = waiting;
+        setSourceWaitingState(waiting);
+    }
+
+    function setPublishedOcrDiagnostics(next: OcrDiagnostics) {
+        if (sameOcrDiagnostics(publishedOcrDiagnostics.current, next)) return;
+        publishedOcrDiagnostics.current = next;
+        setOcrDiagnostics(next);
+    }
+
     function publishOcrDiagnostics() {
         const current = ocrDiagnosticsRef.current;
         const next = {
@@ -453,7 +477,7 @@ export function useLiveLootCapture({
             worker: { ...current.worker },
             analysis: { ...current.analysis },
         };
-        setOcrDiagnostics((published) => (sameOcrDiagnostics(published, next) ? published : next));
+        setPublishedOcrDiagnostics(next);
     }
 
     function recordFrameAnalysis(started: number | null) {
@@ -933,12 +957,7 @@ export function useLiveLootCapture({
         const captureRegion = kind === "normal" ? current.normalCaptureRegion : current.rareCaptureRegion;
         if (current.mode === "localizing" || !frameMatchesRegion(frame, captureRegion, sourceDimensionsRef.current))
             return;
-        const setFrameSize = kind === "normal" ? setNormalRegionFrameSize : setRareRegionFrameSize;
-        setFrameSize((currentSize) =>
-            currentSize?.width === frame.width && currentSize.height === frame.height
-                ? currentSize
-                : { width: frame.width, height: frame.height },
-        );
+        setRegionFrameSize(kind, { width: frame.width, height: frame.height });
         if (previewsEnabledRef.current) {
             drawFrame(kind === "normal" ? normalRegionCanvas.current : rareRegionCanvas.current, frame);
         }
@@ -996,8 +1015,10 @@ export function useLiveLootCapture({
                             restartRecognition();
                         }
                         lastNativeArrival.current = arrival;
-                        receivedNativeFrame.current = true;
-                        setStatus("capturing");
+                        if (!receivedNativeFrame.current) {
+                            receivedNativeFrame.current = true;
+                            setStatus("capturing");
+                        }
                         if (lastNativeSampleBatch.current !== frame.batchId) {
                             lastNativeSampleBatch.current = frame.batchId;
                             recordSample();
@@ -1359,7 +1380,7 @@ export function useLiveLootCapture({
         stopRecognition(false);
         setRecognitionError("");
         ocrDiagnosticsRef.current = emptyOcrDiagnostics();
-        setOcrDiagnostics(emptyOcrDiagnostics());
+        setPublishedOcrDiagnostics(emptyOcrDiagnostics());
         if (!recognitionRequested || !calibratedProfile || !rareGeometry) {
             setRecognitionStatus(regionConfirmed && sourceDimensions && !calibratedProfile ? "unavailable" : "idle");
             return;
