@@ -8,10 +8,12 @@ import {
     MIN_TREND_MS,
     netAt,
     recentRate,
+    SPIKE_MAX_LEVEL,
     spikeAt,
     spikeDrops,
     type TrendDrop,
     type TrendSample,
+    type TrendSpike,
     trendPoints,
 } from "../../domain/trend";
 import { formatDuration, formatSilver } from "../../format";
@@ -19,6 +21,13 @@ import styles from "./LiveSession.module.css";
 
 const WIDTH = 320;
 const HEIGHT = 56;
+// Pixels above the plot that a marker's icon stands, and how much higher each raised level stands.
+const SPIKE_LIFT = 24;
+const SPIKE_LEVEL_LIFT = 8;
+
+function spikeKey(spike: TrendSpike) {
+    return `${spike.elapsedMs}-${spike.name}`;
+}
 
 export function SessionTrend({
     samples,
@@ -38,6 +47,8 @@ export function SessionTrend({
     onViewChange: (view: TrendView) => void;
 }) {
     const [hoverMs, setHoverMs] = useState<number | null>(null);
+    // The marker whose icon is under the pointer, by its key. Markers come and go as entries change.
+    const [pointedSpike, setPointedSpike] = useState<string | null>(null);
     const points = trendPoints(samples, elapsedMs, net);
     if (elapsedMs < MIN_TREND_MS || points.length < 2) return <div className={styles.Trend} aria-hidden="true" />;
 
@@ -59,7 +70,11 @@ export function SessionTrend({
     const area = `${x(series[0].elapsedMs)},${y(0)} ${line} ${WIDTH},${y(0)}`;
     const recent = recentRate(points);
     const spikes = spikeDrops(drops, elapsedMs);
-    const hoveredSpike = hoverMs === null ? null : spikeAt(spikes, hoverMs, elapsedMs);
+    const pointed = spikes.find((spike) => spikeKey(spike) === pointedSpike);
+    const hoveredSpike = hoverMs === null ? null : (pointed ?? spikeAt(spikes, hoverMs, elapsedMs));
+    const spikeLift = (level: number) => SPIKE_LIFT + level * SPIKE_LEVEL_LIFT;
+    // Room for the highest level stays reserved, so the plot does not move as markers stack and separate.
+    const spikeSpace = spikes.length === 0 ? 0 : spikeLift(SPIKE_MAX_LEVEL);
     const shownMs = hoveredSpike?.elapsedMs ?? hoverMs ?? elapsedMs;
     const shownValue = valueAt(shownMs);
     const spikeName =
@@ -98,6 +113,7 @@ export function SessionTrend({
         if (event.key === "Escape") setHoverMs(null);
         if (next === null) return;
         event.preventDefault();
+        setPointedSpike(null);
         setHoverMs(Math.min(elapsedMs, Math.max(0, next)));
     }
 
@@ -105,6 +121,8 @@ export function SessionTrend({
         const bounds = event.currentTarget.getBoundingClientRect();
         const ratio = Math.min(1, Math.max(0, (event.clientX - bounds.left) / bounds.width));
         setHoverMs(ratio * elapsedMs);
+        const marker = event.target instanceof Element ? event.target.closest<HTMLElement>("[data-spike]") : null;
+        setPointedSpike(marker?.dataset.spike ?? null);
     }
 
     return (
@@ -148,15 +166,21 @@ export function SessionTrend({
             </figcaption>
             <div
                 className={styles.TrendPlot}
-                data-spikes={spikes.length > 0 || undefined}
+                style={{ marginTop: spikeSpace }}
                 // biome-ignore lint/a11y/noNoninteractiveTabindex: Arrow keys move the same readout as pointer hover.
                 tabIndex={0}
                 role="img"
                 aria-label={`${summary}${dropSummary}`}
                 onPointerMove={track}
-                onPointerLeave={() => setHoverMs(null)}
+                onPointerLeave={() => {
+                    setHoverMs(null);
+                    setPointedSpike(null);
+                }}
                 onKeyDown={step}
-                onBlur={() => setHoverMs(null)}
+                onBlur={() => {
+                    setHoverMs(null);
+                    setPointedSpike(null);
+                }}
             >
                 <svg viewBox={`0 0 ${WIDTH} ${HEIGHT}`} preserveAspectRatio="none" aria-hidden="true">
                     {low < 0 && <line className={styles.TrendZero} x1="0" x2={WIDTH} y1={y(0)} y2={y(0)} />}
@@ -174,18 +198,20 @@ export function SessionTrend({
                 />
                 {spikes.map((spike) => {
                     const icon = getDropIcon(grindSpotId, spike.name);
+                    const lift = spikeLift(spike.level);
                     return (
                         <span
-                            key={`${spike.elapsedMs}-${spike.name}`}
+                            key={spikeKey(spike)}
                             className={styles.TrendSpike}
+                            data-spike={spikeKey(spike)}
                             data-active={spike === hoveredSpike || undefined}
                             style={{
                                 left: `${(x(spike.elapsedMs) / WIDTH) * 100}%`,
-                                height: `calc(${(y(valueAt(spike.elapsedMs)) / HEIGHT) * 100}% + var(--spike-space))`,
+                                top: -lift,
+                                height: `calc(${(y(valueAt(spike.elapsedMs)) / HEIGHT) * 100}% + ${lift}px)`,
                             }}
                         >
                             {icon ? <img src={icon} alt="" /> : <b />}
-                            <small>{formatSilver(spike.value, true)}</small>
                         </span>
                     );
                 })}

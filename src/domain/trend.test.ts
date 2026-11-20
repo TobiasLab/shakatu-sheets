@@ -7,8 +7,9 @@ import {
     hasRecordedTrend,
     netAt,
     recentRate,
-    SPIKE_MIN_GAP_SHARE,
+    SPIKE_MAX_LEVEL,
     SPIKE_MIN_UNIT_VALUE,
+    SPIKE_OVERLAP_SHARE,
     spikeAt,
     spikeDrops,
     type TrendDrop,
@@ -126,9 +127,15 @@ describe("session trend", () => {
             value,
         });
 
+        const spike = (elapsedMs: number, value: number, level = 0, name = "Item", quantity = 1) => ({
+            ...drop(elapsedMs, value, name, quantity),
+            level,
+        });
+        const close = SPIKE_OVERLAP_SHARE * hour - 1;
+
         it("marks every rare drop, however small its share of the session, in time order", () => {
             const spread = Array.from({ length: 10 }, (_, index) => drop(((index + 0.5) * hour) / 10, rare + index));
-            expect(spikeDrops([...spread].reverse(), hour)).toEqual(spread);
+            expect(spikeDrops([...spread].reverse(), hour)).toEqual(spread.map((item) => ({ ...item, level: 0 })));
         });
 
         it("judges rarity by the value of one item, not of the stack", () => {
@@ -141,23 +148,56 @@ describe("session trend", () => {
                     ],
                     hour,
                 ),
-            ).toEqual([drop((3 * hour) / 4, rare * 2, "Pair", 2)]);
+            ).toEqual([spike((3 * hour) / 4, rare * 2, 0, "Pair", 2)]);
         });
 
-        it("keeps the more valuable of two overlapping markers and ignores drops after the end", () => {
-            const close = SPIKE_MIN_GAP_SHARE * hour - 1;
-            expect(spikeDrops([drop(hour / 2, rare), drop(hour / 2 + close, rare * 2)], hour)).toEqual([
-                drop(hour / 2 + close, rare * 2),
+        it("raises each overlapping marker above the one before it and ignores drops after the end", () => {
+            expect(
+                spikeDrops(
+                    [drop(hour / 2 + close, rare), drop(hour / 2, rare * 2), drop(hour / 2 + 2 * close, rare)],
+                    hour,
+                ),
+            ).toEqual([
+                spike(hour / 2, rare * 2),
+                spike(hour / 2 + close, rare, 1),
+                spike(hour / 2 + 2 * close, rare, 2),
             ]);
             expect(spikeDrops([drop(hour + 1, rare)], hour)).toEqual([]);
         });
 
-        it("finds the marker nearest a position within half the marker spacing", () => {
-            const spikes = [drop(hour / 4, rare), drop(hour / 2, rare)];
-            const reach = (SPIKE_MIN_GAP_SHARE * hour) / 2;
+        it("keeps drops from the same save in order and stops raising at the highest level", () => {
+            const names = ["A", "B", "C", "D", "E", "F"];
+            expect(
+                spikeDrops(
+                    names.map((name) => drop(hour / 2, rare, name)),
+                    hour,
+                ),
+            ).toEqual(names.map((name, index) => spike(hour / 2, rare, Math.min(index, SPIKE_MAX_LEVEL), name)));
+        });
+
+        it("shows same-name entries from one save as one marker", () => {
+            const drops = [drop(hour / 2, rare, "Item"), drop(hour / 2, rare * 2, "Item", 2)];
+            expect(spikeDrops(drops, hour)).toEqual([spike(hour / 2, rare * 3, 0, "Item", 3)]);
+            expect(drops[0]).toEqual(drop(hour / 2, rare, "Item"));
+        });
+
+        it("starts over at the base level after a gap", () => {
+            expect(
+                spikeDrops([drop(hour / 4, rare), drop(hour / 4 + close, rare), drop(hour / 2, rare)], hour),
+            ).toEqual([spike(hour / 4, rare), spike(hour / 4 + close, rare, 1), spike(hour / 2, rare)]);
+        });
+
+        it("finds the marker nearest a position within half the overlap distance", () => {
+            const spikes = [spike(hour / 4, rare), spike(hour / 2, rare)];
+            const reach = (SPIKE_OVERLAP_SHARE * hour) / 2;
             expect(spikeAt(spikes, hour / 2 - reach, hour)).toBe(spikes[1]);
             expect(spikeAt(spikes, hour / 2 + reach + 1, hour)).toBeNull();
             expect(spikeAt(spikes, hour / 4 + 1, hour)).toBe(spikes[0]);
+        });
+
+        it("prefers the newer of two markers at the same time, since it is drawn on top", () => {
+            const spikes = [spike(hour / 2, rare, 0, "Older"), spike(hour / 2, rare, 1, "Newer")];
+            expect(spikeAt(spikes, hour / 2, hour)).toBe(spikes[1]);
         });
     });
 });
