@@ -386,6 +386,21 @@ export function HistoryView({
         }
     }
 
+    const emptyHistory = (
+        <EmptyState
+            title={hasFilters ? "No sessions match these filters" : "No completed sessions yet"}
+            action={
+                hasFilters ? (
+                    <button className="button subtle" type="button" onClick={clearFilters}>
+                        Clear filters
+                    </button>
+                ) : undefined
+            }
+        >
+            {hasFilters ? undefined : `Finish a session in ${region.toUpperCase()} to see it here.`}
+        </EmptyState>
+    );
+
     function uploadStatusLabel() {
         if (selected?.garmothUploadStatus === "success") return "Uploaded";
         if (selected?.garmothUploadStatus === "unknown") return "Confirmation unknown";
@@ -573,6 +588,8 @@ export function HistoryView({
                     >
                         Could not load analytics. {analytics.error}
                     </Feedback>
+                ) : analytics.result.sessions.length === 0 ? (
+                    emptyHistory
                 ) : (
                     <HistoryAnalyticsPanel
                         analytics={analytics.result}
@@ -599,18 +616,7 @@ export function HistoryView({
                     {dateError || `Could not load session history. ${error}`}
                 </Feedback>
             ) : records.length === 0 ? (
-                <EmptyState
-                    title={hasFilters ? "No sessions match these filters" : "No completed sessions yet"}
-                    action={
-                        hasFilters ? (
-                            <button className="button subtle" type="button" onClick={clearFilters}>
-                                Clear filters
-                            </button>
-                        ) : undefined
-                    }
-                >
-                    {hasFilters ? undefined : `Finish a session in ${region.toUpperCase()} to see it here.`}
-                </EmptyState>
+                emptyHistory
             ) : (
                 <div className={styles.HistoryGrid}>
                     <section className={`panel ${styles.ListPanel}`}>

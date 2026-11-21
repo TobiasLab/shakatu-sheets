@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { memo } from "react";
 import { getDropIcon } from "../../data/grindSpots";
 import { analyticsSummary, type HistoryAnalytics, itemRates, sessionRates } from "../../domain/analytics";
 import { formatSilver } from "../../format";
@@ -13,7 +13,9 @@ function silverRate(rate: number | null) {
     return rate === null ? "—" : `${formatSilver(rate, true)}/h`;
 }
 
-export function HistoryAnalyticsPanel({
+// History re-renders on every live-session save, while analytics change only with their read, so the panel (its
+// chart, tables and log) skips those renders.
+export const HistoryAnalyticsPanel = memo(function HistoryAnalyticsPanel({
     analytics,
     grindSpotId,
 }: {
@@ -21,8 +23,7 @@ export function HistoryAnalyticsPanel({
     grindSpotId: string | null;
 }) {
     const summary = analyticsSummary(analytics);
-    // History re-renders on every live-session save; a stable list lets the chart's dots skip those renders.
-    const points = useMemo(() => sessionRates(analytics), [analytics]);
+    const points = sessionRates(analytics);
     const items = grindSpotId === null ? [] : itemRates(analytics);
     if (points.length === 0) {
         return (
@@ -111,4 +112,4 @@ export function HistoryAnalyticsPanel({
             )}
         </section>
     );
-}
+});

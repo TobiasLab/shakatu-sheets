@@ -1,4 +1,4 @@
-import { type ReactNode, useMemo } from "react";
+import type { ReactNode } from "react";
 import { getDropIcon } from "../../data/grindSpots";
 import { type HistoryAnalytics, rareDrops, rareItemStats } from "../../domain/analytics";
 import { formatDuration, formatTimestamp } from "../../format";
@@ -30,9 +30,8 @@ function ItemName({ grindSpotId, name, children }: { grindSpotId: string; name: 
 }
 
 export function RareDrops({ analytics, grindSpotId }: { analytics: HistoryAnalytics; grindSpotId: string }) {
-    // History re-renders on every live-session save, while the drops change only with the analytics read.
-    const drops = useMemo(() => rareDrops(analytics), [analytics]);
-    const stats = useMemo(() => rareItemStats(analytics, drops), [analytics, drops]);
+    const drops = rareDrops(analytics);
+    const stats = rareItemStats(analytics, drops);
     if (stats.length === 0) return null;
     return (
         <>
@@ -77,7 +76,11 @@ export function RareDrops({ analytics, grindSpotId }: { analytics: HistoryAnalyt
                                         {item.sinceLastIsMinimum && "≥ "}
                                         {formatHours(item.sinceLastMs)}
                                     </td>
-                                    <td>{formatChance(item.gapChance)}</td>
+                                    <td>
+                                        {/* Measured from a minimum gap, so the real chance is at most this. */}
+                                        {item.sinceLastIsMinimum && "≤ "}
+                                        {formatChance(item.gapChance)}
+                                    </td>
                                 </tr>
                             ))}
                         </tbody>
@@ -102,8 +105,9 @@ export function RareDrops({ analytics, grindSpotId }: { analytics: HistoryAnalyt
                             </tr>
                         </thead>
                         <tbody>
-                            {[...drops].reverse().map((drop) => (
-                                <tr key={`${drop.sessionId}-${drop.name}-${drop.atMs}`}>
+                            {[...drops].reverse().map((drop, index) => (
+                                // biome-ignore lint/suspicious/noArrayIndexKey: The log is rebuilt whole for each read and never reordered.
+                                <tr key={index}>
                                     <td>{formatTimestamp(drop.finishedAt)}</td>
                                     <th scope="row">
                                         <ItemName grindSpotId={grindSpotId} name={drop.name}>

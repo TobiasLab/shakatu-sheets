@@ -1076,6 +1076,10 @@ try {
         await evaluate("window.__failSessionList = false");
         await click("Reload");
         await until("document.querySelector('[aria-label=\"Filtered history summary\"]') !== null");
+        await setHistoryFilter('input[type="date"]', "2030-01-01");
+        await until('document.body.innerText.includes("No sessions match these filters")');
+        await click("Clear filters");
+        await until(`${analyticsPanel}?.innerText.includes("12.5M/h")`);
         await setHistoryFilter('select[aria-label="Grind spot"]', "sycraia-lower-revamp");
         await until(`${analyticsPanel}?.innerText.includes("Items per hour")`);
         const oneSpot = await evaluate(`${analyticsPanel}.innerText`);
