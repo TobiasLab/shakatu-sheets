@@ -11,6 +11,8 @@ export type AnalyticsSession = {
     net: number;
     // After-tax value of the session's rare items, which the net includes.
     rareValue: number;
+    // Its hours were typed in (net samples, but none between start and end), so when it was played is unknown.
+    hoursTypedIn: boolean;
 };
 
 // One item's loot across the sessions with tracked time; rates are quantity per hour in sessions where it dropped.
@@ -333,11 +335,12 @@ export type HeatmapCell = { trackedMs: number; net: number };
 const HEATMAP_MAX_SESSION_MS = 24 * HOUR_MS;
 
 // Tracked time and net per local weekday (0 = Monday) and hour of day. Sessions store no start time once paused, so
-// each is placed from its completion minus its tracked time up to its completion, earning at a steady rate.
+// each is placed from its completion minus its tracked time up to its completion, earning at a steady rate. Sessions
+// whose hours were typed in are left out: they were played at some unknown earlier time.
 export function weeklyHeatmap(analytics: HistoryAnalytics): HeatmapCell[][] {
     const cells = Array.from({ length: 7 }, () => Array.from({ length: 24 }, () => ({ trackedMs: 0, net: 0 })));
     for (const session of timed(analytics.sessions)) {
-        if (session.elapsedMs > HEATMAP_MAX_SESSION_MS) continue;
+        if (session.elapsedMs > HEATMAP_MAX_SESSION_MS || session.hoursTypedIn) continue;
         let at = session.finishedAt - session.elapsedMs;
         while (at < session.finishedAt) {
             const date = new Date(at);

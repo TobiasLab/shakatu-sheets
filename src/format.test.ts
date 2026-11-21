@@ -36,5 +36,6 @@ describe("signed silver", () => {
     it("writes negatives with a true minus", () => {
         expect(formatSignedSilver(-12_500_000)).toBe("−12.5M");
         expect(formatSignedSilver(12_500_000)).toBe("12.5M");
+        expect(formatSignedSilver(-0.00000006)).toBe("0");
     });
 });

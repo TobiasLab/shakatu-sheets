@@ -143,8 +143,8 @@ reloads and filter changes for the visit. Analytics write negative values with a
 shaded in one gold scale (with a Less–More legend) by tracked time, or, with its Time / Net per hour switch, by net per
 hour, which shades only hours with at least 30 minutes tracked (when none has, the caption says so and the switch
 stays). Sessions store no start once paused, so each is placed
-from its completion minus its tracked time up to its completion and assumed to earn steadily; sessions over 24 hours are
-left out. The caption names the busiest (or best paying) hour; the pointer or arrow keys show an hour's tracked time and
+from its completion minus its tracked time up to its completion and assumed to earn steadily; sessions over 24 hours, and
+sessions whose hours were typed in (see the database documentation), are left out. The caption names the busiest (or best paying) hour; the pointer or arrow keys show an hour's tracked time and
 net per hour, the first arrow press starting at that hour. The switch survives reloads like Total / Base. With a spot
 selected, Net / hour through a session follows: one bar per
 quarter hour into a session (at most 40 px wide, standing on the zero line) for the net per hour earned in that
