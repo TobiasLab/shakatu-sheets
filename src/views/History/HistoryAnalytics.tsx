@@ -4,6 +4,7 @@ import {
     analyticsSummary,
     type ConsistencyView,
     consumableCost,
+    cumulativeNet,
     type HistoryAnalytics,
     itemRates,
     type PriceImport,
@@ -11,8 +12,10 @@ import {
     sessionRates,
     todayValues,
 } from "../../domain/analytics";
-import { formatSilver } from "../../format";
+import { formatSignedSilver, formatSilver } from "../../format";
 import { Consistency } from "./Consistency";
+import { CumulativeChart } from "./CumulativeChart";
+import { Heatmap, type HeatmapView } from "./Heatmap";
 import styles from "./HistoryAnalytics.module.css";
 import { formatChange, MarketPrices } from "./MarketPrices";
 import { PacingChart } from "./PacingChart";
@@ -23,7 +26,7 @@ const quantityRateFormatter = new Intl.NumberFormat("en", { minimumFractionDigit
 const shareFormatter = new Intl.NumberFormat("en", { style: "percent", maximumFractionDigits: 1 });
 
 function silverRate(rate: number | null) {
-    return rate === null ? "—" : `${formatSilver(rate, true)}/h`;
+    return rate === null ? "—" : `${formatSignedSilver(rate)}/h`;
 }
 
 // History re-renders on every live-session save, while analytics change only with their read, so the panel (its
@@ -34,6 +37,8 @@ export const HistoryAnalyticsPanel = memo(function HistoryAnalyticsPanel({
     prices,
     consistencyView,
     onConsistencyViewChange,
+    heatmapView,
+    onHeatmapViewChange,
 }: {
     analytics: HistoryAnalytics;
     grindSpotId: string | null;
@@ -41,6 +46,8 @@ export const HistoryAnalyticsPanel = memo(function HistoryAnalyticsPanel({
     prices: PriceImport[] | null;
     consistencyView: ConsistencyView;
     onConsistencyViewChange: (view: ConsistencyView) => void;
+    heatmapView: HeatmapView;
+    onHeatmapViewChange: (view: HeatmapView) => void;
 }) {
     const summary = analyticsSummary(analytics);
     const points = sessionRates(analytics);
@@ -106,7 +113,9 @@ export const HistoryAnalyticsPanel = memo(function HistoryAnalyticsPanel({
                 average={(summary.baseRate ?? 0) + (summary.rareRate ?? 0)}
                 showSpot={grindSpotId === null}
             />
+            <CumulativeChart points={cumulativeNet(analytics)} showSpot={grindSpotId === null} />
             <Consistency analytics={analytics} view={consistencyView} onViewChange={onConsistencyViewChange} />
+            <Heatmap analytics={analytics} view={heatmapView} onViewChange={onHeatmapViewChange} />
             {grindSpotId === null ? (
                 <p className={styles.Hint}>Choose a grind spot to see its pacing and items.</p>
             ) : (
@@ -153,7 +162,7 @@ export const HistoryAnalyticsPanel = memo(function HistoryAnalyticsPanel({
                                                     <td>
                                                         {item.sessionCount} / {item.timedSessionCount}
                                                     </td>
-                                                    <td>{formatSilver(item.silverPerHour, true)}/h</td>
+                                                    <td>{formatSignedSilver(item.silverPerHour)}/h</td>
                                                     {today && (
                                                         <td>{silverRate(today.itemPerHour.get(item.name) ?? null)}</td>
                                                     )}

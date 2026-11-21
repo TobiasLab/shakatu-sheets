@@ -350,3 +350,92 @@
     background: var(--gold);
     box-shadow: 0 0 0 2px var(--canvas);
 }
+.LinePlot {
+    height: 140px;
+}
+.LinePlot svg {
+    display: block;
+    width: 100%;
+    height: 100%;
+    overflow: visible;
+}
+.Line {
+    fill: none;
+    stroke: var(--gold);
+    stroke-width: 2;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    vector-effect: non-scaling-stroke;
+}
+.LineArea {
+    fill: var(--gold);
+    opacity: 0.1;
+}
+.LineZero {
+    stroke: var(--line);
+    stroke-width: 1;
+    vector-effect: non-scaling-stroke;
+}
+.Crosshair {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    width: 1px;
+    background: var(--line-strong);
+    pointer-events: none;
+}
+.EndDot {
+    position: absolute;
+    width: 8px;
+    height: 8px;
+    margin: -4px 0 0 -4px;
+    border-radius: 50%;
+    background: var(--gold);
+    box-shadow: 0 0 0 2px var(--canvas);
+    pointer-events: none;
+}
+.Chart figcaption .SectionHeading {
+    padding-bottom: 0;
+}
+/* A weekday per row and an hour of the day per column, in local time. */
+.Heatmap {
+    display: grid;
+    grid-template-columns: 36px repeat(24, minmax(0, 1fr));
+    gap: 2px;
+    outline-offset: 4px;
+}
+.HeatmapHour,
+.HeatmapDay {
+    color: var(--muted);
+    font-size: 11px;
+    font-variant-numeric: tabular-nums;
+}
+.HeatmapDay {
+    align-self: center;
+}
+.HeatmapCell {
+    height: 20px;
+    border-radius: 2px;
+    background: color-mix(in srgb, var(--line) 45%, transparent);
+}
+.HeatmapCell[data-active] {
+    box-shadow: inset 0 0 0 2px var(--text-strong);
+}
+.HeatmapLegend {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    color: var(--muted);
+    font-size: 11px;
+}
+.HeatmapLegend i {
+    width: 16px;
+    height: 10px;
+    border-radius: 2px;
+}
+.HeatmapLegend span:first-child {
+    margin-right: 4px;
+}
+.HeatmapLegend span:last-child {
+    margin-left: 4px;
+}

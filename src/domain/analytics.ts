@@ -317,3 +317,42 @@ export function todayValues(
     }
     return { netRate: ((loot - expenses) * HOUR_MS) / elapsedMs, itemPerHour, pricedItems };
 }
+
+// Recorded net added up session by session in completion order, as History's recorded net counts it.
+export function cumulativeNet(analytics: HistoryAnalytics) {
+    let net = 0;
+    return analytics.sessions.map((session) => {
+        net += session.net;
+        return { id: session.id, grindSpotId: session.grindSpotId, finishedAt: session.finishedAt, net };
+    });
+}
+
+export type HeatmapCell = { trackedMs: number; net: number };
+
+// Longer sessions are left out of the heatmap: their hours were almost certainly typed in.
+const HEATMAP_MAX_SESSION_MS = 24 * HOUR_MS;
+
+// Tracked time and net per local weekday (0 = Monday) and hour of day. Sessions store no start time once paused, so
+// each is placed from its completion minus its tracked time up to its completion, earning at a steady rate.
+export function weeklyHeatmap(analytics: HistoryAnalytics): HeatmapCell[][] {
+    const cells = Array.from({ length: 7 }, () => Array.from({ length: 24 }, () => ({ trackedMs: 0, net: 0 })));
+    for (const session of timed(analytics.sessions)) {
+        if (session.elapsedMs > HEATMAP_MAX_SESSION_MS) continue;
+        let at = session.finishedAt - session.elapsedMs;
+        while (at < session.finishedAt) {
+            const date = new Date(at);
+            const nextHour = new Date(
+                date.getFullYear(),
+                date.getMonth(),
+                date.getDate(),
+                date.getHours() + 1,
+            ).getTime();
+            const end = Math.min(nextHour, session.finishedAt);
+            const cell = cells[(date.getDay() + 6) % 7][date.getHours()];
+            cell.trackedMs += end - at;
+            cell.net += (session.net * (end - at)) / session.elapsedMs;
+            at = end;
+        }
+    }
+    return cells;
+}

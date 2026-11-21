@@ -1,6 +1,6 @@
 import { type KeyboardEvent, type PointerEvent, useState } from "react";
 import { PACING_STRETCH_MS, pacingStretches, type SessionPacing } from "../../domain/analytics";
-import { formatSilver } from "../../format";
+import { formatSignedSilver } from "../../format";
 import styles from "./HistoryAnalytics.module.css";
 
 // Below this many sessions a stretch's average is mostly one session's luck, so its bar is faded.
@@ -38,7 +38,7 @@ export function PacingChart({ pacing }: { pacing: SessionPacing[] }) {
     const active = activeIndex === null ? null : stretches[activeIndex];
     const span = (startMs: number) => `${clock(startMs)}–${clock(startMs + PACING_STRETCH_MS)}`;
     const last = stretches[stretches.length - 1];
-    const summary = `Net per hour in each quarter hour of a session, over ${sessions(pacing.length)}: ${formatSilver(stretches[0].rate, true)} per hour in the first, ${formatSilver(last.rate, true)} per hour in the last (${span(last.startMs)}), average ${formatSilver(average, true)} per hour`;
+    const summary = `Net per hour in each quarter hour of a session, over ${sessions(pacing.length)}: ${formatSignedSilver(stretches[0].rate)} per hour in the first, ${formatSignedSilver(last.rate)} per hour in the last (${span(last.startMs)}), average ${formatSignedSilver(average)} per hour`;
 
     function step(event: KeyboardEvent<HTMLDivElement>) {
         const end = stretches.length - 1;
@@ -74,12 +74,12 @@ export function PacingChart({ pacing }: { pacing: SessionPacing[] }) {
                 <h2>Net / hour through a session</h2>
                 {active ? (
                     <span>
-                        <strong>{formatSilver(active.rate, true)}/h</strong> {span(active.startMs)} ·{" "}
+                        <strong>{formatSignedSilver(active.rate)}/h</strong> {span(active.startMs)} ·{" "}
                         {sessions(active.sessionCount)}
                     </span>
                 ) : (
                     <span>
-                        Average <strong>{formatSilver(average, true)}/h</strong>
+                        Average <strong>{formatSignedSilver(average)}/h</strong>
                     </span>
                 )}
             </figcaption>
@@ -130,7 +130,7 @@ export function PacingChart({ pacing }: { pacing: SessionPacing[] }) {
             {/* The arrow-key readout is only visual in the caption, so screen readers hear it here. */}
             <span className="sr-only" aria-live="polite">
                 {active
-                    ? `${formatSilver(active.rate, true)} per hour from ${span(active.startMs)}, ${sessions(active.sessionCount)}`
+                    ? `${formatSignedSilver(active.rate)} per hour from ${span(active.startMs)}, ${sessions(active.sessionCount)}`
                     : ""}
             </span>
         </figure>

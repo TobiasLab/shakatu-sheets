@@ -8,6 +8,11 @@ export function formatSilver(value: number, compact = false) {
     return silverFormatter.format(Math.round(value));
 }
 
+// Analytics values can be negative; the design language writes negatives with a true minus.
+export function formatSignedSilver(value: number) {
+    return compactSilverFormatter.format(value).replace("-", "−");
+}
+
 const steadySilverFormatter = new Intl.NumberFormat("en", {
     notation: "compact",
     minimumFractionDigits: 2,

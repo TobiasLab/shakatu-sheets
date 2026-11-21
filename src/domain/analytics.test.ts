@@ -3,6 +3,7 @@ import {
     type AnalyticsSession,
     analyticsSummary,
     consumableCost,
+    cumulativeNet,
     type HistoryAnalytics,
     itemRates,
     pacingStretches,
@@ -13,6 +14,7 @@ import {
     sessionRates,
     spotConsistency,
     todayValues,
+    weeklyHeatmap,
 } from "./analytics";
 
 const HOUR_MS = 3_600_000;
@@ -268,5 +270,31 @@ describe("history analytics", () => {
         expect(history.get(1)?.change).toBe(0.5);
         expect(history.get(1)?.points).toHaveLength(2);
         expect(history.get(2)?.change).toBeNull();
+    });
+
+    it("adds recorded net up session by session, untimed sessions included", () => {
+        expect(cumulativeNet(analytics).map((point) => [point.id, point.net])).toEqual([
+            ["long", 600_000_000],
+            ["short", 700_000_000],
+            ["untimed", 750_000_000],
+        ]);
+    });
+
+    it("spreads each session over the local weekday hours before its completion", () => {
+        // Monday 31 August 2026, 22:30 to Tuesday 00:30 local time.
+        const finishedAt = new Date(2026, 8, 1, 0, 30).getTime();
+        const cells = weeklyHeatmap({
+            ...analytics,
+            sessions: [
+                { ...session("late", 2 * HOUR_MS, 400_000_000), finishedAt },
+                { ...session("typed", 30 * HOUR_MS, 1), finishedAt },
+                { ...session("untimed", 0, 1), finishedAt },
+            ],
+        });
+        expect(cells[0][22]).toEqual({ trackedMs: HOUR_MS / 2, net: 100_000_000 });
+        expect(cells[0][23]).toEqual({ trackedMs: HOUR_MS, net: 200_000_000 });
+        expect(cells[1][0]).toEqual({ trackedMs: HOUR_MS / 2, net: 100_000_000 });
+        const total = cells.flat().reduce((sum, cell) => sum + cell.trackedMs, 0);
+        expect(total).toBe(2 * HOUR_MS);
     });
 });

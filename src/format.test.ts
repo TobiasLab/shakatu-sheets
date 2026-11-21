@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { formatRelativeDay, formatSilverRate } from "./format";
+import { formatRelativeDay, formatSignedSilver, formatSilverRate } from "./format";
 
 describe("silver rates", () => {
     it("keeps both decimals so a ticking rate holds its width", () => {
@@ -29,5 +29,12 @@ describe("relative days", () => {
     it("falls back to dates after a week", () => {
         expect(formatRelativeDay(new Date(2026, 8, 12).getTime(), now)).toBe("Sep 12");
         expect(formatRelativeDay(new Date(2025, 11, 30).getTime(), now)).toBe("Dec 30, 2025");
+    });
+});
+
+describe("signed silver", () => {
+    it("writes negatives with a true minus", () => {
+        expect(formatSignedSilver(-12_500_000)).toBe("−12.5M");
+        expect(formatSignedSilver(12_500_000)).toBe("12.5M");
     });
 });
