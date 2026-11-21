@@ -129,9 +129,10 @@ completion order, each drop at its recorded time into its session, or at the ses
 (loot entered before the timer started, or sessions from before migration 7). Per rare item a row shows a tick for each
 drop along the tracked time, the drop count (a "Few drops" tag below five), the average gap (tracked time ÷ drops),
 the tracked time since the last drop ("≥" when that drop has no time), and the chance of a gap at least that long
-at the item's own rate, e^(−since ÷ average gap). The rare drop log lists every rare drop, newest first, with its
+at the item's own rate, e^(−since ÷ average gap) ("≤" beside a "≥", since a longer gap is less likely). The rare drop log lists every rare drop, newest first, with its
 session's completion time, its time into the session, and the tracked time since the item's previous drop ("≈" when
-either drop has no time). Without timed sessions, Analytics show one line saying so. Analytics load only while the
+either drop has no time). When no sessions match, Analytics show History's empty state with Clear filters; when
+sessions match but none has tracked time, one line says so. Analytics load only while the
 Analytics view is shown, separately from the session page: switching views keeps the page, and a failed read shows its
 own error and retry while the overview and comparisons stay.
 
