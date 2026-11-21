@@ -13,10 +13,10 @@ import {
     todayValues,
 } from "../../domain/analytics";
 import { formatSignedSilver, formatSilver } from "../../format";
+import { Calendar, type CalendarView } from "./Calendar";
 import { type ClosedSections, Collapsible } from "./Collapsible";
 import { Consistency } from "./Consistency";
 import { CumulativeChart } from "./CumulativeChart";
-import { Heatmap, type HeatmapView } from "./Heatmap";
 import styles from "./HistoryAnalytics.module.css";
 import { formatChange, MarketPrices } from "./MarketPrices";
 import { PacingChart } from "./PacingChart";
@@ -38,8 +38,8 @@ export const HistoryAnalyticsPanel = memo(function HistoryAnalyticsPanel({
     prices,
     consistencyView,
     onConsistencyViewChange,
-    heatmapView,
-    onHeatmapViewChange,
+    calendarView,
+    onCalendarViewChange,
     closed,
     onClosedChange,
 }: {
@@ -49,8 +49,8 @@ export const HistoryAnalyticsPanel = memo(function HistoryAnalyticsPanel({
     prices: PriceImport[] | null;
     consistencyView: ConsistencyView;
     onConsistencyViewChange: (view: ConsistencyView) => void;
-    heatmapView: HeatmapView;
-    onHeatmapViewChange: (view: HeatmapView) => void;
+    calendarView: CalendarView;
+    onCalendarViewChange: (view: CalendarView) => void;
     closed: ClosedSections;
     onClosedChange: Dispatch<SetStateAction<ClosedSections>>;
 }) {
@@ -120,7 +120,7 @@ export const HistoryAnalyticsPanel = memo(function HistoryAnalyticsPanel({
             />
             <CumulativeChart points={cumulativeNet(analytics)} showSpot={grindSpotId === null} />
             <Consistency analytics={analytics} view={consistencyView} onViewChange={onConsistencyViewChange} />
-            <Heatmap analytics={analytics} view={heatmapView} onViewChange={onHeatmapViewChange} />
+            <Calendar analytics={analytics} view={calendarView} onViewChange={onCalendarViewChange} />
             {grindSpotId === null ? (
                 <p className={styles.Hint}>Choose a grind spot to see its pacing and items.</p>
             ) : (

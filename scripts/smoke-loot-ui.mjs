@@ -1105,24 +1105,40 @@ try {
         await press("ArrowRight", "ArrowRight", 39);
         await until(`${cumulativeCaption}.startsWith("Recorded net over time 220M after Star's End")`);
         await press("Escape", "Escape", 27);
-        // The heatmap places sessions in local time; UTC makes the fixture's hours fixed.
+        // The calendar places sessions in local days; UTC makes the fixture's days fixed.
         await send("Emulation.setTimezoneOverride", { timezoneId: "UTC" });
         await click("Reload");
-        const heatmap = `document.querySelector('figure[aria-label="Grinding by weekday and hour"]')`;
-        const heatmapCaption = `${heatmap}.querySelector('figcaption > span').innerText`;
-        await until(`${heatmapCaption} === "Most time Mon 23:00–24:00 · 1.0 h"`);
-        assert.equal(await evaluate(`${heatmap}.querySelectorAll('i[data-hours]').length`), 4);
-        await evaluate(`${heatmap}.querySelector('[role="img"]').focus()`);
+        const calendar = `document.querySelector('figure[aria-label="Grinding by day"]')`;
+        const calendarCaption = `${calendar}.querySelector('figcaption > span').innerText`;
+        await until(`${calendarCaption} === "Most time Wed, Sep 2 · 2.0 h"`);
+        assert.deepEqual(
+            await evaluate(
+                `[...${calendar}.querySelectorAll('[role="img"] > div')].map(month => [month.firstChild.textContent, month.querySelectorAll('[data-hours]').length, month.lastChild.children.length - 7])`,
+            ),
+            [
+                ["August 2026", 1, 31],
+                ["September 2026", 2, 30],
+            ],
+            "A calendar per month from the first to the last session, every day shown",
+        );
+        await evaluate(`${calendar}.querySelector('[role="img"]').focus()`);
         await press("ArrowRight", "ArrowRight", 39);
-        await until(`${heatmapCaption} === "Mon 23:00–24:00 · 1.0 h · 210M/h"`);
-        await press("ArrowDown", "ArrowDown", 40);
-        await until(`${heatmapCaption} === "Tue 23:00–24:00 · 1.0 h · 10M/h"`);
-        await press("ArrowDown", "ArrowDown", 40);
+        await until(`${calendarCaption} === "Wed, Sep 2 · 2.0 h · 30M net · 15M/h"`);
         await press("ArrowLeft", "ArrowLeft", 37);
-        await until(`${heatmapCaption} === "Wed 22:00–23:00 · 1.0 h · 15M/h"`);
+        await until(`${calendarCaption} === "Tue, Sep 1 · 1.0 h · 10M net · 10M/h"`);
+        await press("ArrowLeft", "ArrowLeft", 37);
+        await until(`${calendarCaption} === "Mon, Aug 31 · 1.0 h · 210M net · 210M/h"`);
+        await press("ArrowDown", "ArrowDown", 40);
+        await until(`${calendarCaption} === "Mon, Sep 7 · no sessions"`);
+        await press("ArrowUp", "ArrowUp", 38);
+        await press("ArrowRight", "ArrowRight", 39);
+        await press("ArrowRight", "ArrowRight", 39);
+        await press("ArrowRight", "ArrowRight", 39);
+        await press("ArrowRight", "ArrowRight", 39);
+        await until(`${calendarCaption} === "Fri, Sep 4 · 5M net"`);
         await press("Escape", "Escape", 27);
-        await click("Net / hour");
-        await until(`${heatmapCaption} === "Best Mon 23:00–24:00 · 210M/h"`);
+        await click("Net");
+        await until(`${calendarCaption} === "Best Mon, Aug 31 · 210M"`);
         await click("Time");
         await send("Emulation.setTimezoneOverride", { timezoneId: "" });
         await evaluate("window.__failAnalytics = true");
