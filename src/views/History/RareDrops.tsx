@@ -1,7 +1,8 @@
-import type { ReactNode } from "react";
+import type { Dispatch, ReactNode, SetStateAction } from "react";
 import { getDropIcon } from "../../data/grindSpots";
 import { type HistoryAnalytics, rareDrops, rareItemStats } from "../../domain/analytics";
 import { formatDuration, formatTimestamp } from "../../format";
+import { type ClosedSections, Collapsible } from "./Collapsible";
 import styles from "./HistoryAnalytics.module.css";
 
 // Below this many drops an item's average gap says little about the next one.
@@ -29,14 +30,23 @@ function ItemName({ grindSpotId, name, children }: { grindSpotId: string; name: 
     );
 }
 
-export function RareDrops({ analytics, grindSpotId }: { analytics: HistoryAnalytics; grindSpotId: string }) {
+export function RareDrops({
+    analytics,
+    grindSpotId,
+    closed,
+    onClosedChange,
+}: {
+    analytics: HistoryAnalytics;
+    grindSpotId: string;
+    closed: ClosedSections;
+    onClosedChange: Dispatch<SetStateAction<ClosedSections>>;
+}) {
     const drops = rareDrops(analytics);
     const stats = rareItemStats(analytics, drops);
     if (stats.length === 0) return null;
     return (
         <>
-            <section className={styles.Items} aria-label="Rare drops">
-                <h2>Rare drops</h2>
+            <Collapsible section="rare-drops" title="Rare drops" closed={closed} onClosedChange={onClosedChange}>
                 <section
                     className={`${styles.ItemScroll} ${styles.RareTable}`}
                     aria-label="Rare drop rates"
@@ -86,9 +96,8 @@ export function RareDrops({ analytics, grindSpotId }: { analytics: HistoryAnalyt
                         </tbody>
                     </table>
                 </section>
-            </section>
-            <section className={styles.Items} aria-label="Rare drop log">
-                <h2>Rare drop log</h2>
+            </Collapsible>
+            <Collapsible section="rare-drop-log" title="Rare drop log" closed={closed} onClosedChange={onClosedChange}>
                 <section
                     className={`${styles.ItemScroll} ${styles.LogTable}`}
                     aria-label="Rare drops, newest first"
@@ -127,7 +136,7 @@ export function RareDrops({ analytics, grindSpotId }: { analytics: HistoryAnalyt
                         </tbody>
                     </table>
                 </section>
-            </section>
+            </Collapsible>
         </>
     );
 }

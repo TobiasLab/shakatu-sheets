@@ -1,4 +1,4 @@
-import { memo } from "react";
+import { type Dispatch, memo, type SetStateAction } from "react";
 import { getDropIcon, getGrindSpotDrops } from "../../data/grindSpots";
 import {
     analyticsSummary,
@@ -13,6 +13,7 @@ import {
     todayValues,
 } from "../../domain/analytics";
 import { formatSignedSilver, formatSilver } from "../../format";
+import { type ClosedSections, Collapsible } from "./Collapsible";
 import { Consistency } from "./Consistency";
 import { CumulativeChart } from "./CumulativeChart";
 import { Heatmap, type HeatmapView } from "./Heatmap";
@@ -39,6 +40,8 @@ export const HistoryAnalyticsPanel = memo(function HistoryAnalyticsPanel({
     onConsistencyViewChange,
     heatmapView,
     onHeatmapViewChange,
+    closed,
+    onClosedChange,
 }: {
     analytics: HistoryAnalytics;
     grindSpotId: string | null;
@@ -48,6 +51,8 @@ export const HistoryAnalyticsPanel = memo(function HistoryAnalyticsPanel({
     onConsistencyViewChange: (view: ConsistencyView) => void;
     heatmapView: HeatmapView;
     onHeatmapViewChange: (view: HeatmapView) => void;
+    closed: ClosedSections;
+    onClosedChange: Dispatch<SetStateAction<ClosedSections>>;
 }) {
     const summary = analyticsSummary(analytics);
     const points = sessionRates(analytics);
@@ -122,8 +127,12 @@ export const HistoryAnalyticsPanel = memo(function HistoryAnalyticsPanel({
                 <>
                     <PacingChart pacing={analytics.pacing} />
                     {items.length > 0 && (
-                        <section className={styles.Items} aria-label="Items per hour">
-                            <h2>Items per hour</h2>
+                        <Collapsible
+                            section="items"
+                            title="Items per hour"
+                            closed={closed}
+                            onClosedChange={onClosedChange}
+                        >
                             {/* biome-ignore lint/a11y/noNoninteractiveTabindex: Scrollable tables need keyboard access. */}
                             <section className={styles.ItemScroll} aria-label="Item rates table" tabIndex={0}>
                                 <table>
@@ -173,10 +182,22 @@ export const HistoryAnalyticsPanel = memo(function HistoryAnalyticsPanel({
                                     </tbody>
                                 </table>
                             </section>
-                        </section>
+                        </Collapsible>
                     )}
-                    {prices && <MarketPrices grindSpotId={grindSpotId} imports={prices} />}
-                    <RareDrops analytics={analytics} grindSpotId={grindSpotId} />
+                    {prices && (
+                        <MarketPrices
+                            grindSpotId={grindSpotId}
+                            imports={prices}
+                            closed={closed}
+                            onClosedChange={onClosedChange}
+                        />
+                    )}
+                    <RareDrops
+                        analytics={analytics}
+                        grindSpotId={grindSpotId}
+                        closed={closed}
+                        onClosedChange={onClosedChange}
+                    />
                 </>
             )}
         </section>

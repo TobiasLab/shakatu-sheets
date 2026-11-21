@@ -25,6 +25,7 @@ import { formatDuration, formatSilver, formatTimestamp } from "../../format";
 import { buildGarmothUpload, type GarmothUploadPreview, getGarmothUploadNotice } from "../../garmoth";
 import type { DatabaseStatus } from "../../hooks/usePersistedSession";
 import { SessionTrend } from "../LiveSession/SessionTrend";
+import type { ClosedSections } from "./Collapsible";
 import { GarmothUploadDialog } from "./GarmothUploadDialog";
 import type { HeatmapView } from "./Heatmap";
 import styles from "./History.module.css";
@@ -75,6 +76,7 @@ export function HistoryView({
     // Kept here rather than in the panel, which unmounts while analytics reload.
     const [consistencyView, setConsistencyView] = useState<ConsistencyView>("total");
     const [heatmapView, setHeatmapView] = useState<HeatmapView>("time");
+    const [closedSections, setClosedSections] = useState<ClosedSections>(new Set());
     // null follows the live session's region; "all" lists every region together.
     const [selectedRegion, setRegion] = useState<"eu" | "na" | "all" | null>(null);
     const region = selectedRegion ?? initialRegion;
@@ -635,6 +637,8 @@ export function HistoryView({
                             onConsistencyViewChange={setConsistencyView}
                             heatmapView={heatmapView}
                             onHeatmapViewChange={setHeatmapView}
+                            closed={closedSections}
+                            onClosedChange={setClosedSections}
                         />
                     </Suspense>
                 )

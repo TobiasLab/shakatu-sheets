@@ -439,3 +439,13 @@
 .HeatmapLegend span:last-child {
     margin-left: 4px;
 }
+/* A section that folds under its heading: the global summary style draws the chevron. */
+.Collapsible > summary {
+    width: fit-content;
+}
+.Collapsible[open] > summary {
+    padding-bottom: 10px;
+}
+.Items.Collapsible > summary h2 {
+    padding-bottom: 0;
+}
