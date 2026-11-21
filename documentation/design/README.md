@@ -28,10 +28,11 @@ dark.
   whose single item is worth at least 100M after tax gets a marker. A marker closer than 8% of the session's duration
   to the one before it would overlap it, so it stands one level (8 px) higher and is drawn over it, up to three levels,
   so later drops are on top; drops from the same save are ordered by name, and same-name entries share one marker. The
-  plot reserves the room for the highest level whenever it has a marker, so stacking never moves it. These values are the `SPIKE_*` constants in `src/domain/trend.ts`. The value is not
-  printed beside the icon: when the pointer is over an icon, or the readout reaches a marker, the readout snaps to that
-  drop and names the item and its value, shortening a long name so the value and time stay visible, and the hovered
-  marker is drawn over its neighbours. The plot's accessible label lists the marked drops.
+  plot reserves the room for the highest level whenever it has a marker, so stacking never moves it. These values are
+  the `SPIKE_*` constants in `src/domain/trend.ts`. When the pointer is over an icon, or the readout reaches a marker,
+  that marker is drawn over its neighbours with its compact value just below the icon, and the readout snaps to the
+  drop and names the item and time, shortening a long name so the time stays visible. Other markers show no value. The
+  plot's accessible label lists the marked drops with their values.
 - **Capture.** Loot capture is a one-line status strip. Setup expands it into a connected stepper, the live preview with
   both crop previews beneath, and a narrow control column (area switch, UI scale, position pad, layout import,
   confirmation, diagnostics). Needs attention sits flush inside the strip.

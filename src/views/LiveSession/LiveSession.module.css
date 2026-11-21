@@ -115,6 +115,21 @@
     background: var(--gold);
     pointer-events: auto;
 }
+.TrendSpike small {
+    position: absolute;
+    top: 20px;
+    left: 50%;
+    padding: 0 3px;
+    border-radius: 3px;
+    background: var(--trend-ring, var(--canvas));
+    color: var(--text-strong);
+    font-size: 10px;
+    font-weight: 600;
+    line-height: 14px;
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+    transform: translateX(-50%);
+}
 .TrendSpike::after {
     content: "";
     flex: 1;

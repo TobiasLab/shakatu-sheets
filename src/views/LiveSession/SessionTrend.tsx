@@ -144,9 +144,7 @@ export function SessionTrend({
                 {hoveredSpike ? (
                     <span className={styles.TrendReadout}>
                         <span className={styles.TrendSpikeName}>{spikeName}</span>
-                        <span>
-                            <strong>{formatSilver(hoveredSpike.value, true)}</strong> at {formatDuration(shownMs)}
-                        </span>
+                        <span>at {formatDuration(shownMs)}</span>
                     </span>
                 ) : hoverMs !== null ? (
                     <span>
@@ -212,6 +210,7 @@ export function SessionTrend({
                             }}
                         >
                             {icon ? <img src={icon} alt="" /> : <b />}
+                            {spike === hoveredSpike && <small>{formatSilver(spike.value, true)}</small>}
                         </span>
                     );
                 })}
