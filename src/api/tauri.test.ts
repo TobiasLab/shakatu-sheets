@@ -21,6 +21,7 @@ import {
     type LootCaptureSettings,
     listFinishedSessions,
     loadHistoryAnalytics,
+    loadPriceHistory,
     type NativeCaptureSelection,
     parseNativeCaptureMessage,
     setNativeDisplayCapturePreviewEnabled,
@@ -389,6 +390,15 @@ describe("history analytics boundary", () => {
         tauri.invoke.mockResolvedValueOnce(result);
         expect(await loadHistoryAnalytics(query)).toEqual(result);
         expect(tauri.invoke).toHaveBeenLastCalledWith("load_history_analytics", { query });
+    });
+});
+
+describe("price history boundary", () => {
+    it("sends the region and the spot's market item IDs", async () => {
+        const result = [{ itemId: 16001, subId: 0, basePrice: 129000, fetchedAt: 2000 }];
+        tauri.invoke.mockResolvedValueOnce(result);
+        expect(await loadPriceHistory("eu", [16001, 721003])).toEqual(result);
+        expect(tauri.invoke).toHaveBeenLastCalledWith("load_price_history", { region: "eu", itemIds: [16001, 721003] });
     });
 });
 

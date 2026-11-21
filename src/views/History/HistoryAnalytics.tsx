@@ -1,15 +1,20 @@
 import { memo } from "react";
-import { getDropIcon } from "../../data/grindSpots";
+import { getDropIcon, getGrindSpotDrops } from "../../data/grindSpots";
 import {
     analyticsSummary,
     type ConsistencyView,
+    consumableCost,
     type HistoryAnalytics,
     itemRates,
+    type PriceImport,
+    priceHistory,
     sessionRates,
+    todayValues,
 } from "../../domain/analytics";
 import { formatSilver } from "../../format";
 import { Consistency } from "./Consistency";
 import styles from "./HistoryAnalytics.module.css";
+import { formatChange, MarketPrices } from "./MarketPrices";
 import { PacingChart } from "./PacingChart";
 import { RareDrops } from "./RareDrops";
 import { SessionRateChart } from "./SessionRateChart";
@@ -26,17 +31,35 @@ function silverRate(rate: number | null) {
 export const HistoryAnalyticsPanel = memo(function HistoryAnalyticsPanel({
     analytics,
     grindSpotId,
+    prices,
     consistencyView,
     onConsistencyViewChange,
 }: {
     analytics: HistoryAnalytics;
     grindSpotId: string | null;
+    // Imported prices of the spot's market items in the filtered region; null without one spot and one region.
+    prices: PriceImport[] | null;
     consistencyView: ConsistencyView;
     onConsistencyViewChange: (view: ConsistencyView) => void;
 }) {
     const summary = analyticsSummary(analytics);
     const points = sessionRates(analytics);
     const items = grindSpotId === null ? [] : itemRates(analytics);
+    const cost = consumableCost(analytics);
+    const recordedRate = (summary.baseRate ?? 0) + (summary.rareRate ?? 0);
+    let today: ReturnType<typeof todayValues> = null;
+    if (grindSpotId !== null && prices !== null && prices.length > 0) {
+        const marketItemIds = new Map<string, number>();
+        for (const drop of getGrindSpotDrops(grindSpotId)) {
+            if (drop.marketItemId !== undefined) marketItemIds.set(drop.name, drop.marketItemId);
+        }
+        const latest = new Map(
+            [...priceHistory(prices)].map(([itemId, history]) => [itemId, history.latest.basePrice]),
+        );
+        today = todayValues(analytics, marketItemIds, latest);
+        // Without loot that has a market price, today's values equal the recorded ones and add nothing.
+        if (today?.pricedItems === 0) today = null;
+    }
     if (points.length === 0) {
         return (
             <section className={styles.Analytics} aria-label="Analytics">
@@ -59,6 +82,24 @@ export const HistoryAnalyticsPanel = memo(function HistoryAnalyticsPanel({
                     <span>Rare share of loot</span>
                     <strong>{summary.rareShare === null ? "—" : shareFormatter.format(summary.rareShare)}</strong>
                 </div>
+                <div>
+                    <span>Consumables / hour</span>
+                    <strong data-negative={(cost.perHour ?? 0) > 0 || undefined}>
+                        {cost.perHour === null
+                            ? "—"
+                            : `${cost.perHour > 0 ? "−" : ""}${formatSilver(Math.abs(cost.perHour), true)}/h`}
+                    </strong>
+                    {cost.shareOfLoot !== null && <small>{shareFormatter.format(cost.shareOfLoot)} of loot</small>}
+                </div>
+                {today && (
+                    <div>
+                        <span>Net / hour at today's prices</span>
+                        <strong>{silverRate(today.netRate)}</strong>
+                        {recordedRate > 0 && (
+                            <small>{formatChange(today.netRate / recordedRate - 1)} vs recorded</small>
+                        )}
+                    </div>
+                )}
             </div>
             <SessionRateChart
                 points={points}
@@ -84,6 +125,7 @@ export const HistoryAnalyticsPanel = memo(function HistoryAnalyticsPanel({
                                             <th scope="col">Session range</th>
                                             <th scope="col">Sessions</th>
                                             <th scope="col">Silver / hour</th>
+                                            {today && <th scope="col">Today / hour</th>}
                                             <th scope="col">Share</th>
                                         </tr>
                                     </thead>
@@ -112,6 +154,9 @@ export const HistoryAnalyticsPanel = memo(function HistoryAnalyticsPanel({
                                                         {item.sessionCount} / {item.timedSessionCount}
                                                     </td>
                                                     <td>{formatSilver(item.silverPerHour, true)}/h</td>
+                                                    {today && (
+                                                        <td>{silverRate(today.itemPerHour.get(item.name) ?? null)}</td>
+                                                    )}
                                                     <td>{shareFormatter.format(item.share)}</td>
                                                 </tr>
                                             );
@@ -121,6 +166,7 @@ export const HistoryAnalyticsPanel = memo(function HistoryAnalyticsPanel({
                             </section>
                         </section>
                     )}
+                    {prices && <MarketPrices grindSpotId={grindSpotId} imports={prices} />}
                     <RareDrops analytics={analytics} grindSpotId={grindSpotId} />
                 </>
             )}

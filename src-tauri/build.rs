@@ -8,6 +8,7 @@ const COMMANDS: &[&str] = &[
     "delete_finished_session",
     "list_finished_sessions",
     "load_history_analytics",
+    "load_price_history",
     "load_session_trend",
     "load_active_session",
     "load_consumable_presets",

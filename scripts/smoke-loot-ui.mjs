@@ -191,8 +191,9 @@ await send("Page.addScriptToEvaluateOnNewDocument", {
                 const loot = scope.flatMap(r => {
                     const byName = new Map();
                     for (const e of r.session.entries.filter(e => e.valuation !== "expense")) {
-                        const item = byName.get(e.name) ?? {session:r.session, name:e.name, quantity:0, value:0};
+                        const item = byName.get(e.name) ?? {session:r.session, name:e.name, quantity:0, value:0, marketQuantity:0, marketValue:0};
                         item.quantity += e.quantity; item.value += e.quantity*e.unitPrice*e.saleMultiplier;
+                        if (e.valuation === "market") { item.marketQuantity += e.quantity; item.marketValue += e.quantity*e.unitPrice*e.saleMultiplier; }
                         byName.set(e.name,item);
                     }
                     return [...byName.values()];
@@ -206,8 +207,8 @@ await send("Page.addScriptToEvaluateOnNewDocument", {
                 const items = new Map();
                 for (const l of loot.filter(l => l.session.elapsedMs > 0)) {
                     const rate = l.quantity*3600000/l.session.elapsedMs;
-                    const item = items.get(l.name) ?? {name:l.name, rare:rare(l.name), quantity:0, value:0, sessionCount:0, minRate:rate, maxRate:rate};
-                    item.quantity += l.quantity; item.value += l.value; item.sessionCount++;
+                    const item = items.get(l.name) ?? {name:l.name, rare:rare(l.name), quantity:0, value:0, sessionCount:0, minRate:rate, maxRate:rate, marketQuantity:0, marketValue:0};
+                    item.quantity += l.quantity; item.value += l.value; item.sessionCount++; item.marketQuantity += l.marketQuantity; item.marketValue += l.marketValue;
                     item.minRate = Math.min(item.minRate, rate); item.maxRate = Math.max(item.maxRate, rate);
                     items.set(l.name,item);
                 }
@@ -219,6 +220,9 @@ await send("Page.addScriptToEvaluateOnNewDocument", {
                     marks: Array.from({length: Math.floor(r.session.elapsedMs / 900000) + 1}, (_, k) => r.samples.filter(sample => sample.elapsedMs <= k * 900000).at(-1)?.net ?? 0),
                 }));
                 return {sessions, items:[...items.values()].sort((a,b) => b.value-a.value || a.name.localeCompare(b.name)), rareLoot, rareEvents, pacing};
+            }
+            if (command === "load_price_history") {
+                return (window.__priceImports ?? []).filter(p => p.region === args.region && args.itemIds.includes(p.itemId)).map(({region, ...p}) => p);
             }
             if (command === "load_session_trend") {
                 if (window.__holdTrend === args.sessionId) {
@@ -1007,6 +1011,12 @@ try {
                 'analytics-b':[{elapsedMs:3600000,net:15000000},{elapsedMs:7200000,net:30000000}],
             }[id] ?? []
         }))`);
+        await evaluate(`window.__priceImports = [
+            {region:'eu', itemId:16001, subId:0, basePrice:100000, fetchedAt:Date.UTC(2026,8,1)},
+            {region:'eu', itemId:16001, subId:0, basePrice:125000, fetchedAt:Date.UTC(2026,8,15)},
+            {region:'eu', itemId:721003, subId:0, basePrice:2400000, fetchedAt:Date.UTC(2026,8,1)},
+            {region:'na', itemId:16001, subId:0, basePrice:900000, fetchedAt:Date.UTC(2026,8,1)},
+        ]`);
         await click("Reload");
         await until('document.body.innerText.includes("1–4 of 4 sessions")');
         const listCalls = await evaluate("window.__calls.filter(c => c.command === 'list_finished_sessions').length");
@@ -1122,6 +1132,26 @@ try {
                 ["Ancient Spirit Dust", "13.33", "10.00–15.00", "2 / 2", "13.33M/h", "16.7%"],
             ],
             "Items rate over every timed session at the spot",
+        );
+        assert.match(oneSpot, /Consumables \/ hour\s+0\/h\s+0% of loot/, "No expenses cost nothing");
+        assert.equal(
+            oneSpot.includes("today's prices") || oneSpot.includes("Today / hour"),
+            false,
+            "Without loot that has a market price, today's values are left out",
+        );
+        assert.deepEqual(
+            await evaluate(
+                `[...document.querySelectorAll('[aria-label="Imported market prices"] tbody tr')].map(row => [...row.cells].slice(0, 5).map(cell => cell.innerText.trim()))`,
+            ),
+            [
+                ["Caphras Stone", "", "2.4M", "0%", "1"],
+                ["Black Stone", "", "125K", "+25%", "2"],
+            ],
+            "Market prices list the spot's imported items in this region, highest first",
+        );
+        assert.equal(
+            (await evaluate("window.__calls.filter(c => c.command === 'load_price_history').at(-1).args")).region,
+            "eu",
         );
         const pacingFigure = `document.querySelector('figure[aria-label="Net per hour through a session"]')`;
         assert.equal(

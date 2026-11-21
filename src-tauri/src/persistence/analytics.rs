@@ -44,6 +44,9 @@ pub struct AnalyticsItem {
     /// Quantity per hour in the sessions where the item dropped.
     pub min_rate: f64,
     pub max_rate: f64,
+    /// The part of the quantity and value recorded at a market price, which today's prices revalue.
+    pub market_quantity: f64,
+    pub market_value: f64,
 }
 
 /// A rare item's total quantity in one session with tracked time.
@@ -122,7 +125,10 @@ pub(super) fn load_history_analytics_records(
         ),
         loot AS (
             SELECT e.session_id, e.name, SUM(e.quantity) AS quantity,
-                SUM(e.quantity * e.unit_price * e.sale_multiplier) AS value
+                SUM(e.quantity * e.unit_price * e.sale_multiplier) AS value,
+                SUM(CASE WHEN e.valuation = 'market' THEN e.quantity ELSE 0 END) AS market_quantity,
+                SUM(CASE WHEN e.valuation = 'market' THEN e.quantity * e.unit_price * e.sale_multiplier ELSE 0 END)
+                    AS market_value
             FROM session_entries e JOIN filtered f ON f.id = e.session_id
             WHERE e.valuation <> 'expense'
             GROUP BY e.session_id, e.name
@@ -189,7 +195,8 @@ pub(super) fn load_history_analytics_records(
         .prepare(&format!(
             "{filtered}
             SELECT l.name, l.name IN (SELECT name FROM rare_items), SUM(l.quantity), SUM(l.value), COUNT(*),
-                MIN(l.quantity * 3600000.0 / f.elapsed_ms), MAX(l.quantity * 3600000.0 / f.elapsed_ms)
+                MIN(l.quantity * 3600000.0 / f.elapsed_ms), MAX(l.quantity * 3600000.0 / f.elapsed_ms),
+                SUM(l.market_quantity), SUM(l.market_value)
             FROM loot l JOIN filtered f ON f.id = l.session_id
             WHERE f.elapsed_ms > 0
             GROUP BY l.name
@@ -206,6 +213,8 @@ pub(super) fn load_history_analytics_records(
                         session_count: row.get(4)?,
                         min_rate: row.get(5)?,
                         max_rate: row.get(6)?,
+                        market_quantity: row.get(7)?,
+                        market_value: row.get(8)?,
                     })
                 })?
                 .collect::<Result<Vec<_>, _>>()

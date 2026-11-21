@@ -2,14 +2,17 @@ import { describe, expect, it } from "vitest";
 import {
     type AnalyticsSession,
     analyticsSummary,
+    consumableCost,
     type HistoryAnalytics,
     itemRates,
     pacingStretches,
+    priceHistory,
     rareDrops,
     rareItemStats,
     rateSpread,
     sessionRates,
     spotConsistency,
+    todayValues,
 } from "./analytics";
 
 const HOUR_MS = 3_600_000;
@@ -25,7 +28,17 @@ const analytics: HistoryAnalytics = {
         session("untimed", 0, 50_000_000, 50_000_000),
     ],
     items: [
-        { name: "Necklace", rare: true, quantity: 2, value: 300_000_000, sessionCount: 1, minRate: 0.5, maxRate: 0.5 },
+        {
+            name: "Necklace",
+            rare: true,
+            quantity: 2,
+            value: 300_000_000,
+            sessionCount: 1,
+            minRate: 0.5,
+            maxRate: 0.5,
+            marketQuantity: 0,
+            marketValue: 0,
+        },
         {
             name: "Cloth",
             rare: false,
@@ -34,6 +47,8 @@ const analytics: HistoryAnalytics = {
             sessionCount: 2,
             minRate: 900,
             maxRate: 1_100,
+            marketQuantity: 4_000,
+            marketValue: 500_000_000,
         },
     ],
     rareLoot: [],
@@ -106,6 +121,8 @@ describe("history analytics", () => {
             sessionCount: 1,
             minRate: 1,
             maxRate: 1,
+            marketQuantity: 0,
+            marketValue: 0,
         });
         const drops: HistoryAnalytics = {
             sessions: [
@@ -219,5 +236,37 @@ describe("history analytics", () => {
             { startMs: 45 * 60_000, rate: 20_000_000, sessionCount: 1 },
         ]);
         expect(pacingStretches([])).toEqual([]);
+    });
+
+    it("charges consumables per tracked hour and as a share of loot", () => {
+        expect(consumableCost(analytics)).toEqual({ perHour: 25_000_000, shareOfLoot: 0.125 });
+    });
+
+    it("values market loot at its latest price and keeps the recorded value of everything else", () => {
+        const today = todayValues(analytics, new Map([["Cloth", 7]]), new Map([[7, 200_000]]));
+        expect(today?.netRate).toBeCloseTo(219_000_000);
+        expect(today?.itemPerHour.get("Cloth")).toBeCloseTo(169_000_000);
+        expect(today?.itemPerHour.get("Necklace")).toBe(75_000_000);
+        expect(today?.pricedItems).toBe(1);
+        expect(todayValues({ ...analytics, sessions: [] }, new Map(), new Map())).toBeNull();
+        const vendorCloth = {
+            ...analytics,
+            items: analytics.items.map((item) => ({ ...item, marketQuantity: 0, marketValue: 0 })),
+        };
+        const unchanged = todayValues(vendorCloth, new Map([["Cloth", 7]]), new Map([[7, 200_000]]));
+        expect(unchanged?.pricedItems).toBe(0);
+        expect(unchanged?.netRate).toBe(175_000_000);
+    });
+
+    it("follows each item's imported prices from the first to the latest", () => {
+        const history = priceHistory([
+            { itemId: 1, basePrice: 100, fetchedAt: 1 },
+            { itemId: 1, basePrice: 150, fetchedAt: 2 },
+            { itemId: 2, basePrice: 0, fetchedAt: 1 },
+        ]);
+        expect(history.get(1)?.latest.basePrice).toBe(150);
+        expect(history.get(1)?.change).toBe(0.5);
+        expect(history.get(1)?.points).toHaveLength(2);
+        expect(history.get(2)?.change).toBeNull();
     });
 });

@@ -302,3 +302,51 @@
     position: absolute;
     top: 0;
 }
+.Readouts small {
+    color: var(--muted);
+    font-size: 11px;
+    font-variant-numeric: tabular-nums;
+}
+.Readouts strong[data-negative] {
+    color: var(--negative);
+}
+.PriceTable tbody td:nth-child(2) {
+    width: 28%;
+    min-width: 140px;
+}
+.PriceTable thead th:nth-child(2) {
+    text-align: left;
+}
+.PriceTable tbody td:nth-child(3) {
+    color: var(--text-strong);
+    font-weight: 600;
+}
+/* Each row's price over a time axis all rows share; the dot is the latest import. */
+.Sparkline {
+    position: relative;
+    display: block;
+    height: 20px;
+    margin: 0 4px;
+}
+.Sparkline svg {
+    display: block;
+    width: 100%;
+    height: 100%;
+    overflow: visible;
+}
+.Sparkline polyline {
+    fill: none;
+    stroke: var(--gold);
+    stroke-width: 1.5;
+    stroke-linejoin: round;
+    vector-effect: non-scaling-stroke;
+}
+.Sparkline i {
+    position: absolute;
+    width: 6px;
+    height: 6px;
+    margin: -3px 0 0 -3px;
+    border-radius: 50%;
+    background: var(--gold);
+    box-shadow: 0 0 0 2px var(--canvas);
+}

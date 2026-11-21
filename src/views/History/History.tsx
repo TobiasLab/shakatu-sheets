@@ -8,13 +8,15 @@ import {
     listFinishedSessions,
     loadGarmothSettings,
     loadHistoryAnalytics,
+    loadPriceHistory,
     loadSessionTrend,
+    type MarketPriceSnapshot,
     resolveGarmothUpload,
 } from "../../api/tauri";
 import { EmptyState, Feedback } from "../../components/Feedback/Feedback";
 import { Icon } from "../../components/Icon/Icon";
 import { SelectionButton } from "../../components/SelectionButton/SelectionButton";
-import { grindSpotName, grindSpots } from "../../data/grindSpots";
+import { getMarketItemIds, grindSpotName, grindSpots } from "../../data/grindSpots";
 import type { ConsistencyView, HistoryAnalytics } from "../../domain/analytics";
 import { historyDateBoundary, netPerHour, rankSpots, summarizeHistory } from "../../domain/history";
 import { calculateTotals, type SessionState } from "../../domain/session";
@@ -63,6 +65,7 @@ export function HistoryView({
         result: HistoryAnalytics | null;
         error: string;
         grindSpotId: string | null;
+        prices: MarketPriceSnapshot[] | null;
     } | null>(null);
     // Kept here rather than in the panel, which unmounts while analytics reload.
     const [consistencyView, setConsistencyView] = useState<ConsistencyView>("total");
@@ -169,13 +172,22 @@ export function HistoryView({
         setAnalytics(null);
         try {
             const filters = historyFilters();
-            const result = await loadHistoryAnalytics({ ...filters, rareMinUnitValue: SPIKE_MIN_UNIT_VALUE });
+            const { grindSpotId, region } = filters;
+            // Prices are per region and per known spot (an unknown spot ID would fall back to another spot's items).
+            // They are extra: a failed price read leaves the rest of the analytics.
+            const knownSpot = grindSpots.some((spot) => spot.id === grindSpotId);
+            const [result, prices] = await Promise.all([
+                loadHistoryAnalytics({ ...filters, rareMinUnitValue: SPIKE_MIN_UNIT_VALUE }),
+                grindSpotId !== null && region !== null && knownSpot
+                    ? loadPriceHistory(region, getMarketItemIds(grindSpotId)).catch(() => null)
+                    : null,
+            ]);
             if (requestId === analyticsRequestId.current) {
-                setAnalytics({ result, error: "", grindSpotId: filters.grindSpotId });
+                setAnalytics({ result, error: "", grindSpotId, prices });
             }
         } catch (loadError) {
             if (requestId === analyticsRequestId.current) {
-                setAnalytics({ result: null, error: String(loadError), grindSpotId: null });
+                setAnalytics({ result: null, error: String(loadError), grindSpotId: null, prices: null });
             }
         }
     }
@@ -606,6 +618,7 @@ export function HistoryView({
                     <HistoryAnalyticsPanel
                         analytics={analytics.result}
                         grindSpotId={analytics.grindSpotId}
+                        prices={analytics.prices}
                         consistencyView={consistencyView}
                         onConsistencyViewChange={setConsistencyView}
                     />

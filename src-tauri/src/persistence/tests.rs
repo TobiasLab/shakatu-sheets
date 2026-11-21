@@ -18,7 +18,9 @@ use super::{
         claim_garmoth_upload, finish_garmoth_upload, load_garmoth_upload_status,
         release_garmoth_upload, resolve_unknown_garmoth_upload, GarmothUploadStatus,
     },
-    market_prices::{load_market_price_records, MarketPriceSnapshot, Region},
+    market_prices::{
+        load_market_price_records, load_price_history_records, MarketPriceSnapshot, Region,
+    },
     migrate, open_database,
     sessions::{
         apply_finished_session_consumables_record, delete_finished_session_at_path,
@@ -2166,6 +2168,8 @@ fn analytics_split_rare_loot_and_rate_items_per_tracked_hour() {
         session_count: item.session_count,
         min_rate: item.min_rate,
         max_rate: item.max_rate,
+        market_quantity: item.market_quantity,
+        market_value: item.market_value.round(),
     };
     assert_eq!(
         analytics.items.iter().map(rounded).collect::<Vec<_>>(),
@@ -2178,6 +2182,8 @@ fn analytics_split_rare_loot_and_rate_items_per_tracked_hour() {
                 session_count: 1,
                 min_rate: 1.0,
                 max_rate: 1.0,
+                market_quantity: 1.0,
+                market_value: 169_000_000.0,
             },
             AnalyticsItem {
                 name: "Cloth".into(),
@@ -2187,6 +2193,8 @@ fn analytics_split_rare_loot_and_rate_items_per_tracked_hour() {
                 session_count: 2,
                 min_rate: 1_000.0,
                 max_rate: 1_100.0,
+                market_quantity: 0.0,
+                market_value: 0.0,
             },
         ],
         "untimed sessions and expenses add no item rows; one item's rows in a session merge"
@@ -2451,4 +2459,41 @@ fn analytics_reduce_net_samples_to_quarter_hour_marks() {
             .pacing
             .is_empty()
     );
+}
+
+#[test]
+fn price_history_lists_every_import_of_the_requested_items() {
+    let connection = database();
+    connection
+        .execute(
+            "INSERT INTO price_snapshots (region, item_id, sub_id, base_price, fetched_at)
+             VALUES ('eu', 16001, 0, 129000, 2000),
+                    ('eu', 16001, 0, 100000, 1000),
+                    ('eu', 16001, 3, 900000, 1000),
+                    ('eu', 721003, 0, 2350000, 1500),
+                    ('eu', 40383, 0, 70000000, 1500),
+                    ('na', 16001, 0, 218000, 3000)",
+            [],
+        )
+        .unwrap();
+    let snapshot = |item_id: i64, base_price: i64, fetched_at: i64| MarketPriceSnapshot {
+        item_id,
+        sub_id: 0,
+        base_price,
+        fetched_at,
+    };
+    assert_eq!(
+        load_price_history_records(&connection, Region::Eu, &[16_001, 721_003]).unwrap(),
+        [
+            snapshot(16_001, 100_000, 1_000),
+            snapshot(16_001, 129_000, 2_000),
+            snapshot(721_003, 2_350_000, 1_500)
+        ],
+        "other regions, other items and enhanced variants are left out"
+    );
+    assert!(load_price_history_records(&connection, Region::Eu, &[])
+        .unwrap()
+        .is_empty());
+    assert!(load_price_history_records(&connection, Region::Eu, &[0]).is_err());
+    assert!(load_price_history_records(&connection, Region::Eu, &vec![1; 501]).is_err());
 }
