@@ -7,6 +7,7 @@ import {
     type HistoryResult,
     listFinishedSessions,
     loadGarmothSettings,
+    loadHistoryAnalytics,
     loadSessionTrend,
     resolveGarmothUpload,
 } from "../../api/tauri";
@@ -14,15 +15,17 @@ import { EmptyState, Feedback } from "../../components/Feedback/Feedback";
 import { Icon } from "../../components/Icon/Icon";
 import { SelectionButton } from "../../components/SelectionButton/SelectionButton";
 import { grindSpotName, grindSpots } from "../../data/grindSpots";
+import type { HistoryAnalytics } from "../../domain/analytics";
 import { historyDateBoundary, netPerHour, rankSpots, summarizeHistory } from "../../domain/history";
 import { calculateTotals, type SessionState } from "../../domain/session";
-import { hasRecordedTrend, type SessionTrendData } from "../../domain/trend";
+import { hasRecordedTrend, type SessionTrendData, SPIKE_MIN_UNIT_VALUE } from "../../domain/trend";
 import { formatDuration, formatSilver, formatTimestamp } from "../../format";
 import { buildGarmothUpload, type GarmothUploadPreview, getGarmothUploadNotice } from "../../garmoth";
 import type { DatabaseStatus } from "../../hooks/usePersistedSession";
 import { SessionTrend } from "../LiveSession/SessionTrend";
 import { GarmothUploadDialog } from "./GarmothUploadDialog";
 import styles from "./History.module.css";
+import { HistoryAnalyticsPanel } from "./HistoryAnalytics";
 import { RecordedEntries } from "./RecordedEntries";
 import { SpotComparisons } from "./SpotComparisons";
 
@@ -53,6 +56,9 @@ export function HistoryView({
 }) {
     const [records, setRecords] = useState<FinishedSessionRecord[] | null>(null);
     const [history, setHistory] = useState<HistoryResult | null>(null);
+    const [mode, setMode] = useState<"sessions" | "analytics">("sessions");
+    // null while loading.
+    const [analytics, setAnalytics] = useState<{ result: HistoryAnalytics | null; error: string } | null>(null);
     // null follows the live session's region; "all" lists every region together.
     const [selectedRegion, setRegion] = useState<"eu" | "na" | "all" | null>(null);
     const region = selectedRegion ?? initialRegion;
@@ -90,9 +96,24 @@ export function HistoryView({
     const historySelectButtons = useRef(new Map<string, HTMLButtonElement>());
     const historyDeleteButtons = useRef(new Map<string, HTMLButtonElement>());
     const historyRequestId = useRef(0);
+    const analyticsRequestId = useRef(0);
     const previousButton = useRef<HTMLButtonElement>(null);
     const nextButton = useRef<HTMLButtonElement>(null);
     const pageFocus = useRef<"previous" | "next" | null>(null);
+
+    function historyFilters() {
+        const finishedFromMs = historyDateBoundary(fromDate);
+        const finishedBeforeMs = historyDateBoundary(toDate, true);
+        if (finishedFromMs !== null && finishedBeforeMs !== null && finishedFromMs >= finishedBeforeMs) {
+            throw new Error("The From date must be on or before the To date.");
+        }
+        return {
+            region: region === "all" ? null : region,
+            grindSpotId: grindSpotFilter === "all" ? null : grindSpotFilter,
+            finishedFromMs,
+            finishedBeforeMs,
+        };
+    }
 
     async function loadHistory(showLoading = true) {
         const requestId = ++historyRequestId.current;
@@ -105,19 +126,7 @@ export function HistoryView({
         }
         setError("");
         try {
-            const finishedFromMs = historyDateBoundary(fromDate);
-            const finishedBeforeMs = historyDateBoundary(toDate, true);
-            if (finishedFromMs !== null && finishedBeforeMs !== null && finishedFromMs >= finishedBeforeMs) {
-                throw new Error("The From date must be on or before the To date.");
-            }
-            const result = await listFinishedSessions({
-                region: region === "all" ? null : region,
-                grindSpotId: grindSpotFilter === "all" ? null : grindSpotFilter,
-                finishedFromMs,
-                finishedBeforeMs,
-                offset,
-                limit: 20,
-            });
+            const result = await listFinishedSessions({ ...historyFilters(), offset, limit: 20 });
             const finished = result.records;
             if (requestId !== historyRequestId.current) return "";
             setRecords(finished);
@@ -146,6 +155,25 @@ export function HistoryView({
             historyRequestId.current += 1;
         };
     }, [databaseLoaded, waitingForSave, region, fromDate, toDate, grindSpotFilter, offset]);
+
+    // Analytics have their own request order and error, so switching views or a failed read leaves the page alone.
+    async function loadAnalytics() {
+        const requestId = ++analyticsRequestId.current;
+        setAnalytics(null);
+        try {
+            const result = await loadHistoryAnalytics({ ...historyFilters(), rareMinUnitValue: SPIKE_MIN_UNIT_VALUE });
+            if (requestId === analyticsRequestId.current) setAnalytics({ result, error: "" });
+        } catch (loadError) {
+            if (requestId === analyticsRequestId.current) setAnalytics({ result: null, error: String(loadError) });
+        }
+    }
+
+    useEffect(() => {
+        if (databaseLoaded && !waitingForSave && mode === "analytics") void loadAnalytics();
+        return () => {
+            analyticsRequestId.current += 1;
+        };
+    }, [databaseLoaded, waitingForSave, mode, region, fromDate, toDate, grindSpotFilter]);
 
     useEffect(() => {
         if (databaseLoaded) {
@@ -370,13 +398,30 @@ export function HistoryView({
     return (
         <>
             <header className="topbar">
-                <h1>Session history</h1>
+                <div className={styles.Heading}>
+                    <h1>Session history</h1>
+                    <fieldset className="segmented" aria-label="History view" disabled={actionBusy}>
+                        {(["sessions", "analytics"] as const).map((value) => (
+                            <button
+                                key={value}
+                                type="button"
+                                aria-pressed={mode === value}
+                                onClick={() => setMode(value)}
+                            >
+                                {value === "sessions" ? "Sessions" : "Analytics"}
+                            </button>
+                        ))}
+                    </fieldset>
+                </div>
                 <button
                     ref={reloadButton}
                     className="button subtle"
                     type="button"
                     disabled={!databaseLoaded || actionBusy}
-                    onClick={() => void loadHistory()}
+                    onClick={() => {
+                        void loadHistory();
+                        if (mode === "analytics") void loadAnalytics();
+                    }}
                 >
                     Reload
                 </button>
@@ -541,6 +586,26 @@ export function HistoryView({
                 >
                     {hasFilters ? undefined : `Finish a session in ${region.toUpperCase()} to see it here.`}
                 </EmptyState>
+            ) : mode === "analytics" ? (
+                analytics === null ? (
+                    <Feedback>Reading analytics…</Feedback>
+                ) : analytics.result === null ? (
+                    <Feedback
+                        tone="error"
+                        action={
+                            <button className="button" type="button" onClick={() => void loadAnalytics()}>
+                                Retry analytics
+                            </button>
+                        }
+                    >
+                        Could not load analytics. {analytics.error}
+                    </Feedback>
+                ) : (
+                    <HistoryAnalyticsPanel
+                        analytics={analytics.result}
+                        grindSpotId={grindSpotFilter === "all" ? null : grindSpotFilter}
+                    />
+                )
             ) : (
                 <div className={styles.HistoryGrid}>
                     <section className={`panel ${styles.ListPanel}`}>

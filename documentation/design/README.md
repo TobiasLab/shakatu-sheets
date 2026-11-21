@@ -116,6 +116,18 @@ positive-duration sessions: their net × 3,600,000 ÷ their total elapsed millis
 in recorded net and session count. Negative earnings remain valid. Rates sort descending, unavailable rates last, with
 spot ID breaking ties. Prices are recorded valuations, not confirmed sales; EU and NA remain separate.
 
+A Sessions / Analytics switch beside the History title swaps the session list and receipt for analytics over the same
+filters; the overview and comparisons stay above both. Analytics split net/hour into base (everything except rare
+drops, after consumables) and rare drops, so the two add up to the overview's net/hour, and show rare drops' share of
+loot value. Rare items are those whose average after-tax unit value across the filtered sessions with tracked time is at
+least 100M, the trend's spike threshold. A dot chart plots each timed session's net/hour at its completion time against a hairline at
+the pooled average, with the same pointer and arrow-key readout as the trend. With a spot selected, an item table
+shows each item's quantity per hour pooled over all timed sessions (including those without the item), the lowest and
+highest per-session rate (0 when some session had none), how many timed sessions it dropped in, its silver per hour,
+and its share of loot value. Without timed sessions, Analytics show one line saying so. Analytics load only while the
+Analytics view is shown, separately from the session page: switching views keeps the page, and a failed read shows its
+own error and retry while the overview and comparisons stay.
+
 Reopening returns a finished session to a paused state and cannot replace an active session with progress. It leaves
 completed history until finished again, when the new completion timestamp controls date membership. Uploaded or
 ambiguous-upload sessions cannot be reopened; their receipt shows a lock note in place of the Reopen button. Permanent

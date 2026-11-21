@@ -1,4 +1,5 @@
 import { Channel, invoke, isTauri } from "@tauri-apps/api/core";
+import type { AnalyticsQuery, HistoryAnalytics } from "../domain/analytics";
 import type { ConsumablePreset } from "../domain/consumablePreset";
 import type { HistoryQuery, SpotSummary } from "../domain/history";
 import type { SessionEntry, SessionState } from "../domain/session";
@@ -98,6 +99,10 @@ export async function loadSessionTrend(sessionId: string): Promise<SessionTrendD
 
 export function listFinishedSessions(query: HistoryQuery) {
     return invoke<HistoryResult>("list_finished_sessions", { query });
+}
+
+export function loadHistoryAnalytics(query: AnalyticsQuery) {
+    return invoke<HistoryAnalytics>("load_history_analytics", { query });
 }
 
 export function deleteFinishedSession(id: string) {

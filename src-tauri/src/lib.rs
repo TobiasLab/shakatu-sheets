@@ -63,6 +63,7 @@ pub fn run() {
         session_overlay_window::adjust_session_overlay,
         persistence::sessions::delete_finished_session,
         persistence::sessions::list_finished_sessions,
+        persistence::analytics::load_history_analytics,
         persistence::sessions::load_session_trend,
         persistence::sessions::load_active_session,
         persistence::consumable_presets::load_consumable_presets,

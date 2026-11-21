@@ -9,6 +9,7 @@ use rusqlite::Connection;
 use crate::garmoth::GarmothOperations;
 
 use super::{
+    analytics::{load_history_analytics_records, AnalyticsItem, AnalyticsQuery},
     configure_connection,
     garmoth_uploads::{
         claim_garmoth_upload, finish_garmoth_upload, load_garmoth_upload_status,
@@ -2025,4 +2026,269 @@ fn sessions_created_before_loot_events_existed_have_no_drops() {
         .unwrap();
     assert!(drops(&connection).is_empty());
     assert_eq!(trend(&connection), vec![(5_000, 1_079_000)]);
+}
+
+fn analytics_query() -> AnalyticsQuery {
+    AnalyticsQuery {
+        region: Some(Region::Eu),
+        grind_spot_id: None,
+        finished_from_ms: None,
+        finished_before_ms: None,
+        rare_min_unit_value: 100_000_000,
+    }
+}
+
+fn loot(name: &str, quantity: f64, unit_price: i64, valuation: Valuation) -> SessionEntry {
+    SessionEntry {
+        id: String::new(),
+        name: name.into(),
+        quantity,
+        unit_price,
+        valuation,
+        sale_multiplier: if valuation == Valuation::Market {
+            0.845
+        } else {
+            1.0
+        },
+        source: EntrySource::Manual,
+        created_at: 2_000,
+        garmoth_consumable_id: None,
+    }
+}
+
+fn analytics_fixture(
+    connection: &mut Connection,
+    id: &str,
+    spot: &str,
+    finished_at: i64,
+    elapsed_ms: i64,
+    entries: Vec<SessionEntry>,
+) {
+    let mut record = session(SessionStatus::Finished);
+    record.id = id.into();
+    record.grind_spot_id = spot.into();
+    record.elapsed_ms = elapsed_ms;
+    record.entries = entries
+        .into_iter()
+        .enumerate()
+        .map(|(index, entry)| SessionEntry {
+            id: format!("{id}-{index}"),
+            ..entry
+        })
+        .collect();
+    save_session_record(connection, &record).unwrap();
+    connection
+        .execute(
+            "UPDATE sessions SET finished_at = ?1, updated_at = ?1 WHERE id = ?2",
+            rusqlite::params![finished_at, id],
+        )
+        .unwrap();
+}
+
+const HOUR_MS: i64 = 3_600_000;
+
+#[test]
+fn analytics_split_rare_loot_and_rate_items_per_tracked_hour() {
+    let mut connection = database();
+    analytics_fixture(
+        &mut connection,
+        "first",
+        "ash",
+        1_000,
+        HOUR_MS,
+        vec![
+            loot("Cloth", 1_000.0, 50_000, Valuation::Vendor),
+            loot("Necklace", 1.0, 200_000_000, Valuation::Market),
+            loot("Elixir", 10.0, 100_000, Valuation::Expense),
+        ],
+    );
+    let mut recognized = loot("Cloth", 700.0, 50_000, Valuation::Vendor);
+    recognized.source = EntrySource::Recognition;
+    analytics_fixture(
+        &mut connection,
+        "second",
+        "ash",
+        2_000,
+        2 * HOUR_MS,
+        vec![
+            loot("Cloth", 1_500.0, 50_000, Valuation::Vendor),
+            recognized,
+        ],
+    );
+    analytics_fixture(
+        &mut connection,
+        "untimed",
+        "ash",
+        3_000,
+        0,
+        vec![loot("Cloth", 100.0, 50_000, Valuation::Vendor)],
+    );
+    analytics_fixture(
+        &mut connection,
+        "elsewhere",
+        "other",
+        1_500,
+        HOUR_MS,
+        vec![loot("Cloth", 10.0, 50_000, Valuation::Vendor)],
+    );
+    let mut query = analytics_query();
+    query.grind_spot_id = Some("ash".into());
+    let analytics = load_history_analytics_records(&connection, &query).unwrap();
+    let sessions = analytics
+        .sessions
+        .iter()
+        .map(|s| {
+            (
+                s.id.as_str(),
+                s.finished_at,
+                s.elapsed_ms,
+                s.net.round(),
+                s.rare_value.round(),
+            )
+        })
+        .collect::<Vec<_>>();
+    assert_eq!(
+        sessions,
+        [
+            ("first", 1_000, HOUR_MS, 218_000_000.0, 169_000_000.0),
+            ("second", 2_000, 2 * HOUR_MS, 110_000_000.0, 0.0),
+            ("untimed", 3_000, 0, 5_000_000.0, 0.0),
+        ]
+    );
+    let rounded = |item: &AnalyticsItem| AnalyticsItem {
+        name: item.name.clone(),
+        rare: item.rare,
+        quantity: item.quantity,
+        value: item.value.round(),
+        session_count: item.session_count,
+        min_rate: item.min_rate,
+        max_rate: item.max_rate,
+    };
+    assert_eq!(
+        analytics.items.iter().map(rounded).collect::<Vec<_>>(),
+        [
+            AnalyticsItem {
+                name: "Necklace".into(),
+                rare: true,
+                quantity: 1.0,
+                value: 169_000_000.0,
+                session_count: 1,
+                min_rate: 1.0,
+                max_rate: 1.0,
+            },
+            AnalyticsItem {
+                name: "Cloth".into(),
+                rare: false,
+                quantity: 3_200.0,
+                value: 160_000_000.0,
+                session_count: 2,
+                min_rate: 1_000.0,
+                max_rate: 1_100.0,
+            },
+        ],
+        "untimed sessions and expenses add no item rows; one item's rows in a session merge"
+    );
+    query.grind_spot_id = None;
+    let every_spot = load_history_analytics_records(&connection, &query).unwrap();
+    assert_eq!(every_spot.sessions.len(), 4);
+    assert_eq!(every_spot.items[1].session_count, 3);
+}
+
+#[test]
+fn analytics_classifies_rare_items_by_average_unit_value() {
+    let mut connection = database();
+    analytics_fixture(
+        &mut connection,
+        "high",
+        "ash",
+        1_000,
+        HOUR_MS,
+        vec![loot("Stone", 1.0, 150_000_000, Valuation::Vendor)],
+    );
+    analytics_fixture(
+        &mut connection,
+        "low",
+        "ash",
+        2_000,
+        HOUR_MS,
+        vec![loot("Stone", 1.0, 40_000_000, Valuation::Vendor)],
+    );
+    let analytics = load_history_analytics_records(&connection, &analytics_query()).unwrap();
+    assert!(!analytics.items[0].rare);
+    assert!(analytics.sessions.iter().all(|s| s.rare_value == 0.0));
+    let mut query = analytics_query();
+    query.finished_before_ms = Some(1_500);
+    let analytics = load_history_analytics_records(&connection, &query).unwrap();
+    assert!(analytics.items[0].rare);
+    assert_eq!(analytics.sessions[0].rare_value, 150_000_000.0);
+    analytics_fixture(
+        &mut connection,
+        "untimed",
+        "ash",
+        3_000,
+        0,
+        vec![loot("Stone", 1.0, 300_000_000, Valuation::Vendor)],
+    );
+    let analytics = load_history_analytics_records(&connection, &analytics_query()).unwrap();
+    assert!(
+        !analytics.items[0].rare,
+        "sessions without tracked time do not make an item rare"
+    );
+}
+
+#[test]
+fn analytics_follow_history_filters_and_reject_invalid_queries() {
+    let mut connection = database();
+    for (id, time) in [("a", 1_000), ("b", 2_000), ("c", 3_000)] {
+        analytics_fixture(
+            &mut connection,
+            id,
+            "ash",
+            time,
+            HOUR_MS,
+            vec![loot("Cloth", 1.0, 1, Valuation::Vendor)],
+        );
+    }
+    analytics_fixture(&mut connection, "na", "ash", 2_000, HOUR_MS, vec![]);
+    connection
+        .execute("UPDATE sessions SET region = 'na' WHERE id = 'na'", [])
+        .unwrap();
+    let mut unfinished = session(SessionStatus::Paused);
+    unfinished.id = "open".into();
+    unfinished.entries[0].id = "open-entry".into();
+    save_session_record(&mut connection, &unfinished).unwrap();
+    let ids = |query: &AnalyticsQuery| {
+        load_history_analytics_records(&connection, query)
+            .unwrap()
+            .sessions
+            .into_iter()
+            .map(|s| s.id)
+            .collect::<Vec<_>>()
+    };
+    let mut query = analytics_query();
+    assert_eq!(ids(&query), ["a", "b", "c"]);
+    query.finished_from_ms = Some(2_000);
+    query.finished_before_ms = Some(3_000);
+    assert_eq!(ids(&query), ["b"]);
+    query.region = None;
+    assert_eq!(ids(&query), ["b", "na"]);
+    query.grind_spot_id = Some("other".into());
+    assert!(ids(&query).is_empty());
+    for invalid in [
+        AnalyticsQuery {
+            rare_min_unit_value: 0,
+            ..analytics_query()
+        },
+        AnalyticsQuery {
+            grind_spot_id: Some(" ".into()),
+            ..analytics_query()
+        },
+        AnalyticsQuery {
+            finished_from_ms: Some(2_000),
+            finished_before_ms: Some(2_000),
+            ..analytics_query()
+        },
+    ] {
+        assert!(load_history_analytics_records(&connection, &invalid).is_err());
+    }
 }

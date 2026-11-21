@@ -1,3 +1,9 @@
+.Heading {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 12px 20px;
+}
 .FilterBar {
     display: flex;
     align-items: center;

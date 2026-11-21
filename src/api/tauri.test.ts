@@ -20,6 +20,7 @@ import {
     inspectGarmothConsumables,
     type LootCaptureSettings,
     listFinishedSessions,
+    loadHistoryAnalytics,
     type NativeCaptureSelection,
     parseNativeCaptureMessage,
     setNativeDisplayCapturePreviewEnabled,
@@ -372,6 +373,22 @@ describe("history query boundary", () => {
         tauri.invoke.mockResolvedValueOnce(result);
         expect(await listFinishedSessions(query)).toEqual(result);
         expect(tauri.invoke).toHaveBeenLastCalledWith("list_finished_sessions", { query });
+    });
+});
+
+describe("history analytics boundary", () => {
+    it("sends the history filters and the rare item value to SQLite", async () => {
+        const query = {
+            region: null,
+            grindSpotId: "ash",
+            finishedFromMs: 1000,
+            finishedBeforeMs: null,
+            rareMinUnitValue: 100_000_000,
+        };
+        const result = { sessions: [], items: [] };
+        tauri.invoke.mockResolvedValueOnce(result);
+        expect(await loadHistoryAnalytics(query)).toEqual(result);
+        expect(tauri.invoke).toHaveBeenLastCalledWith("load_history_analytics", { query });
     });
 });
 
