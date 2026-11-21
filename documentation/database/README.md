@@ -106,8 +106,11 @@ Rows cascade with their session. As with migration 5, sessions created before th
   paging: each matching session's net and the value of its rare items, plus per-item totals. Entries are summed per
   session and item name first, so a manual and a recognized row of one item count once. An item is rare when its
   quantity-weighted after-tax unit value across the matching positive-duration sessions, rounded to whole silver as the
-  trend rounds a drop's value, reaches the requested value (the trend's 100M), so an item is rare or not for the whole view and the classification only changes with the
-  filters. Item totals, session counts, and lowest/highest per-session rates cover the same positive-duration sessions. On a 10,000-session,
+  trend rounds each drop, reaches the requested value (the trend's 100M). Rounding the unit value rather than the
+  total keeps the number of drops from changing the answer, so an item is rare or not for the whole view and the
+  classification only changes with the filters. Each session also reports whether its hours were typed in: it has net
+  samples but none strictly between its start and its end (sessions from before migration 5 cannot be told apart and
+  report false). Item totals, session counts, and lowest/highest per-session rates cover the same positive-duration sessions. On a 10,000-session,
   250,000-entry fixture with 1,000,000 loot events and 600,000 net samples, a release build read one spot (500
   sessions, rare drops and pacing included) in about 90 ms and all spots in about 0.65 s, scaling linearly; no index
   was added. With a spot selected,
@@ -125,7 +128,8 @@ Rows cascade with their session. As with migration 5, sessions created before th
   only that part.
 - History analytics read price history separately, only with one built-in spot and one region selected (an unknown
   spot ID would fall back to another spot's items), and a failed price read leaves the rest of the analytics: every market import
-  (`session_id` NULL, enhancement level 0) of the spot's market items in that region, oldest first per item. Rust
+  (`session_id` NULL, enhancement level 0) of the spot's market items in that region, in import order per item, so the last is the price the live session
+  uses now even if the clock moved back between imports. Rust
   rejects more than 500 item IDs or IDs outside the positive JavaScript-safe range. Import tables stay small, so no
   index was added. The latest import of an item is its "today's" price; stored session prices never change.
 - Recorded net includes all finished sessions. Hourly comparisons exclude both earnings and duration for zero-duration

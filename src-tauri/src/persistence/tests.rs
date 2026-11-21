@@ -2245,23 +2245,30 @@ fn analytics_classifies_rare_items_by_average_unit_value() {
         !analytics.items[0].rare,
         "sessions without tracked time do not make an item rare"
     );
-    analytics_fixture(
-        &mut connection,
-        "rounded",
-        "edge",
-        4_000,
-        HOUR_MS,
-        vec![loot("Ring", 1.0, 118_343_196, Valuation::Market)],
-    );
     let mut query = analytics_query();
     query.grind_spot_id = Some("edge".into());
-    assert!(
-        load_history_analytics_records(&connection, &query)
-            .unwrap()
-            .items[0]
-            .rare,
-        "99,999,999.6 silver after tax rounds to 100M, as the trend's markers count it"
-    );
+    for (index, id) in ["rounded-1", "rounded-2", "rounded-3"]
+        .into_iter()
+        .enumerate()
+    {
+        analytics_fixture(
+            &mut connection,
+            id,
+            "edge",
+            4_000 + index as i64,
+            HOUR_MS,
+            vec![loot("Ring", 1.0, 118_343_195, Valuation::Market)],
+        );
+        assert!(
+            load_history_analytics_records(&connection, &query)
+                .unwrap()
+                .items[0]
+                .rare,
+            "99,999,999.775 silver after tax rounds to 100M, as the trend's markers count it, \
+             with {} drops",
+            index + 1
+        );
+    }
 }
 
 #[test]
@@ -2485,15 +2492,44 @@ fn price_history_lists_every_import_of_the_requested_items() {
     assert_eq!(
         load_price_history_records(&connection, Region::Eu, &[16_001, 721_003]).unwrap(),
         [
-            snapshot(16_001, 100_000, 1_000),
             snapshot(16_001, 129_000, 2_000),
+            snapshot(16_001, 100_000, 1_000),
             snapshot(721_003, 2_350_000, 1_500)
         ],
-        "other regions, other items and enhanced variants are left out"
+        "imports keep their order, so the last is the current price; other regions, items and enhanced \
+         variants are left out"
     );
     assert!(load_price_history_records(&connection, Region::Eu, &[])
         .unwrap()
         .is_empty());
     assert!(load_price_history_records(&connection, Region::Eu, &[0]).is_err());
     assert!(load_price_history_records(&connection, Region::Eu, &vec![1; 501]).is_err());
+}
+
+#[test]
+fn analytics_flag_sessions_whose_hours_were_typed_in() {
+    let mut connection = database();
+    for id in ["played", "typed", "old"] {
+        analytics_fixture(&mut connection, id, "ash", 1_000, HOUR_MS, vec![]);
+    }
+    connection
+        .execute_batch(
+            "DELETE FROM session_net_samples;
+             UPDATE sessions SET created_at = 0 WHERE id = 'old';
+             INSERT INTO session_net_samples (session_id, elapsed_ms, net) VALUES
+                ('played', 600000, 10),
+                ('typed', 3600000, 10),
+                ('old', 3600000, 10);",
+        )
+        .unwrap();
+    assert_eq!(
+        load_history_analytics_records(&connection, &analytics_query())
+            .unwrap()
+            .sessions
+            .iter()
+            .map(|s| (s.id.as_str(), s.hours_typed_in))
+            .collect::<Vec<_>>(),
+        [("old", false), ("played", false), ("typed", true)],
+        "only sessions with net samples but none between start and end are known to be typed in"
+    );
 }

@@ -200,8 +200,9 @@ await send("Page.addScriptToEvaluateOnNewDocument", {
                 });
                 const totals = new Map();
                 for (const l of loot.filter(l => l.session.elapsedMs > 0)) { const t = totals.get(l.name) ?? {quantity:0,value:0}; t.quantity += l.quantity; t.value += l.value; totals.set(l.name,t); }
-                const rare = name => totals.has(name) && Math.round(totals.get(name).value) >= q.rareMinUnitValue * totals.get(name).quantity;
+                const rare = name => totals.has(name) && Math.round(totals.get(name).value / totals.get(name).quantity) >= q.rareMinUnitValue;
                 const sessions = scope.map(r => ({id:r.session.id, grindSpotId:r.session.grindSpotId, finishedAt:r.finishedAt, elapsedMs:r.session.elapsedMs,
+                    hoursTypedIn:!(r.samples ?? []).some(sample => sample.elapsedMs > 0 && sample.elapsedMs < r.session.elapsedMs),
                     net:r.session.entries.reduce((sum,e) => sum + e.quantity*e.unitPrice*(e.valuation === "expense" ? -1 : e.saleMultiplier),0),
                     rareValue:loot.filter(l => l.session === r.session && rare(l.name)).reduce((sum,l) => sum + l.value,0)}));
                 const items = new Map();
@@ -1009,6 +1010,7 @@ try {
             samples:{
                 'analytics-a':[{elapsedMs:0,net:0},{elapsedMs:600000,net:5000000},{elapsedMs:1800000,net:205000000},{elapsedMs:3600000,net:210000000}],
                 'analytics-b':[{elapsedMs:3600000,net:15000000},{elapsedMs:7200000,net:30000000}],
+                'analytics-d':[{elapsedMs:1800000,net:5000000},{elapsedMs:3600000,net:10000000}],
             }[id] ?? []
         }))`);
         await evaluate(`window.__priceImports = [

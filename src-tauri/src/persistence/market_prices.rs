@@ -117,7 +117,8 @@ pub async fn load_market_prices(
     .await
 }
 
-/// Every imported price of the given market items (enhancement level 0) in one region, oldest first per item. History
+/// Every imported price of the given market items (enhancement level 0) in one region, in import order per item, so
+/// the last is the price `load_market_prices` uses now even if the clock moved back between imports. History
 /// analytics draw each item's price over time and value past loot at its latest price.
 pub(super) fn load_price_history_records(
     connection: &Connection,
@@ -140,7 +141,7 @@ pub(super) fn load_price_history_records(
             "SELECT item_id, sub_id, base_price, fetched_at
              FROM price_snapshots
              WHERE session_id IS NULL AND sub_id = 0 AND region = ? AND item_id IN ({placeholders})
-             ORDER BY item_id, fetched_at, id"
+             ORDER BY item_id, id"
         ))
         .map_err(|error| error.to_string())?;
     let region = region.as_str();

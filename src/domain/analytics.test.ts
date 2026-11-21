@@ -20,7 +20,7 @@ import {
 const HOUR_MS = 3_600_000;
 
 function session(id: string, elapsedMs: number, net: number, rareValue = 0, finishedAt = 1_000): AnalyticsSession {
-    return { id, grindSpotId: "ash", finishedAt, elapsedMs, net, rareValue };
+    return { id, grindSpotId: "ash", finishedAt, elapsedMs, net, rareValue, hoursTypedIn: false };
 }
 
 const analytics: HistoryAnalytics = {
@@ -287,7 +287,8 @@ describe("history analytics", () => {
             ...analytics,
             sessions: [
                 { ...session("late", 2 * HOUR_MS, 400_000_000), finishedAt },
-                { ...session("typed", 30 * HOUR_MS, 1), finishedAt },
+                { ...session("long", 30 * HOUR_MS, 1), finishedAt },
+                { ...session("typed", HOUR_MS, 1), finishedAt, hoursTypedIn: true },
                 { ...session("untimed", 0, 1), finishedAt },
             ],
         });

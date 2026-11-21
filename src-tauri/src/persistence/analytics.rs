@@ -16,8 +16,8 @@ pub struct AnalyticsQuery {
     pub finished_from_ms: Option<i64>,
     pub finished_before_ms: Option<i64>,
     /// An item is rare when its average after-tax unit value across the matching sessions with tracked time reaches
-    /// this, the same sessions that its rates and the item table cover. Its value is rounded to whole silver first,
-    /// as the trend's rare drop markers do.
+    /// this, the same sessions that its rates and the item table cover. The unit value is rounded to whole silver
+    /// first, as the trend's rare drop markers round each drop, so the number of drops never changes the answer.
     pub rare_min_unit_value: i64,
 }
 
@@ -30,6 +30,9 @@ pub struct AnalyticsSession {
     pub elapsed_ms: i64,
     pub net: f64,
     pub rare_value: f64,
+    /// Net samples exist for the session but none falls between its start and its end: its hours were typed in, so
+    /// when it was played is unknown. Sessions from before net samples (migration 5) cannot be told apart and are false.
+    pub hours_typed_in: bool,
 }
 
 /// One item's loot across the matching sessions with tracked time.
@@ -136,7 +139,7 @@ pub(super) fn load_history_analytics_records(
         rare_items AS (
             SELECT l.name FROM loot l JOIN filtered f ON f.id = l.session_id
             WHERE f.elapsed_ms > 0
-            GROUP BY l.name HAVING ROUND(SUM(l.value)) >= ?5 * SUM(l.quantity)
+            GROUP BY l.name HAVING ROUND(SUM(l.value) / SUM(l.quantity)) >= ?5
         )",
         if region.is_some() {
             "region = ?1"
@@ -169,7 +172,11 @@ pub(super) fn load_history_analytics_records(
                 FROM loot l JOIN rare_items r ON r.name = l.name
                 GROUP BY l.session_id
             )
-            SELECT f.id, f.grind_spot_id, f.finished_at, f.elapsed_ms, n.net, COALESCE(r.value, 0.0)
+            SELECT f.id, f.grind_spot_id, f.finished_at, f.elapsed_ms, n.net, COALESCE(r.value, 0.0),
+                COALESCE(f.has_net_samples AND NOT EXISTS (
+                    SELECT 1 FROM session_net_samples inside
+                    WHERE inside.session_id = f.id AND inside.elapsed_ms > 0 AND inside.elapsed_ms < f.elapsed_ms
+                ), 0)
             FROM filtered f
                 JOIN session_net n ON n.id = f.id
                 LEFT JOIN session_rare r ON r.session_id = f.id
@@ -185,6 +192,7 @@ pub(super) fn load_history_analytics_records(
                         elapsed_ms: row.get(3)?,
                         net: row.get(4)?,
                         rare_value: row.get(5)?,
+                        hours_typed_in: row.get(6)?,
                     })
                 })?
                 .collect::<Result<Vec<_>, _>>()

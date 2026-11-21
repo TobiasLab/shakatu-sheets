@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { lazy, Suspense, useEffect, useRef, useState } from "react";
 import type { TrendView } from "../../api/preferences";
 import {
     deleteFinishedSession,
@@ -28,9 +28,13 @@ import { SessionTrend } from "../LiveSession/SessionTrend";
 import { GarmothUploadDialog } from "./GarmothUploadDialog";
 import type { HeatmapView } from "./Heatmap";
 import styles from "./History.module.css";
-import { HistoryAnalyticsPanel } from "./HistoryAnalytics";
 import { RecordedEntries } from "./RecordedEntries";
 import { SpotComparisons } from "./SpotComparisons";
+
+// Analytics load their code the first time they are opened, so startup parses no more than before them.
+const HistoryAnalyticsPanel = lazy(() =>
+    import("./HistoryAnalytics").then((module) => ({ default: module.HistoryAnalyticsPanel })),
+);
 
 function localDateOffset(days: number) {
     const date = new Date();
@@ -280,7 +284,8 @@ export function HistoryView({
 
     // Finished sessions are immutable, so samples load once per selection; a slower earlier request is ignored.
     useEffect(() => {
-        if (!selectedSessionId) return;
+        // Analytics hide the receipt, so its trend waits until Sessions show again.
+        if (!selectedSessionId || mode === "analytics") return;
         let current = true;
         loadSessionTrend(selectedSessionId)
             .then((loaded) => {
@@ -292,7 +297,7 @@ export function HistoryView({
         return () => {
             current = false;
         };
-    }, [selectedSessionId]);
+    }, [selectedSessionId, mode]);
 
     useEffect(() => {
         if (!pageFocus.current || loading || records === null) return;
@@ -447,7 +452,11 @@ export function HistoryView({
                                 key={value}
                                 type="button"
                                 aria-pressed={mode === value}
-                                onClick={() => setMode(value)}
+                                onClick={() => {
+                                    // A kept result may be for other filters; the view shows it loading instead.
+                                    if (value === "analytics" && mode !== "analytics") setAnalytics(null);
+                                    setMode(value);
+                                }}
                             >
                                 {value === "sessions" ? "Sessions" : "Analytics"}
                             </button>
@@ -617,15 +626,17 @@ export function HistoryView({
                 ) : analytics.result.sessions.length === 0 ? (
                     emptyHistory
                 ) : (
-                    <HistoryAnalyticsPanel
-                        analytics={analytics.result}
-                        grindSpotId={analytics.grindSpotId}
-                        prices={analytics.prices}
-                        consistencyView={consistencyView}
-                        onConsistencyViewChange={setConsistencyView}
-                        heatmapView={heatmapView}
-                        onHeatmapViewChange={setHeatmapView}
-                    />
+                    <Suspense fallback={<Feedback>Reading analytics…</Feedback>}>
+                        <HistoryAnalyticsPanel
+                            analytics={analytics.result}
+                            grindSpotId={analytics.grindSpotId}
+                            prices={analytics.prices}
+                            consistencyView={consistencyView}
+                            onConsistencyViewChange={setConsistencyView}
+                            heatmapView={heatmapView}
+                            onHeatmapViewChange={setHeatmapView}
+                        />
+                    </Suspense>
                 )
             ) : !databaseLoaded || records === null ? (
                 <Feedback>Reading completed sessions…</Feedback>
