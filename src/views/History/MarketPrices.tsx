@@ -1,6 +1,8 @@
+import type { Dispatch, SetStateAction } from "react";
 import { getGrindSpotDrops } from "../../data/grindSpots";
 import { type PriceImport, priceHistory } from "../../domain/analytics";
 import { formatRelativeDay, formatSilver } from "../../format";
+import { type ClosedSections, Collapsible } from "./Collapsible";
 import styles from "./HistoryAnalytics.module.css";
 
 const changeFormatter = new Intl.NumberFormat("en", {
@@ -16,7 +18,17 @@ export function formatChange(change: number) {
 
 // The spot's market items with at least one imported price: each one's price over time on a time axis all rows share,
 // its latest price, its change since its first import, and when it was last imported.
-export function MarketPrices({ grindSpotId, imports }: { grindSpotId: string; imports: PriceImport[] }) {
+export function MarketPrices({
+    grindSpotId,
+    imports,
+    closed,
+    onClosedChange,
+}: {
+    grindSpotId: string;
+    imports: PriceImport[];
+    closed: ClosedSections;
+    onClosedChange: Dispatch<SetStateAction<ClosedSections>>;
+}) {
     const history = priceHistory(imports);
     const seen = new Set<number>();
     const rows = getGrindSpotDrops(grindSpotId).flatMap((drop) => {
@@ -38,8 +50,7 @@ export function MarketPrices({ grindSpotId, imports }: { grindSpotId: string; im
     }
     const x = (fetchedAt: number) => (last > first ? ((fetchedAt - first) / (last - first)) * 100 : 100);
     return (
-        <section className={styles.Items} aria-label="Market prices">
-            <h2>Market prices</h2>
+        <Collapsible section="market-prices" title="Market prices" closed={closed} onClosedChange={onClosedChange}>
             <section
                 className={`${styles.ItemScroll} ${styles.PriceTable}`}
                 aria-label="Imported market prices"
@@ -101,6 +112,6 @@ export function MarketPrices({ grindSpotId, imports }: { grindSpotId: string; im
                     </tbody>
                 </table>
             </section>
-        </section>
+        </Collapsible>
     );
 }

@@ -1188,6 +1188,22 @@ try {
             (await evaluate("window.__calls.filter(c => c.command === 'load_price_history').at(-1).args")).region,
             "eu",
         );
+        const sectionOpen = (label) => `document.querySelector('details[aria-label="${label}"]')?.open`;
+        for (const label of ["Items per hour", "Market prices", "Rare drops", "Rare drop log"]) {
+            assert.equal(await evaluate(sectionOpen(label)), true, `${label} starts open`);
+        }
+        await click("Items per hour");
+        await until(`${sectionOpen("Items per hour")} === false`);
+        assert.equal(
+            await evaluate(`document.querySelector('[aria-label="Item rates table"]').checkVisibility()`),
+            false,
+            "A collapsed section hides its table",
+        );
+        assert.equal(await evaluate(sectionOpen("Rare drops")), true, "Other sections stay open");
+        await click("Reload");
+        await until(`${sectionOpen("Items per hour")} === false && ${sectionOpen("Rare drops")} === true`);
+        await click("Items per hour");
+        await until(`${sectionOpen("Items per hour")} === true`);
         const pacingFigure = `document.querySelector('figure[aria-label="Net per hour through a session"]')`;
         assert.equal(
             await evaluate(`${pacingFigure}.querySelector('figcaption').innerText.replace(/\\s+/g, ' ')`),

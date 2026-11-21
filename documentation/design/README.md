@@ -139,7 +139,9 @@ shared by all rows, from the lowest to the highest session (lowest–highest whi
 tick), with the median, middle half, lowest–highest and session count beside it. Quartiles interpolate between the
 sorted rates (QUARTILE.INC); spots with the higher median come first, and fewer than five timed sessions get a "Few
 sessions" tag. A Total / Base switch in its title leaves rare drops out of each session's rate; the choice survives
-reloads and filter changes for the visit. Analytics write negative values with a true minus. Weekday and hour comes next: a 7 × 24 grid of local weekdays and hours,
+reloads and filter changes for the visit. Analytics write negative values with a true minus. Items per hour, Market prices, Rare drops and Rare drop log are disclosures (native `<details>`)
+under their headings, open by default; History remembers which are closed across reloads and filter changes while it
+stays open. Weekday and hour comes next: a 7 × 24 grid of local weekdays and hours,
 shaded in one gold scale (with a Less–More legend) by tracked time, or, with its Time / Net per hour switch, by net per
 hour, which shades only hours with at least 30 minutes tracked (when none has, the caption says so and the switch
 stays). Sessions store no start once paused, so each is placed
