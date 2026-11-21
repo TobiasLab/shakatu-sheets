@@ -385,7 +385,7 @@ describe("history analytics boundary", () => {
             finishedBeforeMs: null,
             rareMinUnitValue: 100_000_000,
         };
-        const result = { sessions: [], items: [], rareLoot: [], rareEvents: [] };
+        const result = { sessions: [], items: [], rareLoot: [], rareEvents: [], pacing: [] };
         tauri.invoke.mockResolvedValueOnce(result);
         expect(await loadHistoryAnalytics(query)).toEqual(result);
         expect(tauri.invoke).toHaveBeenLastCalledWith("load_history_analytics", { query });

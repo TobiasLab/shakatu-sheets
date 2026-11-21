@@ -214,7 +214,11 @@ await send("Page.addScriptToEvaluateOnNewDocument", {
                 const timedRare = loot.filter(l => l.session.elapsedMs > 0 && rare(l.name));
                 const rareLoot = q.grindSpotId === null ? [] : timedRare.map(l => ({sessionId:l.session.id, name:l.name, quantity:l.quantity}));
                 const rareEvents = q.grindSpotId === null ? [] : scope.filter(r => r.session.elapsedMs > 0 && !r.noDropTiming).flatMap(r => (r.events ?? []).filter(e => rare(e.name)).map(e => ({sessionId:r.session.id, ...e})));
-                return {sessions, items:[...items.values()].sort((a,b) => b.value-a.value || a.name.localeCompare(b.name)), rareLoot, rareEvents};
+                const pacing = q.grindSpotId === null ? [] : scope.filter(r => r.session.elapsedMs >= 900000 && r.session.elapsedMs <= 86400000 && r.samples?.some(sample => sample.elapsedMs > 0 && sample.elapsedMs < r.session.elapsedMs)).map(r => ({
+                    sessionId: r.session.id,
+                    marks: Array.from({length: Math.floor(r.session.elapsedMs / 900000) + 1}, (_, k) => r.samples.filter(sample => sample.elapsedMs <= k * 900000).at(-1)?.net ?? 0),
+                }));
+                return {sessions, items:[...items.values()].sort((a,b) => b.value-a.value || a.name.localeCompare(b.name)), rareLoot, rareEvents, pacing};
             }
             if (command === "load_session_trend") {
                 if (window.__holdTrend === args.sessionId) {
@@ -997,7 +1001,11 @@ try {
             session:{id,status:'finished',region:'eu',grindSpotId,startedAt:null,elapsedMs,
                 entries:entries.map(([name,quantity,unitPrice],i) => ({id:id+'-'+i,name,quantity,unitPrice,valuation:'vendor',saleMultiplier:1,source:'manual',createdAt:Date.UTC(2026,8,1)}))},
             finishedAt:Date.UTC(2026,8,day),garmothUploadStatus:null,
-            events:id === 'analytics-a' ? [{name:'Rare Ring',elapsedMs:1800000,quantity:1}] : []
+            events:id === 'analytics-a' ? [{name:'Rare Ring',elapsedMs:1800000,quantity:1}] : [],
+            samples:{
+                'analytics-a':[{elapsedMs:0,net:0},{elapsedMs:600000,net:5000000},{elapsedMs:1800000,net:205000000},{elapsedMs:3600000,net:210000000}],
+                'analytics-b':[{elapsedMs:3600000,net:15000000},{elapsedMs:7200000,net:30000000}],
+            }[id] ?? []
         }))`);
         await click("Reload");
         await until('document.body.innerText.includes("1–4 of 4 sessions")');
@@ -1014,7 +1022,7 @@ try {
         assert.match(everySpot, /Base silver \/ hour\s+12\.5M\/h/, "Base excludes rare drops and pools tracked time");
         assert.match(everySpot, /Rare drops \/ hour\s+50M\/h/);
         assert.match(everySpot, /Rare share of loot\s+80%/);
-        assert.match(everySpot, /Choose a grind spot to see its items/);
+        assert.match(everySpot, /Choose a grind spot to see its pacing and items/);
         assert.deepEqual(
             await evaluate("window.__calls.filter(c => c.command === 'load_history_analytics').at(-1).args.query"),
             {
@@ -1115,6 +1123,22 @@ try {
             ],
             "Items rate over every timed session at the spot",
         );
+        const pacingFigure = `document.querySelector('figure[aria-label="Net per hour through a session"]')`;
+        assert.equal(
+            await evaluate(`${pacingFigure}.querySelector('figcaption').innerText.replace(/\\s+/g, ' ')`),
+            "Net / hour through a session Average 80M/h",
+            "Pacing averages every measured quarter hour",
+        );
+        assert.equal(await evaluate(`${pacingFigure}.querySelectorAll('[role="img"] i[style*="width"]').length`), 8);
+        await evaluate(`${pacingFigure}.querySelector('[role="img"]').focus()`);
+        await press("ArrowRight", "ArrowRight", 39);
+        await until(`${pacingFigure}.querySelector('figcaption').innerText.includes("10M/h 0:00–0:15 · 2 sessions")`);
+        await press("ArrowRight", "ArrowRight", 39);
+        await until(`${pacingFigure}.querySelector('figcaption').innerText.includes("400M/h 0:15–0:30 · 2 sessions")`);
+        await press("End", "End", 35);
+        await until(`${pacingFigure}.querySelector('figcaption').innerText.includes("60M/h 1:45–2:00 · 1 session")`);
+        await press("Escape", "Escape", 27);
+        await until(`${pacingFigure}.querySelector('figcaption').innerText.includes("Average 80M/h")`);
         assert.deepEqual(
             await evaluate(
                 `[...document.querySelectorAll('[aria-label="Rare drop rates"] tbody tr')].map(row => [...row.cells].map(cell => cell.innerText.trim().replace(/\\s+/g, ' ')))`,

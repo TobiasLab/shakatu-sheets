@@ -4,6 +4,7 @@ import {
     analyticsSummary,
     type HistoryAnalytics,
     itemRates,
+    pacingStretches,
     rareDrops,
     rareItemStats,
     rateSpread,
@@ -37,6 +38,7 @@ const analytics: HistoryAnalytics = {
     ],
     rareLoot: [],
     rareEvents: [],
+    pacing: [],
 };
 
 describe("history analytics", () => {
@@ -83,7 +85,13 @@ describe("history analytics", () => {
     });
 
     it("reports no rates without tracked time", () => {
-        const untimed = { sessions: [session("untimed", 0, 50_000_000)], items: [], rareLoot: [], rareEvents: [] };
+        const untimed = {
+            sessions: [session("untimed", 0, 50_000_000)],
+            items: [],
+            rareLoot: [],
+            rareEvents: [],
+            pacing: [],
+        };
         expect(analyticsSummary(untimed)).toEqual({ baseRate: null, rareRate: null, rareShare: null });
         expect(itemRates(untimed)).toEqual([]);
         expect(sessionRates(untimed)).toEqual([]);
@@ -118,6 +126,7 @@ describe("history analytics", () => {
                 { sessionId: "c", name: "Necklace", elapsedMs: 2 * HOUR_MS, quantity: 1 },
                 { sessionId: "c", name: "Ring", elapsedMs: HOUR_MS, quantity: 1 },
             ],
+            pacing: [],
         };
         const placed = rareDrops(drops);
         expect(
@@ -178,6 +187,7 @@ describe("history analytics", () => {
             items: [],
             rareLoot: [],
             rareEvents: [],
+            pacing: [],
         };
         expect(spotConsistency(spots, "total")).toEqual([
             {
@@ -195,5 +205,19 @@ describe("history analytics", () => {
             ["stars", 20_000_000],
             ["sycraia", 12_500_000],
         ]);
+    });
+
+    it("averages each quarter hour's net per hour over the sessions that lasted through it", () => {
+        const stretches = pacingStretches([
+            { sessionId: "hour", marks: [0, 5_000_000, 205_000_000, 205_000_000, 210_000_000] },
+            { sessionId: "half", marks: [1_000_000, 1_000_000, 31_000_000] },
+        ]);
+        expect(stretches).toEqual([
+            { startMs: 0, rate: 10_000_000, sessionCount: 2 },
+            { startMs: 15 * 60_000, rate: 460_000_000, sessionCount: 2 },
+            { startMs: 30 * 60_000, rate: 0, sessionCount: 1 },
+            { startMs: 45 * 60_000, rate: 20_000_000, sessionCount: 1 },
+        ]);
+        expect(pacingStretches([])).toEqual([]);
     });
 });

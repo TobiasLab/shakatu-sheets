@@ -10,6 +10,7 @@ import {
 import { formatSilver } from "../../format";
 import { Consistency } from "./Consistency";
 import styles from "./HistoryAnalytics.module.css";
+import { PacingChart } from "./PacingChart";
 import { RareDrops } from "./RareDrops";
 import { SessionRateChart } from "./SessionRateChart";
 
@@ -66,9 +67,10 @@ export const HistoryAnalyticsPanel = memo(function HistoryAnalyticsPanel({
             />
             <Consistency analytics={analytics} view={consistencyView} onViewChange={onConsistencyViewChange} />
             {grindSpotId === null ? (
-                <p className={styles.Hint}>Choose a grind spot to see its items.</p>
+                <p className={styles.Hint}>Choose a grind spot to see its pacing and items.</p>
             ) : (
                 <>
+                    <PacingChart pacing={analytics.pacing} />
                     {items.length > 0 && (
                         <section className={styles.Items} aria-label="Items per hour">
                             <h2>Items per hour</h2>

@@ -127,7 +127,13 @@ shared by all rows, from the lowest to the highest session (lowest–highest whi
 tick), with the median, middle half, lowest–highest and session count beside it. Quartiles interpolate between the
 sorted rates (QUARTILE.INC); spots with the higher median come first, and fewer than five timed sessions get a "Few
 sessions" tag. A Total / Base switch in its title leaves rare drops out of each session's rate; the choice survives
-reloads and filter changes for the visit. With a spot selected, an item table
+reloads and filter changes for the visit. With a spot selected, Net / hour through a session follows: one bar per
+quarter hour into a session (at most 40 px wide, standing on the zero line) for the net per hour earned in that
+quarter hour, averaged over the sessions that lasted through it, against a hairline at the average of every measured
+quarter hour. Bars backed by fewer than three sessions are faded; hours are labelled under the plot; the pointer or
+arrow keys show a quarter hour's rate, span and session count. A rare drop lands in the quarter hour it dropped in, so
+single bars can spike. Anything entered before the timer started is the starting point, not part of the first quarter
+hour. Sessions whose hours were typed in are left out (see the database documentation). With a spot selected, an item table
 shows each item's quantity per hour pooled over all timed sessions (including those without the item), the lowest and
 highest per-session rate (0 when some session had none), how many timed sessions it dropped in, its silver per hour,
 and its share of loot value. Below it, Rare drops places every rare drop along the spot's tracked time: sessions in

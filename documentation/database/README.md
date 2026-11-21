@@ -108,13 +108,19 @@ Rows cascade with their session. As with migration 5, sessions created before th
   quantity-weighted after-tax unit value across the matching positive-duration sessions, rounded to whole silver as the
   trend rounds a drop's value, reaches the requested value (the trend's 100M), so an item is rare or not for the whole view and the classification only changes with the
   filters. Item totals, session counts, and lowest/highest per-session rates cover the same positive-duration sessions. On a 10,000-session,
-  250,000-entry fixture with 1,000,000 loot events, a release build read one spot (500 sessions, rare drops
-  included) in about 80 ms and all spots in about 0.65 s, scaling linearly; no index was added. With a spot selected,
+  250,000-entry fixture with 1,000,000 loot events and 600,000 net samples, a release build read one spot (500
+  sessions, rare drops and pacing included) in about 90 ms and all spots in about 0.65 s, scaling linearly; no index
+  was added. With a spot selected,
   the read also returns each rare item's quantity per timed session and its loot events, summed per session, item
   name and elapsed time; without one it skips them, because rare drops are shown per spot. Events follow the trend's
   migration 7 rule: a session created before that migration, or any session when that migration's row is missing, has
   none. Events only record increases after the timer started, so a session's events can cover less than its quantity;
-  the rest has no time.
+  the rest has no time. With a spot selected, the read also returns pacing: for each session with 15 minutes to 24
+  hours of tracked time, created after migration 5 and with at least one net sample strictly between its start and
+  its end, its net held at every whole 15 minutes from 0. Samples are saved at the elapsed time of each save, so a
+  session whose hours were typed in (a Marni import, or loot added before entering hours) has its net only at 0 or at
+  its end and is left out; so is a session whose net never changed, which has no samples to tell it apart. Rust
+  reduces the samples to those marks, so only a few numbers per session cross IPC.
 - Recorded net includes all finished sessions. Hourly comparisons exclude both earnings and duration for zero-duration
   sessions, reporting their count separately; positive-duration sessions with no entries still contribute tracked time.
 - Stored entry prices and sale multipliers determine historical value. Region is the recorded session region; the
