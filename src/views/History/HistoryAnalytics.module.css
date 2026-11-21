@@ -270,3 +270,35 @@
     border-radius: 1px;
     background: var(--gold);
 }
+.BarPlot {
+    margin: 0;
+}
+/* Bars stand on the zero line, centered in their quarter hour and at most 40px wide; the hairlines are drawn over them. */
+.Bar {
+    position: absolute;
+    min-height: 1px;
+    transform: translateX(-50%);
+    border-radius: 4px 4px 0 0;
+    background: color-mix(in srgb, var(--gold) 82%, transparent);
+    pointer-events: none;
+}
+.Bar[data-negative] {
+    border-radius: 0 0 4px 4px;
+}
+.Bar[data-few] {
+    background: color-mix(in srgb, var(--gold) 30%, transparent);
+}
+.Bar[data-active] {
+    background: var(--gold);
+}
+.HourAxis {
+    position: relative;
+    height: 14px;
+    color: var(--muted);
+    font-size: 11px;
+    font-variant-numeric: tabular-nums;
+}
+.HourAxis span {
+    position: absolute;
+    top: 0;
+}

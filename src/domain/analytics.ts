@@ -27,11 +27,15 @@ export type AnalyticsItem = {
 export type RareLoot = { sessionId: string; name: string; quantity: number };
 export type RareEvent = { sessionId: string; name: string; elapsedMs: number; quantity: number };
 
+// A timed session's net at every whole stretch of elapsed time from 0, held at its latest sample.
+export type SessionPacing = { sessionId: string; marks: number[] };
+
 export type HistoryAnalytics = {
     sessions: AnalyticsSession[];
     items: AnalyticsItem[];
     rareLoot: RareLoot[];
     rareEvents: RareEvent[];
+    pacing: SessionPacing[];
 };
 
 const HOUR_MS = 3_600_000;
@@ -217,4 +221,24 @@ export function spotConsistency(analytics: HistoryAnalytics, view: ConsistencyVi
             spread: rateSpread(values) as RateSpread,
         }))
         .sort((a, b) => b.spread.median - a.spread.median || a.grindSpotId.localeCompare(b.grindSpotId));
+}
+
+// Matches the stretch the database measures pacing in.
+export const PACING_STRETCH_MS = 15 * 60_000;
+
+// For each stretch into a session, the net per hour earned in it, averaged over the sessions that lasted through it.
+// Every session counts once per stretch, since each stretch is the same length.
+export function pacingStretches(pacing: SessionPacing[]) {
+    const stretches: { startMs: number; rate: number; sessionCount: number }[] = [];
+    for (const { marks } of pacing) {
+        for (let index = 1; index < marks.length; index++) {
+            if (!stretches[index - 1]) {
+                stretches[index - 1] = { startMs: (index - 1) * PACING_STRETCH_MS, rate: 0, sessionCount: 0 };
+            }
+            const stretch = stretches[index - 1];
+            stretch.rate += ((marks[index] - marks[index - 1]) * HOUR_MS) / PACING_STRETCH_MS;
+            stretch.sessionCount += 1;
+        }
+    }
+    return stretches.map((stretch) => ({ ...stretch, rate: stretch.rate / stretch.sessionCount }));
 }

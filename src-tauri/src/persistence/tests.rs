@@ -11,6 +11,7 @@ use crate::garmoth::GarmothOperations;
 use super::{
     analytics::{
         load_history_analytics_records, AnalyticsItem, AnalyticsQuery, RareEvent, RareLoot,
+        SessionPacing,
     },
     configure_connection,
     garmoth_uploads::{
@@ -2398,5 +2399,56 @@ fn analytics_return_rare_drops_with_the_time_they_were_recorded() {
     assert!(
         every_spot.rare_loot.is_empty() && every_spot.rare_events.is_empty(),
         "rare drops are read for one spot only"
+    );
+}
+
+#[test]
+fn analytics_reduce_net_samples_to_quarter_hour_marks() {
+    let mut connection = database();
+    for (id, elapsed) in [
+        ("paced", HOUR_MS),
+        ("short", 10 * 60_000),
+        ("old", HOUR_MS),
+        ("blank", HOUR_MS),
+        ("imported", 2 * HOUR_MS),
+        ("idle", 2 * HOUR_MS),
+        ("endless", 25 * HOUR_MS),
+    ] {
+        analytics_fixture(&mut connection, id, "ash", 1_000, elapsed, vec![]);
+    }
+    connection
+        .execute_batch(
+            "DELETE FROM session_net_samples;
+             UPDATE sessions SET created_at = 0 WHERE id = 'old';
+             INSERT INTO session_net_samples (session_id, elapsed_ms, net) VALUES
+                ('paced', 0, 50),
+                ('paced', 600000, 200),
+                ('paced', 900000, 300),
+                ('paced', 2400000, 900),
+                ('short', 300000, 40),
+                ('old', 600000, 70),
+                ('imported', 7200000, 500),
+                ('idle', 0, 500),
+                ('endless', 600000, 80);",
+        )
+        .unwrap();
+    let mut query = analytics_query();
+    query.grind_spot_id = Some("ash".into());
+    assert_eq!(
+        load_history_analytics_records(&connection, &query)
+            .unwrap()
+            .pacing,
+        [SessionPacing {
+            session_id: "paced".into(),
+            marks: vec![50, 300, 300, 900, 900],
+        }],
+        "a sample on a mark counts at that mark; sessions shorter than a stretch or over a day, without a sample \
+         between start and end, or from before net samples were recorded are left out"
+    );
+    assert!(
+        load_history_analytics_records(&connection, &analytics_query())
+            .unwrap()
+            .pacing
+            .is_empty()
     );
 }

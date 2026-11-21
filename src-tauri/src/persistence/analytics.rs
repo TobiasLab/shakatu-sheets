@@ -65,6 +65,20 @@ pub struct RareEvent {
     pub quantity: i64,
 }
 
+/// Pacing measures sessions in stretches of this many milliseconds.
+pub const PACING_STRETCH_MS: i64 = 15 * 60_000;
+/// Longer sessions are left out of pacing: their hours were almost certainly typed in, and each would add a mark per
+/// stretch.
+const PACING_MAX_SESSION_MS: i64 = 24 * 3_600_000;
+
+/// A timed session's net, held at its latest sample, at every whole stretch of elapsed time from 0.
+#[derive(Debug, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SessionPacing {
+    pub session_id: String,
+    pub marks: Vec<i64>,
+}
+
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct HistoryAnalytics {
@@ -72,6 +86,7 @@ pub struct HistoryAnalytics {
     pub items: Vec<AnalyticsItem>,
     pub rare_loot: Vec<RareLoot>,
     pub rare_events: Vec<RareEvent>,
+    pub pacing: Vec<SessionPacing>,
 }
 
 pub(super) fn load_history_analytics_records(
@@ -95,7 +110,10 @@ pub(super) fn load_history_analytics_records(
             SELECT id, grind_spot_id, elapsed_ms, COALESCE(finished_at, updated_at) AS finished_at,
                 created_at >= (
                     SELECT CAST(applied_at AS INTEGER) FROM schema_migrations WHERE version = 7
-                ) AS has_drop_timing
+                ) AS has_drop_timing,
+                created_at >= (
+                    SELECT CAST(applied_at AS INTEGER) FROM schema_migrations WHERE version = 5
+                ) AS has_net_samples
             FROM sessions
             WHERE status = 'finished' AND {}
                 AND (?2 IS NULL OR COALESCE(finished_at, updated_at) >= ?2)
@@ -201,13 +219,77 @@ pub(super) fn load_history_analytics_records(
     } else {
         (Vec::new(), Vec::new())
     };
+    // Pacing is also shown for one spot only, and reads every net sample of its sessions.
+    let pacing = if query.grind_spot_id.is_some() {
+        load_pacing(&transaction, &filtered, parameters)?
+    } else {
+        Vec::new()
+    };
     transaction.commit().map_err(|error| error.to_string())?;
     Ok(HistoryAnalytics {
         sessions,
         items,
         rare_loot,
         rare_events,
+        pacing,
     })
+}
+
+/// Sessions with at least one whole stretch and net samples (created after migration 5, as for the trend), reduced
+/// to their net at each stretch mark so only a few numbers per session leave the database. A session counts only
+/// when one of its samples falls strictly between its start and its end: samples are saved at the elapsed time of
+/// each save, so a session whose hours were typed in (a Marni import, or loot added before entering hours) has its
+/// net only at 0 or at its end and says nothing about when the silver came in. A session whose net never changed has
+/// no samples and cannot be told apart from those, so it is left out too.
+fn load_pacing(
+    transaction: &Transaction,
+    filtered: &str,
+    parameters: &[&dyn ToSql],
+) -> Result<Vec<SessionPacing>, String> {
+    let samples = transaction
+        .prepare(&format!(
+            "{filtered}
+            SELECT f.id, f.elapsed_ms, s.elapsed_ms, s.net
+            FROM filtered f JOIN session_net_samples s ON s.session_id = f.id
+            WHERE f.elapsed_ms BETWEEN {PACING_STRETCH_MS} AND {PACING_MAX_SESSION_MS} AND f.has_net_samples
+                AND EXISTS (
+                    SELECT 1 FROM session_net_samples inside
+                    WHERE inside.session_id = f.id AND inside.elapsed_ms > 0 AND inside.elapsed_ms < f.elapsed_ms
+                )
+            ORDER BY f.finished_at, f.id, s.elapsed_ms"
+        ))
+        .and_then(|mut statement| {
+            statement
+                .query_map(parameters, |row| {
+                    Ok((
+                        row.get::<_, String>(0)?,
+                        row.get::<_, i64>(1)?,
+                        row.get::<_, i64>(2)?,
+                        row.get::<_, i64>(3)?,
+                    ))
+                })?
+                .collect::<Result<Vec<_>, _>>()
+        })
+        .map_err(|error| error.to_string())?;
+    let mut pacing: Vec<SessionPacing> = Vec::new();
+    for (session_id, elapsed_ms, at_ms, net) in samples {
+        if pacing
+            .last()
+            .is_none_or(|last| last.session_id != session_id)
+        {
+            pacing.push(SessionPacing {
+                session_id,
+                marks: vec![0; (elapsed_ms / PACING_STRETCH_MS + 1) as usize],
+            });
+        }
+        let marks = &mut pacing.last_mut().expect("pushed above").marks;
+        // Net holds from a sample until the next one, so the sample sets every mark at or after its time.
+        let first = (at_ms + PACING_STRETCH_MS - 1) / PACING_STRETCH_MS;
+        for mark in marks.iter_mut().skip(first as usize) {
+            *mark = net;
+        }
+    }
+    Ok(pacing)
 }
 
 fn load_rare_drops(
