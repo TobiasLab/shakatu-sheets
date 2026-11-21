@@ -161,7 +161,7 @@ await send("Page.addScriptToEvaluateOnNewDocument", {
                 return prices;
             }
             if (command === "list_finished_sessions") {
-                if (window.__failHistory) throw Error("Synthetic history read failure");
+                if (window.__failHistory || window.__failSessionList) throw Error("Synthetic history read failure");
                 const fixture = { session: {id:"fixture-finished",status:"finished",region:"eu",grindSpotId:"sycraia-lower-revamp",startedAt:null,elapsedMs:3600000,entries:[{id:"fixture-loot",name:"Ancient Spirit Dust",quantity:12,unitPrice:3000000,valuation:"vendor",saleMultiplier:1,source:"manual",createdAt:1788520000000}]},finishedAt:1788523600000,garmothUploadStatus:null };
                 const source = window.__historyRecords ?? [fixture];
                 const q = args.query;
@@ -211,7 +211,10 @@ await send("Page.addScriptToEvaluateOnNewDocument", {
                     item.minRate = Math.min(item.minRate, rate); item.maxRate = Math.max(item.maxRate, rate);
                     items.set(l.name,item);
                 }
-                return {sessions, items:[...items.values()].sort((a,b) => b.value-a.value || a.name.localeCompare(b.name))};
+                const timedRare = loot.filter(l => l.session.elapsedMs > 0 && rare(l.name));
+                const rareLoot = q.grindSpotId === null ? [] : timedRare.map(l => ({sessionId:l.session.id, name:l.name, quantity:l.quantity}));
+                const rareEvents = q.grindSpotId === null ? [] : scope.filter(r => r.session.elapsedMs > 0 && !r.noDropTiming).flatMap(r => (r.events ?? []).filter(e => rare(e.name)).map(e => ({sessionId:r.session.id, ...e})));
+                return {sessions, items:[...items.values()].sort((a,b) => b.value-a.value || a.name.localeCompare(b.name)), rareLoot, rareEvents};
             }
             if (command === "load_session_trend") {
                 if (window.__holdTrend === args.sessionId) {
@@ -993,7 +996,8 @@ try {
         ].map(([id,grindSpotId,elapsedMs,day,entries]) => ({
             session:{id,status:'finished',region:'eu',grindSpotId,startedAt:null,elapsedMs,
                 entries:entries.map(([name,quantity,unitPrice],i) => ({id:id+'-'+i,name,quantity,unitPrice,valuation:'vendor',saleMultiplier:1,source:'manual',createdAt:Date.UTC(2026,8,1)}))},
-            finishedAt:Date.UTC(2026,8,day),garmothUploadStatus:null
+            finishedAt:Date.UTC(2026,8,day),garmothUploadStatus:null,
+            events:id === 'analytics-a' ? [{name:'Rare Ring',elapsedMs:1800000,quantity:1}] : []
         }))`);
         await click("Reload");
         await until('document.body.innerText.includes("1–4 of 4 sessions")');
@@ -1059,6 +1063,19 @@ try {
         await evaluate("window.__failAnalytics = false");
         await click("Retry analytics");
         await until(`${analyticsPanel}?.innerText.includes("12.5M/h")`);
+        await evaluate("window.__failSessionList = true");
+        const listReads = await evaluate("window.__calls.filter(c => c.command === 'list_finished_sessions').length");
+        await click("Reload");
+        await until(`window.__calls.filter(c => c.command === 'list_finished_sessions').length > ${listReads}`);
+        await until(`${analyticsPanel}?.innerText.includes("12.5M/h")`);
+        assert.equal(
+            await evaluate("document.body.innerText.includes('Could not load session history')"),
+            false,
+            "A failed session list leaves analytics that loaded",
+        );
+        await evaluate("window.__failSessionList = false");
+        await click("Reload");
+        await until("document.querySelector('[aria-label=\"Filtered history summary\"]') !== null");
         await setHistoryFilter('select[aria-label="Grind spot"]', "sycraia-lower-revamp");
         await until(`${analyticsPanel}?.innerText.includes("Items per hour")`);
         const oneSpot = await evaluate(`${analyticsPanel}.innerText`);
@@ -1066,13 +1083,32 @@ try {
         assert.match(oneSpot, /Rare drops \/ hour\s+66\.67M\/h/);
         assert.deepEqual(
             await evaluate(
-                `[...${analyticsPanel}.querySelectorAll('tbody tr')].map(row => [...row.cells].map(cell => cell.innerText.trim().replace(/\\s+/g, ' ')))`,
+                `[...${analyticsPanel}.querySelectorAll('[aria-label="Item rates table"] tbody tr')].map(row => [...row.cells].map(cell => cell.innerText.trim().replace(/\\s+/g, ' ')))`,
             ),
             [
                 ["Rare Ring Rare", "0.33", "0.00–1.00", "1 / 2", "66.67M/h", "83.3%"],
                 ["Ancient Spirit Dust", "13.33", "10.00–15.00", "2 / 2", "13.33M/h", "16.7%"],
             ],
             "Items rate over every timed session at the spot",
+        );
+        assert.deepEqual(
+            await evaluate(
+                `[...document.querySelectorAll('[aria-label="Rare drop rates"] tbody tr')].map(row => [...row.cells].map(cell => cell.innerText.trim().replace(/\\s+/g, ' ')))`,
+            ),
+            [["Rare Ring Few drops", "", "1", "3.0 h", "2.5 h", "43%"]],
+            "Rare drops measure gaps over the spot's tracked time",
+        );
+        assert.equal(
+            await evaluate(`document.querySelector('[aria-label="Rare drop rates"] tbody tr i').style.left`),
+            "16.6667%",
+            "The ring's tick sits half an hour into three tracked hours",
+        );
+        assert.deepEqual(
+            await evaluate(
+                `[...document.querySelectorAll('[aria-label="Rare drops, newest first"] tbody tr')].map(row => [...row.cells].slice(1).map(cell => cell.innerText.trim()))`,
+            ),
+            [["Rare Ring", "00:30:00", "First"]],
+            "The log lists each rare drop with its time into the session",
         );
         for (const theme of ["dark", "light"]) {
             await evaluate(`document.documentElement.dataset.theme = ${JSON.stringify(theme)}`);

@@ -172,3 +172,50 @@
     font-weight: 500;
     line-height: 17px;
 }
+.Quantity {
+    color: var(--muted);
+    font-weight: 500;
+}
+.RareTable tbody td:nth-child(2) {
+    width: 32%;
+    min-width: 160px;
+}
+.RareTable thead th:nth-child(2) {
+    text-align: left;
+}
+/* Each drop's place along the tracked time; the space after the last tick is the current dry spell. */
+.Timeline {
+    position: relative;
+    display: block;
+    height: 16px;
+}
+.Timeline::before {
+    content: "";
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: 50%;
+    height: 1px;
+    background: var(--line-strong);
+}
+.Timeline i {
+    position: absolute;
+    top: 1px;
+    bottom: 1px;
+    width: 2px;
+    margin-left: -1px;
+    border-radius: 1px;
+    background: var(--gold);
+}
+.LogTable th:first-child {
+    min-width: 0;
+}
+.LogTable td:first-child {
+    padding-left: 0;
+    text-align: left;
+}
+.LogTable thead th:nth-child(2),
+.LogTable tbody th {
+    min-width: 220px;
+    text-align: left;
+}

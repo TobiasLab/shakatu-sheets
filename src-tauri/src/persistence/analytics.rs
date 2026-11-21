@@ -1,4 +1,4 @@
-use rusqlite::{params, Connection};
+use rusqlite::{params, Connection, ToSql, Transaction};
 use serde::{Deserialize, Serialize};
 use tauri::State;
 
@@ -45,11 +45,32 @@ pub struct AnalyticsItem {
     pub max_rate: f64,
 }
 
+/// A rare item's total quantity in one session with tracked time.
+#[derive(Debug, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RareLoot {
+    pub session_id: String,
+    pub name: String,
+    pub quantity: f64,
+}
+
+/// Rare items recorded as dropping at one elapsed time of a session with drop timing.
+#[derive(Debug, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RareEvent {
+    pub session_id: String,
+    pub name: String,
+    pub elapsed_ms: i64,
+    pub quantity: i64,
+}
+
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct HistoryAnalytics {
     pub sessions: Vec<AnalyticsSession>,
     pub items: Vec<AnalyticsItem>,
+    pub rare_loot: Vec<RareLoot>,
+    pub rare_events: Vec<RareEvent>,
 }
 
 pub(super) fn load_history_analytics_records(
@@ -70,7 +91,10 @@ pub(super) fn load_history_analytics_records(
     // recognized row of one item count once.
     let filtered = format!(
         "WITH filtered AS (
-            SELECT id, grind_spot_id, elapsed_ms, COALESCE(finished_at, updated_at) AS finished_at
+            SELECT id, grind_spot_id, elapsed_ms, COALESCE(finished_at, updated_at) AS finished_at,
+                created_at >= (
+                    SELECT CAST(applied_at AS INTEGER) FROM schema_migrations WHERE version = 7
+                ) AS has_drop_timing
             FROM sessions
             WHERE status = 'finished' AND {}
                 AND (?2 IS NULL OR COALESCE(finished_at, updated_at) >= ?2)
@@ -168,8 +192,74 @@ pub(super) fn load_history_analytics_records(
                 .collect::<Result<Vec<_>, _>>()
         })
         .map_err(|error| error.to_string())?;
+    // Rare drops follow the same timed sessions and are shown for one spot only. Events record only increases while
+    // the timer had started, so a session's events can cover less than its quantity; the rest has no time. Sessions
+    // created before migration 7 have no events, as in the trend.
+    let (rare_loot, rare_events) = if query.grind_spot_id.is_some() {
+        load_rare_drops(&transaction, &filtered, parameters)?
+    } else {
+        (Vec::new(), Vec::new())
+    };
     transaction.commit().map_err(|error| error.to_string())?;
-    Ok(HistoryAnalytics { sessions, items })
+    Ok(HistoryAnalytics {
+        sessions,
+        items,
+        rare_loot,
+        rare_events,
+    })
+}
+
+fn load_rare_drops(
+    transaction: &Transaction,
+    filtered: &str,
+    parameters: &[&dyn ToSql],
+) -> Result<(Vec<RareLoot>, Vec<RareEvent>), String> {
+    let rare_loot = transaction
+        .prepare(&format!(
+            "{filtered}
+            SELECT l.session_id, l.name, l.quantity
+            FROM loot l JOIN filtered f ON f.id = l.session_id JOIN rare_items r ON r.name = l.name
+            WHERE f.elapsed_ms > 0
+            ORDER BY f.finished_at, f.id, l.name"
+        ))
+        .and_then(|mut statement| {
+            statement
+                .query_map(parameters, |row| {
+                    Ok(RareLoot {
+                        session_id: row.get(0)?,
+                        name: row.get(1)?,
+                        quantity: row.get(2)?,
+                    })
+                })?
+                .collect::<Result<Vec<_>, _>>()
+        })
+        .map_err(|error| error.to_string())?;
+    let rare_events = transaction
+        .prepare(&format!(
+            "{filtered}
+            SELECT ev.session_id, en.name, ev.elapsed_ms, SUM(ev.quantity)
+            FROM filtered f
+                JOIN session_loot_events ev ON ev.session_id = f.id
+                JOIN session_entries en ON en.id = ev.entry_id AND en.session_id = ev.session_id
+            WHERE f.elapsed_ms > 0 AND f.has_drop_timing AND en.valuation <> 'expense'
+                AND en.name IN (SELECT name FROM rare_items)
+            GROUP BY ev.session_id, en.name, ev.elapsed_ms
+            ORDER BY f.finished_at, f.id, ev.elapsed_ms, en.name"
+        ))
+        .and_then(|mut statement| {
+            statement
+                .query_map(parameters, |row| {
+                    Ok(RareEvent {
+                        session_id: row.get(0)?,
+                        name: row.get(1)?,
+                        elapsed_ms: row.get(2)?,
+                        quantity: row.get(3)?,
+                    })
+                })?
+                .collect::<Result<Vec<_>, _>>()
+        })
+        .map_err(|error| error.to_string())?;
+    Ok((rare_loot, rare_events))
 }
 
 #[tauri::command]

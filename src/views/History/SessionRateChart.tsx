@@ -41,19 +41,25 @@ export function SessionRateChart({
     if (points.length === 0) return null;
 
     const first = points[0].finishedAt;
-    const rates = points.map((point) => point.rate);
+    // A loop rather than spreading every rate into Math.min, which has an argument limit.
+    let lowest = points[0].rate;
+    let highest = points[0].rate;
+    for (const point of points) {
+        lowest = Math.min(lowest, point.rate);
+        highest = Math.max(highest, point.rate);
+    }
     const scale = {
         first,
         span: points[points.length - 1].finishedAt - first,
-        low: Math.min(0, ...rates),
-        high: Math.max(1, ...rates),
+        low: Math.min(0, lowest),
+        high: Math.max(1, highest),
     };
     const x = (finishedAt: number) => left(finishedAt, scale);
     const y = (rate: number) => top(rate, scale);
     const active = activeIndex === null ? null : points[activeIndex];
     const describe = (point: SessionRate) =>
         `${formatSilver(point.rate, true)}/h, ${showSpot ? `${grindSpotName(point.grindSpotId)}, ` : ""}${formatTimestamp(point.finishedAt)}`;
-    const summary = `Net per hour of ${points.length} ${points.length === 1 ? "session" : "sessions"} from ${formatTimestamp(first)} to ${formatTimestamp(points[points.length - 1].finishedAt)}, average ${formatSilver(average, true)} per hour, lowest ${formatSilver(Math.min(...rates), true)}, highest ${formatSilver(Math.max(...rates), true)}`;
+    const summary = `Net per hour of ${points.length} ${points.length === 1 ? "session" : "sessions"} from ${formatTimestamp(first)} to ${formatTimestamp(points[points.length - 1].finishedAt)}, average ${formatSilver(average, true)} per hour, lowest ${formatSilver(lowest, true)}, highest ${formatSilver(highest, true)}`;
 
     function step(event: KeyboardEvent<HTMLDivElement>) {
         const last = points.length - 1;
