@@ -2236,6 +2236,23 @@ fn analytics_classifies_rare_items_by_average_unit_value() {
         !analytics.items[0].rare,
         "sessions without tracked time do not make an item rare"
     );
+    analytics_fixture(
+        &mut connection,
+        "rounded",
+        "edge",
+        4_000,
+        HOUR_MS,
+        vec![loot("Ring", 1.0, 118_343_196, Valuation::Market)],
+    );
+    let mut query = analytics_query();
+    query.grind_spot_id = Some("edge".into());
+    assert!(
+        load_history_analytics_records(&connection, &query)
+            .unwrap()
+            .items[0]
+            .rare,
+        "99,999,999.6 silver after tax rounds to 100M, as the trend's markers count it"
+    );
 }
 
 #[test]

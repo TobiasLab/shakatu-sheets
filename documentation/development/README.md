@@ -138,7 +138,7 @@ layouts in both themes; it saves screenshots only when `UI_SMOKE_OUTPUT` is set.
 The test opens and closes its own tab, uses real browser pointer and keyboard events, and verifies navigation/minimization/
 preview and finish behavior, sidebar collapse/expansion and capture navigation, timer persistence isolation, dialog focus and
 Escape dismissal, manual loot and expense entry,
-submission feedback, shared field labels, Settings load retry and local key feedback, preset loading/retry, History empty states and date validation, History analytics figures, chart readout and rare drop gaps, expense price isolation, new-session draft/filter reset, ledger edits and filters, history filtering, both themes (light and dark), and 960/700/640px layouts. Blank-price and
+submission feedback, shared field labels, Settings load retry and local key feedback, preset loading/retry, History empty states and date validation, History analytics figures, chart readout, per-spot spread and rare drop gaps, expense price isolation, new-session draft/filter reset, ledger edits and filters, history filtering, both themes (light and dark), and 960/700/640px layouts. Blank-price and
 Escape regressions verify that rejected/cancelled edits preserve persisted values. Screenshots include capture setup and
 compact entry, history, and settings views. Screenshots go to the OS temporary directory under `shakatu-ui`; set `UI_SMOKE_OUTPUT` to
 choose another directory. `UI_SMOKE_URL` overrides the default Vite URL. `UI_SCREENSHOT_ONLY=1` skips the assertions and

@@ -219,3 +219,54 @@
     min-width: 220px;
     text-align: left;
 }
+.SectionHeading {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 8px 16px;
+    padding-bottom: 10px;
+}
+.Items .SectionHeading h2 {
+    padding-bottom: 0;
+}
+.SpreadTable tbody td:nth-child(2) {
+    width: 32%;
+    min-width: 160px;
+}
+.SpreadTable thead th:nth-child(2) {
+    text-align: left;
+}
+.SpreadTable tbody td:nth-child(3) {
+    color: var(--text-strong);
+    font-weight: 600;
+}
+/* A box plot on the scale all rows share: lowest–highest whisker, the middle half as a box, the median as a tick. */
+.Spread {
+    position: relative;
+    display: block;
+    height: 16px;
+}
+.Whisker,
+.Box,
+.Median {
+    position: absolute;
+    top: 50%;
+}
+.Whisker {
+    height: 1px;
+    background: var(--line-strong);
+}
+.Box {
+    height: 10px;
+    margin-top: -5px;
+    min-width: 2px;
+    border-radius: 2px;
+    background: color-mix(in srgb, var(--gold) 30%, transparent);
+}
+.Median {
+    width: 2px;
+    height: 14px;
+    margin: -7px 0 0 -1px;
+    border-radius: 1px;
+    background: var(--gold);
+}
