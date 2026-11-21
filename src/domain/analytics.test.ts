@@ -4,6 +4,7 @@ import {
     analyticsSummary,
     consumableCost,
     cumulativeNet,
+    dailyTotals,
     type HistoryAnalytics,
     itemRates,
     pacingStretches,
@@ -14,7 +15,6 @@ import {
     sessionRates,
     spotConsistency,
     todayValues,
-    weeklyHeatmap,
 } from "./analytics";
 
 const HOUR_MS = 3_600_000;
@@ -280,22 +280,24 @@ describe("history analytics", () => {
         ]);
     });
 
-    it("spreads each session over the local weekday hours before its completion", () => {
+    it("adds each day's time and net, splitting sessions at local midnight", () => {
         // Monday 31 August 2026, 22:30 to Tuesday 00:30 local time.
         const finishedAt = new Date(2026, 8, 1, 0, 30).getTime();
-        const cells = weeklyHeatmap({
+        const days = dailyTotals({
             ...analytics,
             sessions: [
                 { ...session("late", 2 * HOUR_MS, 400_000_000), finishedAt },
-                { ...session("long", 30 * HOUR_MS, 1), finishedAt },
-                { ...session("typed", HOUR_MS, 1), finishedAt, hoursTypedIn: true },
-                { ...session("untimed", 0, 1), finishedAt },
+                { ...session("long", 30 * HOUR_MS, 7), finishedAt },
+                { ...session("typed", HOUR_MS, 11), finishedAt, hoursTypedIn: true },
+                { ...session("untimed", 0, 13), finishedAt },
             ],
         });
-        expect(cells[0][22]).toEqual({ trackedMs: HOUR_MS / 2, net: 100_000_000 });
-        expect(cells[0][23]).toEqual({ trackedMs: HOUR_MS, net: 200_000_000 });
-        expect(cells[1][0]).toEqual({ trackedMs: HOUR_MS / 2, net: 100_000_000 });
-        const total = cells.flat().reduce((sum, cell) => sum + cell.trackedMs, 0);
-        expect(total).toBe(2 * HOUR_MS);
+        expect(days.get(new Date(2026, 7, 31).getTime())).toEqual({ trackedMs: 1.5 * HOUR_MS, net: 300_000_000 });
+        // Sessions without tracked time, typed in or over a day count whole on their completion day.
+        expect(days.get(new Date(2026, 8, 1).getTime())).toEqual({
+            trackedMs: 0.5 * HOUR_MS + 30 * HOUR_MS + HOUR_MS,
+            net: 100_000_000 + 7 + 11 + 13,
+        });
+        expect(days.size).toBe(2);
     });
 });

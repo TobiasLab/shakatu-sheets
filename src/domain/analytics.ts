@@ -329,33 +329,42 @@ export function cumulativeNet(analytics: HistoryAnalytics) {
     });
 }
 
-export type HeatmapCell = { trackedMs: number; net: number };
+export type DayTotal = { trackedMs: number; net: number };
 
-// Longer sessions are left out of the heatmap: their hours were almost certainly typed in.
-const HEATMAP_MAX_SESSION_MS = 24 * HOUR_MS;
+// Longer sessions are not split across days: their hours were almost certainly typed in.
+const SPLIT_MAX_SESSION_MS = 24 * HOUR_MS;
 
-// Tracked time and net per local weekday (0 = Monday) and hour of day. Sessions store no start time once paused, so
-// each is placed from its completion minus its tracked time up to its completion, earning at a steady rate. Sessions
-// whose hours were typed in are left out: they were played at some unknown earlier time.
-export function weeklyHeatmap(analytics: HistoryAnalytics): HeatmapCell[][] {
-    const cells = Array.from({ length: 7 }, () => Array.from({ length: 24 }, () => ({ trackedMs: 0, net: 0 })));
-    for (const session of timed(analytics.sessions)) {
-        if (session.elapsedMs > HEATMAP_MAX_SESSION_MS || session.hoursTypedIn) continue;
+// Local midnight of the day containing `at`.
+function localDay(at: number) {
+    const date = new Date(at);
+    return new Date(date.getFullYear(), date.getMonth(), date.getDate()).getTime();
+}
+
+// Tracked time and net per local day, keyed by its midnight. Sessions store no start time once paused, so each is
+// placed from its completion minus its tracked time up to its completion, earning steadily, and split at midnight.
+// Sessions without tracked time, with typed-in hours, or over a day count whole on the day they were completed.
+export function dailyTotals(analytics: HistoryAnalytics) {
+    const days = new Map<number, DayTotal>();
+    const add = (day: number, trackedMs: number, net: number) => {
+        const total = days.get(day) ?? { trackedMs: 0, net: 0 };
+        total.trackedMs += trackedMs;
+        total.net += net;
+        days.set(day, total);
+    };
+    for (const session of analytics.sessions) {
+        if (session.elapsedMs === 0 || session.hoursTypedIn || session.elapsedMs > SPLIT_MAX_SESSION_MS) {
+            add(localDay(session.finishedAt), session.elapsedMs, session.net);
+            continue;
+        }
         let at = session.finishedAt - session.elapsedMs;
         while (at < session.finishedAt) {
-            const date = new Date(at);
-            const nextHour = new Date(
-                date.getFullYear(),
-                date.getMonth(),
-                date.getDate(),
-                date.getHours() + 1,
-            ).getTime();
-            const end = Math.min(nextHour, session.finishedAt);
-            const cell = cells[(date.getDay() + 6) % 7][date.getHours()];
-            cell.trackedMs += end - at;
-            cell.net += (session.net * (end - at)) / session.elapsedMs;
+            const day = localDay(at);
+            const date = new Date(day);
+            const nextDay = new Date(date.getFullYear(), date.getMonth(), date.getDate() + 1).getTime();
+            const end = Math.min(nextDay, session.finishedAt);
+            add(day, end - at, (session.net * (end - at)) / session.elapsedMs);
             at = end;
         }
     }
-    return cells;
+    return days;
 }

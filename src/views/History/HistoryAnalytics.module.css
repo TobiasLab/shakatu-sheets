@@ -397,28 +397,60 @@
 .Chart figcaption .SectionHeading {
     padding-bottom: 0;
 }
-/* A weekday per row and an hour of the day per column, in local time. */
-.Heatmap {
-    display: grid;
-    grid-template-columns: 36px repeat(24, minmax(0, 1fr));
-    gap: 2px;
+/* Month calendars side by side, wrapping; each day shows its date on its shade. */
+.Months {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 20px 28px;
     outline-offset: 4px;
 }
-.HeatmapHour,
-.HeatmapDay {
+.Month {
+    display: grid;
+    gap: 6px;
+    align-content: start;
+}
+.MonthName {
+    color: var(--text-strong);
+    font-size: 12px;
+    font-weight: 600;
+}
+.MonthGrid {
+    display: grid;
+    grid-template-columns: repeat(7, 26px);
+    gap: 3px;
+}
+.MonthWeekday {
     color: var(--muted);
+    font-size: 10px;
+    text-align: center;
+}
+.MonthDay {
+    display: grid;
+    place-items: center;
+    height: 26px;
+    border-radius: 3px;
+    background: color-mix(in srgb, var(--line) 45%, transparent);
+    color: var(--text-soft);
     font-size: 11px;
     font-variant-numeric: tabular-nums;
 }
-.HeatmapDay {
-    align-self: center;
+/* Day numbers on shaded days take whichever text colour keeps 4.5:1 on that step: in the dark theme the strong text on
+   the two lightest steps and the page colour from the middle step up; in the light theme the strong text up to the
+   fourth step and the page colour on the full gold. */
+.MonthDay[data-level] {
+    color: var(--text-strong);
+    font-weight: 600;
 }
-.HeatmapCell {
-    height: 20px;
-    border-radius: 2px;
-    background: color-mix(in srgb, var(--line) 45%, transparent);
+.MonthDay[data-level="2"],
+.MonthDay[data-level="3"],
+.MonthDay[data-level="4"] {
+    color: var(--canvas);
 }
-.HeatmapCell[data-active] {
+:global(:root[data-theme="light"]) .MonthDay[data-level="2"],
+:global(:root[data-theme="light"]) .MonthDay[data-level="3"] {
+    color: var(--text-strong);
+}
+.MonthDay[data-active] {
     box-shadow: inset 0 0 0 2px var(--text-strong);
 }
 .HeatmapLegend {
@@ -436,8 +468,11 @@
 .HeatmapLegend span:first-child {
     margin-right: 4px;
 }
-.HeatmapLegend span:last-child {
+.HeatmapLegend span:last-of-type {
     margin-left: 4px;
+}
+.HeatmapLegend small {
+    margin-left: 12px;
 }
 /* A section that folds under its heading: the global summary style draws the chevron. */
 .Collapsible > summary {

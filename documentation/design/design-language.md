@@ -122,8 +122,8 @@ Two themes, dark (default) and light, share the same token names. Every new toke
 - **History:** title with the Sessions / Analytics switch, filter bar, overview figures, comparison table, then the
   session list beside one receipt panel, or the analytics readouts, session dot chart, cumulative net line, per-spot
   spread table (a box
-  plot per row on a shared scale, with a Total / Base switch in its title), weekday × hour heatmap (one gold scale,
-  Time / Net per hour switch), quarter-hour pacing bars, item table,
+  plot per row on a shared scale, with a Total / Base switch in its title), day-by-day month calendars (five gold
+  steps, Time / Net switch), quarter-hour pacing bars, item table,
   market price table (a price line per row on a shared time axis), rare drop table
   (with a tick strip per item, drawn like the comparison bars), and rare drop log.
   The receipt's figures row ends with the session trend when net samples exist.

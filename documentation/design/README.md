@@ -141,13 +141,15 @@ sorted rates (QUARTILE.INC); spots with the higher median come first, and fewer 
 sessions" tag. A Total / Base switch in its title leaves rare drops out of each session's rate; the choice survives
 reloads and filter changes for the visit. Analytics write negative values with a true minus. Items per hour, Market prices, Rare drops and Rare drop log are disclosures (native `<details>`)
 under their headings, open by default; History remembers which are closed across reloads and filter changes while it
-stays open. Weekday and hour comes next: a 7 × 24 grid of local weekdays and hours,
-shaded in one gold scale (with a Less–More legend) by tracked time, or, with its Time / Net per hour switch, by net per
-hour, which shades only hours with at least 30 minutes tracked (when none has, the caption says so and the switch
-stays). Sessions store no start once paused, so each is placed
-from its completion minus its tracked time up to its completion and assumed to earn steadily; sessions over 24 hours, and
-sessions whose hours were typed in (see the database documentation), are left out. The caption names the busiest (or best paying) hour; the pointer or arrow keys show an hour's tracked time and
-net per hour, the first arrow press starting at that hour. The switch survives reloads like Total / Base. With a spot
+stays open. Day by day comes next: a month calendar for each month from the first to the last
+session in local time (the last 12 months at most, noted under the legend when earlier months are left out), every day
+showing its date and shaded in five steps of gold (with a matching Less–More legend) by tracked time or, with its
+Time / Net switch, by net. Fixed steps let each carry a day-number colour that keeps 4.5:1 contrast in both themes.
+Sessions store no start once paused, so each is placed from its completion minus its tracked time up to its completion,
+earning steadily, and split at local midnight; sessions without tracked time, with typed-in hours (see the database
+documentation) or over 24 hours count whole on the day they were completed. The caption names the busiest (or best)
+day; the pointer or arrow keys (a day left or right, a week up or down) show a day's tracked time, net and net per
+hour, the first arrow press starting at that day. The switch survives reloads like Total / Base. With a spot
 selected, Net / hour through a session follows: one bar per
 quarter hour into a session (at most 40 px wide, standing on the zero line) for the net per hour earned in that
 quarter hour, averaged over the sessions that lasted through it, against a hairline at the average of every measured
