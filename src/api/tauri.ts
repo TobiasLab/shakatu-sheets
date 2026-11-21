@@ -78,6 +78,10 @@ export function loadMarketPrices(region: SessionState["region"]) {
     return invoke<MarketPriceSnapshot[]>("load_market_prices", { region });
 }
 
+export function loadPriceHistory(region: SessionState["region"], itemIds: number[]) {
+    return invoke<MarketPriceSnapshot[]>("load_price_history", { region, itemIds });
+}
+
 export function fetchMarketPrices(region: SessionState["region"], itemIds: number[]) {
     return invoke<MarketPriceSnapshot[]>("fetch_market_prices", { region, itemIds });
 }

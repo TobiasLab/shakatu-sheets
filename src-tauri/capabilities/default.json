@@ -19,6 +19,7 @@
     "allow-delete-finished-session",
     "allow-list-finished-sessions",
     "allow-load-history-analytics",
+    "allow-load-price-history",
     "allow-load-session-trend",
     "allow-load-active-session",
     "allow-load-consumable-presets",

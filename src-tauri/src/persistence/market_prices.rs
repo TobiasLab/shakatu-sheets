@@ -1,10 +1,10 @@
 use std::path::PathBuf;
 
-use rusqlite::{params, Connection};
+use rusqlite::{params, params_from_iter, Connection, ToSql};
 use serde::{Deserialize, Serialize};
 use tauri::State;
 
-use super::{open_database, run_database, DatabasePath};
+use super::{open_database, run_database, DatabasePath, MAX_SAFE_INTEGER};
 
 #[derive(Clone, Copy, Debug, Deserialize, PartialEq, Serialize)]
 #[serde(rename_all = "lowercase")]
@@ -113,6 +113,61 @@ pub async fn load_market_prices(
 ) -> Result<Vec<MarketPriceSnapshot>, String> {
     run_database(state, move |connection| {
         load_market_price_records(connection, region)
+    })
+    .await
+}
+
+/// Every imported price of the given market items (enhancement level 0) in one region, oldest first per item. History
+/// analytics draw each item's price over time and value past loot at its latest price.
+pub(super) fn load_price_history_records(
+    connection: &Connection,
+    region: Region,
+    item_ids: &[i64],
+) -> Result<Vec<MarketPriceSnapshot>, String> {
+    if item_ids.len() > 500
+        || item_ids
+            .iter()
+            .any(|id| !(1..=MAX_SAFE_INTEGER).contains(id))
+    {
+        return Err("price history takes at most 500 positive item IDs".into());
+    }
+    if item_ids.is_empty() {
+        return Ok(Vec::new());
+    }
+    let placeholders = vec!["?"; item_ids.len()].join(", ");
+    let mut statement = connection
+        .prepare(&format!(
+            "SELECT item_id, sub_id, base_price, fetched_at
+             FROM price_snapshots
+             WHERE session_id IS NULL AND sub_id = 0 AND region = ? AND item_id IN ({placeholders})
+             ORDER BY item_id, fetched_at, id"
+        ))
+        .map_err(|error| error.to_string())?;
+    let region = region.as_str();
+    let parameters =
+        std::iter::once(&region as &dyn ToSql).chain(item_ids.iter().map(|id| id as &dyn ToSql));
+    let rows = statement
+        .query_map(params_from_iter(parameters), |row| {
+            Ok(MarketPriceSnapshot {
+                item_id: row.get(0)?,
+                sub_id: row.get(1)?,
+                base_price: row.get(2)?,
+                fetched_at: row.get(3)?,
+            })
+        })
+        .map_err(|error| error.to_string())?;
+    rows.collect::<Result<Vec<_>, _>>()
+        .map_err(|error| error.to_string())
+}
+
+#[tauri::command]
+pub async fn load_price_history(
+    region: Region,
+    item_ids: Vec<i64>,
+    state: State<'_, DatabasePath>,
+) -> Result<Vec<MarketPriceSnapshot>, String> {
+    run_database(state, move |connection| {
+        load_price_history_records(connection, region, &item_ids)
     })
     .await
 }

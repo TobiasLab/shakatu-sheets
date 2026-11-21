@@ -121,6 +121,13 @@ Rows cascade with their session. As with migration 5, sessions created before th
   session whose hours were typed in (a Marni import, or loot added before entering hours) has its net only at 0 or at
   its end and is left out; so is a session whose net never changed, which has no samples to tell it apart. Rust
   reduces the samples to those marks, so only a few numbers per session cross IPC.
+- Each analytics item also reports the quantity and value recorded at a market price, so today's prices revalue
+  only that part.
+- History analytics read price history separately, only with one built-in spot and one region selected (an unknown
+  spot ID would fall back to another spot's items), and a failed price read leaves the rest of the analytics: every market import
+  (`session_id` NULL, enhancement level 0) of the spot's market items in that region, oldest first per item. Rust
+  rejects more than 500 item IDs or IDs outside the positive JavaScript-safe range. Import tables stay small, so no
+  index was added. The latest import of an item is its "today's" price; stored session prices never change.
 - Recorded net includes all finished sessions. Hourly comparisons exclude both earnings and duration for zero-duration
   sessions, reporting their count separately; positive-duration sessions with no entries still contribute tracked time.
 - Stored entry prices and sale multipliers determine historical value. Region is the recorded session region; the

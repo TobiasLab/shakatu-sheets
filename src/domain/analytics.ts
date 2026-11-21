@@ -1,4 +1,5 @@
 import type { HistoryQuery } from "./history";
+import { saleMultiplier } from "./session";
 
 export type AnalyticsQuery = Omit<HistoryQuery, "offset" | "limit"> & { rareMinUnitValue: number };
 
@@ -21,6 +22,9 @@ export type AnalyticsItem = {
     sessionCount: number;
     minRate: number;
     maxRate: number;
+    // The part recorded at a market price, which today's prices revalue.
+    marketQuantity: number;
+    marketValue: number;
 };
 
 // A rare item's quantity in one timed session, and the part of it recorded at a time into the session.
@@ -241,4 +245,75 @@ export function pacingStretches(pacing: SessionPacing[]) {
         }
     }
     return stretches.map((stretch) => ({ ...stretch, rate: stretch.rate / stretch.sessionCount }));
+}
+
+// Consumables are what loot minus net leaves over the timed sessions: the expenses those sessions recorded. Both sums
+// add up float products in different groupings, so the difference is rounded to whole silver.
+function recordedExpenses(analytics: HistoryAnalytics) {
+    const net = timed(analytics.sessions).reduce((total, session) => total + session.net, 0);
+    const loot = analytics.items.reduce((total, item) => total + item.value, 0);
+    return Math.round(loot - net) || 0;
+}
+
+export function consumableCost(analytics: HistoryAnalytics) {
+    const sessions = timed(analytics.sessions);
+    const elapsedMs = sessions.reduce((total, session) => total + session.elapsedMs, 0);
+    const loot = analytics.items.reduce((total, item) => total + item.value, 0);
+    const expenses = recordedExpenses(analytics);
+    return {
+        perHour: elapsedMs > 0 ? (expenses * HOUR_MS) / elapsedMs : null,
+        shareOfLoot: loot > 0 ? expenses / loot : null,
+    };
+}
+
+export type PriceImport = { itemId: number; basePrice: number; fetchedAt: number };
+
+// Each item's imports in time order, as the database returns them, with its latest price and the change since its first.
+export function priceHistory(imports: PriceImport[]) {
+    const byItem = new Map<number, PriceImport[]>();
+    for (const price of imports) {
+        const list = byItem.get(price.itemId) ?? [];
+        list.push(price);
+        byItem.set(price.itemId, list);
+    }
+    return new Map(
+        [...byItem].map(([itemId, points]) => {
+            const first = points[0];
+            const latest = points[points.length - 1];
+            return [
+                itemId,
+                { points, latest, change: first.basePrice > 0 ? latest.basePrice / first.basePrice - 1 : null },
+            ];
+        }),
+    );
+}
+
+// Past loot recorded at a market price, valued at its item's latest imported price after tax. Everything else (loot
+// recorded at a vendor price, items with no import) keeps its recorded value, so the total still covers all loot;
+// consumables keep their recorded cost.
+export function todayValues(
+    analytics: HistoryAnalytics,
+    marketItemIds: Map<string, number>,
+    latestPrices: Map<number, number>,
+) {
+    const sessions = timed(analytics.sessions);
+    const elapsedMs = sessions.reduce((total, session) => total + session.elapsedMs, 0);
+    if (elapsedMs === 0) return null;
+    const expenses = recordedExpenses(analytics);
+    // Every item's silver per hour; `pricedItems` counts those valued at a market price rather than as recorded.
+    const itemPerHour = new Map<string, number>();
+    let pricedItems = 0;
+    let loot = 0;
+    for (const item of analytics.items) {
+        const itemId = marketItemIds.get(item.name);
+        const price = itemId === undefined ? undefined : latestPrices.get(itemId);
+        const priced = price !== undefined && item.marketQuantity > 0;
+        const value = priced
+            ? item.value - item.marketValue + item.marketQuantity * price * saleMultiplier("market")
+            : item.value;
+        if (priced) pricedItems += 1;
+        itemPerHour.set(item.name, (value * HOUR_MS) / elapsedMs);
+        loot += value;
+    }
+    return { netRate: ((loot - expenses) * HOUR_MS) / elapsedMs, itemPerHour, pricedItems };
 }

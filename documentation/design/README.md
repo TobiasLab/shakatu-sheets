@@ -119,7 +119,16 @@ spot ID breaking ties. Prices are recorded valuations, not confirmed sales; EU a
 A Sessions / Analytics switch beside the History title swaps the session list and receipt for analytics over the same
 filters; the overview and comparisons stay above both. Analytics split net/hour into base (everything except rare
 drops, after consumables) and rare drops, so the two add up to the overview's net/hour, and show rare drops' share of
-loot value. Rare items are those whose average after-tax unit value across the filtered sessions with tracked time is at
+loot value and consumables per hour (loot minus net over the timed sessions, rounded to whole silver, in the expense color with a true minus,
+with their share of loot beneath). With one spot and one region selected and at least one looted item that has an
+imported market price, a further readout shows net per hour at today's prices: loot recorded at a market price valued
+at its item's latest import after tax, everything else (including loot recorded at a vendor price) at its recorded
+value, consumables at their recorded cost, with its change
+against the recorded rate beneath; the item table gains a Today / hour column on the same basis. Market prices,
+after the item table, lists the spot's market items with at least one import in that region, highest latest price
+first: a price line per item on a time axis all rows share (each row scaled to its own prices, its latest import
+marked), the latest price, the change since the first import, the number of imports, and when it was last
+imported. Rare items are those whose average after-tax unit value across the filtered sessions with tracked time is at
 least 100M, the trend's spike threshold. A dot chart plots each timed session's net/hour at its completion time against a hairline at
 the pooled average, with the same pointer and arrow-key readout as the trend. Net / hour per session then shows,
 per spot (every spot when none is selected), the spread of its timed sessions' net per hour: a box plot on a scale
