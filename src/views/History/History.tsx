@@ -15,7 +15,7 @@ import { EmptyState, Feedback } from "../../components/Feedback/Feedback";
 import { Icon } from "../../components/Icon/Icon";
 import { SelectionButton } from "../../components/SelectionButton/SelectionButton";
 import { grindSpotName, grindSpots } from "../../data/grindSpots";
-import type { HistoryAnalytics } from "../../domain/analytics";
+import type { ConsistencyView, HistoryAnalytics } from "../../domain/analytics";
 import { historyDateBoundary, netPerHour, rankSpots, summarizeHistory } from "../../domain/history";
 import { calculateTotals, type SessionState } from "../../domain/session";
 import { hasRecordedTrend, type SessionTrendData, SPIKE_MIN_UNIT_VALUE } from "../../domain/trend";
@@ -58,7 +58,14 @@ export function HistoryView({
     const [history, setHistory] = useState<HistoryResult | null>(null);
     const [mode, setMode] = useState<"sessions" | "analytics">("sessions");
     // null while loading.
-    const [analytics, setAnalytics] = useState<{ result: HistoryAnalytics | null; error: string } | null>(null);
+    // The spot travels with its result, so a filter change never draws one spot's data under another's name.
+    const [analytics, setAnalytics] = useState<{
+        result: HistoryAnalytics | null;
+        error: string;
+        grindSpotId: string | null;
+    } | null>(null);
+    // Kept here rather than in the panel, which unmounts while analytics reload.
+    const [consistencyView, setConsistencyView] = useState<ConsistencyView>("total");
     // null follows the live session's region; "all" lists every region together.
     const [selectedRegion, setRegion] = useState<"eu" | "na" | "all" | null>(null);
     const region = selectedRegion ?? initialRegion;
@@ -161,10 +168,15 @@ export function HistoryView({
         const requestId = ++analyticsRequestId.current;
         setAnalytics(null);
         try {
-            const result = await loadHistoryAnalytics({ ...historyFilters(), rareMinUnitValue: SPIKE_MIN_UNIT_VALUE });
-            if (requestId === analyticsRequestId.current) setAnalytics({ result, error: "" });
+            const filters = historyFilters();
+            const result = await loadHistoryAnalytics({ ...filters, rareMinUnitValue: SPIKE_MIN_UNIT_VALUE });
+            if (requestId === analyticsRequestId.current) {
+                setAnalytics({ result, error: "", grindSpotId: filters.grindSpotId });
+            }
         } catch (loadError) {
-            if (requestId === analyticsRequestId.current) setAnalytics({ result: null, error: String(loadError) });
+            if (requestId === analyticsRequestId.current) {
+                setAnalytics({ result: null, error: String(loadError), grindSpotId: null });
+            }
         }
     }
 
@@ -593,7 +605,9 @@ export function HistoryView({
                 ) : (
                     <HistoryAnalyticsPanel
                         analytics={analytics.result}
-                        grindSpotId={grindSpotFilter === "all" ? null : grindSpotFilter}
+                        grindSpotId={analytics.grindSpotId}
+                        consistencyView={consistencyView}
+                        onConsistencyViewChange={setConsistencyView}
                     />
                 )
             ) : !databaseLoaded || records === null ? (

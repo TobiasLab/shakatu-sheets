@@ -1,7 +1,14 @@
 import { memo } from "react";
 import { getDropIcon } from "../../data/grindSpots";
-import { analyticsSummary, type HistoryAnalytics, itemRates, sessionRates } from "../../domain/analytics";
+import {
+    analyticsSummary,
+    type ConsistencyView,
+    type HistoryAnalytics,
+    itemRates,
+    sessionRates,
+} from "../../domain/analytics";
 import { formatSilver } from "../../format";
+import { Consistency } from "./Consistency";
 import styles from "./HistoryAnalytics.module.css";
 import { RareDrops } from "./RareDrops";
 import { SessionRateChart } from "./SessionRateChart";
@@ -18,9 +25,13 @@ function silverRate(rate: number | null) {
 export const HistoryAnalyticsPanel = memo(function HistoryAnalyticsPanel({
     analytics,
     grindSpotId,
+    consistencyView,
+    onConsistencyViewChange,
 }: {
     analytics: HistoryAnalytics;
     grindSpotId: string | null;
+    consistencyView: ConsistencyView;
+    onConsistencyViewChange: (view: ConsistencyView) => void;
 }) {
     const summary = analyticsSummary(analytics);
     const points = sessionRates(analytics);
@@ -53,6 +64,7 @@ export const HistoryAnalyticsPanel = memo(function HistoryAnalyticsPanel({
                 average={(summary.baseRate ?? 0) + (summary.rareRate ?? 0)}
                 showSpot={grindSpotId === null}
             />
+            <Consistency analytics={analytics} view={consistencyView} onViewChange={onConsistencyViewChange} />
             {grindSpotId === null ? (
                 <p className={styles.Hint}>Choose a grind spot to see its items.</p>
             ) : (

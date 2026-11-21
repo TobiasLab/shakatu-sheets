@@ -1052,6 +1052,26 @@ try {
         await send("Input.dispatchMouseEvent", { type: "mouseMoved", ...firstDot });
         await until(`${rateCaption}.textContent.includes("210M/h")`);
         await send("Input.dispatchMouseEvent", { type: "mouseMoved", x: 1, y: 1 });
+        const spreadRows = `[...document.querySelectorAll('[aria-label="Net per hour spread by spot"] tbody tr')].map(row => [...row.cells].map(cell => cell.innerText.trim().replace(/\\s+/g, ' ')))`;
+        assert.deepEqual(
+            await evaluate(spreadRows),
+            [
+                ["Sycraia Ruins Lower Level Few sessions", "", "112.5M/h", "63.75M–161.25M/h", "15M–210M/h", "2"],
+                ["Star's End Few sessions", "", "10M/h", "10M–10M/h", "10M–10M/h", "1"],
+            ],
+            "Each spot's timed sessions spread by net per hour, highest median first",
+        );
+        await click("Base");
+        await until(`${spreadRows}[0]?.[2] === "12.5M/h"`);
+        assert.deepEqual(
+            (await evaluate(spreadRows))[0].slice(2),
+            ["12.5M/h", "11.25M–13.75M/h", "10M–15M/h", "2"],
+            "Base leaves rare drops out of each session's rate",
+        );
+        await click("Reload");
+        await until(`${spreadRows}[0]?.[2] === "12.5M/h"`);
+        await click("Total");
+        await until(`${spreadRows}[0]?.[2] === "112.5M/h"`);
         await evaluate("window.__failAnalytics = true");
         await click("Reload");
         await until('document.body.innerText.includes("Could not load analytics")');

@@ -16,7 +16,8 @@ pub struct AnalyticsQuery {
     pub finished_from_ms: Option<i64>,
     pub finished_before_ms: Option<i64>,
     /// An item is rare when its average after-tax unit value across the matching sessions with tracked time reaches
-    /// this, the same sessions that its rates and the item table cover.
+    /// this, the same sessions that its rates and the item table cover. Its value is rounded to whole silver first,
+    /// as the trend's rare drop markers do.
     pub rare_min_unit_value: i64,
 }
 
@@ -111,7 +112,7 @@ pub(super) fn load_history_analytics_records(
         rare_items AS (
             SELECT l.name FROM loot l JOIN filtered f ON f.id = l.session_id
             WHERE f.elapsed_ms > 0
-            GROUP BY l.name HAVING SUM(l.value) >= ?5 * SUM(l.quantity)
+            GROUP BY l.name HAVING ROUND(SUM(l.value)) >= ?5 * SUM(l.quantity)
         )",
         if region.is_some() {
             "region = ?1"

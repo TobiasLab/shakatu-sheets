@@ -181,3 +181,40 @@ export function rareItemStats(analytics: HistoryAnalytics, drops: RareDrop[]) {
             ];
         });
 }
+
+export type RateSpread = { min: number; q1: number; median: number; q3: number; max: number };
+
+// Quartiles interpolate between the sorted values (the spreadsheet QUARTILE.INC method), so two sessions still give
+// a middle half between them.
+export function rateSpread(values: number[]): RateSpread | null {
+    if (values.length === 0) return null;
+    const sorted = [...values].sort((a, b) => a - b);
+    const at = (share: number) => {
+        const rank = share * (sorted.length - 1);
+        const below = Math.floor(rank);
+        const above = Math.min(below + 1, sorted.length - 1);
+        return sorted[below] + (sorted[above] - sorted[below]) * (rank - below);
+    };
+    return { min: sorted[0], q1: at(0.25), median: at(0.5), q3: at(0.75), max: sorted[sorted.length - 1] };
+}
+
+export type ConsistencyView = "total" | "base";
+
+// Per spot, how far apart its sessions' net per hour lie: with rare drops ("total") or without them ("base").
+// Spots with the higher median come first.
+export function spotConsistency(analytics: HistoryAnalytics, view: ConsistencyView) {
+    const rates = new Map<string, number[]>();
+    for (const session of timed(analytics.sessions)) {
+        const value = view === "total" ? session.net : session.net - session.rareValue;
+        const spot = rates.get(session.grindSpotId) ?? [];
+        spot.push((value * HOUR_MS) / session.elapsedMs);
+        rates.set(session.grindSpotId, spot);
+    }
+    return [...rates]
+        .map(([grindSpotId, values]) => ({
+            grindSpotId,
+            sessionCount: values.length,
+            spread: rateSpread(values) as RateSpread,
+        }))
+        .sort((a, b) => b.spread.median - a.spread.median || a.grindSpotId.localeCompare(b.grindSpotId));
+}

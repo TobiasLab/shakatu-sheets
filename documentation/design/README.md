@@ -121,7 +121,13 @@ filters; the overview and comparisons stay above both. Analytics split net/hour 
 drops, after consumables) and rare drops, so the two add up to the overview's net/hour, and show rare drops' share of
 loot value. Rare items are those whose average after-tax unit value across the filtered sessions with tracked time is at
 least 100M, the trend's spike threshold. A dot chart plots each timed session's net/hour at its completion time against a hairline at
-the pooled average, with the same pointer and arrow-key readout as the trend. With a spot selected, an item table
+the pooled average, with the same pointer and arrow-key readout as the trend. Net / hour per session then shows,
+per spot (every spot when none is selected), the spread of its timed sessions' net per hour: a box plot on a scale
+shared by all rows, from the lowest to the highest session (lowest–highest whisker, middle half as a box, median as a
+tick), with the median, middle half, lowest–highest and session count beside it. Quartiles interpolate between the
+sorted rates (QUARTILE.INC); spots with the higher median come first, and fewer than five timed sessions get a "Few
+sessions" tag. A Total / Base switch in its title leaves rare drops out of each session's rate; the choice survives
+reloads and filter changes for the visit. With a spot selected, an item table
 shows each item's quantity per hour pooled over all timed sessions (including those without the item), the lowest and
 highest per-session rate (0 when some session had none), how many timed sessions it dropped in, its silver per hour,
 and its share of loot value. Below it, Rare drops places every rare drop along the spot's tracked time: sessions in

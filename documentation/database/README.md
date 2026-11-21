@@ -105,8 +105,8 @@ Rows cascade with their session. As with migration 5, sessions created before th
 - History analytics read the same filters (region, optional spot, completion date) in one transaction, without
   paging: each matching session's net and the value of its rare items, plus per-item totals. Entries are summed per
   session and item name first, so a manual and a recognized row of one item count once. An item is rare when its
-  quantity-weighted after-tax unit value across the matching positive-duration sessions reaches the requested value
-  (the trend's 100M), so an item is rare or not for the whole view and the classification only changes with the
+  quantity-weighted after-tax unit value across the matching positive-duration sessions, rounded to whole silver as the
+  trend rounds a drop's value, reaches the requested value (the trend's 100M), so an item is rare or not for the whole view and the classification only changes with the
   filters. Item totals, session counts, and lowest/highest per-session rates cover the same positive-duration sessions. On a 10,000-session,
   250,000-entry fixture with 1,000,000 loot events, a release build read one spot (500 sessions, rare drops
   included) in about 80 ms and all spots in about 0.65 s, scaling linearly; no index was added. With a spot selected,
