@@ -124,7 +124,14 @@ least 100M, the trend's spike threshold. A dot chart plots each timed session's 
 the pooled average, with the same pointer and arrow-key readout as the trend. With a spot selected, an item table
 shows each item's quantity per hour pooled over all timed sessions (including those without the item), the lowest and
 highest per-session rate (0 when some session had none), how many timed sessions it dropped in, its silver per hour,
-and its share of loot value. Without timed sessions, Analytics show one line saying so. Analytics load only while the
+and its share of loot value. Below it, Rare drops places every rare drop along the spot's tracked time: sessions in
+completion order, each drop at its recorded time into its session, or at the session's end when none was recorded
+(loot entered before the timer started, or sessions from before migration 7). Per rare item a row shows a tick for each
+drop along the tracked time, the drop count (a "Few drops" tag below five), the average gap (tracked time ÷ drops),
+the tracked time since the last drop ("≥" when that drop has no time), and the chance of a gap at least that long
+at the item's own rate, e^(−since ÷ average gap). The rare drop log lists every rare drop, newest first, with its
+session's completion time, its time into the session, and the tracked time since the item's previous drop ("≈" when
+either drop has no time). Without timed sessions, Analytics show one line saying so. Analytics load only while the
 Analytics view is shown, separately from the session page: switching views keeps the page, and a failed read shows its
 own error and retry while the overview and comparisons stay.
 

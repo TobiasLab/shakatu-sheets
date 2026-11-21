@@ -554,7 +554,32 @@ export function HistoryView({
             {deleteMessage && <Feedback tone="success">{deleteMessage}</Feedback>}
             {deleteError && <Feedback tone="error">{deleteError}</Feedback>}
 
-            {!databaseLoaded || records === null ? (
+            {mode === "analytics" && !dateError ? (
+                analytics === null ? (
+                    <Feedback>Reading analytics…</Feedback>
+                ) : analytics.result === null ? (
+                    <Feedback
+                        tone="error"
+                        action={
+                            <button
+                                className="button"
+                                type="button"
+                                disabled={actionBusy}
+                                onClick={() => void loadAnalytics()}
+                            >
+                                Retry analytics
+                            </button>
+                        }
+                    >
+                        Could not load analytics. {analytics.error}
+                    </Feedback>
+                ) : (
+                    <HistoryAnalyticsPanel
+                        analytics={analytics.result}
+                        grindSpotId={grindSpotFilter === "all" ? null : grindSpotFilter}
+                    />
+                )
+            ) : !databaseLoaded || records === null ? (
                 <Feedback>Reading completed sessions…</Feedback>
             ) : error ? (
                 <Feedback
@@ -586,26 +611,6 @@ export function HistoryView({
                 >
                     {hasFilters ? undefined : `Finish a session in ${region.toUpperCase()} to see it here.`}
                 </EmptyState>
-            ) : mode === "analytics" ? (
-                analytics === null ? (
-                    <Feedback>Reading analytics…</Feedback>
-                ) : analytics.result === null ? (
-                    <Feedback
-                        tone="error"
-                        action={
-                            <button className="button" type="button" onClick={() => void loadAnalytics()}>
-                                Retry analytics
-                            </button>
-                        }
-                    >
-                        Could not load analytics. {analytics.error}
-                    </Feedback>
-                ) : (
-                    <HistoryAnalyticsPanel
-                        analytics={analytics.result}
-                        grindSpotId={grindSpotFilter === "all" ? null : grindSpotFilter}
-                    />
-                )
             ) : (
                 <div className={styles.HistoryGrid}>
                     <section className={`panel ${styles.ListPanel}`}>

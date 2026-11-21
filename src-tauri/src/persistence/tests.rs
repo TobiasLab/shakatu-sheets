@@ -9,7 +9,9 @@ use rusqlite::Connection;
 use crate::garmoth::GarmothOperations;
 
 use super::{
-    analytics::{load_history_analytics_records, AnalyticsItem, AnalyticsQuery},
+    analytics::{
+        load_history_analytics_records, AnalyticsItem, AnalyticsQuery, RareEvent, RareLoot,
+    },
     configure_connection,
     garmoth_uploads::{
         claim_garmoth_upload, finish_garmoth_upload, load_garmoth_upload_status,
@@ -2291,4 +2293,93 @@ fn analytics_follow_history_filters_and_reject_invalid_queries() {
     ] {
         assert!(load_history_analytics_records(&connection, &invalid).is_err());
     }
+}
+
+#[test]
+fn analytics_return_rare_drops_with_the_time_they_were_recorded() {
+    let mut connection = database();
+    let necklace = || loot("Necklace", 1.0, 200_000_000, Valuation::Vendor);
+    let mut baseline = necklace();
+    baseline.quantity = 2.0;
+    analytics_fixture(
+        &mut connection,
+        "first",
+        "ash",
+        1_000,
+        HOUR_MS,
+        vec![baseline, loot("Cloth", 10.0, 1_000, Valuation::Vendor)],
+    );
+    let mut recognized = necklace();
+    recognized.source = EntrySource::Recognition;
+    analytics_fixture(
+        &mut connection,
+        "second",
+        "ash",
+        2_000,
+        HOUR_MS,
+        vec![necklace(), recognized],
+    );
+    analytics_fixture(
+        &mut connection,
+        "old",
+        "ash",
+        3_000,
+        HOUR_MS,
+        vec![necklace()],
+    );
+    analytics_fixture(
+        &mut connection,
+        "untimed",
+        "ash",
+        4_000,
+        0,
+        vec![necklace()],
+    );
+    connection
+        .execute_batch(
+            "UPDATE sessions SET created_at = 0 WHERE id = 'old';
+             INSERT INTO session_loot_events (session_id, entry_id, elapsed_ms, quantity) VALUES
+                ('first', 'first-0', 600000, 1),
+                ('first', 'first-1', 900000, 10),
+                ('second', 'second-0', 1200000, 1),
+                ('second', 'second-1', 1200000, 1),
+                ('old', 'old-0', 300000, 1);",
+        )
+        .unwrap();
+    let mut query = analytics_query();
+    query.grind_spot_id = Some("ash".into());
+    let analytics = load_history_analytics_records(&connection, &query).unwrap();
+    let rare_loot = |session: &str, quantity: f64| RareLoot {
+        session_id: session.into(),
+        name: "Necklace".into(),
+        quantity,
+    };
+    assert_eq!(
+        analytics.rare_loot,
+        [
+            rare_loot("first", 2.0),
+            rare_loot("second", 2.0),
+            rare_loot("old", 1.0)
+        ],
+        "sessions without tracked time have no rare drops to place"
+    );
+    let rare_event = |session: &str, elapsed_ms: i64, quantity: i64| RareEvent {
+        session_id: session.into(),
+        name: "Necklace".into(),
+        elapsed_ms,
+        quantity,
+    };
+    assert_eq!(
+        analytics.rare_events,
+        [
+            rare_event("first", 600_000, 1),
+            rare_event("second", 1_200_000, 2)
+        ],
+        "normal loot, and sessions from before loot events, have no rare events"
+    );
+    let every_spot = load_history_analytics_records(&connection, &analytics_query()).unwrap();
+    assert!(
+        every_spot.rare_loot.is_empty() && every_spot.rare_events.is_empty(),
+        "rare drops are read for one spot only"
+    );
 }

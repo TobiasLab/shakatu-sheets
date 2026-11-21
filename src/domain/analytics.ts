@@ -23,7 +23,16 @@ export type AnalyticsItem = {
     maxRate: number;
 };
 
-export type HistoryAnalytics = { sessions: AnalyticsSession[]; items: AnalyticsItem[] };
+// A rare item's quantity in one timed session, and the part of it recorded at a time into the session.
+export type RareLoot = { sessionId: string; name: string; quantity: number };
+export type RareEvent = { sessionId: string; name: string; elapsedMs: number; quantity: number };
+
+export type HistoryAnalytics = {
+    sessions: AnalyticsSession[];
+    items: AnalyticsItem[];
+    rareLoot: RareLoot[];
+    rareEvents: RareEvent[];
+};
 
 const HOUR_MS = 3_600_000;
 
@@ -74,4 +83,101 @@ export function sessionRates(analytics: HistoryAnalytics) {
         finishedAt: session.finishedAt,
         rate: (session.net * HOUR_MS) / session.elapsedMs,
     }));
+}
+
+type PlacedDrop = {
+    name: string;
+    sessionId: string;
+    finishedAt: number;
+    quantity: number;
+    // Time into the session, or null when it was not recorded.
+    atMs: number | null;
+    // Tracked time across the timed sessions in order, up to the drop. A drop without a time sits at its session's end.
+    positionMs: number;
+};
+
+export type RareDrop = PlacedDrop & {
+    // Tracked time since the previous drop of the same item; null for its first drop.
+    sinceMs: number | null;
+    // This drop or the previous one has no time, so sinceMs is approximate.
+    approximate: boolean;
+};
+
+// Rare drops in the order they happened, across sessions in completion order.
+export function rareDrops(analytics: HistoryAnalytics): RareDrop[] {
+    const starts = new Map<string, { startMs: number; session: AnalyticsSession }>();
+    let trackedMs = 0;
+    for (const session of timed(analytics.sessions)) {
+        starts.set(session.id, { startMs: trackedMs, session });
+        trackedMs += session.elapsedMs;
+    }
+    const events = new Map<string, RareEvent[]>();
+    for (const event of analytics.rareEvents) {
+        const key = `${event.sessionId}\n${event.name}`;
+        const list = events.get(key) ?? [];
+        list.push(event);
+        events.set(key, list);
+    }
+    const drops: PlacedDrop[] = [];
+    for (const loot of analytics.rareLoot) {
+        const start = starts.get(loot.sessionId);
+        if (!start) continue;
+        const { startMs, session } = start;
+        const drop = { name: loot.name, sessionId: loot.sessionId, finishedAt: session.finishedAt };
+        let recorded = 0;
+        for (const event of events.get(`${loot.sessionId}\n${loot.name}`) ?? []) {
+            const atMs = Math.min(event.elapsedMs, session.elapsedMs);
+            drops.push({ ...drop, quantity: event.quantity, atMs, positionMs: startMs + atMs });
+            recorded += event.quantity;
+        }
+        // Loot entered before the timer started, or in a session without drop times, has no time.
+        if (loot.quantity > recorded) {
+            drops.push({
+                ...drop,
+                quantity: loot.quantity - recorded,
+                atMs: null,
+                positionMs: startMs + session.elapsedMs,
+            });
+        }
+    }
+    drops.sort((a, b) => a.positionMs - b.positionMs || a.name.localeCompare(b.name));
+    const previous = new Map<string, PlacedDrop>();
+    return drops.map((drop) => {
+        const before = previous.get(drop.name);
+        previous.set(drop.name, drop);
+        return {
+            ...drop,
+            sinceMs: before ? drop.positionMs - before.positionMs : null,
+            approximate: drop.atMs === null || before?.atMs === null,
+        };
+    });
+}
+
+// Per rare item, in the item table's order: how often it drops over the tracked time and how long since it last did.
+export function rareItemStats(analytics: HistoryAnalytics, drops: RareDrop[]) {
+    const trackedMs = timed(analytics.sessions).reduce((total, session) => total + session.elapsedMs, 0);
+    return analytics.items
+        .filter((item) => item.rare)
+        .flatMap((item) => {
+            const itemDrops = drops.filter((drop) => drop.name === item.name);
+            const count = itemDrops.reduce((total, drop) => total + drop.quantity, 0);
+            const last = itemDrops[itemDrops.length - 1];
+            if (!last || trackedMs === 0) return [];
+            const averageGapMs = trackedMs / count;
+            const sinceLastMs = trackedMs - last.positionMs;
+            return [
+                {
+                    name: item.name,
+                    count,
+                    // Where each drop falls along the tracked time, from 0 to 1.
+                    positions: itemDrops.map((drop) => drop.positionMs / trackedMs),
+                    averageGapMs,
+                    sinceLastMs,
+                    // The last drop has no time, so it may have come earlier in its session than its end.
+                    sinceLastIsMinimum: last.atMs === null,
+                    // At the item's own average rate, a gap at least this long happens with this chance.
+                    gapChance: Math.exp(-sinceLastMs / averageGapMs),
+                },
+            ];
+        });
 }

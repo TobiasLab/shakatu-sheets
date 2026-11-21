@@ -1,10 +1,18 @@
 import { describe, expect, it } from "vitest";
-import { type AnalyticsSession, analyticsSummary, type HistoryAnalytics, itemRates, sessionRates } from "./analytics";
+import {
+    type AnalyticsSession,
+    analyticsSummary,
+    type HistoryAnalytics,
+    itemRates,
+    rareDrops,
+    rareItemStats,
+    sessionRates,
+} from "./analytics";
 
 const HOUR_MS = 3_600_000;
 
-function session(id: string, elapsedMs: number, net: number, rareValue = 0): AnalyticsSession {
-    return { id, grindSpotId: "ash", finishedAt: 1_000, elapsedMs, net, rareValue };
+function session(id: string, elapsedMs: number, net: number, rareValue = 0, finishedAt = 1_000): AnalyticsSession {
+    return { id, grindSpotId: "ash", finishedAt, elapsedMs, net, rareValue };
 }
 
 const analytics: HistoryAnalytics = {
@@ -25,6 +33,8 @@ const analytics: HistoryAnalytics = {
             maxRate: 1_100,
         },
     ],
+    rareLoot: [],
+    rareEvents: [],
 };
 
 describe("history analytics", () => {
@@ -71,9 +81,80 @@ describe("history analytics", () => {
     });
 
     it("reports no rates without tracked time", () => {
-        const untimed = { sessions: [session("untimed", 0, 50_000_000)], items: [] };
+        const untimed = { sessions: [session("untimed", 0, 50_000_000)], items: [], rareLoot: [], rareEvents: [] };
         expect(analyticsSummary(untimed)).toEqual({ baseRate: null, rareRate: null, rareShare: null });
         expect(itemRates(untimed)).toEqual([]);
         expect(sessionRates(untimed)).toEqual([]);
+    });
+
+    it("places rare drops along the tracked time and measures the gaps between them", () => {
+        const item = (name: string, rare: boolean) => ({
+            name,
+            rare,
+            quantity: 1,
+            value: rare ? 900_000_000 : 1,
+            sessionCount: 1,
+            minRate: 1,
+            maxRate: 1,
+        });
+        const drops: HistoryAnalytics = {
+            sessions: [
+                session("a", 2 * HOUR_MS, 0, 0, 1_000),
+                session("b", HOUR_MS, 0, 0, 2_000),
+                session("untimed", 0, 0, 0, 2_500),
+                session("c", 3 * HOUR_MS, 0, 0, 3_000),
+            ],
+            items: [item("Necklace", true), item("Ring", true), item("Cloth", false)],
+            rareLoot: [
+                { sessionId: "a", name: "Necklace", quantity: 2 },
+                { sessionId: "b", name: "Necklace", quantity: 1 },
+                { sessionId: "c", name: "Necklace", quantity: 1 },
+                { sessionId: "c", name: "Ring", quantity: 1 },
+            ],
+            rareEvents: [
+                { sessionId: "a", name: "Necklace", elapsedMs: HOUR_MS / 2, quantity: 1 },
+                { sessionId: "c", name: "Necklace", elapsedMs: 2 * HOUR_MS, quantity: 1 },
+                { sessionId: "c", name: "Ring", elapsedMs: HOUR_MS, quantity: 1 },
+            ],
+        };
+        const placed = rareDrops(drops);
+        expect(
+            placed.map((drop) => [
+                drop.name,
+                drop.sessionId,
+                drop.atMs,
+                drop.positionMs / HOUR_MS,
+                drop.sinceMs,
+                drop.approximate,
+            ]),
+        ).toEqual([
+            ["Necklace", "a", HOUR_MS / 2, 0.5, null, false],
+            // Loot without a recorded time sits at its session's end.
+            ["Necklace", "a", null, 2, 1.5 * HOUR_MS, true],
+            ["Necklace", "b", null, 3, HOUR_MS, true],
+            ["Ring", "c", HOUR_MS, 4, null, false],
+            ["Necklace", "c", 2 * HOUR_MS, 5, 2 * HOUR_MS, true],
+        ]);
+        const stats = rareItemStats(drops, placed);
+        expect(stats.map(({ gapChance, ...rest }) => rest)).toEqual([
+            {
+                name: "Necklace",
+                count: 4,
+                positions: [0.5 / 6, 2 / 6, 3 / 6, 5 / 6],
+                averageGapMs: 1.5 * HOUR_MS,
+                sinceLastMs: HOUR_MS,
+                sinceLastIsMinimum: false,
+            },
+            {
+                name: "Ring",
+                count: 1,
+                positions: [4 / 6],
+                averageGapMs: 6 * HOUR_MS,
+                sinceLastMs: 2 * HOUR_MS,
+                sinceLastIsMinimum: false,
+            },
+        ]);
+        expect(stats[0].gapChance).toBeCloseTo(Math.exp(-1 / 1.5));
+        expect(stats[1].gapChance).toBeCloseTo(Math.exp(-2 / 6));
     });
 });
