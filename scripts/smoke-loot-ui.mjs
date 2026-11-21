@@ -199,8 +199,8 @@ await send("Page.addScriptToEvaluateOnNewDocument", {
                     return [...byName.values()];
                 });
                 const totals = new Map();
-                for (const l of loot) { const t = totals.get(l.name) ?? {quantity:0,value:0}; t.quantity += l.quantity; t.value += l.value; totals.set(l.name,t); }
-                const rare = name => totals.get(name).value >= q.rareMinUnitValue * totals.get(name).quantity;
+                for (const l of loot.filter(l => l.session.elapsedMs > 0)) { const t = totals.get(l.name) ?? {quantity:0,value:0}; t.quantity += l.quantity; t.value += l.value; totals.set(l.name,t); }
+                const rare = name => totals.has(name) && Math.round(totals.get(name).value) >= q.rareMinUnitValue * totals.get(name).quantity;
                 const sessions = scope.map(r => ({id:r.session.id, grindSpotId:r.session.grindSpotId, finishedAt:r.finishedAt, elapsedMs:r.session.elapsedMs,
                     net:r.session.entries.reduce((sum,e) => sum + e.quantity*e.unitPrice*(e.valuation === "expense" ? -1 : e.saleMultiplier),0),
                     rareValue:loot.filter(l => l.session === r.session && rare(l.name)).reduce((sum,l) => sum + l.value,0)}));
@@ -1090,6 +1090,39 @@ try {
         await until(`${spreadRows}[0]?.[2] === "12.5M/h"`);
         await click("Total");
         await until(`${spreadRows}[0]?.[2] === "112.5M/h"`);
+        const cumulative = `document.querySelector('figure[aria-label="Recorded net over time"]')`;
+        const cumulativeCaption = `${cumulative}.querySelector('figcaption').innerText.replace(/\\s+/g, ' ')`;
+        assert.equal(
+            await evaluate(cumulativeCaption),
+            "Recorded net over time Total 255M",
+            "Every session's net adds up, untimed ones included",
+        );
+        await evaluate(`${cumulative}.querySelector('[role="img"]').focus()`);
+        await press("Home", "Home", 36);
+        await until(`${cumulativeCaption}.startsWith("Recorded net over time 210M after Sycraia Ruins Lower Level")`);
+        await press("ArrowRight", "ArrowRight", 39);
+        await until(`${cumulativeCaption}.startsWith("Recorded net over time 220M after Star's End")`);
+        await press("Escape", "Escape", 27);
+        // The heatmap places sessions in local time; UTC makes the fixture's hours fixed.
+        await send("Emulation.setTimezoneOverride", { timezoneId: "UTC" });
+        await click("Reload");
+        const heatmap = `document.querySelector('figure[aria-label="Grinding by weekday and hour"]')`;
+        const heatmapCaption = `${heatmap}.querySelector('figcaption > span').innerText`;
+        await until(`${heatmapCaption} === "Most time Mon 23:00–24:00 · 1.0 h"`);
+        assert.equal(await evaluate(`${heatmap}.querySelectorAll('i[data-hours]').length`), 4);
+        await evaluate(`${heatmap}.querySelector('[role="img"]').focus()`);
+        await press("ArrowRight", "ArrowRight", 39);
+        await until(`${heatmapCaption} === "Mon 23:00–24:00 · 1.0 h · 210M/h"`);
+        await press("ArrowDown", "ArrowDown", 40);
+        await until(`${heatmapCaption} === "Tue 23:00–24:00 · 1.0 h · 10M/h"`);
+        await press("ArrowDown", "ArrowDown", 40);
+        await press("ArrowLeft", "ArrowLeft", 37);
+        await until(`${heatmapCaption} === "Wed 22:00–23:00 · 1.0 h · 15M/h"`);
+        await press("Escape", "Escape", 27);
+        await click("Net / hour");
+        await until(`${heatmapCaption} === "Best Mon 23:00–24:00 · 210M/h"`);
+        await click("Time");
+        await send("Emulation.setTimezoneOverride", { timezoneId: "" });
         await evaluate("window.__failAnalytics = true");
         await click("Reload");
         await until('document.body.innerText.includes("Could not load analytics")');

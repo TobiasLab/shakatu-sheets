@@ -1,13 +1,13 @@
 import { grindSpotName } from "../../data/grindSpots";
 import { type ConsistencyView, type HistoryAnalytics, spotConsistency } from "../../domain/analytics";
-import { formatSilver } from "../../format";
+import { formatSignedSilver } from "../../format";
 import styles from "./HistoryAnalytics.module.css";
 
 // Below this many timed sessions a spot's spread says little about its next session.
 const FEW_SESSIONS = 5;
 
 function range(low: number, high: number) {
-    return `${formatSilver(low, true)}–${formatSilver(high, true)}/h`;
+    return `${formatSignedSilver(low)}–${formatSignedSilver(high)}/h`;
 }
 
 export function Consistency({
@@ -96,7 +96,7 @@ export function Consistency({
                                         <i className={styles.Median} style={{ left: `${at(spread.median)}%` }} />
                                     </span>
                                 </td>
-                                <td>{formatSilver(spread.median, true)}/h</td>
+                                <td>{formatSignedSilver(spread.median)}/h</td>
                                 <td>{range(spread.q1, spread.q3)}</td>
                                 <td>{range(spread.min, spread.max)}</td>
                                 <td>{sessionCount}</td>

@@ -1,6 +1,6 @@
 import { type KeyboardEvent, memo, type PointerEvent, useState } from "react";
 import { grindSpotName } from "../../data/grindSpots";
-import { formatSilver, formatTimestamp } from "../../format";
+import { formatSignedSilver, formatTimestamp } from "../../format";
 import styles from "./HistoryAnalytics.module.css";
 
 type SessionRate = { id: string; grindSpotId: string; finishedAt: number; rate: number };
@@ -58,8 +58,8 @@ export function SessionRateChart({
     const y = (rate: number) => top(rate, scale);
     const active = activeIndex === null ? null : points[activeIndex];
     const describe = (point: SessionRate) =>
-        `${formatSilver(point.rate, true)}/h, ${showSpot ? `${grindSpotName(point.grindSpotId)}, ` : ""}${formatTimestamp(point.finishedAt)}`;
-    const summary = `Net per hour of ${points.length} ${points.length === 1 ? "session" : "sessions"} from ${formatTimestamp(first)} to ${formatTimestamp(points[points.length - 1].finishedAt)}, average ${formatSilver(average, true)} per hour, lowest ${formatSilver(lowest, true)}, highest ${formatSilver(highest, true)}`;
+        `${formatSignedSilver(point.rate)}/h, ${showSpot ? `${grindSpotName(point.grindSpotId)}, ` : ""}${formatTimestamp(point.finishedAt)}`;
+    const summary = `Net per hour of ${points.length} ${points.length === 1 ? "session" : "sessions"} from ${formatTimestamp(first)} to ${formatTimestamp(points[points.length - 1].finishedAt)}, average ${formatSignedSilver(average)} per hour, lowest ${formatSignedSilver(lowest)}, highest ${formatSignedSilver(highest)}`;
 
     function step(event: KeyboardEvent<HTMLDivElement>) {
         const last = points.length - 1;
@@ -107,13 +107,13 @@ export function SessionRateChart({
                 <h2>Net / hour by session</h2>
                 {active ? (
                     <span>
-                        <strong>{formatSilver(active.rate, true)}/h</strong>{" "}
+                        <strong>{formatSignedSilver(active.rate)}/h</strong>{" "}
                         {showSpot && `${grindSpotName(active.grindSpotId)} · `}
                         {formatTimestamp(active.finishedAt)}
                     </span>
                 ) : (
                     <span>
-                        Average <strong>{formatSilver(average, true)}/h</strong>
+                        Average <strong>{formatSignedSilver(average)}/h</strong>
                     </span>
                 )}
             </figcaption>

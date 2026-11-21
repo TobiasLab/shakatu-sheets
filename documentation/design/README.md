@@ -130,13 +130,23 @@ first: a price line per item on a time axis all rows share (each row scaled to i
 marked), the latest price, the change since the first import, the number of imports, and when it was last
 imported. Rare items are those whose average after-tax unit value across the filtered sessions with tracked time is at
 least 100M, the trend's spike threshold. A dot chart plots each timed session's net/hour at its completion time against a hairline at
-the pooled average, with the same pointer and arrow-key readout as the trend. Net / hour per session then shows,
+the pooled average, with the same pointer and arrow-key readout as the trend. Recorded net over time follows: the
+filtered sessions' net added up in completion order (zero-duration sessions included, as in the overview's recorded
+net) as one line over a 10% wash, its latest point marked, with the same readout naming each session's running total,
+spot and completion time. Net / hour per session then shows,
 per spot (every spot when none is selected), the spread of its timed sessions' net per hour: a box plot on a scale
 shared by all rows, from the lowest to the highest session (lowest–highest whisker, middle half as a box, median as a
 tick), with the median, middle half, lowest–highest and session count beside it. Quartiles interpolate between the
 sorted rates (QUARTILE.INC); spots with the higher median come first, and fewer than five timed sessions get a "Few
 sessions" tag. A Total / Base switch in its title leaves rare drops out of each session's rate; the choice survives
-reloads and filter changes for the visit. With a spot selected, Net / hour through a session follows: one bar per
+reloads and filter changes for the visit. Analytics write negative values with a true minus. Weekday and hour comes next: a 7 × 24 grid of local weekdays and hours,
+shaded in one gold scale (with a Less–More legend) by tracked time, or, with its Time / Net per hour switch, by net per
+hour, which shades only hours with at least 30 minutes tracked (when none has, the caption says so and the switch
+stays). Sessions store no start once paused, so each is placed
+from its completion minus its tracked time up to its completion and assumed to earn steadily; sessions over 24 hours are
+left out. The caption names the busiest (or best paying) hour; the pointer or arrow keys show an hour's tracked time and
+net per hour, the first arrow press starting at that hour. The switch survives reloads like Total / Base. With a spot
+selected, Net / hour through a session follows: one bar per
 quarter hour into a session (at most 40 px wide, standing on the zero line) for the net per hour earned in that
 quarter hour, averaged over the sessions that lasted through it, against a hairline at the average of every measured
 quarter hour. Bars backed by fewer than three sessions are faded; hours are labelled under the plot; the pointer or
