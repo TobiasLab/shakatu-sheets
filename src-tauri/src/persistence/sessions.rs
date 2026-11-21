@@ -637,6 +637,25 @@ pub struct HistoryResult {
     pub spot_summaries: Vec<SpotSummary>,
 }
 
+pub(super) fn check_history_filters(
+    grind_spot_id: Option<&str>,
+    finished_from_ms: Option<i64>,
+    finished_before_ms: Option<i64>,
+) -> Result<(), String> {
+    if grind_spot_id.is_some_and(|id| id.trim().is_empty()) {
+        return Err("grind spot ID cannot be empty".into());
+    }
+    if [finished_from_ms, finished_before_ms]
+        .into_iter()
+        .flatten()
+        .any(|time| !(0..=8_640_000_000_000_000).contains(&time))
+        || matches!((finished_from_ms, finished_before_ms), (Some(from), Some(before)) if from >= before)
+    {
+        return Err("invalid history date range".into());
+    }
+    Ok(())
+}
+
 pub(super) fn list_finished_session_records(
     connection: &Connection,
     query: &HistoryQuery,
@@ -644,21 +663,11 @@ pub(super) fn list_finished_session_records(
     if !(1..=100).contains(&query.limit) || query.offset < 0 {
         return Err("history limit must be 1–100 and offset must be nonnegative".into());
     }
-    if query
-        .grind_spot_id
-        .as_ref()
-        .is_some_and(|id| id.trim().is_empty())
-    {
-        return Err("grind spot ID cannot be empty".into());
-    }
-    if [query.finished_from_ms, query.finished_before_ms]
-        .into_iter()
-        .flatten()
-        .any(|time| !(0..=8_640_000_000_000_000).contains(&time))
-        || matches!((query.finished_from_ms, query.finished_before_ms), (Some(from), Some(before)) if from >= before)
-    {
-        return Err("invalid history date range".into());
-    }
+    check_history_filters(
+        query.grind_spot_id.as_deref(),
+        query.finished_from_ms,
+        query.finished_before_ms,
+    )?;
     let transaction = connection
         .unchecked_transaction()
         .map_err(|error| error.to_string())?;

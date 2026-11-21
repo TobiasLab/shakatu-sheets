@@ -119,7 +119,8 @@ Two themes, dark (default) and light, share the same token names. Every new toke
 - **Grind desk, top to bottom:** spot heading, readout row (silver/hour, net, session trend, time with timer
   controls), capture strip, drops. The readout, strip, and first row of drops must fit a 1440×900 window, and the layout
   must stay usable at half of a 1920px screen.
-- **History:** title, filter bar, overview figures, comparison table, then the session list beside one receipt panel.
+- **History:** title with the Sessions / Analytics switch, filter bar, overview figures, comparison table, then the
+  session list beside one receipt panel, or the analytics readouts, session dot chart, and item table.
   The receipt's figures row ends with the session trend when net samples exist.
 - **Settings:** a sticky section index beside open sections; each section has a label column (up to 200px) and a form
   column (up to 570px). The consumable preset table may use the form column's full width, and takes the whole section

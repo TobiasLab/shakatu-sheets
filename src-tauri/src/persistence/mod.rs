@@ -6,6 +6,7 @@ use std::{
 use rusqlite::Connection;
 use tauri::{AppHandle, Manager, State};
 
+pub(crate) mod analytics;
 pub(crate) mod consumable_presets;
 mod garmoth_uploads;
 pub(crate) mod item_lists;

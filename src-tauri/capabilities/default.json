@@ -18,6 +18,7 @@
     "allow-session-overlay-supports-opacity",
     "allow-delete-finished-session",
     "allow-list-finished-sessions",
+    "allow-load-history-analytics",
     "allow-load-session-trend",
     "allow-load-active-session",
     "allow-load-consumable-presets",

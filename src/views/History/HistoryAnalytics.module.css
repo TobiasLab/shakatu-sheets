@@ -1,0 +1,174 @@
+.Analytics {
+    display: grid;
+    gap: 32px;
+    min-width: 0;
+}
+.Readouts {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 16px 48px;
+}
+.Readouts > div {
+    display: grid;
+    align-content: start;
+    gap: 2px;
+    min-width: 0;
+}
+.Readouts span {
+    color: var(--muted);
+    font-size: 12px;
+    font-weight: 500;
+}
+.Readouts strong {
+    color: var(--text-strong);
+    font-size: 24px;
+    font-weight: 550;
+    letter-spacing: -0.03em;
+    line-height: 1.2;
+    font-variant-numeric: tabular-nums;
+}
+.Chart {
+    display: grid;
+    gap: 12px;
+    min-width: 0;
+    margin: 0;
+}
+.Chart figcaption {
+    display: flex;
+    align-items: baseline;
+    flex-wrap: wrap;
+    gap: 4px 12px;
+    color: var(--muted);
+    font-size: 12px;
+    font-weight: 500;
+}
+.Chart figcaption strong {
+    color: var(--text-strong);
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+}
+/* Dots overhang the plot by their radius, so values at the edges stay whole. */
+.Plot {
+    position: relative;
+    height: 160px;
+    margin: 0 6px;
+    cursor: crosshair;
+    outline-offset: 8px;
+    touch-action: none;
+}
+.Average,
+.Zero {
+    position: absolute;
+    left: 0;
+    right: 0;
+    height: 1px;
+    background: var(--line-strong);
+    pointer-events: none;
+}
+.Zero {
+    background: var(--line);
+}
+.Dot {
+    position: absolute;
+    width: 8px;
+    height: 8px;
+    margin: -4px 0 0 -4px;
+    border-radius: 50%;
+    background: var(--gold);
+    box-shadow: 0 0 0 2px var(--canvas);
+    pointer-events: none;
+}
+.Dot[data-active] {
+    z-index: 1;
+    width: 12px;
+    height: 12px;
+    margin: -6px 0 0 -6px;
+}
+.Hint {
+    margin: 0;
+    color: var(--muted);
+    font-size: 13px;
+}
+.Items {
+    min-width: 0;
+}
+.Items h2 {
+    padding-bottom: 10px;
+}
+.ItemScroll {
+    overflow-x: auto;
+    overscroll-behavior-x: contain;
+    border-top: 1px solid var(--line);
+}
+.ItemScroll:focus-visible {
+    outline-offset: -3px;
+}
+.ItemScroll table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+    font-variant-numeric: tabular-nums;
+}
+.ItemScroll th,
+.ItemScroll td {
+    height: 40px;
+    padding: 4px 12px;
+    text-align: right;
+    border-bottom: 1px solid var(--row-line);
+    white-space: nowrap;
+    color: var(--text-soft);
+}
+.ItemScroll thead th {
+    height: 32px;
+    color: var(--muted);
+    font-size: 11px;
+    font-weight: 500;
+    border-bottom-color: var(--line);
+}
+.ItemScroll th:first-child {
+    min-width: 220px;
+    padding-left: 0;
+    text-align: left;
+}
+.ItemScroll th:last-child,
+.ItemScroll td:last-child {
+    padding-right: 4px;
+}
+.ItemScroll tbody th {
+    color: var(--text-strong);
+    font-weight: 500;
+    white-space: normal;
+}
+.ItemScroll tbody td:nth-child(2) {
+    color: var(--text-strong);
+    font-weight: 600;
+}
+.ItemScroll tbody tr:hover {
+    background: var(--hover);
+}
+.ItemName {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    overflow-wrap: anywhere;
+}
+.ItemName > img,
+.ItemName > b {
+    flex: none;
+    width: 28px;
+    height: 28px;
+    border: 1px solid var(--line-strong);
+    border-radius: var(--control-radius);
+    background: var(--tile-background);
+    object-fit: contain;
+}
+.Tag {
+    flex: none;
+    padding: 0 6px;
+    border: 1px solid var(--line-strong);
+    border-radius: 10px;
+    color: var(--muted);
+    font-size: 11px;
+    font-weight: 500;
+    line-height: 17px;
+}

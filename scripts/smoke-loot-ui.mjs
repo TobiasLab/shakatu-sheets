@@ -184,6 +184,35 @@ await send("Page.addScriptToEvaluateOnNewDocument", {
                 }
                 return result;
             }
+            if (command === "load_history_analytics") {
+                if (window.__failHistory || window.__failAnalytics) throw Error("Synthetic analytics read failure");
+                const q = args.query;
+                const scope = (window.__historyRecords ?? []).filter(r => r.session.status === "finished" && (q.region === null || r.session.region === q.region) && (q.finishedFromMs === null || r.finishedAt >= q.finishedFromMs) && (q.finishedBeforeMs === null || r.finishedAt < q.finishedBeforeMs) && (q.grindSpotId === null || r.session.grindSpotId === q.grindSpotId)).sort((a,b) => a.finishedAt-b.finishedAt || a.session.id.localeCompare(b.session.id));
+                const loot = scope.flatMap(r => {
+                    const byName = new Map();
+                    for (const e of r.session.entries.filter(e => e.valuation !== "expense")) {
+                        const item = byName.get(e.name) ?? {session:r.session, name:e.name, quantity:0, value:0};
+                        item.quantity += e.quantity; item.value += e.quantity*e.unitPrice*e.saleMultiplier;
+                        byName.set(e.name,item);
+                    }
+                    return [...byName.values()];
+                });
+                const totals = new Map();
+                for (const l of loot) { const t = totals.get(l.name) ?? {quantity:0,value:0}; t.quantity += l.quantity; t.value += l.value; totals.set(l.name,t); }
+                const rare = name => totals.get(name).value >= q.rareMinUnitValue * totals.get(name).quantity;
+                const sessions = scope.map(r => ({id:r.session.id, grindSpotId:r.session.grindSpotId, finishedAt:r.finishedAt, elapsedMs:r.session.elapsedMs,
+                    net:r.session.entries.reduce((sum,e) => sum + e.quantity*e.unitPrice*(e.valuation === "expense" ? -1 : e.saleMultiplier),0),
+                    rareValue:loot.filter(l => l.session === r.session && rare(l.name)).reduce((sum,l) => sum + l.value,0)}));
+                const items = new Map();
+                for (const l of loot.filter(l => l.session.elapsedMs > 0)) {
+                    const rate = l.quantity*3600000/l.session.elapsedMs;
+                    const item = items.get(l.name) ?? {name:l.name, rare:rare(l.name), quantity:0, value:0, sessionCount:0, minRate:rate, maxRate:rate};
+                    item.quantity += l.quantity; item.value += l.value; item.sessionCount++;
+                    item.minRate = Math.min(item.minRate, rate); item.maxRate = Math.max(item.maxRate, rate);
+                    items.set(l.name,item);
+                }
+                return {sessions, items:[...items.values()].sort((a,b) => b.value-a.value || a.name.localeCompare(b.name))};
+            }
             if (command === "load_session_trend") {
                 if (window.__holdTrend === args.sessionId) {
                     window.__holdTrend = null;
@@ -956,6 +985,132 @@ try {
         await until('document.body.innerText.includes("1–1 of 1 sessions")');
         await setHistoryFilter('select[aria-label="Grind spot"]', "all");
         await until('document.body.innerText.includes("1–20 of 41 sessions")');
+        await evaluate(`window.__sessionRecords = window.__historyRecords; window.__historyRecords = [
+            ['analytics-a','sycraia-lower-revamp',3600000,1,[['Ancient Spirit Dust',10,1000000],['Rare Ring',1,200000000]]],
+            ['analytics-d','stars-end-revamp',3600000,2,[['Ancient Spirit Dust',10,1000000]]],
+            ['analytics-b','sycraia-lower-revamp',7200000,3,[['Ancient Spirit Dust',30,1000000]]],
+            ['analytics-c','sycraia-lower-revamp',0,4,[['Ancient Spirit Dust',5,1000000]]],
+        ].map(([id,grindSpotId,elapsedMs,day,entries]) => ({
+            session:{id,status:'finished',region:'eu',grindSpotId,startedAt:null,elapsedMs,
+                entries:entries.map(([name,quantity,unitPrice],i) => ({id:id+'-'+i,name,quantity,unitPrice,valuation:'vendor',saleMultiplier:1,source:'manual',createdAt:Date.UTC(2026,8,1)}))},
+            finishedAt:Date.UTC(2026,8,day),garmothUploadStatus:null
+        }))`);
+        await click("Reload");
+        await until('document.body.innerText.includes("1–4 of 4 sessions")');
+        const listCalls = await evaluate("window.__calls.filter(c => c.command === 'list_finished_sessions').length");
+        await click("Analytics");
+        const analyticsPanel = "document.querySelector('[aria-label=\"Analytics\"]')";
+        await until(`${analyticsPanel}?.innerText.includes("12.5M/h")`);
+        assert.equal(
+            await evaluate("window.__calls.filter(c => c.command === 'list_finished_sessions').length"),
+            listCalls,
+            "Switching to Analytics does not reload the session list",
+        );
+        const everySpot = await evaluate(`${analyticsPanel}.innerText`);
+        assert.match(everySpot, /Base silver \/ hour\s+12\.5M\/h/, "Base excludes rare drops and pools tracked time");
+        assert.match(everySpot, /Rare drops \/ hour\s+50M\/h/);
+        assert.match(everySpot, /Rare share of loot\s+80%/);
+        assert.match(everySpot, /Choose a grind spot to see its items/);
+        assert.deepEqual(
+            await evaluate("window.__calls.filter(c => c.command === 'load_history_analytics').at(-1).args.query"),
+            {
+                region: "eu",
+                grindSpotId: null,
+                finishedFromMs: null,
+                finishedBeforeMs: null,
+                rareMinUnitValue: 100000000,
+            },
+            "Analytics use the History filters and the trend's rare drop value",
+        );
+        const ratePlot = `${analyticsPanel}.querySelector('[role="img"]')`;
+        const rateCaption = `${analyticsPanel}.querySelector('figcaption')`;
+        assert.match(
+            await evaluate(`${ratePlot}.getAttribute('aria-label')`),
+            /Net per hour of 3 sessions.*average 62\.5M per hour/,
+        );
+        await evaluate(`${ratePlot}.focus()`);
+        await press("Home", "Home", 36);
+        await until(`${rateCaption}.textContent.includes("210M/h")`);
+        await press("End", "End", 35);
+        await until(`${rateCaption}.textContent.includes("15M/h")`);
+        await press("Escape", "Escape", 27);
+        await until(`${rateCaption}.textContent.includes("Average 62.5M/h")`);
+        await press("ArrowLeft", "ArrowLeft", 37);
+        await until(`${rateCaption}.textContent.includes("15M/h")`);
+        await press("ArrowLeft", "ArrowLeft", 37);
+        await until(`${rateCaption}.textContent.includes("10M/h")`);
+        await press("Escape", "Escape", 27);
+        await until(`${rateCaption}.textContent.includes("Average 62.5M/h")`);
+        const firstDot = await evaluate(`(() => {
+            const rect = ${ratePlot}.querySelector('i[style*="left: 0%"]').getBoundingClientRect();
+            return {x: rect.x + rect.width / 2 + 3, y: rect.y + rect.height / 2 + 3};
+        })()`);
+        await send("Input.dispatchMouseEvent", { type: "mouseMoved", ...firstDot });
+        await until(`${rateCaption}.textContent.includes("210M/h")`);
+        await send("Input.dispatchMouseEvent", { type: "mouseMoved", x: 1, y: 1 });
+        await evaluate("window.__failAnalytics = true");
+        await click("Reload");
+        await until('document.body.innerText.includes("Could not load analytics")');
+        assert.equal(
+            await evaluate("document.querySelector('[aria-label=\"Filtered history summary\"]') !== null"),
+            true,
+            "A failed analytics read keeps the overview",
+        );
+        await evaluate("window.__failAnalytics = false");
+        await click("Retry analytics");
+        await until(`${analyticsPanel}?.innerText.includes("12.5M/h")`);
+        await setHistoryFilter('select[aria-label="Grind spot"]', "sycraia-lower-revamp");
+        await until(`${analyticsPanel}?.innerText.includes("Items per hour")`);
+        const oneSpot = await evaluate(`${analyticsPanel}.innerText`);
+        assert.match(oneSpot, /Base silver \/ hour\s+13\.33M\/h/, "Untimed sessions add no rate");
+        assert.match(oneSpot, /Rare drops \/ hour\s+66\.67M\/h/);
+        assert.deepEqual(
+            await evaluate(
+                `[...${analyticsPanel}.querySelectorAll('tbody tr')].map(row => [...row.cells].map(cell => cell.innerText.trim().replace(/\\s+/g, ' ')))`,
+            ),
+            [
+                ["Rare Ring Rare", "0.33", "0.00–1.00", "1 / 2", "66.67M/h", "83.3%"],
+                ["Ancient Spirit Dust", "13.33", "10.00–15.00", "2 / 2", "13.33M/h", "16.7%"],
+            ],
+            "Items rate over every timed session at the spot",
+        );
+        for (const theme of ["dark", "light"]) {
+            await evaluate(`document.documentElement.dataset.theme = ${JSON.stringify(theme)}`);
+            await screenshot(`history-analytics-${theme}`);
+        }
+        await evaluate("document.documentElement.dataset.theme = 'dark'");
+        await send("Emulation.setDeviceMetricsOverride", {
+            width: 640,
+            height: 900,
+            deviceScaleFactor: 1,
+            mobile: false,
+        });
+        await screenshot("history-analytics-compact");
+        assert.equal(
+            await evaluate("document.documentElement.scrollWidth <= innerWidth"),
+            true,
+            "Analytics do not scroll horizontally",
+        );
+        await send("Emulation.setDeviceMetricsOverride", {
+            width: 1280,
+            height: 820,
+            deviceScaleFactor: 1,
+            mobile: false,
+        });
+        await click("Sessions");
+        await evaluate("window.__historyRecords = window.__sessionRecords");
+        await setHistoryFilter('select[aria-label="Grind spot"]', "all");
+        await until('document.body.innerText.includes("1–20 of 41 sessions")');
+        const analyticsCalls = await evaluate(
+            "window.__calls.filter(c => c.command === 'load_history_analytics').length",
+        );
+        await click("Reload");
+        await until('document.body.innerText.includes("1–20 of 41 sessions")');
+        assert.equal(
+            await evaluate("window.__calls.filter(c => c.command === 'load_history_analytics').length"),
+            analyticsCalls,
+            "The session list does not read analytics",
+        );
         const fullSummary = await evaluate(
             "document.querySelector('[aria-label=\"Filtered history summary\"]').innerText",
         );
