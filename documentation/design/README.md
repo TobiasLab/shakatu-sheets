@@ -168,7 +168,7 @@ at the item's own rate, e^(−since ÷ average gap) ("≤" beside a "≥", since
 session's completion time, its time into the session, and the tracked time since the item's previous drop ("≈" when
 either drop has no time). When no sessions match, Analytics show History's empty state with Clear filters; when
 sessions match but none has tracked time, one line says so. Analytics load only while the
-Analytics view is shown, separately from the session page: switching views keeps the page, and a failed read shows its
+Analytics view is shown (their code loads with the first read rather than at startup), separately from the session page: switching views keeps the page, and a failed read shows its
 own error and retry while the overview and comparisons stay.
 
 Reopening returns a finished session to a paused state and cannot replace an active session with progress. It leaves
