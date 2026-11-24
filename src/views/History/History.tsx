@@ -1,4 +1,4 @@
-import { lazy, Suspense, useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { TrendView } from "../../api/preferences";
 import {
     deleteFinishedSession,
@@ -29,13 +29,9 @@ import type { CalendarView } from "./Calendar";
 import type { ClosedSections } from "./Collapsible";
 import { GarmothUploadDialog } from "./GarmothUploadDialog";
 import styles from "./History.module.css";
+import type { HistoryAnalyticsPanel } from "./HistoryAnalytics";
 import { RecordedEntries } from "./RecordedEntries";
 import { SpotComparisons } from "./SpotComparisons";
-
-// Analytics load their code the first time they are opened, so startup parses no more than before them.
-const HistoryAnalyticsPanel = lazy(() =>
-    import("./HistoryAnalytics").then((module) => ({ default: module.HistoryAnalyticsPanel })),
-);
 
 function localDateOffset(days: number) {
     const date = new Date();
@@ -72,6 +68,7 @@ export function HistoryView({
         error: string;
         grindSpotId: string | null;
         prices: MarketPriceSnapshot[] | null;
+        Panel: typeof HistoryAnalyticsPanel | null;
     } | null>(null);
     // Kept here rather than in the panel, which unmounts while analytics reload.
     const [consistencyView, setConsistencyView] = useState<ConsistencyView>("total");
@@ -184,18 +181,21 @@ export function HistoryView({
             // Prices are per region and per known spot (an unknown spot ID would fall back to another spot's items).
             // They are extra: a failed price read leaves the rest of the analytics.
             const knownSpot = grindSpots.some((spot) => spot.id === grindSpotId);
-            const [result, prices] = await Promise.all([
+            // The panel's code loads with its first data, so startup does not parse it. A lazy component would add React's
+            // 300 ms Suspense throttle to the first open.
+            const [result, prices, { HistoryAnalyticsPanel: Panel }] = await Promise.all([
                 loadHistoryAnalytics({ ...filters, rareMinUnitValue: SPIKE_MIN_UNIT_VALUE }),
                 grindSpotId !== null && region !== null && knownSpot
                     ? loadPriceHistory(region, getMarketItemIds(grindSpotId)).catch(() => null)
                     : null,
+                import("./HistoryAnalytics"),
             ]);
             if (requestId === analyticsRequestId.current) {
-                setAnalytics({ result, error: "", grindSpotId, prices });
+                setAnalytics({ result, error: "", grindSpotId, prices, Panel });
             }
         } catch (loadError) {
             if (requestId === analyticsRequestId.current) {
-                setAnalytics({ result: null, error: String(loadError), grindSpotId: null, prices: null });
+                setAnalytics({ result: null, error: String(loadError), grindSpotId: null, prices: null, Panel: null });
             }
         }
     }
@@ -609,7 +609,7 @@ export function HistoryView({
             {mode === "analytics" && !dateError ? (
                 analytics === null ? (
                     <Feedback>Reading analytics…</Feedback>
-                ) : analytics.result === null ? (
+                ) : analytics.result === null || analytics.Panel === null ? (
                     <Feedback
                         tone="error"
                         action={
@@ -628,19 +628,17 @@ export function HistoryView({
                 ) : analytics.result.sessions.length === 0 ? (
                     emptyHistory
                 ) : (
-                    <Suspense fallback={<Feedback>Reading analytics…</Feedback>}>
-                        <HistoryAnalyticsPanel
-                            analytics={analytics.result}
-                            grindSpotId={analytics.grindSpotId}
-                            prices={analytics.prices}
-                            consistencyView={consistencyView}
-                            onConsistencyViewChange={setConsistencyView}
-                            calendarView={calendarView}
-                            onCalendarViewChange={setCalendarView}
-                            closed={closedSections}
-                            onClosedChange={setClosedSections}
-                        />
-                    </Suspense>
+                    <analytics.Panel
+                        analytics={analytics.result}
+                        grindSpotId={analytics.grindSpotId}
+                        prices={analytics.prices}
+                        consistencyView={consistencyView}
+                        onConsistencyViewChange={setConsistencyView}
+                        calendarView={calendarView}
+                        onCalendarViewChange={setCalendarView}
+                        closed={closedSections}
+                        onClosedChange={setClosedSections}
+                    />
                 )
             ) : !databaseLoaded || records === null ? (
                 <Feedback>Reading completed sessions…</Feedback>

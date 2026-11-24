@@ -112,7 +112,7 @@ Rows cascade with their session. As with migration 5, sessions created before th
   samples but none strictly between its start and its end (sessions from before migration 5 cannot be told apart and
   report false). Item totals, session counts, and lowest/highest per-session rates cover the same positive-duration sessions. On a 10,000-session,
   250,000-entry fixture with 1,000,000 loot events and 600,000 net samples, a release build read one spot (500
-  sessions, rare drops and pacing included) in about 90 ms and all spots in about 0.65 s, scaling linearly; no index
+  sessions, rare drops and pacing included) in about 110 ms and all spots in about 0.8 s, scaling linearly; no index
   was added. With a spot selected,
   the read also returns each rare item's quantity per timed session and its loot events, summed per session, item
   name and elapsed time; without one it skips them, because rare drops are shown per spot. Events follow the trend's
