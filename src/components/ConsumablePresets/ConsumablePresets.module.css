@@ -160,18 +160,17 @@
 }
 .PresetList {
     display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
     min-width: 0;
-    gap: 2px;
+    gap: 2px 8px;
 }
 .PresetRow:global(.button),
 .PresetRow {
     display: flex;
-    align-items: center;
-    justify-content: space-between;
-    flex-wrap: wrap;
-    gap: 8px 20px;
-    min-height: 52px;
-    padding: 8px 12px;
+    align-items: baseline;
+    gap: 8px;
+    min-width: 0;
+    padding: 5px 10px;
     border: 0;
     border-radius: var(--control-radius);
     background: transparent;
@@ -189,40 +188,29 @@
 .PresetRow:focus-visible {
     outline-offset: -2px;
 }
-.PresetIdentity,
-.PresetCost {
-    display: grid;
-    min-width: 0;
-    max-width: 100%;
-    gap: 1px;
-}
-.PresetIdentity {
-    flex: 1 1 180px;
-}
-.PresetIdentity strong,
-.PresetCost strong {
-    overflow-wrap: anywhere;
+.PresetRow > strong {
+    overflow: hidden;
     color: var(--text-strong);
-    font-size: 13px;
     font-weight: 500;
-    line-height: 1.4;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 }
-.PresetCost strong {
-    color: var(--negative);
-    font-weight: 600;
-}
-.PresetIdentity small,
-.PresetCost small {
+.PresetRow small {
+    flex-shrink: 0;
     color: var(--muted);
     font-size: 12px;
 }
 .PresetCost {
+    flex-shrink: 0;
     margin-left: auto;
-    text-align: right;
+    color: var(--negative);
+    font-weight: 600;
     font-variant-numeric: tabular-nums;
 }
-.PresetCost small {
+.PresetRow .PresetCost small {
+    margin-right: 8px;
     color: var(--gold);
+    font-weight: 400;
 }
 @media (max-width: 760px) {
     .Root {

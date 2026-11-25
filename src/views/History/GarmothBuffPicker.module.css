@@ -24,16 +24,23 @@
     font-weight: 600;
     font-variant-numeric: tabular-nums;
 }
+.Tiers {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
+    gap: 10px 12px;
+}
 .Scroll {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    color: var(--muted);
+    display: grid;
+    align-content: start;
+    justify-items: start;
+    gap: 6px;
+    color: var(--text-soft);
     font-size: 12px;
+    font-weight: 500;
 }
 .Grid {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+    grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
     gap: 2px 8px;
 }
 .Buff {

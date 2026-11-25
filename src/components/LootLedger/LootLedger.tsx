@@ -240,7 +240,6 @@ export function LootLedger({
     mode = "ledger",
     switcher,
     tools,
-    beforeEntries,
     loading = false,
     session,
     visible,
@@ -248,11 +247,11 @@ export function LootLedger({
     onRemove,
     onUpdate,
 }: {
-    title?: string;
+    /** null when the surrounding disclosure already names the ledger. */
+    title?: string | null;
     mode?: "inventory" | "ledger";
     switcher?: ReactNode;
-    tools: ReactNode;
-    beforeEntries?: ReactNode;
+    tools?: ReactNode;
     loading?: boolean;
     session: SessionState;
     visible: boolean;
@@ -273,15 +272,21 @@ export function LootLedger({
                 (filter === "expense" ? entry.valuation === "expense" : entry.valuation !== "expense")),
     );
     return (
-        <section className={`panel ${styles.LedgerPanel}`} aria-labelledby={headingId} aria-busy={loading}>
-            <div className={`panel-heading ${styles.Heading}`}>
-                <div className={styles.Title}>
-                    <h2 id={headingId}>{title}</h2>
-                    {switcher}
+        <section
+            className={`panel ${styles.LedgerPanel}`}
+            aria-label={title === null ? "Loot ledger" : undefined}
+            aria-labelledby={title === null ? undefined : headingId}
+            aria-busy={loading}
+        >
+            {title !== null && (
+                <div className={`panel-heading ${styles.Heading}`}>
+                    <div className={styles.Title}>
+                        <h2 id={headingId}>{title}</h2>
+                        {switcher}
+                    </div>
+                    {tools}
                 </div>
-                {tools}
-            </div>
-            {beforeEntries}
+            )}
             {loading ? (
                 <Feedback>Reading session entries…</Feedback>
             ) : entries.length === 0 ? (
