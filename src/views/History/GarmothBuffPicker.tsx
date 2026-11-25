@@ -10,7 +10,9 @@ const tieredBuffs = [
     { group: "node-war-benefit", label: "Node War Benefit" },
     { group: "fortuna", label: "Fortuna" },
 ].map((tiers) => ({ ...tiers, buffs: garmothBuffs.filter((buff) => buff.group === tiers.group) }));
-const singleBuffs = garmothBuffs.filter((buff) => buff.group === null);
+const singleBuffs = garmothBuffs.filter(
+    (buff) => buff.group !== "loot-scroll" && !tieredBuffs.some((tiers) => tiers.group === buff.group),
+);
 
 export function GarmothBuffPicker({
     selected,
