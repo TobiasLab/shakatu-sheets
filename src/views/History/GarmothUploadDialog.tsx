@@ -36,10 +36,10 @@ export function GarmothUploadDialog({
 }) {
     const dialog = useRef<HTMLDialogElement>(null);
     const titleId = useId();
+    const presetHeadingId = useId();
     const sending = useRef(false);
     const [snapshot, setSnapshot] = useState(record.session);
     const [consumables, setConsumables] = useState<SessionEntry[] | null>(null);
-    const [selecting, setSelecting] = useState(false);
     const [selectedPresetId, setSelectedPresetId] = useState("");
     const [global, setGlobal] = useState(false);
     const [usedAgris, setUsedAgris] = useState(false);
@@ -127,87 +127,93 @@ export function GarmothUploadDialog({
                 disabled={busy}
             />
             <div className={styles.Body}>
-                <div className={styles.Location}>
-                    {spot?.trash.icon && <img src={spot.trash.icon} alt="" width={40} height={40} />}
-                    <div>
-                        <h3>{spot?.name ?? draft.grindSpotId}</h3>
-                        <div className={styles.Context}>
-                            <span>{formatTimestamp(record.finishedAt)}</span>
-                            <span>{draft.region.toUpperCase()}</span>
-                            <span>{characterName}</span>
-                        </div>
-                    </div>
-                </div>
-                <section className={styles.Metrics} aria-label="Session summary">
-                    <div className={dialogStyles.Metric}>
-                        <span>Net silver / hour</span>
-                        <strong>{formatSilver(totals.netPerHour, true)}</strong>
-                    </div>
-                    <div className={dialogStyles.Metric}>
-                        <span>Session net</span>
-                        <strong>{formatSilver(totals.net, true)}</strong>
-                        <small>Expenses {formatSilver(totals.expenses)}</small>
-                    </div>
-                    <div className={dialogStyles.Metric}>
-                        <span>Session time</span>
-                        <strong>{formatDuration(draft.elapsedMs)}</strong>
-                    </div>
-                </section>
-                <LootLedger
-                    session={draft}
-                    visible
-                    editingDisabled
-                    onRemove={() => {}}
-                    onUpdate={() => {}}
-                    tools={
-                        <div className={dialogStyles.EntryTools}>
-                            {preview?.consumableCount === 0 && (
-                                <span className={styles.PresetStatus}>No preset applied</span>
-                            )}
-                            {canSelect && (
-                                <button
-                                    className="button"
-                                    type="button"
-                                    disabled={busy || blocked}
-                                    aria-expanded={selecting}
-                                    onClick={() => setSelecting(!selecting)}
-                                >
-                                    {selecting ? "Close preset selection" : "Select preset"}
-                                </button>
-                            )}
-                            {consumables && (
-                                <button
-                                    className="button subtle"
-                                    type="button"
-                                    disabled={busy || blocked}
-                                    onClick={() => {
-                                        setConsumables(null);
-                                        setSelectedPresetId("");
-                                    }}
-                                >
-                                    Undo preset selection
-                                </button>
-                            )}
-                        </div>
-                    }
-                    beforeEntries={
-                        selecting &&
-                        canSelect && (
-                            <div className={styles.PresetSelection}>
-                                <ConsumablePresetSelection
-                                    session={draft}
-                                    disabled={busy || blocked}
-                                    selectedId={selectedPresetId}
-                                    onApply={(entries, presetId) => {
-                                        setConsumables(entries);
-                                        setSelectedPresetId(presetId);
-                                    }}
-                                />
+                <div className={styles.Summary}>
+                    <div className={styles.Location}>
+                        {spot?.trash.icon && <img src={spot.trash.icon} alt="" width={40} height={40} />}
+                        <div>
+                            <h3>{spot?.name ?? draft.grindSpotId}</h3>
+                            <div className={styles.Context}>
+                                <span>{formatTimestamp(record.finishedAt)}</span>
+                                <span>{draft.region.toUpperCase()}</span>
+                                <span>{characterName}</span>
                             </div>
-                        )
-                    }
-                />
+                        </div>
+                    </div>
+                    <section className={styles.Metrics} aria-label="Session summary">
+                        <div className={dialogStyles.Metric}>
+                            <span>Net silver / hour</span>
+                            <strong>{formatSilver(totals.netPerHour, true)}</strong>
+                        </div>
+                        <div className={dialogStyles.Metric}>
+                            <span>Session net</span>
+                            <strong>{formatSilver(totals.net, true)}</strong>
+                            <small>Expenses {formatSilver(totals.expenses)}</small>
+                        </div>
+                        <div className={dialogStyles.Metric}>
+                            <span>Session time</span>
+                            <strong>{formatDuration(draft.elapsedMs)}</strong>
+                        </div>
+                    </section>
+                </div>
+                {canSelect && (
+                    <section className={styles.Presets} aria-labelledby={presetHeadingId}>
+                        <div className="panel-heading">
+                            <h2 id={presetHeadingId}>Consumable preset</h2>
+                            <div className={dialogStyles.EntryTools}>
+                                {preview && (
+                                    <span className={styles.PresetStatus}>
+                                        {preview.consumableCount === 0
+                                            ? "No preset applied"
+                                            : `${preview.consumableCount} ${preview.consumableCount === 1 ? "consumable" : "consumables"} in this session`}
+                                    </span>
+                                )}
+                                {consumables && (
+                                    <button
+                                        className="button subtle"
+                                        type="button"
+                                        disabled={busy || blocked}
+                                        onClick={() => {
+                                            setConsumables(null);
+                                            setSelectedPresetId("");
+                                        }}
+                                    >
+                                        Undo preset selection
+                                    </button>
+                                )}
+                            </div>
+                        </div>
+                        <ConsumablePresetSelection
+                            session={draft}
+                            disabled={busy || blocked}
+                            selectedId={selectedPresetId}
+                            onApply={(entries, presetId) => {
+                                setConsumables(entries);
+                                setSelectedPresetId(presetId);
+                            }}
+                        />
+                    </section>
+                )}
                 <GarmothBuffPicker selected={buffIds} disabled={busy || blocked} onChange={setBuffIds} />
+                <details className={styles.Ledger}>
+                    <summary>
+                        Loot ledger{" "}
+                        <small>
+                            {draft.entries.length} {draft.entries.length === 1 ? "entry" : "entries"}
+                        </small>
+                    </summary>
+                    <LootLedger
+                        title={null}
+                        session={draft}
+                        visible
+                        editingDisabled
+                        onRemove={() => {}}
+                        onUpdate={() => {}}
+                    />
+                </details>
+                {preview && preview.omittedEntries.length > 0 && <Feedback>{getGarmothUploadNotice(preview)}</Feedback>}
+                {(error || previewError) && <Feedback tone="error">{error || previewError}</Feedback>}
+            </div>
+            <footer className={styles.Actions}>
                 <fieldset className={styles.Options} disabled={busy || blocked}>
                     <legend className="sr-only">Upload options</legend>
                     <label className={styles.Checkbox}>
@@ -235,10 +241,6 @@ export function GarmothUploadDialog({
                         )}
                     </div>
                 </fieldset>
-                {preview && preview.omittedEntries.length > 0 && <Feedback>{getGarmothUploadNotice(preview)}</Feedback>}
-                {(error || previewError) && <Feedback tone="error">{error || previewError}</Feedback>}
-            </div>
-            <footer className={styles.Actions}>
                 <button
                     type="button"
                     className="button primary-button"

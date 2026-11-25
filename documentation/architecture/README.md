@@ -189,10 +189,11 @@ existing explicit reopen rules. Presets are selected by recorded region; there i
 
 History opens a native upload-review dialog for both Upload to Garmoth and Upload again. It displays the selected
 session's read-only ledger and stored prices, date, region, duration, expense total, net silver, and silver per hour.
-Preset selection stays inside this dialog and only changes an in-memory draft. Cancel discards the draft. The final
-Upload action approves saving the draft expenses and sending the session; repeat uploads additionally require the
-existing duplicate-session confirmation. Successfully uploaded sessions may add missing consumables but cannot
-replace existing consumables. The previous remote session is not changed.
+The preset list and drop buffs come first and the ledger is a closed disclosure. Preset selection stays inside this
+dialog and only changes an in-memory draft. Cancel discards the draft. The final Upload action approves saving the draft
+expenses and sending the session; repeat uploads additionally require the existing duplicate-session confirmation.
+Successfully uploaded sessions may add missing consumables but cannot replace existing consumables. The previous remote
+session is not changed.
 
 Upload options are transient: global contribution defaults off, unchecked Agris is omitted, checked Agris with a blank
 amount sends `-1`, and a specified amount must be a positive safe integer. The optional-field contract permits

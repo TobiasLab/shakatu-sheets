@@ -1965,19 +1965,20 @@ try {
             "[...document.querySelectorAll('dialog[open] h2')].find(h => h.textContent === 'Drop buffs')";
         const pressedBuffs = `[...${buffHeading}.closest('section').querySelectorAll('button[aria-pressed="true"]')].map(b => b.textContent.trim()).join(',')`;
         const buffTotals = `JSON.stringify([...${buffHeading}.nextElementSibling.querySelectorAll('div')].map(d => d.textContent))`;
+        assert.equal(await evaluate(pressedBuffs), "Lv. 2", "The last used buffs are preselected");
         assert.equal(
-            await evaluate(pressedBuffs),
-            "Lv. 2,[Camp] Adventurer's Luck V",
-            "The last used buffs are preselected",
+            await evaluate("document.querySelector('dialog[open] select').selectedOptions[0].textContent"),
+            "V",
+            "The last used Adventurer's Luck tier is preselected",
         );
         assert.equal(await evaluate(buffTotals), JSON.stringify(["Drop amount+100%", "Drop rate+150%"]));
-        await click("[Camp] Adventurer's Luck III");
+        await setField("dialog[open] select", "10");
         await click("None");
         await click("Lv. 1");
         await click("Blessing of Old Moon Scroll");
         assert.equal(
             await evaluate(pressedBuffs),
-            "Lv. 1,[Camp] Adventurer's Luck III,Blessing of Old Moon Scroll",
+            "Lv. 1,Blessing of Old Moon Scroll",
             "One tier of each buff stays selected",
         );
         assert.equal(await evaluate(buffTotals), JSON.stringify(["Drop amount+150%", "Drop rate+230%"]));

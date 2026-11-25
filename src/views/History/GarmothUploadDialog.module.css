@@ -14,11 +14,18 @@
     min-height: 0;
     overflow: auto;
     overscroll-behavior: contain;
-    padding: 20px 24px;
+    padding: 16px 24px;
     display: grid;
     grid-auto-rows: max-content;
     align-content: start;
-    gap: 20px;
+    gap: 16px;
+}
+.Summary {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: start;
+    justify-content: space-between;
+    gap: 12px 32px;
 }
 .Location {
     display: flex;
@@ -54,10 +61,10 @@
 .Metrics {
     display: flex;
     flex-wrap: wrap;
-    gap: 12px 48px;
+    gap: 12px 32px;
 }
 .Metrics > div > strong {
-    font-size: 28px;
+    font-size: 24px;
 }
 .Metrics > div:first-child > strong {
     color: var(--gold);
@@ -72,8 +79,27 @@
     color: var(--muted);
     font-size: 11px;
 }
-.PresetSelection > div {
-    padding: 12px 0 20px;
+.Presets > div {
+    padding: 0;
+}
+.Presets > :global(.panel-heading) {
+    min-height: var(--control-height);
+    margin-bottom: 4px;
+}
+.Ledger {
+    min-width: 0;
+}
+.Ledger > summary {
+    font-size: 14px;
+    font-weight: 600;
+}
+.Ledger small {
+    color: var(--muted);
+    font-size: 12px;
+    font-weight: 400;
+}
+.Ledger[open] > summary {
+    margin-bottom: 12px;
 }
 .Options {
     display: flex;
@@ -111,8 +137,11 @@
 .Actions {
     display: flex;
     flex-shrink: 0;
-    justify-content: flex-end;
-    padding: 16px 24px;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px 24px;
+    padding: 12px 24px;
     border-top: 1px solid var(--line);
     background: var(--canvas);
 }
