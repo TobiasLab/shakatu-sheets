@@ -4,7 +4,7 @@ import { loadConsumablePresets } from "../../api/tauri";
 import { type ConsumablePreset, validateConsumableItems } from "../../domain/consumablePreset";
 import { createEntry, type SessionEntry, type SessionState } from "../../domain/session";
 import { formatSilver } from "../../format";
-import { EmptyState, Feedback } from "../Feedback/Feedback";
+import { Feedback } from "../Feedback/Feedback";
 import { SelectionButton } from "../SelectionButton/SelectionButton";
 import styles from "./ConsumablePresets.module.css";
 
@@ -68,9 +68,9 @@ export function ConsumablePresetSelection({
         <div className={`${styles.Root} ${styles.Editor}`}>
             {loading && <Feedback>Loading presets…</Feedback>}
             {!loading && !error && presets.length === 0 && (
-                <EmptyState title={`No ${session.region.toUpperCase()} presets`}>
-                    Add one in Settings → Integrations → Consumable presets.
-                </EmptyState>
+                <Feedback>
+                    No {session.region.toUpperCase()} presets. Add one in Settings → Integrations → Consumable presets.
+                </Feedback>
             )}
             <div className={styles.PresetList}>
                 {presets.map((preset) => (
@@ -81,12 +81,16 @@ export function ConsumablePresetSelection({
                         disabled={loading || busy || disabled}
                         onClick={() => void apply(preset)}
                     >
-                        <strong title={preset.name}>{preset.name}</strong>
-                        <small>
-                            {preset.items.length} {preset.items.length === 1 ? "item" : "items"}
-                        </small>
+                        <strong>{preset.name}</strong>{" "}
+                        {selectedId === preset.id ? (
+                            <small className={styles.Applied}>Applied</small>
+                        ) : (
+                            <small>
+                                {preset.items.length} {preset.items.length === 1 ? "item" : "items"}
+                            </small>
+                        )}{" "}
                         <span className={styles.PresetCost}>
-                            {selectedId === preset.id && <small>Applied</small>}−
+                            −
                             {formatSilver(
                                 preset.items.reduce((sum, item) => sum + item.quantity * item.unitPrice, 0),
                                 true,

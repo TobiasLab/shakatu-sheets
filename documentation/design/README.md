@@ -187,10 +187,10 @@ consumables but cannot replace existing ones. A repeat upload requires confirmat
 Unknown outcomes block retries. Items outside the destination spot's export table are listed as omitted; local entries
 and full session totals are retained.
 
-The review puts the preset list and drop buffs first and keeps the read-only ledger in a closed disclosure, so the
-choices fit a 1440×900 window without scrolling; the upload options sit in the footer. Drop buffs follow Garmoth's form:
-a loot scroll level (None, Lv. 1, Lv. 2), one menu for each other tiered buff, and a grid of the remaining grind buffs.
-The review shows the resulting drop amount and drop rate, with capped buffs limited to 300% and uncapped buffs added on
-top, and preselects the buffs submitted with the previous upload. Global contribution defaults off. The Agris option is
-optional, remains available across failed attempts, and resets when review is reopened. The detailed persistence and
-upload contracts live in [architecture](../architecture/README.md#consumable-presets).
+The review puts the preset list and drop buffs first and keeps the read-only ledger in a closed disclosure, so a short
+preset list and the buffs fit a 1440×900 window without scrolling; the upload options sit in the footer. Drop buffs
+follow Garmoth's form: a loot scroll level (None, Lv. 1, Lv. 2), one menu for each other tiered buff, and a grid of the
+remaining grind buffs. The review shows the resulting drop amount and drop rate, with capped buffs limited to 300% and
+uncapped buffs added on top, and preselects the buffs submitted with the previous upload. Global contribution defaults
+off. The Agris option is optional, remains available across failed attempts, and resets when review is reopened. The
+detailed persistence and upload contracts live in [architecture](../architecture/README.md#consumable-presets).

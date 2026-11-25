@@ -89,14 +89,9 @@
 .Ledger {
     min-width: 0;
 }
-.Ledger > summary {
-    font-size: 14px;
-    font-weight: 600;
-}
-.Ledger small {
+.Ledger > summary > small {
     color: var(--muted);
     font-size: 12px;
-    font-weight: 400;
 }
 .Ledger[open] > summary {
     margin-bottom: 12px;
@@ -127,12 +122,16 @@
     flex: 0 0 auto;
     margin: 0;
 }
-.Options input[type="number"] {
+.Options input[type="text"] {
     width: 124px;
-    min-height: 34px;
-    padding: 7px 10px;
+    min-height: var(--control-height);
+    padding: 5px 10px;
     font-size: 12px;
     font-variant-numeric: tabular-nums;
+}
+.Error {
+    flex-shrink: 0;
+    padding: 0 24px 12px;
 }
 .Actions {
     display: flex;
@@ -150,20 +149,10 @@
         padding: 18px;
         gap: 16px;
     }
+    .Error {
+        padding-inline: 18px;
+    }
     .Actions {
         padding: 16px 18px;
-    }
-}
-@media (max-width: 460px) {
-    .Metrics {
-        grid-template-columns: repeat(2, minmax(0, 1fr));
-    }
-    .Metrics > div:last-child {
-        grid-column: 1 / -1;
-        border-left: 0;
-        border-top: 1px solid var(--line);
-    }
-    .Location h3 {
-        font-size: 18px;
     }
 }

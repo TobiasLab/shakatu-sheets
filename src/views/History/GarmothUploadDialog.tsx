@@ -196,7 +196,7 @@ export function GarmothUploadDialog({
                 <GarmothBuffPicker selected={buffIds} disabled={busy || blocked} onChange={setBuffIds} />
                 <details className={styles.Ledger}>
                     <summary>
-                        Loot ledger{" "}
+                        <h2>Loot ledger</h2>
                         <small>
                             {draft.entries.length} {draft.entries.length === 1 ? "entry" : "entries"}
                         </small>
@@ -211,8 +211,12 @@ export function GarmothUploadDialog({
                     />
                 </details>
                 {preview && preview.omittedEntries.length > 0 && <Feedback>{getGarmothUploadNotice(preview)}</Feedback>}
-                {(error || previewError) && <Feedback tone="error">{error || previewError}</Feedback>}
             </div>
+            {(error || previewError) && (
+                <div className={styles.Error}>
+                    <Feedback tone="error">{error || previewError}</Feedback>
+                </div>
+            )}
             <footer className={styles.Actions}>
                 <fieldset className={styles.Options} disabled={busy || blocked}>
                     <legend className="sr-only">Upload options</legend>
